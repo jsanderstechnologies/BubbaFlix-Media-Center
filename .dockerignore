@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+*.log
+.git
+.agents
+.antigravity
+.env
+.env.example
+yt-dlp.exe
+test2.mp4
+17835*.js

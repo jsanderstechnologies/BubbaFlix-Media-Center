@@ -77,8 +77,62 @@ export default function MediaModal({
         });
       } else {
         setLoading(true);
-        fetchStreamsForMovie(movie.id).then(data => {
-          setStreams(data);
+        fetchStreamsForMovie(movie.id).then(async data => {
+          
+        const apiKey = localStorage.getItem('torboxApiKey');
+        let activeTorrents: any[] = [];
+        
+        if (apiKey) {
+            try {
+                const res = await fetch('/api/torbox/torrents', {
+                    headers: { Authorization: `Bearer ${apiKey}` }
+                });
+                if (res.ok) {
+                    const tData = await res.json();
+                    if (tData && tData.success && tData.data) {
+                        activeTorrents = tData.data.filter((t: any) => t.download_state === 'downloading' || t.progress < 100);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch torbox torrents for cross-reference", err);
+            }
+        }
+
+        // Cross-reference streams with Torbox active downloads
+        const updatedData = data.map((stream: any) => {
+            if (stream.isCached && stream.filename && activeTorrents.length > 0) {
+                // Check if filename matches any active torrent
+                // Sometimes the torrent name differs slightly, so we can do a loose match or exact
+                const match = activeTorrents.find(t => 
+                    t.name === stream.filename || 
+                    stream.filename.includes(t.name) || 
+                    t.name.includes(stream.filename) ||
+                    (stream.name && t.name.includes(stream.name.replace(/[^a-zA-Z0-9 ]/g, '').trim()))
+                );
+                
+                if (match) {
+                    stream.isCached = false;
+                    stream.downloadProgress = Math.round(match.progress * 100);
+                }
+            }
+            return stream;
+        });
+
+        const uSettings = localStorage.getItem('userSettings_' + user?.uid);
+        let allowedRes = ['4K', '1080p', '720p'];
+        if (uSettings) {
+            try { allowedRes = JSON.parse(uSettings).resolutions; } catch(e){}
+        }
+        let filteredData = updatedData.filter((s: any) => {
+            const desc = (s.name || '') + ' ' + (s.description || '');
+            if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
+            if (desc.includes('1080p')) return allowedRes.includes('1080p');
+            if (desc.includes('720p')) return allowedRes.includes('720p');
+            return true;
+        });
+
+        setStreams(filteredData);
+
           setLoading(false);
         });
       }
@@ -105,8 +159,62 @@ export default function MediaModal({
   useEffect(() => {
     if (isSeries && selectedSeason !== null && selectedEpisode !== null && movie) {
       setLoading(true);
-      fetchStreamsForTvSeries(movie.id, selectedSeason, selectedEpisode).then(data => {
-        setStreams(data);
+      fetchStreamsForTvSeries(movie.id, selectedSeason, selectedEpisode).then(async data => {
+        
+        const apiKey = localStorage.getItem('torboxApiKey');
+        let activeTorrents: any[] = [];
+        
+        if (apiKey) {
+            try {
+                const res = await fetch('/api/torbox/torrents', {
+                    headers: { Authorization: `Bearer ${apiKey}` }
+                });
+                if (res.ok) {
+                    const tData = await res.json();
+                    if (tData && tData.success && tData.data) {
+                        activeTorrents = tData.data.filter((t: any) => t.download_state === 'downloading' || t.progress < 100);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch torbox torrents for cross-reference", err);
+            }
+        }
+
+        // Cross-reference streams with Torbox active downloads
+        const updatedData = data.map((stream: any) => {
+            if (stream.isCached && stream.filename && activeTorrents.length > 0) {
+                // Check if filename matches any active torrent
+                // Sometimes the torrent name differs slightly, so we can do a loose match or exact
+                const match = activeTorrents.find(t => 
+                    t.name === stream.filename || 
+                    stream.filename.includes(t.name) || 
+                    t.name.includes(stream.filename) ||
+                    (stream.name && t.name.includes(stream.name.replace(/[^a-zA-Z0-9 ]/g, '').trim()))
+                );
+                
+                if (match) {
+                    stream.isCached = false;
+                    stream.downloadProgress = Math.round(match.progress * 100);
+                }
+            }
+            return stream;
+        });
+
+        const uSettings = localStorage.getItem('userSettings_' + user?.uid);
+        let allowedRes = ['4K', '1080p', '720p'];
+        if (uSettings) {
+            try { allowedRes = JSON.parse(uSettings).resolutions; } catch(e){}
+        }
+        let filteredData = updatedData.filter((s: any) => {
+            const desc = (s.name || '') + ' ' + (s.description || '');
+            if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
+            if (desc.includes('1080p')) return allowedRes.includes('1080p');
+            if (desc.includes('720p')) return allowedRes.includes('720p');
+            return true;
+        });
+
+        setStreams(filteredData);
+
         setLoading(false);
       });
     }
@@ -416,8 +524,13 @@ export default function MediaModal({
                                           <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
                                           <span className="text-[10px] text-white/60 font-mono mt-1">Size: {stream.size}</span>
                                       </div>
-                                      <div className="px-2 py-0.5 bg-red-600/10 text-red-400 text-[10px] font-bold rounded border border-red-500/20 whitespace-nowrap uppercase">
-                                          {stream.quality}
+                                      <div className="flex gap-2">
+                                        <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
+                                            {stream.isCached ? 'Cached' : (stream.downloadProgress !== undefined ? `Downloading ${stream.downloadProgress}%` : 'Uncached')}
+                                        </div>
+                                        <div className="px-2 py-0.5 bg-red-600/10 text-red-400 text-[10px] font-bold rounded border border-red-500/20 whitespace-nowrap uppercase">
+                                            {stream.quality}
+                                        </div>
                                       </div>
                                     </div>
                                     {stream.fullDescription && (

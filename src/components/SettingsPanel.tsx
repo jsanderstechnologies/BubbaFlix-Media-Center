@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter } from 'lucide-react';
+import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import AdminPanel from './AdminPanel';
+import { useAuth } from './Auth';
 
 const fetchM3U = async (url: string) => {
   if (!url) return null;
@@ -15,12 +17,14 @@ const fetchM3U = async (url: string) => {
 
 export default function SettingsPanel() {
   const queryClient = useQueryClient();
-  const [tmdbKey, setTmdbKey] = useState(() => localStorage.getItem('tmdbKey') || 'b4d4dfa06829b83e3a8b08fc89372a9d');
-  const [aiostreamsUrl, setAiostreamsUrl] = useState(() => localStorage.getItem('aiostreamsUrl') || 'https://aiostreams.elfhosted.com/stremio/.../manifest.json');
-  
+  const [tmdbKey, setTmdbKey] = useState(() => localStorage.getItem('tmdbKey') || '');
+  const [torboxApiKey, setTorboxApiKey] = useState(() => localStorage.getItem('torboxApiKey') || '');
+  const [preferHEVC, setPreferHEVC] = useState(() => localStorage.getItem('preferHEVC') === 'true');
+  const [maxResults, setMaxResults] = useState(() => localStorage.getItem('maxResults') || '20');
+  const [aiostreamsUrl, setAiostreamsUrl] = useState(() => localStorage.getItem('aiostreamsUrl') || '');
   const [providerType, setProviderType] = useState(() => localStorage.getItem('providerType') || 'm3u');
-  const [iptvUrl, setIptvUrl] = useState(() => localStorage.getItem('iptvUrl') || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus');
-  const [epgUrl, setEpgUrl] = useState(() => localStorage.getItem('epgUrl') || 'http://cord-cutter.net:8080/xmltv.php?username=foyers1@rogers.com&password=9jguFdUq3Y');
+  const [iptvUrl, setIptvUrl] = useState(() => localStorage.getItem('iptvUrl') || '');
+  const [epgUrl, setEpgUrl] = useState(() => localStorage.getItem('epgUrl') || '');
   const [epgOffset, setEpgOffset] = useState(() => localStorage.getItem('epgOffset') || '0');
   
   const [xtreamServer, setXtreamServer] = useState(() => localStorage.getItem('xtreamServer') || '');
@@ -33,6 +37,73 @@ export default function SettingsPanel() {
   const [preferredLanguage, setPreferredLanguage] = useState(() => localStorage.getItem('preferredLanguage') || 'all');
   const [saved, setSaved] = useState(false);
   
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
+  // --- Email Config state (admin only) ---
+  const [emailGmailUser, setEmailGmailUser] = useState('');
+  const [emailGmailAppPassword, setEmailGmailAppPassword] = useState('');
+  const [emailAppName, setEmailAppName] = useState('BubbaFlix');
+  const [emailAppUrl, setEmailAppUrl] = useState('');
+  const [emailPasswordSet, setEmailPasswordSet] = useState(false);
+  const [showEmailPassword, setShowEmailPassword] = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailSaved, setEmailSaved] = useState(false);
+  const [emailTesting, setEmailTesting] = useState(false);
+  const [emailTestResult, setEmailTestResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const token = localStorage.getItem('authToken');
+    fetch('/api/admin/settings', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => {
+        if (data.email) {
+          setEmailGmailUser(data.email.gmailUser || '');
+          setEmailAppName(data.email.appName || 'BubbaFlix');
+          setEmailAppUrl(data.email.appUrl || '');
+          setEmailPasswordSet(!!data.email.gmailAppPasswordSet);
+        }
+      })
+      .catch(console.error);
+  }, [isAdmin]);
+
+  const handleEmailSave = async () => {
+    setEmailSaving(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const body: any = { email: { gmailUser: emailGmailUser, appName: emailAppName, appUrl: emailAppUrl } };
+      if (emailGmailAppPassword) body.email.gmailAppPassword = emailGmailAppPassword;
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      setEmailSaved(true);
+      if (emailGmailAppPassword) setEmailPasswordSet(true);
+      setEmailGmailAppPassword('');
+      setTimeout(() => setEmailSaved(false), 3000);
+    } catch (e: any) { alert(e.message); }
+    finally { setEmailSaving(false); }
+  };
+
+  const handleTestEmail = async () => {
+    setEmailTesting(true);
+    setEmailTestResult(null);
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch('/api/admin/test-email', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      setEmailTestResult('✓ Test email sent to your address!');
+    } catch (e: any) { setEmailTestResult('✗ ' + e.message); }
+    finally { setEmailTesting(false); }
+  };
+
   const [enabledGroups, setEnabledGroups] = useState<string[] | null>(() => {
     try {
       const stored = localStorage.getItem('enabledGroups');
@@ -86,6 +157,9 @@ export default function SettingsPanel() {
 
   const handleSave = () => {
     localStorage.setItem('tmdbKey', tmdbKey);
+    localStorage.setItem('torboxApiKey', torboxApiKey);
+    localStorage.setItem('preferHEVC', preferHEVC.toString());
+    localStorage.setItem('maxResults', maxResults);
     localStorage.setItem('aiostreamsUrl', aiostreamsUrl);
     
     let finalIptvUrl = iptvUrl;
@@ -134,6 +208,105 @@ export default function SettingsPanel() {
       </div>
 
       <div className="grid gap-6">
+        {isAdmin && (
+          <div className="mb-2">
+            <AdminPanel />
+          </div>
+        )}
+
+        {/* Email Configuration */}
+        {isAdmin && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <Mail className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h2 className="text-lg font-medium text-white">Email Configuration</h2>
+                  <p className="text-xs text-white/40 mt-0.5">Used to send welcome emails with auto-generated passwords when users are approved.</p>
+                </div>
+              </div>
+              <button
+                onClick={handleEmailSave}
+                disabled={emailSaving}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg font-semibold text-sm transition-all"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {emailSaved ? 'Saved!' : emailSaving ? 'Saving...' : 'Save Email Config'}
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Gmail Address</label>
+                <input
+                  type="email"
+                  value={emailGmailUser}
+                  onChange={e => setEmailGmailUser(e.target.value)}
+                  placeholder="yourname@gmail.com"
+                  className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white placeholder:text-white/20 outline-none focus:border-emerald-500/50 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Gmail App Password
+                  {emailPasswordSet && <span className="ml-2 text-xs text-emerald-400 font-normal">✓ Configured</span>}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showEmailPassword ? 'text' : 'password'}
+                    value={emailGmailAppPassword}
+                    onChange={e => setEmailGmailAppPassword(e.target.value)}
+                    placeholder={emailPasswordSet ? '(leave blank to keep existing)' : 'xxxx xxxx xxxx xxxx'}
+                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 pr-10 text-white placeholder:text-white/20 outline-none focus:border-emerald-500/50 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors"
+                  >
+                    {showEmailPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-white/30 mt-1">Generate at <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-emerald-400/70 hover:text-emerald-400 underline">myaccount.google.com/apppasswords</a></p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">App Name (shown in emails)</label>
+                <input
+                  type="text"
+                  value={emailAppName}
+                  onChange={e => setEmailAppName(e.target.value)}
+                  placeholder="BubbaFlix"
+                  className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white placeholder:text-white/20 outline-none focus:border-emerald-500/50 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">App URL (login link in emails)</label>
+                <input
+                  type="url"
+                  value={emailAppUrl}
+                  onChange={e => setEmailAppUrl(e.target.value)}
+                  placeholder="http://your-server-address:5150"
+                  className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white placeholder:text-white/20 outline-none focus:border-emerald-500/50 transition-colors"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                onClick={handleTestEmail}
+                disabled={emailTesting || !emailGmailUser}
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-all"
+              >
+                <SendHorizonal className="w-3.5 h-3.5" />
+                {emailTesting ? 'Sending...' : 'Send Test Email to Me'}
+              </button>
+              {emailTestResult && (
+                <span className={`text-sm font-medium ${emailTestResult.startsWith('✓') ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {emailTestResult}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* System Status */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
@@ -141,7 +314,7 @@ export default function SettingsPanel() {
             <h2 className="text-lg font-medium text-white">System Status</h2>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
               <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">AIOStreams</span>
               <div className="flex items-center gap-2">
@@ -165,6 +338,14 @@ export default function SettingsPanel() {
                 <span className="text-sm font-semibold text-white">i915/VAAPI</span>
               </div>
             </div>
+
+            <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
+              <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">TorBox API</span>
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${torboxApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`}></span>
+                <span className="text-sm font-semibold text-white">{torboxApiKey ? 'ONLINE' : 'MISSING KEY'}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -176,6 +357,51 @@ export default function SettingsPanel() {
           </div>
           
           <div className="space-y-6">
+            
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">TorBox API Key</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
+                  <Database className="w-4 h-4" />
+                </span>
+                <input 
+                  type="password"
+                  value={torboxApiKey}
+                  onChange={(e) => setTorboxApiKey(e.target.value)}
+                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
+                  placeholder="Enter TorBox API Key..."
+                />
+              </div>
+              <p className="text-xs text-white/80 mt-2">Required to monitor TorBox download caching status in real-time.</p>
+            </div>\n
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-white block">Prefer HEVC / H.265</label>
+                <button
+                  onClick={() => setPreferHEVC(!preferHEVC)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${preferHEVC ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${preferHEVC ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              <p className="text-xs text-white/80">If enabled, HEVC encoded streams will be prioritized over H.264.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Max TorBox Stream Results</label>
+              <input 
+                type="number"
+                value={maxResults}
+                onChange={(e) => setMaxResults(e.target.value)}
+                className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors font-mono text-xs"
+                placeholder="20"
+                min="1"
+                max="100"
+              />
+              <p className="text-xs text-white/80 mt-2">Maximum number of cached streams to fetch from TorBox (1-100).</p>
+            </div>
+
+
             <div>
               <label className="block text-sm font-medium text-white mb-2">TMDB API Key</label>
               <div className="flex">
@@ -403,6 +629,8 @@ export default function SettingsPanel() {
           </div>
         </div>
 
+
+
         {/* Player Configuration */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
@@ -442,6 +670,7 @@ export default function SettingsPanel() {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );

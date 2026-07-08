@@ -1,0 +1,12 @@
+services:
+  bubbaflix:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-jessie}/bubbaflix:latest
+    container_name: bubbaflix
+    restart: unless-stopped
+    ports:
+      - "5150:5150"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=5150

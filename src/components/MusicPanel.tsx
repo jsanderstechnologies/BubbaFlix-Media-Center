@@ -8,6 +8,7 @@ import {
 import { collection, addDoc, query as firestoreQuery, onSnapshot, where, getDocs, deleteDoc, doc, serverTimestamp, updateDoc, arrayUnion } from '../lib/localDb';
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
+import ReactPlayer from 'react-player';
 
 interface Track {
   id: string;
@@ -22,6 +23,8 @@ interface Track {
   bitrate: string;
   fileSize: string;
   year: string;
+  type?: 'audio' | 'video';
+  videoId?: string;
 }
 
 interface MusicPanelProps {
@@ -49,7 +52,11 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isMonochrome, setIsMonochrome] = useState(true);
   const [isLoadingPreview, setIsLoadingPreview] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"tracks" | "artists" | "albums">("tracks");
+  const [activeTab, setActiveTab] = useState<"tracks" | "artists" | "albums" | "videos" | "playlists">("tracks");
+  const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
+  const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<any>(null);
+  const [audioQueue, setAudioQueue] = useState<Track[]>([]);
 
   const { user } = useAuth();
   const [savedArtists, setSavedArtists] = useState<any[]>([]);
@@ -61,6 +68,11 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationRef = useRef<number | null>(null);
+  const queueRef = useRef<Track[]>([]);
+  const playingRef = useRef<Track | null>(null);
+
+  useEffect(() => { queueRef.current = audioQueue; }, [audioQueue]);
+  useEffect(() => { playingRef.current = playingTrack; }, [playingTrack]);
 
   // Listen to saved artists
   useEffect(() => {
@@ -208,89 +220,106 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
     localStorage.setItem('monochrome_favorites', JSON.stringify(updated));
   };
 
-  const getPlayableUrl = async (trackId: string, artist: string, title: string): Promise<string> => {
-    try {
-      const cleanId = trackId.replace('mono-', '');
+  const getPlayableUrl = async (trackId: string, artist: string, title: string, durationMs: number = 200000): Promise<string> => {
+  const cleanId = trackId.replace('mono-', '').replace('yt-', '');
+  try {
       if (trackId.startsWith('mono-') || !isNaN(Number(cleanId))) {
-        console.log(`[MusicPanel] Resolving true lossless stream for track ${cleanId} from monochrome.tf...`);
-        const res = await fetch(`https://api.monochrome.tf/track?id=${cleanId}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data?.manifest) {
-            const manifestXml = atob(json.data.manifest);
+        // Fetch track manifest from Monochrome
+        const res = await fetch(`https://api.monochrome.tf/track/?id=${cleanId}`);
+        const json = await res.json();
+        
+        // If it's a preview due to subscription block or an upstream error, fallback to YouTube
+        if (json?.data?.previewReason === 'FULL_REQUIRES_SUBSCRIPTION' || json?.detail === 'Upstream API error') {
+          console.log('[MusicPanel] Monochrome stream requires subscription or failed. Falling back to backend YouTube proxy.');
+          const ytRes = await fetch(`${window.location.protocol}//${window.location.hostname}:5150/api/youtube/stream-url?id=${cleanId}`);
+      const ytData = await ytRes.json();
+      if (ytData && ytData.url) {
+        return ytData.url;
+      }
+      throw new Error('Failed to extract direct stream URL');
+        }
+
+        if (json?.data?.manifest) {
+          const manifestXml = atob(json.data.manifest);
+          
+          // Extract initialization and media URLs
+          const initMatch = manifestXml.match(/initialization="([^"]+)"/);
+          const mediaMatch = manifestXml.match(/media="([^"]+)"/);
+          
+          if (initMatch && mediaMatch) {
+            const initUrl = initMatch[1].replace(/&amp;/g, '&');
+            const mediaTemplate = mediaMatch[1].replace(/&amp;/g, '&');
             
-            // Extract initialization and media URLs
-            const initMatch = manifestXml.match(/initialization="([^"]+)"/);
-            const mediaMatch = manifestXml.match(/media="([^"]+)"/);
-            
-            if (initMatch && mediaMatch) {
-              const initUrl = initMatch[1].replace(/&amp;/g, '&');
-              const mediaTemplate = mediaMatch[1].replace(/&amp;/g, '&');
-              
-              let numSegments = 8;
-              const matches = [...manifestXml.matchAll(/<S\s+[^>]*d="(\d+)"(?:\s+r="(\d+)")?/g)];
-              if (matches.length > 0) {
-                let total = 0;
-                for (const match of matches) {
-                  const r = match[2] ? parseInt(match[2], 10) : 0;
-                  total += 1 + r;
-                }
-                numSegments = total;
+            let numSegments = 8;
+            const matches = [...manifestXml.matchAll(/<S\s+[^>]*d="(\d+)"(?:\s+r="(\d+)")?/g)];
+            if (matches.length > 0) {
+              let total = 0;
+              for (const match of matches) {
+                const r = match[2] ? parseInt(match[2], 10) : 0;
+                total += 1 + r;
               }
-              
-              console.log(`[MusicPanel] Assembling ${numSegments} lossless chunks for true playback...`);
-              const chunks: ArrayBuffer[] = [];
-              
-              // 1. Fetch init chunk
-              const initRes = await fetch(initUrl);
-              if (initRes.ok) {
-                chunks.push(await initRes.arrayBuffer());
+              numSegments = total;
+            } else {
+              const durationMatch = manifestXml.match(/duration="(\d+)"/);
+              const timescaleMatch = manifestXml.match(/timescale="(\d+)"/);
+              if (durationMatch && timescaleMatch) {
+                const dur = parseInt(durationMatch[1], 10);
+                const ts = parseInt(timescaleMatch[1], 10);
+                const secPerSegment = dur / ts;
+                numSegments = Math.ceil((durationMs / 1000) / secPerSegment);
               } else {
-                throw new Error('Failed to fetch initialization segment');
+                numSegments = Math.ceil((durationMs / 1000) / 10); // Assume 10s chunks if unknown
               }
-              
-              // 2. Fetch media chunks in parallel for high speed
-              const segPromises = Array.from({ length: numSegments }, (_, idx) => {
-                const segNum = idx + 1;
+            }
+            
+            console.log(`[MusicPanel] Assembling ${numSegments} lossless chunks for true playback...`);
+            const chunks: ArrayBuffer[] = [];
+            
+            // 1. Fetch init chunk
+            const initRes = await fetch(initUrl);
+            if (initRes.ok) {
+              chunks.push(await initRes.arrayBuffer());
+            } else {
+              throw new Error('Failed to fetch initialization segment');
+            }
+            
+            // 2. Fetch media chunks in batches to prevent network overload
+            const batchSize = 6;
+            for (let i = 0; i < numSegments; i += batchSize) {
+              const batchPromises = [];
+              for (let j = 0; j < batchSize && (i + j) < numSegments; j++) {
+                const segNum = i + j + 1;
                 const segmentUrl = mediaTemplate.replace('$Number$', String(segNum));
-                return fetch(segmentUrl)
-                  .then(r => r.ok ? r.arrayBuffer() : null)
-                  .catch(() => null);
-              });
-              
-              const segResults = await Promise.all(segPromises);
-              for (const s of segResults) {
+                batchPromises.push(
+                  fetch(segmentUrl)
+                    .then(r => r.ok ? r.arrayBuffer() : null)
+                    .catch(() => null)
+                );
+              }
+              const batchResults = await Promise.all(batchPromises);
+              for (const s of batchResults) {
                 if (s) chunks.push(s);
               }
-              
-              if (chunks.length > 1) {
-                const blob = new Blob(chunks, { type: 'audio/mp4' });
-                const url = URL.createObjectURL(blob);
-                console.log(`[MusicPanel] Lossless stream successfully compiled into Object URL. Size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
-                return url;
-              }
+            }
+            
+            if (chunks.length > 1) {
+              const blob = new Blob(chunks, { type: 'audio/mp4' });
+              return URL.createObjectURL(blob);
             }
           }
         }
       }
     } catch (err) {
-      console.warn('[MusicPanel] Failed to build lossless stream from monochrome.tf, falling back to iTunes...', err);
+      console.error('[MusicPanel] Monochrome stream failed, falling back to YouTube Proxy:', err);
     }
     
-    // Fallback to iTunes search preview
-    try {
-      const searchTerm = `${artist} ${title}`;
-      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&media=music&limit=1`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.results && data.results[0]?.previewUrl) {
-          return data.results[0].previewUrl;
-        }
-      }
-    } catch (err) {
-      console.error('Error finding playable preview URL:', err);
-    }
-    return 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/21/d9/bc/21d9bcbe-3023-e18f-a9db-fcfa1d50b4f8/mzaf_6299863486047120677.plus.aac.p.m4a';
+    // Final fallback to YouTube proxy
+    const ytRes = await fetch(`${window.location.protocol}//${window.location.hostname}:5150/api/youtube/stream-url?id=${cleanId}`);
+  const ytData = await ytRes.json();
+  if (ytData && ytData.url) {
+    return ytData.url;
+  }
+  throw new Error('Failed to extract direct stream URL');
   };
 
   // Mock static curated hi-res master tracks when not searching
@@ -369,9 +398,22 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
 
   // Fetch Music via Monochrome API with fallback and decorators
   const { data: searchResults, isLoading, isError } = useQuery<Track[]>({
-    queryKey: ['monochrome-search', debouncedQuery],
+    queryKey: ['monochrome-search', debouncedQuery, activeTab],
     queryFn: async () => {
       if (!debouncedQuery) return [];
+      
+      if (activeTab === 'videos') {
+        try {
+          const res = await fetch(`${window.location.protocol}//${window.location.hostname}:5150/api/youtube/search?q=${encodeURIComponent(debouncedQuery)}`);
+          if (res.ok) {
+            const data = await res.json();
+            return data.results || [];
+          }
+        } catch (err) {
+          console.error('Failed to fetch videos', err);
+        }
+        return [];
+      }
       
       try {
         // Try calling the official monochrome.tf search API
@@ -470,6 +512,20 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
     };
 
     const handleEnded = () => {
+      const queue = queueRef.current;
+      const current = playingRef.current;
+      if (current && queue.length > 0) {
+        const idx = queue.findIndex(t => t.id === current.id);
+        if (idx !== -1 && idx < queue.length - 1) {
+          const nextTrack = queue[idx + 1];
+          // We can't call playTrack directly here easily because it's defined below,
+          // so we'll just set an event flag or we can move playTrack above.
+          // Wait, playTrack uses state setters.
+          // Let's just create a custom event on the window to trigger playTrack!
+          window.dispatchEvent(new CustomEvent('playNextTrackInQueue', { detail: nextTrack }));
+          return;
+        }
+      }
       setIsPlaying(false);
       setCurrentTime(0);
     };
@@ -495,23 +551,31 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        audioRef.current.play().catch(err => console.error(err));
+        if (track.type !== 'video') {
+          audioRef.current.play().catch(err => console.error(err));
+        }
         setIsPlaying(true);
       }
     } else {
       let url = track.previewUrl;
       if (!url) {
         setIsLoadingPreview(track.id);
-        url = await getPlayableUrl(track.id, track.artist, track.title);
+        url = await getPlayableUrl(track.id, track.artist, track.title, track.durationMs);
         track.previewUrl = url;
         setIsLoadingPreview(null);
       }
 
-      audioRef.current.src = url;
-      audioRef.current.load();
       setPlayingTrack(track);
       setIsPlaying(true);
-      audioRef.current.play().catch(err => console.error(err));
+      
+      if (track.type !== 'video') {
+        audioRef.current.src = url;
+        audioRef.current.load();
+        audioRef.current.play().catch(err => console.error(err));
+      } else {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
     }
   };
 
@@ -687,7 +751,45 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
         >
           Albums
         </button>
+        <button 
+          onClick={() => setActiveTab('videos')} 
+          className={`pb-2 text-sm font-bold tracking-wider uppercase transition-colors cursor-pointer ${activeTab === 'videos' ? 'text-white border-b-2 border-white' : 'text-white/40 hover:text-white/80'}`}
+        >
+          Videos
+        </button>
+        <button 
+          onClick={() => setActiveTab('playlists')} 
+          className={`pb-2 text-sm font-bold tracking-wider uppercase transition-colors cursor-pointer ${activeTab === 'playlists' ? 'text-white border-b-2 border-white' : 'text-white/40 hover:text-white/80'}`}
+        >
+          Playlists
+        </button>
       </div>
+
+            {/* Inline Video Player */}
+      {playingTrack?.type === 'video' && (
+        <div className="w-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl mb-6 relative group border border-white/10 flex items-center justify-center">
+          <ReactPlayer 
+            url={playingTrack.previewUrl} 
+            playing={isPlaying} 
+            controls={true}
+            width="100%" 
+            height="100%" 
+            volume={isMuted ? 0 : volume}
+            onProgress={({ playedSeconds }) => {
+              if (Math.abs(playedSeconds - currentTime) > 1) {
+                setCurrentTime(playedSeconds);
+              }
+            }}
+            onDuration={(d) => setDuration(d)}
+            onEnded={() => {
+              // Create a synthetic event or simply call playNextTrackInQueue logic manually
+              const e = new CustomEvent('playNextTrackInQueue');
+              window.dispatchEvent(e);
+            }}
+            style={{ position: 'absolute', top: 0, left: 0 }}
+          />
+        </div>
+      )}
 
       {/* Main Tracks Content Layout */}
       <div className="space-y-4">
@@ -706,7 +808,7 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-white">
             <div className={`w-8 h-8 border-2 border-t-transparent rounded-full animate-spin ${isMonochrome ? 'border-white' : 'border-red-500'}`}></div>
-            <span className="text-sm font-medium text-white/70">Connecting to Monochrome.tf stream index...</span>
+            <span className="text-sm font-medium text-white/70">{activeTab === 'videos' ? 'Searching YouTube Videos...' : 'Connecting to Monochrome.tf stream index...'}</span>
           </div>
         )}
 
@@ -719,7 +821,7 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
         {!isLoading && !isError && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             
-            {activeTab === 'tracks' && tracksToRender.map((track) => {
+            {(activeTab === 'tracks' || activeTab === 'videos') && !selectedArtist && tracksToRender.map((track) => {
               const isCurrent = playingTrack?.id === track.id;
               const isFav = favorites.includes(track.id);
 
@@ -835,18 +937,22 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
               );
             })}
             
-            {activeTab === 'artists' && Array.from(new Set(tracksToRender.map(t => t.artist))).map(artistName => {
+            {!selectedArtist && activeTab === 'artists' && Array.from(new Set(tracksToRender.map(t => t.artist))).map(artistName => {
               const track = tracksToRender.find(t => t.artist === artistName);
               const isSaved = savedArtists.some(a => a.artistName.toLowerCase() === artistName.toLowerCase());
               return (
-                <div key={artistName} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4 group hover:border-white/10 transition-all shadow-md hover:scale-[1.02]">
+                <div 
+                  key={artistName} 
+                  onClick={() => setSelectedArtist(artistName)}
+                  className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4 group hover:border-white/10 transition-all shadow-md hover:scale-[1.02] cursor-pointer"
+                >
                   <img src={track?.artwork} alt={artistName} className="w-16 h-16 rounded-full object-cover shadow bg-slate-800" referrerPolicy="no-referrer" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-base font-bold text-white truncate">{artistName}</p>
+                    <p className="text-base font-bold text-white truncate group-hover:underline">{artistName}</p>
                     <p className="text-xs text-white/50">Artist</p>
                   </div>
                   <button 
-                    onClick={() => track && toggleSaveArtist(artistName, track.artwork)} 
+                    onClick={(e) => { e.stopPropagation(); track && toggleSaveArtist(artistName, track.artwork); }} 
                     className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
                     title={isSaved ? 'Remove artist from library' : 'Add artist to library'}
                   >
@@ -856,18 +962,141 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
               );
             })}
 
-            {activeTab === 'albums' && Array.from(new Set(tracksToRender.map(t => t.album))).map(albumName => {
+            {!selectedArtist && activeTab === 'albums' && Array.from(new Set(tracksToRender.map(t => t.album))).map(albumName => {
               const track = tracksToRender.find(t => t.album === albumName);
               return (
-                <div key={albumName} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4 group hover:border-white/10 transition-all shadow-md hover:scale-[1.02]">
+                <div 
+                  key={albumName} 
+                  onClick={() => { setSelectedArtist(track?.artist || null); setSelectedAlbum(albumName); }}
+                  className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4 group hover:border-white/10 transition-all shadow-md hover:scale-[1.02] cursor-pointer"
+                >
                   <img src={track?.artwork} alt={albumName} className="w-16 h-16 rounded-lg object-cover shadow bg-slate-800" referrerPolicy="no-referrer" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-base font-bold text-white truncate">{albumName}</p>
+                    <p className="text-base font-bold text-white truncate group-hover:underline">{albumName}</p>
                     <p className="text-xs text-white/50 truncate">{track?.artist}</p>
                   </div>
                 </div>
               );
             })}
+
+            {selectedArtist && !selectedAlbum && (
+              <div className="col-span-full">
+                <button 
+                  onClick={() => setSelectedArtist(null)}
+                  className="mb-4 text-sm text-white/50 hover:text-white transition-colors"
+                >
+                  &larr; Back to Artists
+                </button>
+                <h3 className="text-3xl font-black text-white mb-6 flex items-center gap-3">
+                  <img 
+                    src={tracksToRender.find(t => t.artist === selectedArtist)?.artwork} 
+                    className="w-12 h-12 rounded-full object-cover shadow-lg"
+                  />
+                  {selectedArtist}
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {Array.from(new Set(tracksToRender.filter(t => t.artist === selectedArtist).map(t => t.album))).map(albumName => {
+                    const track = tracksToRender.find(t => t.album === albumName && t.artist === selectedArtist);
+                    return (
+                      <div 
+                        key={albumName} 
+                        onClick={() => setSelectedAlbum(albumName)}
+                        className="p-4 bg-white/5 border border-white/5 rounded-2xl flex flex-col items-center gap-3 group hover:border-white/10 transition-all shadow-md hover:scale-[1.02] cursor-pointer"
+                      >
+                        <img src={track?.artwork} alt={albumName} className="w-full aspect-square rounded-xl object-cover shadow bg-slate-800" referrerPolicy="no-referrer" />
+                        <div className="w-full text-center">
+                          <p className="text-sm font-bold text-white truncate w-full group-hover:underline">{albumName}</p>
+                          <p className="text-xs text-white/50 truncate w-full">{track?.year}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {selectedArtist && selectedAlbum && (
+              <div className="col-span-full">
+                <button 
+                  onClick={() => setSelectedAlbum(null)}
+                  className="mb-4 text-sm text-white/50 hover:text-white transition-colors"
+                >
+                  &larr; Back to {selectedArtist} Albums
+                </button>
+                <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6 mb-8 p-6 bg-white/5 rounded-2xl border border-white/10">
+                  <img 
+                    src={tracksToRender.find(t => t.album === selectedAlbum)?.artwork} 
+                    className="w-32 h-32 rounded-xl shadow-2xl bg-slate-800"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="flex-1">
+                    <h3 className="text-3xl font-black text-white">{selectedAlbum}</h3>
+                    <p className="text-white/60 mb-4">{selectedArtist}</p>
+                    <button 
+                      onClick={() => {
+                        const albumTracks = tracksToRender.filter(t => t.album === selectedAlbum);
+                        setAudioQueue(albumTracks);
+                        playTrack(albumTracks[0]);
+                      }}
+                      className={`px-6 py-2.5 rounded-full font-bold transition-all shadow-lg hover:scale-105 active:scale-95 flex items-center gap-2
+                        ${isMonochrome ? 'bg-white text-black' : 'bg-red-600 text-white'}`}
+                    >
+                      <Play className={`w-4 h-4 ${isMonochrome ? 'fill-black' : 'fill-white'}`} />
+                      Play Album
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  {tracksToRender.filter(t => t.album === selectedAlbum).map((track, idx) => {
+                    const isCurrent = playingTrack?.id === track.id;
+                    const isFav = favorites.includes(track.id);
+                    return (
+                      <div 
+                        key={track.id}
+                        className={`p-3 bg-white/5 rounded-xl transition-all flex gap-4 items-center group relative overflow-hidden shadow-sm hover:bg-white/10 border
+                          ${isCurrent ? (isMonochrome ? 'border-white/40 bg-white/10' : 'border-red-500/50 bg-red-900/20') : 'border-transparent hover:border-white/10'}`}
+                      >
+                        <div className="w-8 text-center text-white/40 font-mono text-sm">{idx + 1}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-bold truncate ${isCurrent ? (isMonochrome ? 'text-white' : 'text-red-400') : 'text-white/90 group-hover:text-white'}`}>
+                            {track.title}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity focus-within:opacity-100">
+                          <button 
+                            onClick={() => { setAudioQueue([track]); playTrack(track); }} 
+                            className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
+                          >
+                            {isCurrent && isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                          </button>
+                          <button 
+                            onClick={() => toggleFavorite(track.id)}
+                            className={`p-2 rounded-lg transition-colors 
+                              ${isFav ? (isMonochrome ? 'text-white' : 'text-red-500') : 'text-white/50 hover:text-white hover:bg-white/20'}`}
+                            title="Favorite"
+                          >
+                            <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
+                          </button>
+                          <button 
+                            onClick={() => setShowPlaylistModalForTrack(track)} 
+                            className="p-2 hover:bg-white/20 text-white/50 hover:text-white rounded-lg transition-colors" 
+                            title="Add to Playlist"
+                          >
+                            <ListPlus className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {isCurrent && (
+                          <div className="w-8 flex justify-center shrink-0">
+                            <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -974,7 +1203,21 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
           </div>
 
           {/* Extra utility controls */}
-          <div className="hidden md:flex items-center gap-4 w-48 justify-end text-white/60">
+          <div className="hidden md:flex items-center gap-4 min-w-48 justify-end text-white/60">
+            {audioQueue.length > 0 && playingTrack && (
+              <div className="flex flex-col items-end mr-4 opacity-70 hover:opacity-100 transition-opacity">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-white/50">Up Next</span>
+                {(() => {
+                  const currentIdx = audioQueue.findIndex(t => t.id === playingTrack.id);
+                  if (currentIdx !== -1 && currentIdx < audioQueue.length - 1) {
+                    const next = audioQueue[currentIdx + 1];
+                    return <span className="text-xs font-medium text-white truncate max-w-[150px]" title={next.title}>{next.title}</span>;
+                  }
+                  return <span className="text-[10px] font-medium text-white/30 italic">End of Album</span>;
+                })()}
+              </div>
+            )}
+
             <div className="flex items-center gap-1.5 text-[10px] font-mono border border-white/5 bg-white/[0.01] px-2 py-1 rounded">
               <Gauge className={`w-3 h-3 ${isMonochrome ? 'text-white' : 'text-red-500'}`} />
               <span>{playingTrack.bitrate}</span>

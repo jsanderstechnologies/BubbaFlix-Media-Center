@@ -20,7 +20,7 @@ import { BackgroundUpdater } from './components/BackgroundUpdater';
 import { VirtualKeyboard } from './components/VirtualKeyboard';
 import HomePanel from './components/HomePanel';
 import SearchPanel from './components/SearchPanel';
-import MusicPanel from './components/MusicPanel';
+
 
 const queryClient = new QueryClient();
 
@@ -69,6 +69,9 @@ function MainApp() {
   const [favorites, setFavorites] = useState<any[]>([]);
   const [backgroundPoster, setBackgroundPoster] = useState<string>('');
   const [hoveredPoster, setHoveredPoster] = useState<string>('');
+  const [firstAdminPassword, setFirstAdminPassword] = useState<string | null>(
+    () => sessionStorage.getItem('firstAdminPassword')
+  );
 
   const activePoster = activeTab === 'music' ? '/music_backdrop.jpg' : (hoveredPoster || (selectedMovie?.poster) || backgroundPoster);
 
@@ -225,6 +228,27 @@ function MainApp() {
   return (
     <>
       <AuthModal />
+      {/* First-admin generated password banner */}
+      {firstAdminPassword && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-lg px-4">
+          <div className="bg-amber-950/95 border border-amber-500/40 rounded-2xl p-4 shadow-2xl backdrop-blur-md flex gap-4 items-start">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-amber-300 font-bold text-sm mb-1">Your Admin Password (save this now!)</p>
+              <p className="text-white/60 text-xs mb-2">This is the only time your auto-generated password will be shown.</p>
+              <code className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-amber-300 font-mono text-lg font-bold tracking-widest select-all">{firstAdminPassword}</code>
+            </div>
+            <button
+              onClick={() => { setFirstAdminPassword(null); sessionStorage.removeItem('firstAdminPassword'); }}
+              className="text-white/30 hover:text-white transition-colors shrink-0 mt-0.5"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+      )}
       <div className="h-screen w-full bg-[#050507] text-white font-sans flex overflow-hidden select-none relative">
       <BackgroundUpdater />
       {/* Real Web Video Player Overlay */}
@@ -293,7 +317,12 @@ function MainApp() {
               <video 
                 key={`${streamOffset}-${selectedAudioTrack}`}
                 ref={videoRef}
-                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&audio=${selectedAudioTrack}&start=${streamOffset}&bufsize=${Math.max(16, Math.round(((mediaInfo?.format?.bit_rate || 15000000) * parseInt(localStorage.getItem('streamBufferSeconds') || '60', 10)) / 8000000))}M`}
+                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&audio=${selectedAudioTrack}&start=${streamOffset}&audioLeveling=${(() => {
+                  try {
+                    const saved = localStorage.getItem('userSettings_' + user?.uid);
+                    return saved ? JSON.parse(saved).enableAudioLeveling === true : false;
+                  } catch { return false; }
+                })()}&bufsize=${Math.max(16, Math.round(((mediaInfo?.format?.bit_rate || 15000000) * parseInt(localStorage.getItem('streamBufferSeconds') || '60', 10)) / 8000000))}M`}
                 autoPlay
                 className="w-full h-full object-contain absolute top-0 left-0"
                 onTimeUpdate={(e) => {
@@ -479,14 +508,6 @@ function MainApp() {
             <span className="text-[9px] uppercase tracking-wider font-medium">Movies</span>
           </div>
           <div 
-            onClick={() => { setActiveTab('music'); setSearchQuery(''); setMusicSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 ${activeTab === 'music' ? 'text-red-500' : ''}`}
-            title="Hi-Fi Music"
-          >
-            <Music className="w-6 h-6" />
-            <span className="text-[9px] uppercase tracking-wider font-medium">Music</span>
-          </div>
-          <div 
             onClick={() => { setActiveTab('library'); setSearchQuery(''); }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 ${activeTab === 'library' ? 'text-red-500' : ''}`}
             title="Library / Favorites"
@@ -494,14 +515,16 @@ function MainApp() {
             <Bookmark className="w-6 h-6" />
             <span className="text-[9px] uppercase tracking-wider font-medium">Library</span>
           </div>
-          <div 
-            onClick={() => { setActiveTab('settings'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
-            title="Settings"
-          >
-            <Settings className="w-6 h-6" />
-            <span className="text-[9px] uppercase tracking-wider font-medium">Settings</span>
-          </div>
+          {user?.role === 'admin' && (
+            <div 
+              onClick={() => { setActiveTab('settings'); setSearchQuery(''); }}
+              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
+              title="Settings"
+            >
+              <Settings className="w-6 h-6" />
+              <span className="text-[9px] uppercase tracking-wider font-medium">Settings</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -789,13 +812,7 @@ function MainApp() {
                 setSearchQuery(actorName);
                 setActiveTab('search');
               }}
-              onSelectMusic={(term) => {
-                setMusicSearchQuery(term);
-                setActiveTab('music');
-              }}
             />
-          ) : activeTab === 'music' ? (
-            <MusicPanel initialQuery={musicSearchQuery} />
           ) : activeTab === 'library' ? (
             <>
               <LibraryGrid onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} />
@@ -803,7 +820,7 @@ function MainApp() {
           ) : activeTab === 'tv' ? (
             <IptvGuide onPlayStream={handlePlayStream} />
           ) : activeTab === 'settings' ? (
-            <SettingsPanel />
+            user?.role === 'admin' ? <SettingsPanel /> : null
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
               <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/10">

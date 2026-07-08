@@ -9,7 +9,7 @@ interface SearchPanelProps {
   onHoverMedia?: (posterUrl: string) => void;
   onSelectSuggestion: (term: string) => void;
   onActorSearchClick: (actorName: string) => void;
-  onSelectMusic?: (term: string) => void;
+  
 }
 
 export default function SearchPanel({ 

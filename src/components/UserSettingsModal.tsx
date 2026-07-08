@@ -1,0 +1,184 @@
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { X, Save, Settings2 } from 'lucide-react';
+
+export interface UserSettings {
+  resolutions: string[];
+  audioLanguage: string;
+  ccLanguage: string;
+  autoCC: boolean;
+  enableAudioLeveling: boolean;
+}
+
+export const DEFAULT_USER_SETTINGS: UserSettings = {
+  resolutions: ['4K', '1080p', '720p'],
+  audioLanguage: 'eng',
+  ccLanguage: 'eng',
+  autoCC: false,
+  enableAudioLeveling: false
+};
+
+interface UserSettingsModalProps {
+  onClose: () => void;
+}
+
+export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & { userId?: string }) {
+  
+  const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
+
+  useEffect(() => {
+    if (userId) {
+      const saved = localStorage.getItem('userSettings_' + userId);
+      if (saved) {
+        try {
+          setSettings({ ...DEFAULT_USER_SETTINGS, ...JSON.parse(saved) });
+        } catch (e) {
+          console.error('Failed to load user settings', e);
+        }
+      }
+    }
+  }, [userId]);
+
+  const handleSave = () => {
+    if (userId) {
+      localStorage.setItem('userSettings_' + userId, JSON.stringify(settings));
+      window.dispatchEvent(new Event('userSettingsChanged'));
+    }
+    onClose();
+  };
+
+  const toggleResolution = (res: string) => {
+    setSettings(prev => ({
+      ...prev,
+      resolutions: prev.resolutions.includes(res)
+        ? prev.resolutions.filter(r => r !== res)
+        : [...prev.resolutions, res]
+    }));
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-6 border-b border-white/10 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+              <Settings2 className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white tracking-tight">Playback Settings</h2>
+              <p className="text-white/50 text-sm">Customize your streaming experience</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto space-y-8 flex-1">
+          {/* Resolutions */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Stream Resolutions</h3>
+            <p className="text-xs text-white/40 leading-relaxed mb-4">Select which video qualities you want to see in the stream results.</p>
+            <div className="flex gap-3">
+              {['4K', '1080p', '720p'].map(res => (
+                <label key={res} className="flex-1 cursor-pointer group">
+                  <div className={`flex items-center justify-center p-3 rounded-xl border transition-all ${
+                    settings.resolutions.includes(res) 
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                      : 'bg-black/50 border-white/5 text-white/40 group-hover:border-white/20'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      className="hidden"
+                      checked={settings.resolutions.includes(res)}
+                      onChange={() => toggleResolution(res)}
+                    />
+                    <span className="font-bold">{res}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Languages */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Language Preferences</h3>
+            
+            <div className="space-y-2">
+              <label className="text-xs text-white/50 block">Preferred Audio Language (e.g. eng, spa, fre)</label>
+              <input 
+                type="text" 
+                value={settings.audioLanguage}
+                onChange={e => setSettings({...settings, audioLanguage: e.target.value.toLowerCase()})}
+                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none"
+                placeholder="eng"
+              />
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <label className="text-xs text-white/50 block">Preferred Subtitle Language (e.g. eng, spa)</label>
+              <input 
+                type="text" 
+                value={settings.ccLanguage}
+                onChange={e => setSettings({...settings, ccLanguage: e.target.value.toLowerCase()})}
+                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none"
+                placeholder="eng"
+              />
+            </div>
+          </div>
+
+          {/* Auto CC */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Playback Options</h3>
+            <label className="flex items-center justify-between p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors">
+              <div>
+                <div className="text-sm font-medium text-white">Auto-enable Subtitles</div>
+                <div className="text-xs text-white/40 mt-1">Automatically turn on CC when playing a video</div>
+              </div>
+              <div className={`w-10 h-6 rounded-full p-1 transition-colors ${settings.autoCC ? 'bg-emerald-500' : 'bg-white/10'}`}>
+                <div className={`w-4 h-4 rounded-full bg-white transition-transform ${settings.autoCC ? 'translate-x-4' : 'translate-x-0'}`} />
+              </div>
+              <input 
+                type="checkbox" 
+                className="hidden"
+                checked={settings.autoCC}
+                onChange={e => setSettings({...settings, autoCC: e.target.checked})}
+              />
+            </label>
+
+            <label className="flex items-center justify-between p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors">
+              <div>
+                <div className="text-sm font-medium text-white">Dynamic Audio Leveling</div>
+                <div className="text-xs text-white/40 mt-1">Normalize video volume dynamically to prevent loud effects from overwhelming dialogues.</div>
+              </div>
+              <div className={`w-10 h-6 rounded-full p-1 transition-colors ${settings.enableAudioLeveling ? 'bg-emerald-500' : 'bg-white/10'}`}>
+                <div className={`w-4 h-4 rounded-full bg-white transition-transform ${settings.enableAudioLeveling ? 'translate-x-4' : 'translate-x-0'}`} />
+              </div>
+              <input 
+                type="checkbox" 
+                className="hidden"
+                checked={settings.enableAudioLeveling}
+                onChange={e => setSettings({...settings, enableAudioLeveling: e.target.checked})}
+              />
+            </label>
+          </div>
+        </div>
+
+
+        <div className="p-6 border-t border-white/10 shrink-0">
+          <button 
+            onClick={handleSave}
+            className="w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-3 px-4 rounded-xl hover:bg-white/90 transition-colors"
+          >
+            <Save className="w-5 h-5" />
+            Save Preferences
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}

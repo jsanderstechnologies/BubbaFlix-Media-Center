@@ -7,10 +7,17 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import epgParser from 'epg-parser';
 import ffmpegPath from 'ffmpeg-static';
+import ffprobePath from 'ffprobe-static';
+import util from 'util';
+import { execFile } from 'child_process';
+const execFileAsync = util.promisify(execFile);
 import ffprobeStatic from 'ffprobe-static';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 import { PassThrough } from 'stream';
+import play from 'play-dl';
+import ytdl from '@distube/ytdl-core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -119,7 +126,7 @@ export async function parseEPG(source: string) {
  * In a real Electron app, you would import 'child_process' and use spawn.
  * 
  * @example
- * const { spawn } = require('child_process');
+ * 
  * // Inside your ipcMain handler:
  * ipcMain.on('media:play', (event, streamUrl) => {
  *   const player = spawn('mpv', [streamUrl, '--fs']); // --fs for fullscreen
@@ -155,6 +162,7 @@ async function startServer() {
   // --- AUTH & DB SYSTEM ---
   const USERS_FILE = path.join(__dirname, 'data', 'users.json');
   const DB_FILE = path.join(__dirname, 'data', 'db.json');
+  const SETTINGS_FILE = path.join(__dirname, 'data', 'settings.json');
 
   const readJson = (file) => {
     try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
@@ -162,43 +170,164 @@ async function startServer() {
   };
   const writeJson = (file, data) => fs.writeFileSync(file, JSON.stringify(data, null, 2));
 
-  // /api/auth/register
+  // --- EMAIL HELPERS ---
+  const generateStrongPassword = (length = 12): string => {
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower = 'abcdefghjkmnpqrstuvwxyz';
+    const digits = '23456789';
+    const symbols = '!@#$%^&*';
+    const all = upper + lower + digits + symbols;
+    // Guarantee at least one of each type
+    const pwd = [
+      upper[crypto.randomInt(upper.length)],
+      lower[crypto.randomInt(lower.length)],
+      digits[crypto.randomInt(digits.length)],
+      symbols[crypto.randomInt(symbols.length)],
+    ];
+    for (let i = pwd.length; i < length; i++) {
+      pwd.push(all[crypto.randomInt(all.length)]);
+    }
+    // Shuffle
+    for (let i = pwd.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(i + 1);
+      [pwd[i], pwd[j]] = [pwd[j], pwd[i]];
+    }
+    return pwd.join('');
+  };
+
+  const sendWelcomeEmail = async (toEmail: string, username: string, password: string) => {
+    const settings = readJson(SETTINGS_FILE);
+    const emailCfg = settings.email || {};
+    if (!emailCfg.gmailUser || !emailCfg.gmailAppPassword) {
+      console.warn('[Email] Gmail not configured — skipping welcome email.');
+      return { sent: false, reason: 'Gmail not configured' };
+    }
+    const appName = emailCfg.appName || 'BubbaFlix';
+    const appUrl = emailCfg.appUrl || '';
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: emailCfg.gmailUser, pass: emailCfg.gmailAppPassword },
+    });
+    
+    // Precise 3D cinematic red gradient SVG matching App.tsx header
+    const logoSvg = `
+      <svg width="240" height="70" viewBox="0 0 320 80" style="display:block;margin:0 auto;filter:drop-shadow(0px 4px 6px rgba(0,0,0,0.95));">
+        <defs>
+          <path id="bubbaflix-curve-email" d="M 12,56 Q 160,20 308,56" fill="none" />
+          <linearGradient id="bubbaflix-gradient-email" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#ff4d4d" />
+            <stop offset="35%" stop-color="#e50914" />
+            <stop offset="75%" stop-color="#b30000" />
+            <stop offset="100%" stop-color="#7a0000" />
+          </linearGradient>
+        </defs>
+        <text 
+          font-family="'Bebas Neue', Impact, 'Arial Black', sans-serif" 
+          font-size="56" 
+          font-weight="900" 
+          letter-spacing="-1.2"
+          fill="url(#bubbaflix-gradient-email)"
+          stroke="url(#bubbaflix-gradient-email)"
+          stroke-width="2.8"
+          stroke-linejoin="round"
+        >
+          <textPath href="#bubbaflix-curve-email" startOffset="50%" text-anchor="middle">
+            BUBBAFLIX
+          </textPath>
+        </text>
+      </svg>
+    `;
+
+
+    const html = `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0a0a0a;color:#fff;border-radius:12px;overflow:hidden;border:1px solid #222;">
+        <div style="background:linear-gradient(135deg,#000000,#111111);padding:32px 40px;text-align:center;border-bottom:1px solid #222;">
+          ${logoSvg}
+        </div>
+        <div style="padding:32px 40px;">
+          <h2 style="color:#fff;margin-top:0;font-size:22px;font-weight:bold;text-align:center;">Welcome, ${username}!</h2>
+          <p style="color:#aaa;line-height:1.6;font-size:14px;text-align:center;">Your account has been approved. Here are your login credentials:</p>
+          <div style="background:#141414;border:1px solid #2a2a2a;border-radius:8px;padding:20px;margin:24px 0;text-align:center;">
+            <p style="margin:0 0 4px;color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Username</p>
+            <p style="margin:0 0 20px;font-size:18px;font-weight:bold;color:#fff;font-family:monospace;">${username}</p>
+            <p style="margin:0 0 4px;color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Password</p>
+            <p style="margin:0;font-size:22px;font-weight:900;color:#ef4444;letter-spacing:2px;font-family:monospace;background:#222;padding:8px;border-radius:6px;display:inline-block;">${password}</p>
+          </div>
+          ${appUrl ? `<p style="text-align:center;margin-top:28px;"><a href="${appUrl}" style="background:#dc2626;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:14px;">Sign In to ${appName}</a></p>` : ''}
+          <p style="color:#444;font-size:11px;margin-top:32px;text-align:center;line-height:1.4;">For your security, we recommend changing your password after your first login.</p>
+        </div>
+      </div>
+    `;
+    await transporter.sendMail({
+      from: `"${appName}" <${emailCfg.gmailUser}>`,
+      to: toEmail,
+      subject: `Welcome to ${appName} — Your Account is Ready`,
+      html,
+    });
+    return { sent: true };
+  };
+
+  // /api/auth/register  — no password required; admin will approve and email credentials
   app.post('/api/auth/register', (req, res) => {
-    const { email, username, password } = req.body;
-    if (!email || !username || !password) return res.status(400).json({ error: 'Missing fields' });
+    const { email, username } = req.body;
+    if (!email || !username) return res.status(400).json({ error: 'Email and username are required' });
     
     const users = readJson(USERS_FILE);
-    if (Object.values(users).some(u => u.email === email)) {
+    if (Object.values(users).some((u: any) => u.email === email)) {
       return res.status(400).json({ error: 'Email already registered' });
     }
+    if (Object.values(users).some((u: any) => u.username === username)) {
+      return res.status(400).json({ error: 'Username already taken' });
+    }
 
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+    const isFirstUser = Object.keys(users).length === 0;
+    const role = isFirstUser ? 'admin' : 'user';
+    const status = isFirstUser ? 'approved' : 'pending';
     const uid = crypto.randomUUID();
-    const token = crypto.randomBytes(32).toString('hex');
 
-    users[uid] = { uid, email, username, salt, hash, token };
-    writeJson(USERS_FILE, users);
-
-    res.json({ user: { uid, email, username }, token });
+    if (isFirstUser) {
+      // First user: generate password immediately so they can log in
+      const password = generateStrongPassword();
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+      const token = crypto.randomBytes(32).toString('hex');
+      users[uid] = { uid, email, username, salt, hash, token, role, status, registeredAt: new Date().toISOString() };
+      writeJson(USERS_FILE, users);
+      // For the first admin we return the plaintext password once so they know it
+      res.json({ user: { uid, email, username, role, status }, token, firstUser: true, generatedPassword: password });
+    } else {
+      // Pending user — no credentials until admin approves
+      users[uid] = { uid, email, username, salt: null, hash: null, token: null, role, status, registeredAt: new Date().toISOString() };
+      writeJson(USERS_FILE, users);
+      res.json({ pending: true, message: 'Your account is awaiting admin approval. You will receive your password by email once approved.' });
+    }
   });
 
   // /api/auth/login
   app.post('/api/auth/login', (req, res) => {
     const { email, password } = req.body;
     const users = readJson(USERS_FILE);
-    const user = Object.values(users).find(u => u.email === email);
+    const user = Object.values(users).find((u: any) => u.email === email || u.username === email);
 
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
 
-    const hash = crypto.scryptSync(password, user.salt, 64).toString('hex');
-    if (hash !== user.hash) return res.status(400).json({ error: 'Invalid credentials' });
+    const hash = crypto.scryptSync(password, (user as any).salt, 64).toString('hex');
+    if (hash !== (user as any).hash) return res.status(400).json({ error: 'Invalid credentials' });
+
+    // Check approval status — legacy users without a status field are treated as approved
+    const status = (user as any).status || 'approved';
+    if (status === 'pending') {
+      return res.status(403).json({ error: 'Your account is awaiting admin approval.', pending: true });
+    }
+    if (status === 'denied') {
+      return res.status(403).json({ error: 'Your account registration was denied.' });
+    }
 
     const token = crypto.randomBytes(32).toString('hex');
-    user.token = token;
+    (user as any).token = token;
     writeJson(USERS_FILE, users);
 
-    res.json({ user: { uid: user.uid, email: user.email, username: user.username }, token });
+    res.json({ user: { uid: (user as any).uid, email: (user as any).email, username: (user as any).username, role: (user as any).role || 'user', status }, token });
   });
 
   // /api/auth/me
@@ -211,7 +340,7 @@ async function startServer() {
     const user = Object.values(users).find(u => u.token === token);
 
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    res.json({ user: { uid: user.uid, email: user.email, username: user.username } });
+    res.json({ user: { uid: user.uid, email: user.email, username: user.username, role: user.role || 'user' } });
   });
 
   // Simple Auth Middleware for DB routes
@@ -227,6 +356,188 @@ async function startServer() {
     req.user = user;
     next();
   };
+
+
+  // Admin Middleware
+  const requireAdmin = (req, res, next) => {
+    requireAuth(req, res, () => {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden: Admins only' });
+      }
+      next();
+    });
+  };
+
+  // /api/admin/users GET
+  app.get('/api/admin/users', requireAdmin, (req, res) => {
+    const users = readJson(USERS_FILE);
+    const safeUsers = Object.values(users).map((u: any) => ({
+      uid: u.uid,
+      email: u.email,
+      username: u.username,
+      role: u.role || 'user',
+      status: u.status || 'approved',
+      registeredAt: u.registeredAt || null
+    }));
+    res.json(safeUsers);
+  });
+
+  // /api/admin/settings GET
+  app.get('/api/admin/settings', requireAdmin, (req, res) => {
+    const settings = readJson(SETTINGS_FILE);
+    const emailCfg = settings.email || {};
+    // Never expose the app password to the frontend — just whether it's set
+    res.json({
+      email: {
+        gmailUser: emailCfg.gmailUser || '',
+        gmailAppPasswordSet: !!emailCfg.gmailAppPassword,
+        appName: emailCfg.appName || 'BubbaFlix',
+        appUrl: emailCfg.appUrl || '',
+      }
+    });
+  });
+
+  // /api/admin/settings PUT
+  app.put('/api/admin/settings', requireAdmin, (req, res) => {
+    const settings = readJson(SETTINGS_FILE);
+    const { gmailUser, gmailAppPassword, appName, appUrl } = req.body.email || {};
+    settings.email = {
+      gmailUser: gmailUser ?? settings.email?.gmailUser ?? '',
+      // Only update the password if a new one was provided
+      gmailAppPassword: gmailAppPassword || settings.email?.gmailAppPassword || '',
+      appName: appName ?? settings.email?.appName ?? 'BubbaFlix',
+      appUrl: appUrl ?? settings.email?.appUrl ?? '',
+    };
+    writeJson(SETTINGS_FILE, settings);
+    res.json({ success: true });
+  });
+
+  // /api/admin/test-email POST
+  app.post('/api/admin/test-email', requireAdmin, async (req, res) => {
+    try {
+      const result = await sendWelcomeEmail(
+        req.user.email,
+        req.user.username,
+        'TestPassword123!'
+      );
+      if (!result.sent) return res.status(400).json({ error: result.reason });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // /api/admin/users/:uid/approve PUT — generate password and email it
+  app.put('/api/admin/users/:uid/approve', requireAdmin, async (req, res) => {
+    const users = readJson(USERS_FILE);
+    if (!users[req.params.uid]) return res.status(404).json({ error: 'User not found' });
+    
+    const password = generateStrongPassword();
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+    const token = crypto.randomBytes(32).toString('hex');
+
+    users[req.params.uid].status = 'approved';
+    users[req.params.uid].salt = salt;
+    users[req.params.uid].hash = hash;
+    users[req.params.uid].token = token;
+    writeJson(USERS_FILE, users);
+
+    const u = users[req.params.uid];
+    let emailResult = { sent: false, reason: 'Unknown' };
+    try {
+      emailResult = await sendWelcomeEmail(u.email, u.username, password) as any;
+    } catch (err: any) {
+      console.error('[Email] Failed to send welcome email:', err.message);
+    }
+
+    res.json({ success: true, emailSent: emailResult.sent });
+  });
+
+  // /api/admin/users/:uid/deny PUT
+  app.put('/api/admin/users/:uid/deny', requireAdmin, (req, res) => {
+    const users = readJson(USERS_FILE);
+    if (!users[req.params.uid]) return res.status(404).json({ error: 'User not found' });
+    users[req.params.uid].status = 'denied';
+    writeJson(USERS_FILE, users);
+    res.json({ success: true });
+  });
+
+  // /api/admin/users POST — admin creating a user: supports manual or auto-generated password
+  app.post('/api/admin/users', requireAdmin, async (req, res) => {
+    const { email, username, password: manualPassword, role, emailPassword } = req.body;
+    if (!email || !username) return res.status(400).json({ error: 'Email and username are required' });
+    
+    const users = readJson(USERS_FILE);
+    if (Object.values(users).some((u: any) => u.email === email)) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+    if (Object.values(users).some((u: any) => u.username === username)) {
+      return res.status(400).json({ error: 'Username already taken' });
+    }
+
+    // emailPassword=true → generate and send; otherwise use the provided manual password
+    const password = emailPassword ? generateStrongPassword() : (manualPassword || generateStrongPassword());
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+    const uid = crypto.randomUUID();
+    const token = crypto.randomBytes(32).toString('hex');
+
+    users[uid] = { uid, email, username, salt, hash, token, role: role || 'user', status: 'approved', registeredAt: new Date().toISOString() };
+    writeJson(USERS_FILE, users);
+
+    let emailSent = false;
+    if (emailPassword) {
+      try {
+        const result = await sendWelcomeEmail(email, username, password) as any;
+        emailSent = result.sent;
+      } catch (err: any) {
+        console.error('[Email] Failed to send welcome email to admin-created user:', err.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      emailSent,
+      // Only include plaintext password in response when NOT emailing (admin set it manually)
+      ...((!emailPassword && manualPassword) ? {} : { generatedPassword: emailPassword ? undefined : password }),
+      user: { uid, email, username, role: role || 'user', status: 'approved' }
+    });
+  });
+
+  // /api/admin/users/:uid/role PUT
+
+  app.put('/api/admin/users/:uid/role', requireAdmin, (req, res) => {
+    const { role } = req.body;
+    const users = readJson(USERS_FILE);
+    if (!users[req.params.uid]) return res.status(404).json({ error: 'User not found' });
+    
+    users[req.params.uid].role = role;
+    writeJson(USERS_FILE, users);
+    res.json({ success: true });
+  });
+
+  // /api/admin/users/:uid DELETE
+  app.delete('/api/admin/users/:uid', requireAdmin, (req, res) => {
+    const users = readJson(USERS_FILE);
+    if (!users[req.params.uid]) return res.status(404).json({ error: 'User not found' });
+    
+    delete users[req.params.uid];
+    writeJson(USERS_FILE, users);
+    
+    // Also delete their DB data
+    const db = readJson(DB_FILE);
+    let dbChanged = false;
+    for (const key in db) {
+      if (key.startsWith(req.params.uid + '_')) {
+        delete db[key];
+        dbChanged = true;
+      }
+    }
+    if (dbChanged) writeJson(DB_FILE, db);
+    
+    res.json({ success: true });
+  });
 
   // /api/db/get/:collection
   app.get('/api/db/get/:collection', requireAuth, (req, res) => {
@@ -308,6 +619,87 @@ async function startServer() {
     });
   });
 
+
+  // API Route: YouTube Music Proxy
+  app.get("/api/music/stream", async (req, res) => {
+    const query = req.query.q;
+    if (!query || typeof query !== 'string') {
+      return res.status(400).send("Query is required");
+    }
+    try {
+      // Find the first matching video
+      const yt_info = await play.search(query, { limit: 1, source: { youtube: "video" } });
+      if (!yt_info || yt_info.length === 0) {
+        return res.status(404).send("Not found");
+      }
+      
+      // Get readable stream
+      res.setHeader('Content-Type', 'audio/webm');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      
+      ytdl(yt_info[0].url, { filter: 'audioonly', quality: 'highestaudio' }).pipe(res);
+    } catch (err) {
+      console.error('[YouTube Stream Proxy Error]', err);
+      res.status(500).send("Stream proxy failed");
+    }
+  });
+
+
+  // API Route: YouTube Video Search
+  
+// API Route: Get direct stream URL via yt-dlp
+app.get('/api/youtube/stream-url', (req, res) => {
+  const vidId = req.query.id;
+  if (!vidId || typeof vidId !== 'string') {
+    return res.status(400).send('ID is required');
+  }
+  const ytUrl = `https://www.youtube.com/watch?v=${vidId}`;
+  
+  const pythonProcess = spawn('python', ['-m', 'yt_dlp', '-g', '-f', 'best', ytUrl]);
+  
+  let output = '';
+  pythonProcess.stdout.on('data', data => output += data.toString());
+  pythonProcess.on('close', code => {
+    if (code === 0) {
+      const urls = output.trim().split('\n');
+      const directUrl = urls[urls.length - 1]; // last line is the url
+      res.json({ url: directUrl });
+    } else {
+      res.status(500).json({ error: 'yt-dlp failed' });
+    }
+  });
+});
+
+app.get('/api/youtube/search', async (req, res) => {
+    const query = req.query.q;
+    if (!query || typeof query !== 'string') {
+      return res.status(400).send('Query is required');
+    }
+    try {
+      const yt_info = await play.search(query, { limit: 20, source: { youtube: "video" } });
+      const results = yt_info.map(vid => ({
+        id: 'yt-' + vid.id,
+        videoId: vid.id,
+        title: vid.title,
+        artist: vid.channel ? vid.channel.name : 'YouTube',
+        album: 'YouTube Video',
+        artwork: vid.thumbnails[0]?.url || '',
+        previewUrl: '',
+        durationMs: vid.durationInSec * 1000,
+        sampleRate: 'N/A',
+        bitDepth: 'N/A',
+        bitrate: 'N/A',
+        fileSize: 'N/A',
+        year: new Date().getFullYear().toString(),
+        type: 'video'
+      }));
+      res.json({ results });
+    } catch (err) {
+      console.error('[YouTube Search Error]', err);
+      res.status(500).send('Search failed');
+    }
+  });
+
   app.get("/api/duration", (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl || typeof targetUrl !== 'string') {
@@ -369,7 +761,7 @@ async function startServer() {
     });
   });
 
-  app.get("/api/transcode/stream.mp4", (req, res) => {
+  app.get("/api/transcode/stream.mp4", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl || typeof targetUrl !== 'string') {
       return res.status(400).send("URL is required");
@@ -401,8 +793,43 @@ async function startServer() {
     
     const bufsize = req.query.bufsize as string || '64M';
     
-    // Subtitles are now handled via a separate WebVTT endpoint!
-    args.push('-c:v', 'copy');
+    // Auto-detect HEVC and transcode
+    let isHevc = false;
+    try {
+      const { stdout } = await execFileAsync(ffprobePath.path, [
+        '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'stream=codec_name',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        targetUrl
+      ]);
+      const codec = stdout.trim().toLowerCase();
+      if (codec === 'hevc' || codec === 'dvvideo') {
+        isHevc = true;
+      }
+    } catch (err: any) {
+      console.warn('[FFprobe] Failed to probe video codec, falling back to copy:', err.message);
+    }
+
+    if (isHevc) {
+      console.log('[FFmpeg] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 for browser compatibility.');
+      args.push(
+        '-c:v', 'libx264', 
+        '-preset', 'ultrafast', 
+        '-crf', '28', 
+        '-vf', 'scale=-2:1080'
+      );
+    } else {
+      args.push('-c:v', 'copy');
+    }
+
+    // Dynamic Audio Leveling filter (keeps loud parts in movies from overwhelming the user)
+    const audioLeveling = req.query.audioLeveling === 'true';
+    if (audioLeveling) {
+      console.log('[FFmpeg] Enabling Dynamic Audio Leveling (dynaudnorm filter)');
+      args.push('-af', 'dynaudnorm=f=150:g=15:p=0.95');
+    }
+
     args.push(
       '-c:a', 'aac',        
       '-f', 'mp4',
@@ -531,6 +958,7 @@ http://example.com/stream2.m3u8`;
     });
   }
 
+  app.post('/api/log', express.json(), (req, res) => { console.log('[CLIENT ERROR]', req.body); res.sendStatus(200); });
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });

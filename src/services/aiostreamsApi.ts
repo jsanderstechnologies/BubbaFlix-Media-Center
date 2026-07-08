@@ -38,7 +38,8 @@ export const fetchStreamsForTvSeries = async (tmdbId: number, season: number, ep
 
       return {
         id: `st${index}`,
-        name: stream.name ? stream.name.split('\n')[0].replace(/[^a-zA-Z0-9 ]/g, '').trim() : 'AIOStreams Source',
+        name: stream.name ? stream.name.split('\n')[0].replace(/[^a-zA-Z0-9+ ⚡]/g, '').trim() : 'AIOStreams Source',
+        isCached: (stream.name || '').includes('+') || (stream.name || '').includes('⚡') || ((stream.description || '').toLowerCase().includes('cached') && !(stream.description || '').toLowerCase().includes('uncached')),
         quality: quality,
         size: size,
         url: stream.url,
@@ -91,7 +92,8 @@ export const fetchStreamsForMovie = async (tmdbId: number) => {
 
       return {
         id: `st${index}`,
-        name: stream.name ? stream.name.split('\n')[0].replace(/[^a-zA-Z0-9 ]/g, '').trim() : 'AIOStreams Source',
+        name: stream.name ? stream.name.split('\n')[0].replace(/[^a-zA-Z0-9+ ⚡]/g, '').trim() : 'AIOStreams Source',
+        isCached: (stream.name || '').includes('+') || (stream.name || '').includes('⚡') || ((stream.description || '').toLowerCase().includes('cached') && !(stream.description || '').toLowerCase().includes('uncached')),
         quality: quality,
         size: size,
         url: stream.url,
