@@ -1,0 +1,137 @@
+{
+  "$schema": "https://aistudio.google.com/blueprint-schema",
+  "projectInfo": {
+    "name": "Media Center",
+    "description": "App for browsing movies and TV series, and saving favorites to a library."
+  },
+  "database": {
+    "firestore": {
+      "rules": {
+        "collections": [
+          {
+            "name": "favorites",
+            "documentId": "favoriteId",
+            "schema": {
+              "userId": {
+                "type": "string",
+                "required": true,
+                "description": "Firebase Auth User ID"
+              },
+              "tmdbId": {
+                "type": "number",
+                "required": true,
+                "description": "TMDB ID of the movie or TV show"
+              },
+              "type": {
+                "type": "string",
+                "required": true,
+                "description": "'movie' or 'series'"
+              },
+              "title": {
+                "type": "string",
+                "required": true
+              },
+              "poster": {
+                "type": "string",
+                "required": false
+              },
+              "year": {
+                "type": "string",
+                "required": false
+              },
+              "rating": {
+                "type": "string",
+                "required": false
+              },
+              "resolution": {
+                "type": "string",
+                "required": false
+              },
+              "addedAt": {
+                "type": "timestamp",
+                "required": true
+              },
+              "streamInfo": {
+                "type": "map",
+                "required": false,
+                "description": "Information about the stream for this item"
+              }
+            },
+            "permissions": {
+              "read": "request.auth != null && request.auth.uid == resource.data.userId",
+              "create": "request.auth != null && request.auth.uid == request.resource.data.userId",
+              "update": "request.auth != null && request.auth.uid == resource.data.userId",
+              "delete": "request.auth != null && request.auth.uid == resource.data.userId"
+            }
+          },
+          {
+            "name": "saved_artists",
+            "documentId": "artistId",
+            "schema": {
+              "userId": {
+                "type": "string",
+                "required": true,
+                "description": "Firebase Auth User ID"
+              },
+              "artistName": {
+                "type": "string",
+                "required": true
+              },
+              "artwork": {
+                "type": "string",
+                "required": false
+              },
+              "addedAt": {
+                "type": "timestamp",
+                "required": true
+              }
+            },
+            "permissions": {
+              "read": "request.auth != null && request.auth.uid == resource.data.userId",
+              "create": "request.auth != null && request.auth.uid == request.resource.data.userId",
+              "update": "request.auth != null && request.auth.uid == resource.data.userId",
+              "delete": "request.auth != null && request.auth.uid == resource.data.userId"
+            }
+          },
+          {
+            "name": "music_playlists",
+            "documentId": "playlistId",
+            "schema": {
+              "userId": {
+                "type": "string",
+                "required": true,
+                "description": "Firebase Auth User ID"
+              },
+              "name": {
+                "type": "string",
+                "required": true
+              },
+              "description": {
+                "type": "string",
+                "required": false
+              },
+              "tracks": {
+                "type": "array",
+                "required": true
+              },
+              "addedAt": {
+                "type": "timestamp",
+                "required": true
+              },
+              "updatedAt": {
+                "type": "timestamp",
+                "required": true
+              }
+            },
+            "permissions": {
+              "read": "request.auth != null && request.auth.uid == resource.data.userId",
+              "create": "request.auth != null && request.auth.uid == request.resource.data.userId",
+              "update": "request.auth != null && request.auth.uid == resource.data.userId",
+              "delete": "request.auth != null && request.auth.uid == resource.data.userId"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "BubbaFlix Media Center",
+  "description": "Custom Linux media center UI with AIOStreams, IMDb & TMDB integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
