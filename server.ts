@@ -1013,12 +1013,15 @@ http://example.com/stream2.m3u8`;
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    // In production, the bundled server.cjs runs inside /dist/ server directory.
+    // Static assets are placed directly in /dist/ index.html.
+    const distPath = typeof __dirname !== 'undefined' ? __dirname : _dirname;
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
 
   app.post('/api/log', express.json(), (req, res) => { console.log('[CLIENT ERROR]', req.body); res.sendStatus(200); });
   app.listen(PORT, "0.0.0.0", () => {
