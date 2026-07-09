@@ -35,31 +35,21 @@ services:
     image: ghcr.io/jsanderstechnologies/bubbaflix-media-center:latest
     container_name: bubbaflix
     restart: unless-stopped
-    ports:
-      - "5150:5150"
+    network_mode: host
     volumes:
       - ./data:/app/data
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
     environment:
-
       - NODE_ENV=production
       - PORT=5150
       - TMDB_KEY=your_tmdb_key_here
       - TORBOX_API_KEY=your_torbox_key_here
       - AIOSTREAMS_URL=your_aiostreams_manifest_url_here
-    networks:
-      - bubbaflix-net
     labels:
       io.casaos.app.icon: "https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg"
       io.casaos.app.title: "BubbaFlix"
       io.casaos.app.desc: "Premium personal media center and TV coordinator"
-
-networks:
-  bubbaflix-net:
-    driver: bridge
 ```
+
 
 
 
