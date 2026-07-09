@@ -287,6 +287,18 @@ async function startServer() {
       return res.status(400).json({ error: 'Admin email, username, and password are required' });
     }
 
+    // Complexity validation: min 12 chars, upper, lower, number, special char
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?\":{}|<>]/.test(password);
+    if (password.length < 12 || !hasUpper || !hasLower || !hasDigit || !hasSpecial) {
+      return res.status(400).json({ 
+        error: 'Password must be at least 12 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character.' 
+      });
+    }
+
+
     // Hash the first admin's manually input password
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = crypto.scryptSync(password, salt, 64).toString('hex');

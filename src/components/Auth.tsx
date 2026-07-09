@@ -102,12 +102,19 @@ export function AuthModal() {
       setError('Admin email, username, and password are required.');
       return;
     }
-    if (password.length < 8) {
-      setError('Admin password must be at least 8 characters.');
+    
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?\":{}|<>]/.test(password);
+    
+    if (password.length < 12 || !hasUpper || !hasLower || !hasDigit || !hasSpecial) {
+      setError('Admin password must be at least 12 characters and include uppercase, lowercase, numbers, and special characters (!@#$%^&* etc).');
       return;
     }
     setSetupStep(2);
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,13 +290,14 @@ export function AuthModal() {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
               <input 
                 type="password" 
-                placeholder="Admin Password (min 8 characters)" 
+                placeholder="Admin Password (min 12 characters)" 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
                 required
-                minLength={8}
+                minLength={12}
               />
+
             </div>
 
             <button 
