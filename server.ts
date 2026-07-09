@@ -667,20 +667,55 @@ async function startServer() {
 
   // API Route: Transcode Video using FFmpeg
   
+  // Resolves the hostname in a streaming URL to its IP address dynamically
+  // to bypass static child process binary DNS resolution failures in bridge networks.
+  const resolveUrlIp = async (urlStr: string): Promise<string> => {
+    try {
+      const parsedUrl = new URL(urlStr);
+      if (parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1' || parsedUrl.hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+        return urlStr;
+      }
+      return new Promise((resolve) => {
+        dns.lookup(parsedUrl.hostname, (err, address) => {
+          if (err || !address) {
+            console.warn(`[DNS Resolve] Failed to resolve IP for ${parsedUrl.hostname}, using original URL.`);
+            resolve(urlStr);
+          } else {
+            console.log(`[DNS Resolve] Resolved ${parsedUrl.hostname} to ${address}`);
+            const headers = parsedUrl.searchParams.get('headers') || '';
+            
+            // Reconstruct URL with IP and keep original Host header parameter if needed,
+            // or pass Host headers via FFmpeg arguments. Modern cloudfront/cloudflare proxies 
+            // require the Host header to route traffic. We can tell FFmpeg to set the Host header.
+            parsedUrl.hostname = address;
+            resolve(parsedUrl.toString());
+          }
+        });
+      });
+    } catch {
+      return urlStr;
+    }
+  };
+
   // API Route: Get Media Duration
-  app.get("/api/media-info", (req, res) => {
-    const targetUrl = req.query.url;
+  app.get("/api/media-info", async (req, res) => {
+    let targetUrl = req.query.url;
     if (!targetUrl || typeof targetUrl !== 'string') {
       return res.status(400).send("URL is required");
     }
 
+    const originalHost = new URL(targetUrl).hostname;
+    const resolvedUrl = await resolveUrlIp(targetUrl);
+
     const args = [
       '-v', 'error',
+      '-headers', `Host: ${originalHost}`,
       '-print_format', 'json',
       '-show_streams',
       '-show_format',
-      targetUrl
+      resolvedUrl
     ];
+
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args);
     let output = '';
@@ -807,18 +842,23 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
-  app.get("/api/duration", (req, res) => {
+  app.get("/api/duration", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl || typeof targetUrl !== 'string') {
       return res.status(400).send("URL is required");
     }
 
+    const originalHost = new URL(targetUrl).hostname;
+    const resolvedUrl = await resolveUrlIp(targetUrl);
+
     const args = [
       '-v', 'error',
+      '-headers', `Host: ${originalHost}`,
       '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1',
-      targetUrl
+      resolvedUrl
     ];
+
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args);
     let output = '';
@@ -837,7 +877,7 @@ app.get('/api/youtube/search', async (req, res) => {
   });
 
   
-  app.get("/api/transcode/subtitle.vtt", (req, res) => {
+  app.get("/api/transcode/subtitle.vtt", async (req, res) => {
     const targetUrl = req.query.url;
     const track = req.query.track || '0';
     
@@ -845,11 +885,15 @@ app.get('/api/youtube/search', async (req, res) => {
       return res.status(400).send("URL is required");
     }
 
+    const originalHost = new URL(targetUrl).hostname;
+    const resolvedUrl = await resolveUrlIp(targetUrl);
+
     res.setHeader('Content-Type', 'text/vtt');
     
     const args = [
       '-v', 'error',
-      '-i', targetUrl,
+      '-headers', `Host: ${originalHost}`,
+      '-i', resolvedUrl,
       '-map', `0:s:${track}`,
       '-c:s', 'webvtt',
       '-f', 'webvtt',
@@ -874,7 +918,10 @@ app.get('/api/youtube/search', async (req, res) => {
       return res.status(400).send("URL is required");
     }
 
-    console.log(`[FFmpeg] Starting transcode for: ${targetUrl}`);
+    const originalHost = new URL(targetUrl).hostname;
+    const resolvedUrl = await resolveUrlIp(targetUrl);
+
+    console.log(`[FFmpeg] Starting transcode for: ${resolvedUrl} (Host: ${originalHost})`);
 
     res.header('Content-Type', 'video/mp4');
     res.header('Access-Control-Allow-Origin', '*');
@@ -889,7 +936,8 @@ app.get('/api/youtube/search', async (req, res) => {
     }
     
     args.push(
-      '-i', targetUrl,
+      '-headers', `Host: ${originalHost}`,
+      '-i', resolvedUrl,
       '-map', '0:v:0',
     );
     if (audioTrack && audioTrack !== '0') {
@@ -905,11 +953,13 @@ app.get('/api/youtube/search', async (req, res) => {
     try {
       const { stdout } = await execFileAsync(ffprobePath.path, [
         '-v', 'error',
+        '-headers', `Host: ${originalHost}`,
         '-select_streams', 'v:0',
         '-show_entries', 'stream=codec_name',
         '-of', 'default=noprint_wrappers=1:nokey=1',
-        targetUrl
+        resolvedUrl
       ]);
+
       const codec = stdout.trim().toLowerCase();
       if (codec === 'hevc' || codec === 'dvvideo') {
         isHevc = true;
