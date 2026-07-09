@@ -1,4 +1,4 @@
-# <p align="center"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='80' viewBox='0 0 320 80'><defs><path id='c' d='M 12,56 Q 160,20 308,56' fill='none' /><linearGradient id='g' x1='0%' y1='0%' x2='0%' y2='100%'><stop offset='0%' stop-color='%23ff4d4d' /><stop offset='35%' stop-color='%23e50914' /><stop offset='75%' stop-color='%23b30000' /><stop offset='100%' stop-color='%237a0000' /></linearGradient></defs><text font-family='Arial Black, Bebas Neue, Impact, sans-serif' font-size='52' font-weight='900' letter-spacing='-1.2' fill='url(%23g)' stroke='url(%23g)' stroke-width='2.8' stroke-linejoin='round'><textPath href='%23c' startOffset='50%' text-anchor='middle'>BUBBAFLIX</textPath></text></svg>" width="320" alt="BubbaFlix Logo" /></p>
+# <p align="center"><img src="public/logo.svg" width="320" alt="BubbaFlix Logo" /></p>
 
 **BubbaFlix Media Server** is a private, high-performance web-based streaming application and media organizer. It provides user management, content filters, real-time transcoding streams, live TV (M3U/XMLTV), and administrative tools built on a premium, responsive dark-mode layout.
 
