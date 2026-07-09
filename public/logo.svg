@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 125" width="100%" height="100%" style="background: transparent;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 135" width="100%" height="100%" style="background: transparent;">
   <defs>
     <!-- Curve path with slightly more headroom -->
-    <path id="bubbaflix-curve" d="M 15,98 Q 180,42 345,98" fill="none" />
+    <path id="bubbaflix-curve" d="M 15,102 Q 180,42 345,102" fill="none" />
     
     <!-- Rich 3D cinematic red gradient -->
     <linearGradient id="bubbaflix-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -11,23 +11,68 @@
       <stop offset="100%" stop-color="#7a0000" />
     </linearGradient>
 
-    <!-- Combined professional text-shadow & vibrant backglow filter with expanded margins -->
-    <filter id="bubbaflix-glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="3.5" stdDeviation="2.2" flood-color="#000000" flood-opacity="0.95"/>
-      <feDropShadow dx="0" dy="0" stdDeviation="6.0" flood-color="#e50914" flood-opacity="0.5"/>
+    <!-- Deep solid backing gradient for the 3D offset shadow layer -->
+    <linearGradient id="bubbaflix-shadow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3b0000" />
+      <stop offset="100%" stop-color="#140000" />
+    </linearGradient>
+
+    <!-- Expanded glowing filter for the ambient red backglow -->
+    <filter id="bubbaflix-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9.0" result="blur" />
+      <feComponentTransfer in="blur" result="boost">
+        <feFuncA type="linear" slope="1.5"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode in="boost" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
     </filter>
   </defs>
 
+  <!-- BACKGROUND GLOW LAYER: Duplicate text with neon red color fed into the glow filter -->
+  <text 
+    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
+    font-size="52" 
+    font-weight="900" 
+    fill="#ff1a1a" 
+    letter-spacing="0.5px"
+    filter="url(#bubbaflix-glow)"
+    opacity="0.85"
+  >
+    <textPath href="#bubbaflix-curve" startOffset="50%" text-anchor="middle">
+      BUBBAFLIX
+    </textPath>
+  </text>
+
+  <!-- 3D SHADOW LAYER: Offset down and right slightly to create structural 3D thickness -->
+  <text 
+    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
+    font-size="52" 
+    font-weight="900" 
+    fill="url(#bubbaflix-shadow-gradient)" 
+    stroke="#000000"
+    stroke-width="1.8"
+    stroke-linejoin="round"
+    letter-spacing="0.5px"
+    dx="1.8"
+    dy="2.5"
+  >
+    <textPath href="#bubbaflix-curve" startOffset="50%" text-anchor="middle">
+      BUBBAFLIX
+    </textPath>
+  </text>
+
+  <!-- FOREGROUND LAYER: The main textured gradient text with fine outline -->
   <text 
     font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
     font-size="52" 
     font-weight="900" 
     fill="url(#bubbaflix-gradient)" 
-    stroke="url(#bubbaflix-gradient)"
-    stroke-width="0.8"
-    stroke-linejoin="round"
+    stroke="#ffffff"
+    stroke-width="0.3"
+    stroke-opacity="0.5"
     letter-spacing="0.5px"
-    filter="url(#bubbaflix-glow)"
   >
     <textPath href="#bubbaflix-curve" startOffset="50%" text-anchor="middle">
       BUBBAFLIX
