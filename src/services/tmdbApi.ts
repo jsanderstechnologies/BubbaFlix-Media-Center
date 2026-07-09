@@ -1,6 +1,13 @@
 // Phase 3: TMDB API integration for metadata
-const TMDB_API_KEY = (import.meta as any).env.VITE_TMDB_API_KEY;
+const getApiKey = () => {
+  if (typeof window !== 'undefined') {
+    const localKey = localStorage.getItem('tmdbKey');
+    if (localKey) return localKey;
+  }
+  return (import.meta as any).env.VITE_TMDB_API_KEY || '';
+};
 const BASE_URL = 'https://api.themoviedb.org/3';
+
 
 const applyFilters = (results: any[]) => {
   // Deduplicate results by ID to avoid React duplicate key warnings
@@ -28,7 +35,8 @@ const applyFilters = (results: any[]) => {
 };
 
 export const getTrendingMovies = async (genreId: number = 0) => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     console.warn("[Frontend] No VITE_TMDB_API_KEY found, using fallback mock data for preview.");
     const mockMovies = [
       { id: 1, title: 'The Creator', year: '2023', rating: '8.2', resolution: '4K HDR', poster: 'https://image.tmdb.org/t/p/w500/vBZ0qvaRxqEhZwl6LWmruUqNP8.jpg', overview: 'Amid a future war between the human race and the forces of artificial intelligence, a hardened ex-special forces agent grieving the disappearance of his wife, is recruited to hunt down and kill the Creator.', genres: [28, 878, 53], type: 'movie' },
@@ -46,8 +54,8 @@ export const getTrendingMovies = async (genreId: number = 0) => {
 
   try {
     const endpoint = genreId > 0 
-      ? `${BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${genreId}&sort_by=popularity.desc`
-      : `${BASE_URL}/trending/movie/week?api_key=${TMDB_API_KEY}`;
+      ? `${BASE_URL}/discover/movie?api_key=${apiKey}&with_genres=${genreId}&sort_by=popularity.desc`
+      : `${BASE_URL}/trending/movie/week?api_key=${apiKey}`;
 
     const pages = await Promise.all([
       fetch(`${endpoint}&page=1`).then(r => r.json()),
@@ -74,7 +82,8 @@ export const getTrendingMovies = async (genreId: number = 0) => {
 };
 
 export const searchMovies = async (query: string) => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     console.warn("[Frontend] No VITE_TMDB_API_KEY found, using fallback mock data for search.");
     return [
       { id: 6, title: `Search result: ${query}`, year: '2024', rating: '8.0', resolution: '4K', poster: null, overview: 'Mock search result.' }
@@ -84,20 +93,20 @@ export const searchMovies = async (query: string) => {
   try {
     // 1. Search movies by title
     const pages = await Promise.all([
-      fetch(`${BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()),
-      fetch(`${BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=2`).then(r => r.json())
+      fetch(`${BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()),
+      fetch(`${BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=2`).then(r => r.json())
     ]);
     let movieResults = pages.flatMap(p => p.results || []);
 
     // 2. Search person credits (actor search)
     let personMovieResults: any[] = [];
     try {
-      const personRes = await fetch(`${BASE_URL}/search/person?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
+      const personRes = await fetch(`${BASE_URL}/search/person?api_key=${apiKey}&query=${encodeURIComponent(query)}`);
       if (personRes.ok) {
         const personData = await personRes.json();
         if (personData.results && personData.results.length > 0) {
           const person = personData.results[0];
-          const creditsRes = await fetch(`${BASE_URL}/person/${person.id}/combined_credits?api_key=${TMDB_API_KEY}`);
+          const creditsRes = await fetch(`${BASE_URL}/person/${person.id}/combined_credits?api_key=${apiKey}`);
           if (creditsRes.ok) {
             const creditsData = await creditsRes.json();
             personMovieResults = (creditsData.cast || []).filter((m: any) => m.media_type === 'movie');
@@ -130,9 +139,10 @@ export const searchMovies = async (query: string) => {
 };
 
 export const getTvSeriesDetails = async (seriesId: number) => {
-  if (!TMDB_API_KEY) return null;
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
   try {
-    const res = await fetch(`${BASE_URL}/tv/${seriesId}?api_key=${TMDB_API_KEY}`);
+    const res = await fetch(`${BASE_URL}/tv/${seriesId}?api_key=${apiKey}`);
     if (!res.ok) throw new Error("Failed to fetch tv series details");
     return await res.json();
   } catch (error) {
@@ -142,9 +152,10 @@ export const getTvSeriesDetails = async (seriesId: number) => {
 };
 
 export const getTvSeasonDetails = async (seriesId: number, seasonNumber: number) => {
-  if (!TMDB_API_KEY) return null;
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
   try {
-    const res = await fetch(`${BASE_URL}/tv/${seriesId}/season/${seasonNumber}?api_key=${TMDB_API_KEY}`);
+    const res = await fetch(`${BASE_URL}/tv/${seriesId}/season/${seasonNumber}?api_key=${apiKey}`);
     if (!res.ok) throw new Error("Failed to fetch tv season details");
     return await res.json();
   } catch (error) {
@@ -154,7 +165,8 @@ export const getTvSeasonDetails = async (seriesId: number, seasonNumber: number)
 };
 
 export const getTrendingTvSeries = async (genreId: number = 0) => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     const mockTv = [
       { id: 101, title: 'Shōgun', year: '2024', rating: '8.6', resolution: '4K HDR', poster: 'https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WNzG1Syj.jpg', overview: 'In Japan in the year 1600, at the dawn of a century-defining civil war, Lord Yoshii Toranaga is fighting for his life as his enemies on the Council of Regents unite against him.', genres: [18, 10768], type: 'series' },
       { id: 102, title: 'Fallout', year: '2024', rating: '8.4', resolution: '4K HDR', poster: 'https://image.tmdb.org/t/p/w500/A3s3AOWI1356oU02Z0ZETa9w8vW.jpg', overview: 'The story of haves and have-nots in a world in which there’s almost nothing left to have. 200 years after the apocalypse, the gentle denizens of luxury fallout shelters are forced to return to the irradiated hellscape their ancestors left behind.', genres: [10765, 28, 12, 18], type: 'series' },
@@ -171,8 +183,8 @@ export const getTrendingTvSeries = async (genreId: number = 0) => {
 
   try {
     const endpoint = genreId > 0
-      ? `${BASE_URL}/discover/tv?api_key=${TMDB_API_KEY}&with_genres=${genreId}&sort_by=popularity.desc`
-      : `${BASE_URL}/trending/tv/week?api_key=${TMDB_API_KEY}`;
+      ? `${BASE_URL}/discover/tv?api_key=${apiKey}&with_genres=${genreId}&sort_by=popularity.desc`
+      : `${BASE_URL}/trending/tv/week?api_key=${apiKey}`;
 
     const pages = await Promise.all([
       fetch(`${endpoint}&page=1`).then(r => r.json()),
@@ -199,7 +211,8 @@ export const getTrendingTvSeries = async (genreId: number = 0) => {
 };
 
 export const searchTvSeries = async (query: string) => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     return [
       { id: 106, title: `Search result: ${query}`, year: '2024', rating: '8.0', resolution: '4K', poster: null, overview: 'Mock search result.' }
     ];
@@ -208,20 +221,20 @@ export const searchTvSeries = async (query: string) => {
   try {
     // 1. Search TV by title
     const pages = await Promise.all([
-      fetch(`${BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()),
-      fetch(`${BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=2`).then(r => r.json())
+      fetch(`${BASE_URL}/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()),
+      fetch(`${BASE_URL}/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=2`).then(r => r.json())
     ]);
     let tvResults = pages.flatMap(p => p.results || []);
 
     // 2. Search person credits (actor search)
     let personTvResults: any[] = [];
     try {
-      const personRes = await fetch(`${BASE_URL}/search/person?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
+      const personRes = await fetch(`${BASE_URL}/search/person?api_key=${apiKey}&query=${encodeURIComponent(query)}`);
       if (personRes.ok) {
         const personData = await personRes.json();
         if (personData.results && personData.results.length > 0) {
           const person = personData.results[0];
-          const creditsRes = await fetch(`${BASE_URL}/person/${person.id}/combined_credits?api_key=${TMDB_API_KEY}`);
+          const creditsRes = await fetch(`${BASE_URL}/person/${person.id}/combined_credits?api_key=${apiKey}`);
           if (creditsRes.ok) {
             const creditsData = await creditsRes.json();
             personTvResults = (creditsData.cast || []).filter((m: any) => m.media_type === 'tv');
@@ -254,13 +267,14 @@ export const searchTvSeries = async (query: string) => {
 };
 
 export const getMpaaRating = async (id: number, isSeries: boolean): Promise<string> => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     const ratings = isSeries ? ['TV-MA', 'TV-14', 'TV-PG', 'TV-G'] : ['R', 'PG-13', 'PG', 'G'];
     return ratings[id % ratings.length];
   }
   try {
     if (isSeries) {
-      const res = await fetch(`${BASE_URL}/tv/${id}/content_ratings?api_key=${TMDB_API_KEY}`);
+      const res = await fetch(`${BASE_URL}/tv/${id}/content_ratings?api_key=${apiKey}`);
       if (res.ok) {
         const data = await res.json();
         const usRating = data.results?.find((r: any) => r.iso_3166_1 === 'US');
@@ -268,7 +282,7 @@ export const getMpaaRating = async (id: number, isSeries: boolean): Promise<stri
         if (data.results?.[0]?.rating) return data.results[0].rating;
       }
     } else {
-      const res = await fetch(`${BASE_URL}/movie/${id}/release_dates?api_key=${TMDB_API_KEY}`);
+      const res = await fetch(`${BASE_URL}/movie/${id}/release_dates?api_key=${apiKey}`);
       if (res.ok) {
         const data = await res.json();
         const usRelease = data.results?.find((r: any) => r.iso_3166_1 === 'US');
@@ -289,14 +303,15 @@ export const getMpaaRating = async (id: number, isSeries: boolean): Promise<stri
 };
 
 export const getPopularMovies = async (): Promise<any[]> => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     return [
       { id: 2, title: 'Dune: Part Two', year: '2024', rating: '9.1', poster: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2JGqqBTrw.jpg', overview: 'Paul Atreides unites with Chani and the Fremen while on a warpath of revenge against the conspirators who destroyed his family.', type: 'movie' },
       { id: 4, title: 'Saltburn', year: '2023', rating: '7.5', poster: 'https://image.tmdb.org/t/p/w500/qjhahNLSZ705B5JP92IXymSmPIX.jpg', overview: 'Struggling to find his place at Oxford University, student Oliver Quick finds himself drawn into the world of the charming and aristocratic Felix Catton.', type: 'movie' }
     ];
   }
   try {
-    const res = await fetch(`${BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&page=1`);
+    const res = await fetch(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=1`);
     if (!res.ok) throw new Error("Failed to fetch popular movies");
     const data = await res.json();
     return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
@@ -316,14 +331,15 @@ export const getPopularMovies = async (): Promise<any[]> => {
 };
 
 export const getTopRatedMovies = async (): Promise<any[]> => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     return [
       { id: 3, title: 'Poor Things', year: '2023', rating: '7.9', poster: 'https://image.tmdb.org/t/p/w500/kCGlIMHnOm8JPXq3rXM3c5wOX91.jpg', overview: 'Brought back to life by an unorthodox scientist, a young woman runs off with a debauched lawyer on a whirlwind adventure across the continents.', type: 'movie' },
       { id: 1, title: 'The Creator', year: '2023', rating: '8.2', poster: 'https://image.tmdb.org/t/p/w500/vBZ0qvaRxqEhZwl6LWmruUqNP8.jpg', overview: 'Amid a future war between the human race and the forces of artificial intelligence, a hardened ex-special forces agent grieving the disappearance of his wife, is recruited to hunt down and kill the Creator.', type: 'movie' }
     ];
   }
   try {
-    const res = await fetch(`${BASE_URL}/movie/top_rated?api_key=${TMDB_API_KEY}&page=1`);
+    const res = await fetch(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=1`);
     if (!res.ok) throw new Error("Failed to fetch top rated movies");
     const data = await res.json();
     return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
@@ -343,14 +359,15 @@ export const getTopRatedMovies = async (): Promise<any[]> => {
 };
 
 export const getPopularTvSeries = async (): Promise<any[]> => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     return [
       { id: 102, title: 'Fallout', year: '2024', rating: '8.4', poster: 'https://image.tmdb.org/t/p/w500/A3s3AOWI1356oU02Z0ZETa9w8vW.jpg', overview: 'The story of haves and have-nots in a world in which there’s almost nothing left to have. 200 years after the apocalypse, the gentle denizens of luxury fallout shelters are forced to return to the irradiated hellscape their ancestors left behind.', type: 'series' },
-      { id: 105, title: 'The Bear', year: '2022', rating: '8.3', poster: 'https://image.tmdb.org/t/p/w500/o7y1BGEy2X3yN5QJ0E5XwOIfU1Q.jpg', overview: 'Carmen Berzatto, a brilliant young chef from the fine-dining world is forced to return to run his family sandwich shop.', type: 'series' }
+      { id: 105, title: 'The Bear', year: '2022', rating: '8.3', poster: 'https://image.tmdb.org/t/p/w500/o7y1BGEy2X3yN5QJ0E5XwOIfU1Q.jpg', overview: 'Carmen Berzatto, a brilliant young chef from the family sandwich shop is forced to return to run his family sandwich shop.', type: 'series' }
     ];
   }
   try {
-    const res = await fetch(`${BASE_URL}/tv/popular?api_key=${TMDB_API_KEY}&page=1`);
+    const res = await fetch(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=1`);
     if (!res.ok) throw new Error("Failed to fetch popular tv series");
     const data = await res.json();
     return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
@@ -370,14 +387,15 @@ export const getPopularTvSeries = async (): Promise<any[]> => {
 };
 
 export const getTopRatedTvSeries = async (): Promise<any[]> => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     return [
       { id: 101, title: 'Shōgun', year: '2024', rating: '8.6', poster: 'https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WNzG1Syj.jpg', overview: 'In Japan in the year 1600, at the dawn of a century-defining civil war, Lord Yoshii Toranaga is fighting for his life as his enemies on the Council of Regents unite against him.', type: 'series' },
       { id: 103, title: '3 Body Problem', year: '2024', rating: '7.6', poster: 'https://image.tmdb.org/t/p/w500/YKZptD9tQjA05oQdtaB8gW8cMh.jpg', overview: 'Across continents and decades, five brilliant friends make earth-shattering discoveries as the laws of science unravel and an existential threat emerges.', type: 'series' }
     ];
   }
   try {
-    const res = await fetch(`${BASE_URL}/tv/top_rated?api_key=${TMDB_API_KEY}&page=1`);
+    const res = await fetch(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=1`);
     if (!res.ok) throw new Error("Failed to fetch top rated tv series");
     const data = await res.json();
     return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
@@ -397,7 +415,8 @@ export const getTopRatedTvSeries = async (): Promise<any[]> => {
 };
 
 export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     const mockCast = [
       { id: 1, name: 'Pedro Pascal', character: 'Joel Miller', profilePath: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150&h=150' },
       { id: 2, name: 'Florence Pugh', character: 'Yelena Belova', profilePath: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150' },
@@ -418,8 +437,8 @@ export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) =
   try {
     const type = isSeries ? 'tv' : 'movie';
     const [detailsRes, creditsRes] = await Promise.all([
-      fetch(`${BASE_URL}/${type}/${id}?api_key=${TMDB_API_KEY}`),
-      fetch(`${BASE_URL}/${type}/${id}/credits?api_key=${TMDB_API_KEY}`)
+      fetch(`${BASE_URL}/${type}/${id}?api_key=${apiKey}`),
+      fetch(`${BASE_URL}/${type}/${id}/credits?api_key=${apiKey}`)
     ]);
 
     const details = detailsRes.ok ? await detailsRes.json() : {};
@@ -485,7 +504,8 @@ export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) =
 };
 
 export const searchActors = async (query: string) => {
-  if (!TMDB_API_KEY) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     const mockActors = [
       { id: 1, name: 'Pedro Pascal', knownFor: 'The Last of Us, The Mandalorian', profilePath: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150&h=150' },
       { id: 2, name: 'Florence Pugh', knownFor: 'Dune: Part Two, Oppenheimer', profilePath: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150' },
@@ -497,7 +517,7 @@ export const searchActors = async (query: string) => {
   }
 
   try {
-    const res = await fetch(`${BASE_URL}/search/person?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
+    const res = await fetch(`${BASE_URL}/search/person?api_key=${apiKey}&query=${encodeURIComponent(query)}`);
     if (!res.ok) return [];
     const data = await res.json();
     return (data.results || []).slice(0, 15).map((p: any) => ({
@@ -511,5 +531,6 @@ export const searchActors = async (query: string) => {
     return [];
   }
 };
+
 
 
