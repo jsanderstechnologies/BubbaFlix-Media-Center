@@ -47,11 +47,29 @@ services:
       - TMDB_KEY=your_tmdb_key_here
       - TORBOX_API_KEY=your_torbox_key_here
       - AIOSTREAMS_URL=your_aiostreams_manifest_url_here
+    networks:
+      - bubbaflix-net
     labels:
       io.casaos.app.icon: "https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg"
       io.casaos.app.title: "BubbaFlix"
       io.casaos.app.desc: "Premium personal media center and TV coordinator"
+
+  aiostreams:
+    image: viren070/aiostreams:latest
+    container_name: aiostreams
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./aiostreams-data:/app/data
+    networks:
+      - bubbaflix-net
+
+networks:
+  bubbaflix-net:
+    driver: bridge
 ```
+
 
 
 
