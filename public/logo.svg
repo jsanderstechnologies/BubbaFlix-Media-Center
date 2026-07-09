@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="100%" height="100%" style="background: transparent;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 95" width="100%" height="100%" style="background: transparent;">
   <defs>
-    <!-- A precise quadratic Bezier curve to arch the BUBBAFLIX text perfectly -->
-    <path id="bubbaflix-curve" d="M 12,56 Q 160,20 308,56" fill="none" />
+    <!-- Shifted down slightly to leave more headroom at the top (y-bounds) of the canvas -->
+    <path id="bubbaflix-curve" d="M 12,68 Q 160,32 308,68" fill="none" />
     
     <!-- Rich 3D cinematic red gradient -->
     <linearGradient id="bubbaflix-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -13,21 +13,16 @@
 
     <!-- Combined professional text-shadow & vibrant backglow filter -->
     <filter id="bubbaflix-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <!-- Deep black structural drop shadow for readability -->
       <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.95"/>
-      <!-- Subtle red ambient backglow to separate logo from dark background -->
-      <feDropShadow dx="0" dy="0" stdDeviation="5.5" flood-color="#e50914" flood-opacity="0.45"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="4.0" flood-color="#e50914" flood-opacity="0.45"/>
     </filter>
   </defs>
 
   <text 
     font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
-    font-size="56" 
+    font-size="52" 
     font-weight="900" 
     fill="url(#bubbaflix-gradient)" 
-    stroke="url(#bubbaflix-gradient)" 
-    stroke-width="2.8" 
-    stroke-linejoin="round"
     letter-spacing="-1.2"
     filter="url(#bubbaflix-glow)"
   >
