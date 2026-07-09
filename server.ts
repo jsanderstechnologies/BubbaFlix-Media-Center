@@ -267,7 +267,56 @@ async function startServer() {
     return { sent: true };
   };
 
+  // Check if first-time setup is required (zero users in db)
+  app.get('/api/auth/setup-status', (req, res) => {
+    const users = readJson(USERS_FILE);
+    const setupRequired = Object.keys(users).length === 0;
+    res.json({ setupRequired });
+  });
+
+  // Perform first-time setup: create first admin and write initial keys
+  app.post('/api/auth/setup-init', (req, res) => {
+    const users = readJson(USERS_FILE);
+    if (Object.keys(users).length > 0) {
+      return res.status(400).json({ error: 'Setup has already been completed' });
+    }
+
+    const { email, username, password, tmdbKey, torboxApiKey, aiostreamsUrl } = req.body;
+    if (!email || !username || !password) {
+      return res.status(400).json({ error: 'Admin email, username, and password are required' });
+    }
+
+    // Hash the first admin's manually input password
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+    const token = crypto.randomBytes(32).toString('hex');
+    const uid = crypto.randomUUID();
+
+    users[uid] = { 
+      uid, 
+      email, 
+      username, 
+      salt, 
+      hash, 
+      token, 
+      role: 'admin', 
+      status: 'approved', 
+      registeredAt: new Date().toISOString() 
+    };
+    writeJson(USERS_FILE, users);
+
+    // Save initial system keys if provided
+    const settings = readJson(SETTINGS_FILE);
+    if (tmdbKey) settings.tmdbKey = tmdbKey;
+    if (torboxApiKey) settings.torboxApiKey = torboxApiKey;
+    if (aiostreamsUrl) settings.aiostreamsUrl = aiostreamsUrl;
+    writeJson(SETTINGS_FILE, settings);
+
+    res.json({ success: true, user: { uid, email, username, role: 'admin', status: 'approved' }, token });
+  });
+
   // /api/auth/register  — no password required; admin will approve and email credentials
+
   app.post('/api/auth/register', (req, res) => {
     const { email, username } = req.body;
     if (!email || !username) return res.status(400).json({ error: 'Email and username are required' });

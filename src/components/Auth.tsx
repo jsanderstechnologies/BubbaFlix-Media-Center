@@ -68,10 +68,29 @@ export function AuthModal() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Setup Wizard States
+  const [setupRequired, setSetupRequired] = useState(false);
+  const [tmdbKey, setTmdbKey] = useState('');
+  const [torboxApiKey, setTorboxApiKey] = useState('');
+  const [aiostreamsUrl, setAiostreamsUrl] = useState('');
+
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pendingApproval, setPendingApproval] = useState(false);
   const [firstAdminPassword, setFirstAdminPassword] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/setup-status')
+      .then(res => res.json())
+      .then(data => {
+        if (data.setupRequired) {
+          setSetupRequired(true);
+          setIsLogin(false); // Default to registration view for setup
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   if (loading || user) return null;
 
@@ -80,9 +99,10 @@ export function AuthModal() {
     setError('');
     setSubmitting(true);
 
-    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-    // Registration no longer sends a password — server generates one on approval
-    const body = isLogin ? { email, password } : { email, username };
+    const endpoint = setupRequired ? '/api/auth/setup-init' : (isLogin ? '/api/auth/login' : '/api/auth/register');
+    const body = setupRequired 
+      ? { email, username, password, tmdbKey, torboxApiKey, aiostreamsUrl }
+      : (isLogin ? { email, password } : { email, username });
 
     try {
       const res = await fetch(endpoint, {
@@ -99,7 +119,15 @@ export function AuthModal() {
         return;
       }
 
-      // First-ever user: server auto-approves and returns a generated password
+      // If setup just completed, save system keys to localStorage for client side sync
+      if (setupRequired) {
+        if (tmdbKey) localStorage.setItem('tmdbKey', tmdbKey);
+        if (torboxApiKey) localStorage.setItem('torboxApiKey', torboxApiKey);
+        if (aiostreamsUrl) localStorage.setItem('aiostreamsUrl', aiostreamsUrl);
+        setSetupRequired(false);
+      }
+
+      // First-ever user: server auto-approves and returns a generated password (fallback support)
       if (data.firstUser && data.generatedPassword) {
         // Store in sessionStorage so App.tsx can display it as a one-time banner
         sessionStorage.setItem('firstAdminPassword', data.generatedPassword);
@@ -107,7 +135,7 @@ export function AuthModal() {
         return;
       }
 
-      login(data.user, data.token);
+      login(data.user || data, data.token);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -197,10 +225,12 @@ export function AuthModal() {
           </div>
         </div>
         <h2 className="text-3xl font-black text-white mb-2 text-center tracking-tight">
-          {isLogin ? 'Welcome Back' : 'Create Account'}
+          {setupRequired ? 'First-Time Setup' : (isLogin ? 'Welcome Back' : 'Create Account')}
         </h2>
         <p className="text-white/50 text-center mb-8">
-          {isLogin ? 'Sign in to access your media center.' : 'Register to save your favorites and settings.'}
+          {setupRequired 
+            ? 'Create the primary administrator account and configure API integration keys.' 
+            : (isLogin ? 'Sign in to access your media center.' : 'Register to save your favorites and settings.')}
         </p>
 
         {error && (
@@ -210,11 +240,12 @@ export function AuthModal() {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Admin / Register Email */}
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
             <input 
-              type="text" 
-              placeholder="Email Address or Username" 
+              type="email" 
+              placeholder={setupRequired ? "Admin Email Address" : "Email Address"} 
               value={email}
               onChange={e => setEmail(e.target.value)}
               className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
@@ -222,12 +253,13 @@ export function AuthModal() {
             />
           </div>
 
-          {!isLogin && (
+          {/* Admin / Register Username */}
+          {(!isLogin || setupRequired) && (
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
               <input 
                 type="text" 
-                placeholder="Username" 
+                placeholder={setupRequired ? "Admin Username" : "Username"} 
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
@@ -236,23 +268,64 @@ export function AuthModal() {
             </div>
           )}
 
-          {/* Password field — only shown on login, not registration */}
-          {isLogin && (
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-            <input 
-              type="password" 
-              placeholder="Password" 
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-              required
-            />
-          </div>
+          {/* Admin Setup Password or Login Password */}
+          {(isLogin || setupRequired) && (
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+              <input 
+                type="password" 
+                placeholder={setupRequired ? "Admin Password (min 8 characters)" : "Password"} 
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                required
+                minLength={setupRequired ? 8 : undefined}
+              />
+            </div>
+          )}
+
+          {/* Setup-only integration keys */}
+          {setupRequired && (
+            <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
+              <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Integration Configurations (Optional)</h3>
+              
+              <div className="space-y-1">
+                <label className="text-[10px] text-white/50 block font-semibold">TMDB API Key</label>
+                <input 
+                  type="password" 
+                  placeholder="Enter TMDB key..." 
+                  value={tmdbKey}
+                  onChange={e => setTmdbKey(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] text-white/50 block font-semibold">TorBox API Key</label>
+                <input 
+                  type="password" 
+                  placeholder="Enter TorBox key..." 
+                  value={torboxApiKey}
+                  onChange={e => setTorboxApiKey(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] text-white/50 block font-semibold">AIOStreams Manifest URL</label>
+                <input 
+                  type="url" 
+                  placeholder="https://aiostreams.elfhosted.com/manifest.json" 
+                  value={aiostreamsUrl}
+                  onChange={e => setAiostreamsUrl(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none font-mono"
+                />
+              </div>
+            </div>
           )}
 
           {/* Register info notice */}
-          {!isLogin && (
+          {!isLogin && !setupRequired && (
             <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
               <svg className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -268,22 +341,25 @@ export function AuthModal() {
             disabled={submitting}
             className="mt-4 w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {submitting ? 'Please wait...' : isLogin ? <><LogIn className="w-5 h-5"/> Sign In</> : <><UserPlus className="w-5 h-5"/> Register</>}
+            {submitting ? 'Please wait...' : setupRequired ? 'COMPLETE SETUP' : isLogin ? <><LogIn className="w-5 h-5"/> Sign In</> : <><UserPlus className="w-5 h-5"/> Register</>}
           </button>
         </form>
 
-        <div className="mt-6 text-center">
-          <button 
-            onClick={() => { setIsLogin(!isLogin); setError(''); }}
-            className="text-white/50 hover:text-white transition-colors text-sm"
-          >
-            {isLogin ? "Don't have an account? Register" : "Already have an account? Sign in"}
-          </button>
-        </div>
+        {!setupRequired && (
+          <div className="mt-6 text-center">
+            <button 
+              onClick={() => { setIsLogin(!isLogin); setError(''); }}
+              className="text-white/50 hover:text-white transition-colors text-sm"
+            >
+              {isLogin ? "Don't have an account? Register" : "Already have an account? Sign in"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
 
 import { UserSettingsModal } from './UserSettingsModal';
 
