@@ -1,6 +1,6 @@
 services:
   bubbaflix:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-jessie}/bubbaflix:latest
+    image: ghcr.io/jsanderstechnologies/bubbaflix-media-center:latest
     container_name: bubbaflix
     restart: unless-stopped
     ports:
@@ -10,3 +10,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5150
+    networks:
+      - bubbaflix-net
+
+networks:
+  bubbaflix-net:
+    driver: bridge
+
