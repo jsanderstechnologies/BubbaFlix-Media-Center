@@ -1,12 +1,16 @@
 // Phase 3: AIOStreams integration
-// We are using the actual user-provided AIOStreams manifest URL here.
-
-const DEFAULT_MANIFEST_URL = "https://aiostreams.elfhosted.com/stremio/7f80cea5-d598-4684-9bd9-1650e2214bf6/eyJpIjoiTEd2b0Q2cmRERS9zY3AvUGxhRGtVUT09IiwiZSI6IkVGUXpncVVjSWFEVlJVSHNneDJyM0s2Qkx2aE1ocUtHNUpEL1diS3ZxNEE9IiwidCI6ImEifQ/manifest.json";
+const getManifestUrl = () => {
+  if (typeof window !== 'undefined') {
+    const localUrl = localStorage.getItem('aiostreamsUrl');
+    if (localUrl) return localUrl;
+  }
+  return "https://aiostreams.elfhosted.com/stremio/7f80cea5-d598-4684-9bd9-1650e2214bf6/eyJpIjoiTEd2b0Q2cmRERS9zY3AvUGxhRGtVUT09IiwiZSI6IkVGUXpncVVjSWFEVlJVSHNneDJyM0s2Qkx2aE1ocUtHNUpEL1diS3ZxNEE9IiwidCI6ImEifQ/manifest.json";
+};
 
 export const fetchStreamsForTvSeries = async (tmdbId: number, season: number, episode: number) => {
   console.log(`[Frontend] Requesting real AIOStreams streams for TMDB ID: ${tmdbId}, S${season}E${episode}`);
   
-  const baseUrl = DEFAULT_MANIFEST_URL.replace('/manifest.json', '');
+  const baseUrl = getManifestUrl().replace('/manifest.json', '');
   const streamUrl = `${baseUrl}/stream/series/tmdb:${tmdbId}:${season}:${episode}.json`;
   
   try {
@@ -54,8 +58,9 @@ export const fetchStreamsForTvSeries = async (tmdbId: number, season: number, ep
 
 export const fetchStreamsForMovie = async (tmdbId: number) => {
   
-  const baseUrl = DEFAULT_MANIFEST_URL.replace('/manifest.json', '');
+  const baseUrl = getManifestUrl().replace('/manifest.json', '');
   const streamUrl = `${baseUrl}/stream/movie/tmdb:${tmdbId}.json`;
+
   
   try {
     const response = await fetch(streamUrl);
