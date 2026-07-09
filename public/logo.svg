@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 95" width="100%" height="100%" style="background: transparent;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 120" width="100%" height="100%" style="background: transparent;">
   <defs>
-    <!-- Shifted down slightly to leave more headroom at the top (y-bounds) of the canvas -->
-    <path id="bubbaflix-curve" d="M 12,68 Q 160,32 308,68" fill="none" />
+    <!-- Shifted down further and flattened the curve to prevent clipping of the arched middle -->
+    <path id="bubbaflix-curve" d="M 15,95 Q 180,45 345,95" fill="none" />
     
     <!-- Rich 3D cinematic red gradient -->
     <linearGradient id="bubbaflix-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -11,19 +11,19 @@
       <stop offset="100%" stop-color="#7a0000" />
     </linearGradient>
 
-    <!-- Combined professional text-shadow & vibrant backglow filter -->
-    <filter id="bubbaflix-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.95"/>
-      <feDropShadow dx="0" dy="0" stdDeviation="4.0" flood-color="#e50914" flood-opacity="0.45"/>
+    <!-- Combined professional text-shadow & vibrant backglow filter with expanded margins -->
+    <filter id="bubbaflix-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3.0" flood-color="#000000" flood-opacity="0.95"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="5.0" flood-color="#e50914" flood-opacity="0.45"/>
     </filter>
   </defs>
 
   <text 
-    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
+    font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" 
     font-size="52" 
     font-weight="900" 
     fill="url(#bubbaflix-gradient)" 
-    letter-spacing="-1.2"
+    letter-spacing="1px"
     filter="url(#bubbaflix-glow)"
   >
     <textPath href="#bubbaflix-curve" startOffset="50%" text-anchor="middle">
