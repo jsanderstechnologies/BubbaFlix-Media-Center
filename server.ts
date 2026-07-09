@@ -1,5 +1,8 @@
 import express from 'express';
 import path from 'path';
+import dns from 'dns';
+dns.setServers(['1.1.1.1', '8.8.8.8']);
+
 import { createServer as createViteServer } from 'vite';
 import axios from 'axios';
 import parser from 'iptv-playlist-parser';
