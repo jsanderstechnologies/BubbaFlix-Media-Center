@@ -155,7 +155,7 @@ export async function playMediaStream(streamUrl: string) {
 
 async function startServer() {
   const app = express();
-  const PORT = 5150;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5150;
   
   app.use(express.json());
 
