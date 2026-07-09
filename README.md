@@ -35,7 +35,11 @@ services:
     image: ghcr.io/jsanderstechnologies/bubbaflix-media-center:latest
     container_name: bubbaflix
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "5150:5150"
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     volumes:
       - ./data:/app/data
     environment:
@@ -49,6 +53,7 @@ services:
       io.casaos.app.title: "BubbaFlix"
       io.casaos.app.desc: "Premium personal media center and TV coordinator"
 ```
+
 
 
 
