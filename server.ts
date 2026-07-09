@@ -697,25 +697,22 @@ async function startServer() {
     }
   };
 
-  // API Route: Get Media Duration
+  // API Route: Get Media Duration Info
   app.get("/api/media-info", async (req, res) => {
-    let targetUrl = req.query.url;
+    const targetUrl = req.query.url;
     if (!targetUrl || typeof targetUrl !== 'string') {
       return res.status(400).send("URL is required");
     }
 
-    const originalHost = new URL(targetUrl).hostname;
-    const resolvedUrl = await resolveUrlIp(targetUrl);
+    console.log(`[FFprobe-Proxy] Probing media info for: ${targetUrl}`);
 
     const args = [
       '-v', 'error',
-      '-headers', `Host: ${originalHost}`,
       '-print_format', 'json',
       '-show_streams',
       '-show_format',
-      resolvedUrl
+      '-i', 'pipe:0'
     ];
-
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args);
     let output = '';
@@ -735,9 +732,24 @@ async function startServer() {
         res.status(500).json({ error: "Failed to get media info" });
       }
     });
+
+    // Pipe remote stream directly into ffprobe stdin via Axios (handles redirects natively)
+    try {
+      const response = await axios({
+        method: 'get',
+        url: targetUrl,
+        responseType: 'stream',
+        timeout: 15000,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      response.data.pipe(ffprobeProcess.stdin);
+    } catch (err: any) {
+      console.error('[FFprobe-Proxy] Network connection failed:', err.message);
+      ffprobeProcess.stdin.end();
+    }
   });
 
-  app.get("/api/subtitles", (req, res) => {
+  app.get("/api/subtitles", async (req, res) => {
     const targetUrl = req.query.url;
     const index = req.query.index;
     if (!targetUrl || typeof targetUrl !== 'string' || !index) {
@@ -748,7 +760,7 @@ async function startServer() {
     res.header('Access-Control-Allow-Origin', '*');
 
     const args = [
-      '-i', targetUrl,
+      '-i', 'pipe:0',
       '-map', `0:${index}`,
       '-f', 'webvtt',
       'pipe:1'
@@ -756,8 +768,27 @@ async function startServer() {
 
     const ffmpegProcess = spawn(ffmpegPath, args);
     ffmpegProcess.stdout.pipe(res);
+
+    try {
+      const response = await axios({
+        method: 'get',
+        url: targetUrl,
+        responseType: 'stream',
+        timeout: 15000,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      response.data.pipe(ffmpegProcess.stdin);
+    } catch (err: any) {
+      console.error('[Subtitle Proxy] Connection failed:', err.message);
+      ffmpegProcess.stdin.end();
+    }
+
     ffmpegProcess.on('error', (err) => {
       console.error('[FFmpeg Subtitle Error]', err);
+    });
+
+    req.on('close', () => {
+      ffmpegProcess.kill('SIGKILL');
     });
   });
 
@@ -848,17 +879,14 @@ app.get('/api/youtube/search', async (req, res) => {
       return res.status(400).send("URL is required");
     }
 
-    const originalHost = new URL(targetUrl).hostname;
-    const resolvedUrl = await resolveUrlIp(targetUrl);
+    console.log(`[FFprobe-Proxy] Getting duration for: ${targetUrl}`);
 
     const args = [
       '-v', 'error',
-      '-headers', `Host: ${originalHost}`,
       '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1',
-      resolvedUrl
+      '-i', 'pipe:0'
     ];
-
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args);
     let output = '';
@@ -874,6 +902,20 @@ app.get('/api/youtube/search', async (req, res) => {
         res.status(500).json({ error: "Failed to get duration" });
       }
     });
+
+    try {
+      const response = await axios({
+        method: 'get',
+        url: targetUrl,
+        responseType: 'stream',
+        timeout: 15000,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      response.data.pipe(ffprobeProcess.stdin);
+    } catch (err: any) {
+      console.error('[FFprobe-Proxy] Connection failed:', err.message);
+      ffprobeProcess.stdin.end();
+    }
   });
 
   
@@ -885,15 +927,13 @@ app.get('/api/youtube/search', async (req, res) => {
       return res.status(400).send("URL is required");
     }
 
-    const originalHost = new URL(targetUrl).hostname;
-    const resolvedUrl = await resolveUrlIp(targetUrl);
+    console.log(`[FFmpeg-Proxy] Pulling subtitle track ${track} for: ${targetUrl}`);
 
     res.setHeader('Content-Type', 'text/vtt');
     
     const args = [
       '-v', 'error',
-      '-headers', `Host: ${originalHost}`,
-      '-i', resolvedUrl,
+      '-i', 'pipe:0',
       '-map', `0:s:${track}`,
       '-c:s', 'webvtt',
       '-f', 'webvtt',
@@ -902,6 +942,20 @@ app.get('/api/youtube/search', async (req, res) => {
     
     const ffmpegProcess = spawn(ffmpegPath, args);
     ffmpegProcess.stdout.pipe(res);
+
+    try {
+      const response = await axios({
+        method: 'get',
+        url: targetUrl,
+        responseType: 'stream',
+        timeout: 15000,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      response.data.pipe(ffmpegProcess.stdin);
+    } catch (err: any) {
+      console.error('[FFmpeg Subtitle Proxy] Connection failed:', err.message);
+      ffmpegProcess.stdin.end();
+    }
     
     ffmpegProcess.on('error', (err) => {
       console.error('[FFmpeg Subtitle] Error:', err);
@@ -918,10 +972,7 @@ app.get('/api/youtube/search', async (req, res) => {
       return res.status(400).send("URL is required");
     }
 
-    const originalHost = new URL(targetUrl).hostname;
-    const resolvedUrl = await resolveUrlIp(targetUrl);
-
-    console.log(`[FFmpeg] Starting transcode for: ${resolvedUrl} (Host: ${originalHost})`);
+    console.log(`[FFmpeg-Proxy] Starting transcode pipe for: ${targetUrl}`);
 
     res.header('Content-Type', 'video/mp4');
     res.header('Access-Control-Allow-Origin', '*');
@@ -929,6 +980,7 @@ app.get('/api/youtube/search', async (req, res) => {
 
     const audioTrack = req.query.audio;
     const startOffset = req.query.start as string;
+    const bufsize = req.query.bufsize as string || '64M';
     
     const args = [];
     if (startOffset && !isNaN(parseFloat(startOffset))) {
@@ -936,8 +988,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
     
     args.push(
-      '-headers', `Host: ${originalHost}`,
-      '-i', resolvedUrl,
+      '-i', 'pipe:0',
       '-map', '0:v:0',
     );
     if (audioTrack && audioTrack !== '0') {
@@ -946,30 +997,24 @@ app.get('/api/youtube/search', async (req, res) => {
       args.push('-map', '0:a:0');
     }
     
-    const bufsize = req.query.bufsize as string || '64M';
-    
-    // Auto-detect HEVC and transcode
+    // Auto-detect HEVC and transcode via inline probe
     let isHevc = false;
-    try {
-      const { stdout } = await execFileAsync(ffprobePath.path, [
-        '-v', 'error',
-        '-headers', `Host: ${originalHost}`,
-        '-select_streams', 'v:0',
-        '-show_entries', 'stream=codec_name',
-        '-of', 'default=noprint_wrappers=1:nokey=1',
-        resolvedUrl
-      ]);
 
-      const codec = stdout.trim().toLowerCase();
-      if (codec === 'hevc' || codec === 'dvvideo') {
+    try {
+      // Fetch media info from our local proxy API
+      const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(targetUrl)}`;
+      const infoRes = await axios.get(infoUrl, { timeout: 15000 });
+      const mediaInfo = infoRes.data;
+      const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video');
+      if (videoStream && (videoStream.codec_name === 'hevc' || videoStream.codec_name === 'dvvideo')) {
         isHevc = true;
       }
     } catch (err: any) {
-      console.warn('[FFprobe] Failed to probe video codec, falling back to copy:', err.message);
+      console.warn('[FFmpeg-Proxy] Codec auto-detection failed:', err.message);
     }
 
     if (isHevc) {
-      console.log('[FFmpeg] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 for browser compatibility.');
+      console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 for browser compatibility.');
       args.push(
         '-c:v', 'libx264', 
         '-preset', 'ultrafast', 
@@ -983,7 +1028,7 @@ app.get('/api/youtube/search', async (req, res) => {
     // Dynamic Audio Leveling filter (keeps loud parts in movies from overwhelming the user)
     const audioLeveling = req.query.audioLeveling === 'true';
     if (audioLeveling) {
-      console.log('[FFmpeg] Enabling Dynamic Audio Leveling (dynaudnorm filter)');
+      console.log('[FFmpeg-Proxy] Enabling Dynamic Audio Leveling (dynaudnorm filter)');
       args.push('-af', 'dynaudnorm=f=150:g=15:p=0.95');
     }
 
@@ -999,17 +1044,31 @@ app.get('/api/youtube/search', async (req, res) => {
     const ffmpegProcess = spawn(ffmpegPath, args);
 
     // Create an aggressive Node.js memory buffer (PassThrough)
-    // We convert the 'M' suffix back to bytes for highWaterMark.
     let hwMark = 64 * 1024 * 1024; // default 64MB
     if (bufsize.endsWith('M')) {
       hwMark = parseInt(bufsize.replace('M', ''), 10) * 1024 * 1024;
     }
-    
-    // Ensure we don't go over ~1GB to prevent V8 memory crashes, but allow huge buffers if requested
     hwMark = Math.min(hwMark, 1024 * 1024 * 1024);
     
     const bufferStream = new PassThrough({ highWaterMark: hwMark });
     ffmpegProcess.stdout.pipe(bufferStream).pipe(res);
+
+    // Stream remote media content directly into FFmpeg stdin via Axios
+    let responseStream: any = null;
+    try {
+      const response = await axios({
+        method: 'get',
+        url: targetUrl,
+        responseType: 'stream',
+        timeout: 30000,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      responseStream = response.data;
+      responseStream.pipe(ffmpegProcess.stdin);
+    } catch (err: any) {
+      console.error('[FFmpeg-Proxy] Media pipe failed to establish connection:', err.message);
+      ffmpegProcess.stdin.end();
+    }
 
     let errorOutput = '';
     ffmpegProcess.stderr.on('data', (data) => {
@@ -1027,6 +1086,9 @@ app.get('/api/youtube/search', async (req, res) => {
 
     req.on('close', () => {
       console.log(`[FFmpeg] Client disconnected, killing ffmpeg process`);
+      if (responseStream) {
+        try { responseStream.destroy(); } catch {}
+      }
       ffmpegProcess.kill('SIGKILL');
     });
   });
