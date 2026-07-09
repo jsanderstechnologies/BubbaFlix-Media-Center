@@ -19,8 +19,8 @@ import { PassThrough } from 'stream';
 import play from 'play-dl';
 import ytdl from '@distube/ytdl-core';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename = typeof import.meta !== 'undefined' && import.meta.url ? fileURLToPath(import.meta.url) : __filename;
+const __dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(__filename);
 
 // ============================================================================
 // PHASE 1: NODE.JS BACKEND FUNCTIONS (For your Electron main.js)
