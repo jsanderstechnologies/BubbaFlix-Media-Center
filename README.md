@@ -42,12 +42,19 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5150
+    networks:
+      - bubbaflix-net
+
+networks:
+  bubbaflix-net:
+    driver: bridge
 ```
 
 Start the service with:
 ```bash
 docker compose up -d
 ```
+
 
 ---
 
