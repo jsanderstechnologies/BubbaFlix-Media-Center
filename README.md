@@ -39,7 +39,11 @@ services:
       - "5150:5150"
     volumes:
       - ./data:/app/data
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     environment:
+
       - NODE_ENV=production
       - PORT=5150
       - TMDB_KEY=your_tmdb_key_here
