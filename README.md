@@ -60,6 +60,10 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+  environment:
+      - SECRET_KEY=48cf022aabbcf699bca69d838625fcfa5fbf1bf782076170dd9a30036b61cf02
+      # IMPORTANT: Replace YOUR_SERVER_IP below with your machine's actual local IP address
+      - BASE_URL=http://192.168.10.10:8000
     volumes:
       - ./aiostreams-data:/app/data
     networks:
@@ -69,11 +73,7 @@ networks:
   bubbaflix-net:
     driver: bridge
 ```
-
-
-
-
-
+ 
 
 Start the service with:
 ```bash
