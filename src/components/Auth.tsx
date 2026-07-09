@@ -71,6 +71,7 @@ export function AuthModal() {
   
   // Setup Wizard States
   const [setupRequired, setSetupRequired] = useState(false);
+  const [setupStep, setSetupStep] = useState(1); // 1 = Admin User, 2 = API integrations
   const [tmdbKey, setTmdbKey] = useState('');
   const [torboxApiKey, setTorboxApiKey] = useState('');
   const [aiostreamsUrl, setAiostreamsUrl] = useState('');
@@ -78,7 +79,6 @@ export function AuthModal() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pendingApproval, setPendingApproval] = useState(false);
-  const [firstAdminPassword, setFirstAdminPassword] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/setup-status')
@@ -87,12 +87,27 @@ export function AuthModal() {
         if (data.setupRequired) {
           setSetupRequired(true);
           setIsLogin(false); // Default to registration view for setup
+          setSetupStep(1);
         }
       })
       .catch(console.error);
   }, []);
 
   if (loading || user) return null;
+
+  const handleNextStep = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!email || !username || !password) {
+      setError('Admin email, username, and password are required.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Admin password must be at least 8 characters.');
+      return;
+    }
+    setSetupStep(2);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,15 +179,9 @@ export function AuthModal() {
               </text>
             </svg>
           </div>
-          <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-black text-white mb-3 tracking-tight">Awaiting Approval</h2>
-          <p className="text-white/50 text-sm leading-relaxed mb-6">
-            Your account has been created and is pending review by an administrator.
-            You'll be able to sign in once your account is approved.
+          <h2 className="text-2xl font-black text-white mb-2">Registration Submitted</h2>
+          <p className="text-white/60 text-sm mb-6 leading-relaxed">
+            Your application has been logged successfully and is awaiting review. Your password will be sent automatically to <strong className="text-white">{email}</strong> upon approval.
           </p>
           <button
             onClick={() => { setPendingApproval(false); setIsLogin(true); }}
@@ -225,11 +234,15 @@ export function AuthModal() {
           </div>
         </div>
         <h2 className="text-3xl font-black text-white mb-2 text-center tracking-tight">
-          {setupRequired ? 'First-Time Setup' : (isLogin ? 'Welcome Back' : 'Create Account')}
-        </h2>
-        <p className="text-white/50 text-center mb-8">
           {setupRequired 
-            ? 'Create the primary administrator account and configure API integration keys.' 
+            ? `First-Time Setup (Step ${setupStep}/2)` 
+            : (isLogin ? 'Welcome Back' : 'Create Account')}
+        </h2>
+        <p className="text-white/50 text-center mb-8 text-sm">
+          {setupRequired 
+            ? (setupStep === 1 
+                ? 'Create the primary administrator account credentials.' 
+                : 'Configure integration API keys to pull details, metadata, and streams.')
             : (isLogin ? 'Sign in to access your media center.' : 'Register to save your favorites and settings.')}
         </p>
 
@@ -239,111 +252,205 @@ export function AuthModal() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Admin / Register Email */}
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-            <input 
-              type="email" 
-              placeholder={setupRequired ? "Admin Email Address" : "Email Address"} 
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-              required
-            />
-          </div>
+        {/* STEP 1: CREATE ADMIN USER */}
+        {setupRequired && setupStep === 1 && (
+          <form onSubmit={handleNextStep} className="flex flex-col gap-4">
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+              <input 
+                type="email" 
+                placeholder="Admin Email Address" 
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                required
+              />
+            </div>
 
-          {/* Admin / Register Username */}
-          {(!isLogin || setupRequired) && (
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
               <input 
                 type="text" 
-                placeholder={setupRequired ? "Admin Username" : "Username"} 
+                placeholder="Admin Username" 
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
                 required
               />
             </div>
-          )}
 
-          {/* Admin Setup Password or Login Password */}
-          {(isLogin || setupRequired) && (
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
               <input 
                 type="password" 
-                placeholder={setupRequired ? "Admin Password (min 8 characters)" : "Password"} 
+                placeholder="Admin Password (min 8 characters)" 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
                 required
-                minLength={setupRequired ? 8 : undefined}
+                minLength={8}
               />
             </div>
-          )}
 
-          {/* Setup-only integration keys */}
-          {setupRequired && (
-            <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
-              <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Integration Configurations (Optional)</h3>
-              
+            <button 
+              type="submit" 
+              className="mt-4 w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
+            >
+              Continue to API Config
+            </button>
+          </form>
+        )}
+
+        {/* STEP 2: CONFIGURE API INTEGRATIONS */}
+        {setupRequired && setupStep === 2 && (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] text-white/50 block font-semibold">TMDB API Key</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] text-white/60 block font-semibold">TMDB API Key</label>
+                  <a 
+                    href="https://www.themoviedb.org/settings/api" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-[10px] text-emerald-400 hover:underline hover:text-emerald-300"
+                  >
+                    Get TMDB Key
+                  </a>
+                </div>
                 <input 
                   type="password" 
                   placeholder="Enter TMDB key..." 
                   value={tmdbKey}
                   onChange={e => setTmdbKey(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] text-white/50 block font-semibold">TorBox API Key</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] text-white/60 block font-semibold">TorBox API Key</label>
+                  <a 
+                    href="https://torbox.app/subscription?referral=7ab7f25e-b0fe-455b-8876-1a1b873cba8b" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-[10px] text-emerald-400 hover:underline hover:text-emerald-300"
+                  >
+                    Get TorBox Key (Referral)
+                  </a>
+                </div>
                 <input 
                   type="password" 
                   placeholder="Enter TorBox key..." 
                   value={torboxApiKey}
                   onChange={e => setTorboxApiKey(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] text-white/50 block font-semibold">AIOStreams Manifest URL</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] text-white/60 block font-semibold">AIOStreams Manifest URL</label>
+                  <a 
+                    href="https://aiostreams.elfhosted.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-[10px] text-emerald-400 hover:underline hover:text-emerald-300"
+                  >
+                    Visit ElfHosted AIOStreams
+                  </a>
+                </div>
                 <input 
                   type="url" 
                   placeholder="https://aiostreams.elfhosted.com/manifest.json" 
                   value={aiostreamsUrl}
                   onChange={e => setAiostreamsUrl(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none font-mono"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none font-mono text-xs"
                 />
               </div>
             </div>
-          )}
 
-          {/* Register info notice */}
-          {!isLogin && !setupRequired && (
-            <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-              <svg className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-xs text-amber-300/80 leading-relaxed">
-                No password needed. An admin will review your request and send your login credentials to this email address once approved.
-              </p>
+            <div className="flex gap-3 mt-4">
+              <button 
+                type="button"
+                onClick={() => setSetupStep(1)}
+                className="w-1/3 border border-white/10 text-white hover:bg-white/5 font-semibold py-3 rounded-xl transition-all text-xs uppercase tracking-wider"
+              >
+                Back
+              </button>
+              <button 
+                type="submit" 
+                disabled={submitting}
+                className="w-2/3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
+              >
+                {submitting ? 'Please wait...' : 'Complete Setup'}
+              </button>
             </div>
-          )}
+          </form>
+        )}
 
-          <button 
-            type="submit" 
-            disabled={submitting}
-            className="mt-4 w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {submitting ? 'Please wait...' : setupRequired ? 'COMPLETE SETUP' : isLogin ? <><LogIn className="w-5 h-5"/> Sign In</> : <><UserPlus className="w-5 h-5"/> Register</>}
-          </button>
-        </form>
+        {/* STANDARD SIGN IN / SIGN UP FORM */}
+        {!setupRequired && (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+              <input 
+                type="email" 
+                placeholder="Email Address" 
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                required
+              />
+            </div>
+
+            {!isLogin && (
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                <input 
+                  type="text" 
+                  placeholder="Username" 
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                  required
+                />
+              </div>
+            )}
+
+            {isLogin && (
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                <input 
+                  type="password" 
+                  placeholder="Password" 
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                  required
+                />
+              </div>
+            )}
+
+            {!isLogin && (
+              <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                <svg className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-xs text-amber-300/80 leading-relaxed">
+                  No password needed. An admin will review your request and send your login credentials to this email address once approved.
+                </p>
+              </div>
+            )}
+
+            <button 
+              type="submit" 
+              disabled={submitting}
+              className="mt-4 w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {submitting ? 'Please wait...' : isLogin ? <><LogIn className="w-5 h-5"/> Sign In</> : <><UserPlus className="w-5 h-5"/> Register</>}
+            </button>
+          </form>
+        )}
 
         {!setupRequired && (
           <div className="mt-6 text-center">
