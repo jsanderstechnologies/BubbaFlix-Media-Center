@@ -59,9 +59,12 @@ services:
     container_name: aiostreams
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8008:8000"
     volumes:
       - ./aiostreams-data:/app/data
+    environment:
+      - SEL_SYNC_ACCESS=all
+      - REGEX_FILTER_ACCESS=all
     networks:
       - bubbaflix-net
 
@@ -69,6 +72,7 @@ networks:
   bubbaflix-net:
     driver: bridge
 ```
+
 
 
 
