@@ -160,16 +160,26 @@ async function startServer() {
   app.use(express.json());
 
   // --- AUTH & DB SYSTEM ---
-  const baseDir = typeof __dirname !== 'undefined' ? __dirname : _dirname;
+  // In development, server is run from cwd. In production docker, we want data to reside in process.cwd()/data (/app/data)
+  // because that is where the volume mount is mapped. Using __dirname resolves to /app/dist/data, which is inside the ephemeral container folder.
+  const baseDir = process.cwd();
   const USERS_FILE = path.join(baseDir, 'data', 'users.json');
   const DB_FILE = path.join(baseDir, 'data', 'db.json');
   const SETTINGS_FILE = path.join(baseDir, 'data', 'settings.json');
+
 
   const readJson = (file) => {
     try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
     catch { return {}; }
   };
-  const writeJson = (file, data) => fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  const writeJson = (file, data) => {
+    const dir = path.dirname(file);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  };
+
 
   // --- EMAIL HELPERS ---
   const generateStrongPassword = (length = 12): string => {
