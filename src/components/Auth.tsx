@@ -91,7 +91,18 @@ export function AuthModal() {
         }
       })
       .catch(console.error);
+
+    // Sync environment pre-configured variables to wizard input states
+    fetch('/api/auth/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data.tmdbKey) setTmdbKey(data.tmdbKey);
+        if (data.torboxApiKey) setTorboxApiKey(data.torboxApiKey);
+        if (data.aiostreamsUrl) setAiostreamsUrl(data.aiostreamsUrl);
+      })
+      .catch(console.error);
   }, []);
+
 
   if (loading || user) return null;
 
