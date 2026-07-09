@@ -262,7 +262,8 @@ async function startServer() {
             <p style="margin:0 0 4px;color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Username</p>
             <p style="margin:0 0 20px;font-size:18px;font-weight:bold;color:#fff;font-family:monospace;">${username}</p>
             <p style="margin:0 0 4px;color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Password</p>
-            <p style="margin:0;font-size:22px;font-weight:900;color:#ef4444;letter-spacing:2px;font-family:monospace;background:#222;padding:8px;border-radius:6px;display:inline-block;">${password}</p>
+            <p style="margin:0;font-size:15px;font-weight:900;color:#ef4444;letter-spacing:1.5px;font-family:monospace;background:#222;padding:8px 16px;border-radius:6px;display:inline-block;">${password}</p>
+
           </div>
           ${appUrl ? `<p style="text-align:center;margin-top:28px;"><a href="${appUrl}" style="background:#dc2626;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:14px;">Sign In to ${appName}</a></p>` : ''}
           <p style="color:#444;font-size:11px;margin-top:32px;text-align:center;line-height:1.4;">For your security, we recommend changing your password after your first login.</p>
