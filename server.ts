@@ -19,8 +19,8 @@ import { PassThrough } from 'stream';
 import play from 'play-dl';
 import ytdl from '@distube/ytdl-core';
 
-const __filename = typeof import.meta !== 'undefined' && import.meta.url ? fileURLToPath(import.meta.url) : __filename;
-const __dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(__filename);
+const _filename = typeof import.meta !== 'undefined' && import.meta.url ? fileURLToPath(import.meta.url) : '';
+const _dirname = _filename ? path.dirname(_filename) : '';
 
 // ============================================================================
 // PHASE 1: NODE.JS BACKEND FUNCTIONS (For your Electron main.js)
@@ -160,9 +160,10 @@ async function startServer() {
   app.use(express.json());
 
   // --- AUTH & DB SYSTEM ---
-  const USERS_FILE = path.join(__dirname, 'data', 'users.json');
-  const DB_FILE = path.join(__dirname, 'data', 'db.json');
-  const SETTINGS_FILE = path.join(__dirname, 'data', 'settings.json');
+  const baseDir = typeof __dirname !== 'undefined' ? __dirname : _dirname;
+  const USERS_FILE = path.join(baseDir, 'data', 'users.json');
+  const DB_FILE = path.join(baseDir, 'data', 'db.json');
+  const SETTINGS_FILE = path.join(baseDir, 'data', 'settings.json');
 
   const readJson = (file) => {
     try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
