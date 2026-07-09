@@ -44,11 +44,16 @@ services:
       - PORT=5150
     networks:
       - bubbaflix-net
+    labels:
+      io.casaos.app.icon: "https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg"
+      io.casaos.app.title: "BubbaFlix"
+      io.casaos.app.desc: "Premium personal media center and TV coordinator"
 
 networks:
   bubbaflix-net:
     driver: bridge
 ```
+
 
 Start the service with:
 ```bash
