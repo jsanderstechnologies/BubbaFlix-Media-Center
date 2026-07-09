@@ -88,11 +88,24 @@ function MainApp() {
   };
 
   useEffect(() => {
+    // Sync configurations set via Docker env variables to client localStorage automatically on boot
+    fetch('/api/auth/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data.tmdbKey) localStorage.setItem('tmdbKey', data.tmdbKey);
+        if (data.torboxApiKey) localStorage.setItem('torboxApiKey', data.torboxApiKey);
+        if (data.aiostreamsUrl) localStorage.setItem('aiostreamsUrl', data.aiostreamsUrl);
+      })
+      .catch(err => console.error('[Config Sync] Failed to load server configs:', err));
+  }, []);
+
+  useEffect(() => {
     if (!user) {
       setFavorites([]);
       setBackgroundPoster('');
       return;
     }
+
     const q = query(collection(db, 'favorites'), where('userId', '==', user.uid));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map(doc => doc.data());

@@ -42,6 +42,9 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5150
+      - TMDB_KEY=your_tmdb_key_here
+      - TORBOX_API_KEY=your_torbox_key_here
+      - AIOSTREAMS_URL=your_aiostreams_manifest_url_here
     networks:
       - bubbaflix-net
     labels:
@@ -53,6 +56,7 @@ networks:
   bubbaflix-net:
     driver: bridge
 ```
+
 
 
 Start the service with:

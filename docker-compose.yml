@@ -10,6 +10,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5150
+      - TMDB_KEY=
+      - TORBOX_API_KEY=
+      - AIOSTREAMS_URL=
+
     networks:
       - bubbaflix-net
     labels:

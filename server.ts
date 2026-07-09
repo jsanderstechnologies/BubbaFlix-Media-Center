@@ -180,6 +180,26 @@ async function startServer() {
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
   };
 
+  // Sync Docker Compose Env Configuration Keys directly to settings on boot
+  const settings = readJson(SETTINGS_FILE);
+  let settingsChanged = false;
+  if (process.env.TMDB_KEY && settings.tmdbKey !== process.env.TMDB_KEY) {
+    settings.tmdbKey = process.env.TMDB_KEY;
+    settingsChanged = true;
+  }
+  if (process.env.TORBOX_API_KEY && settings.torboxApiKey !== process.env.TORBOX_API_KEY) {
+    settings.torboxApiKey = process.env.TORBOX_API_KEY;
+    settingsChanged = true;
+  }
+  if (process.env.AIOSTREAMS_URL && settings.aiostreamsUrl !== process.env.AIOSTREAMS_URL) {
+    settings.aiostreamsUrl = process.env.AIOSTREAMS_URL;
+    settingsChanged = true;
+  }
+  if (settingsChanged) {
+    writeJson(SETTINGS_FILE, settings);
+  }
+
+
 
   // --- EMAIL HELPERS ---
   const generateStrongPassword = (length = 12): string => {
@@ -339,7 +359,18 @@ async function startServer() {
     res.json({ success: true, user: { uid, email, username, role: 'admin', status: 'approved' }, token });
   });
 
+  // Endpoint for client frontend to fetch non-sensitive integration configurations dynamically
+  app.get('/api/auth/config', (req, res) => {
+    const settings = readJson(SETTINGS_FILE);
+    res.json({
+      tmdbKey: settings.tmdbKey || '',
+      torboxApiKey: settings.torboxApiKey || '',
+      aiostreamsUrl: settings.aiostreamsUrl || ''
+    });
+  });
+
   // /api/auth/register  — no password required; admin will approve and email credentials
+
 
   app.post('/api/auth/register', (req, res) => {
     const { email, username } = req.body;
