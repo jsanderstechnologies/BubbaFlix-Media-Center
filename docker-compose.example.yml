@@ -9,8 +9,26 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5150
+      # --- Required API Keys ---
       - TMDB_KEY=
       - TORBOX_API_KEY=
+      # --- TorBox Usenet NNTP Server ---
+      - USENET_HOST=nntp.torbox.app
+      - USENET_PORT=563
+      - USENET_USERNAME=
+      - USENET_PASSWORD=
+      # --- Stream Settings ---
+      - PREFER_HEVC=false
+      - MAX_RESULTS=20
+      - STREAM_BUFFER_SECONDS=60
+      # --- IPTV / EPG (optional) ---
+      - IPTV_URL=
+      - EPG_URL=
+      - EPG_OFFSET=0
+      # --- Xtream Codes (optional, alternative to M3U) ---
+      - XTREAM_SERVER=
+      - XTREAM_USERNAME=
+      - XTREAM_PASSWORD=
     labels:
       io.portainer.server: "true"
       io.casaos.app.icon: "https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg"

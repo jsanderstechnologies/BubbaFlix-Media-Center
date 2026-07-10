@@ -194,6 +194,58 @@ async function startServer() {
     settings.torboxApiKey = process.env.TORBOX_API_KEY;
     settingsChanged = true;
   }
+  if (process.env.PREFER_HEVC && settings.preferHEVC !== (process.env.PREFER_HEVC === 'true')) {
+    settings.preferHEVC = process.env.PREFER_HEVC === 'true';
+    settingsChanged = true;
+  }
+  if (process.env.MAX_RESULTS && settings.maxResults !== process.env.MAX_RESULTS) {
+    settings.maxResults = process.env.MAX_RESULTS;
+    settingsChanged = true;
+  }
+  if (process.env.STREAM_BUFFER_SECONDS && settings.streamBufferSeconds !== process.env.STREAM_BUFFER_SECONDS) {
+    settings.streamBufferSeconds = process.env.STREAM_BUFFER_SECONDS;
+    settingsChanged = true;
+  }
+  if (process.env.IPTV_URL && settings.iptvUrl !== process.env.IPTV_URL) {
+    settings.iptvUrl = process.env.IPTV_URL;
+    settingsChanged = true;
+  }
+  if (process.env.EPG_URL && settings.epgUrl !== process.env.EPG_URL) {
+    settings.epgUrl = process.env.EPG_URL;
+    settingsChanged = true;
+  }
+  if (process.env.EPG_OFFSET && settings.epgOffset !== process.env.EPG_OFFSET) {
+    settings.epgOffset = process.env.EPG_OFFSET;
+    settingsChanged = true;
+  }
+  if (process.env.XTREAM_SERVER && settings.xtreamServer !== process.env.XTREAM_SERVER) {
+    settings.xtreamServer = process.env.XTREAM_SERVER;
+    settingsChanged = true;
+  }
+  if (process.env.XTREAM_USERNAME && settings.xtreamUsername !== process.env.XTREAM_USERNAME) {
+    settings.xtreamUsername = process.env.XTREAM_USERNAME;
+    settingsChanged = true;
+  }
+  if (process.env.XTREAM_PASSWORD && settings.xtreamPassword !== process.env.XTREAM_PASSWORD) {
+    settings.xtreamPassword = process.env.XTREAM_PASSWORD;
+    settingsChanged = true;
+  }
+  if (process.env.USENET_HOST && settings.usenetHost !== process.env.USENET_HOST) {
+    settings.usenetHost = process.env.USENET_HOST;
+    settingsChanged = true;
+  }
+  if (process.env.USENET_PORT && settings.usenetPort !== process.env.USENET_PORT) {
+    settings.usenetPort = process.env.USENET_PORT;
+    settingsChanged = true;
+  }
+  if (process.env.USENET_USERNAME && settings.usenetUsername !== process.env.USENET_USERNAME) {
+    settings.usenetUsername = process.env.USENET_USERNAME;
+    settingsChanged = true;
+  }
+  if (process.env.USENET_PASSWORD && settings.usenetPassword !== process.env.USENET_PASSWORD) {
+    settings.usenetPassword = process.env.USENET_PASSWORD;
+    settingsChanged = true;
+  }
 
   if (settingsChanged) {
     writeJson(SETTINGS_FILE, settings);
@@ -363,7 +415,20 @@ async function startServer() {
     const settings = readJson(SETTINGS_FILE);
     res.json({
       tmdbKey: settings.tmdbKey || '',
-      torboxApiKey: settings.torboxApiKey || ''
+      torboxApiKey: settings.torboxApiKey || '',
+      preferHEVC: settings.preferHEVC ?? null,
+      maxResults: settings.maxResults || null,
+      streamBufferSeconds: settings.streamBufferSeconds || null,
+      iptvUrl: settings.iptvUrl || '',
+      epgUrl: settings.epgUrl || '',
+      epgOffset: settings.epgOffset ?? null,
+      xtreamServer: settings.xtreamServer || '',
+      xtreamUsername: settings.xtreamUsername || '',
+      xtreamPassword: settings.xtreamPassword || '',
+      usenetHost: settings.usenetHost || '',
+      usenetPort: settings.usenetPort || '',
+      usenetUsername: settings.usenetUsername || '',
+      usenetPassword: settings.usenetPassword || ''
     });
   });
 

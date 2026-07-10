@@ -94,6 +94,19 @@ function MainApp() {
       .then(data => {
         if (data.tmdbKey) localStorage.setItem('tmdbKey', data.tmdbKey);
         if (data.torboxApiKey) localStorage.setItem('torboxApiKey', data.torboxApiKey);
+        if (data.preferHEVC !== null) localStorage.setItem('preferHEVC', String(data.preferHEVC));
+        if (data.maxResults) localStorage.setItem('maxResults', data.maxResults);
+        if (data.streamBufferSeconds) localStorage.setItem('streamBufferSeconds', data.streamBufferSeconds);
+        if (data.iptvUrl) localStorage.setItem('iptvUrl', data.iptvUrl);
+        if (data.epgUrl) localStorage.setItem('epgUrl', data.epgUrl);
+        if (data.epgOffset !== null) localStorage.setItem('epgOffset', String(data.epgOffset));
+        if (data.xtreamServer) localStorage.setItem('xtreamServer', data.xtreamServer);
+        if (data.xtreamUsername) localStorage.setItem('xtreamUsername', data.xtreamUsername);
+        if (data.xtreamPassword) localStorage.setItem('xtreamPassword', data.xtreamPassword);
+        if (data.usenetHost) localStorage.setItem('usenetHost', data.usenetHost);
+        if (data.usenetPort) localStorage.setItem('usenetPort', data.usenetPort);
+        if (data.usenetUsername) localStorage.setItem('usenetUsername', data.usenetUsername);
+        if (data.usenetPassword) localStorage.setItem('usenetPassword', data.usenetPassword);
       })
       .catch(err => console.error('[Config Sync] Failed to load server configs:', err));
   }, []);
