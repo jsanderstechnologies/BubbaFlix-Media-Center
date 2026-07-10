@@ -77,8 +77,6 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
       }
     } catch (e) { console.error("[TorBox Search] Usenet query error:", e); }
 
-    if (usenetResults.length > 0) return usenetResults;
-
     let torrentResults: TorBoxSearchResult[] = [];
     try {
       const torrentRes = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
@@ -90,7 +88,7 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
       }
     } catch (e) { console.error("[TorBox Search] Torrent query error:", e); }
     
-    return torrentResults;
+    return [...usenetResults, ...torrentResults];
   };
 
   try {
@@ -127,8 +125,6 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
       }
     } catch (e) { console.error("[TorBox Search] Usenet query error:", e); }
 
-    if (usenetResults.length > 0) return usenetResults;
-
     let torrentResults: TorBoxSearchResult[] = [];
     try {
       const torrentRes = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
@@ -140,7 +136,7 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
       }
     } catch (e) { console.error("[TorBox Search] Torrent query error:", e); }
     
-    return torrentResults;
+    return [...usenetResults, ...torrentResults];
   };
 
   try {
