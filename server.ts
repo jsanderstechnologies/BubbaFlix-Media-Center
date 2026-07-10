@@ -1214,11 +1214,16 @@ app.get('/api/youtube/search', async (req, res) => {
       return res.status(400).json({ error: "Usenet NZB link is required." });
     }
     try {
-      const response = await axios.post("https://api.torbox.app/v1/api/usenet/createusenetdownload", {
-        link,
-        post_processing: -1
-      }, {
-        headers: { Authorization: authHeader }
+      const FormData = require('form-data');
+      const form = new FormData();
+      form.append('link', link);
+      form.append('post_processing', '-1');
+
+      const response = await axios.post("https://api.torbox.app/v1/api/usenet/createusenetdownload", form, {
+        headers: { 
+          Authorization: authHeader,
+          ...form.getHeaders()
+        }
       });
       res.json(response.data);
     } catch (err: any) {
