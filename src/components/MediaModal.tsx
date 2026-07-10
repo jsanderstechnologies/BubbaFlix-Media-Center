@@ -193,13 +193,13 @@ export default function MediaModal({
                 if (tRes && tRes.ok) {
                     const tData = await tRes.json();
                     if (tData && tData.success && tData.data) {
-                        activeTorrents = tData.data.filter((t: any) => t.download_state === 'downloading' || t.progress < 100);
+                        activeTorrents = tData.data;
                     }
                 }
                 if (uRes && uRes.ok) {
                     const uData = await uRes.json();
                     if (uData && uData.success && uData.data) {
-                        activeUsenet = uData.data.filter((u: any) => u.download_state === 'downloading' || u.progress < 100);
+                        activeUsenet = uData.data;
                     }
                 }
             } catch (err) {
@@ -209,29 +209,31 @@ export default function MediaModal({
 
         // Cross-reference streams with Torbox active downloads
         const updatedData = data.map((stream: any) => {
-            if (stream.isCached && activeTorrents.length > 0 && stream.type === 'torrent') {
-                const match = activeTorrents.find(t => 
-                    (stream.hash && t.hash === stream.hash) ||
-                    t.name === stream.name || 
-                    stream.name.includes(t.name) || 
-                    t.name.includes(stream.name)
-                );
-                if (match) {
-                    stream.isCached = false;
-                    stream.downloadProgress = Math.round(match.progress * 100);
-                }
-            } else if (stream.isCached && activeUsenet.length > 0 && stream.type === 'usenet') {
-                const match = activeUsenet.find(u => 
-                    u.name === stream.name || 
-                    stream.name.includes(u.name) || 
-                    u.name.includes(stream.name)
-                );
-                if (match) {
-                    stream.isCached = false;
-                    stream.downloadProgress = Math.round(match.progress * 100);
-                }
+            const matchTorrent = activeTorrents.find(t => 
+                (stream.hash && t.hash === stream.hash) ||
+                t.name === stream.name || 
+                stream.name.includes(t.name) || 
+                t.name.includes(stream.name)
+            );
+            const matchUsenet = activeUsenet.find(u => 
+                u.name === stream.name || 
+                stream.name.includes(u.name) || 
+                u.name.includes(stream.name)
+            );
+
+            let mappedStream = { ...stream };
+
+            if (matchTorrent) {
+              const progress = Math.round(matchTorrent.progress * 100);
+              mappedStream.isCached = progress >= 100;
+              mappedStream.downloadProgress = progress;
+            } else if (matchUsenet) {
+              const progress = Math.round(matchUsenet.progress * 100);
+              mappedStream.isCached = progress >= 100;
+              mappedStream.downloadProgress = progress;
             }
-            return stream;
+
+            return mappedStream;
         });
 
         const uSettings = localStorage.getItem('userSettings_' + user?.uid);
@@ -247,8 +249,16 @@ export default function MediaModal({
             return true;
         });
 
+        // Sort cached items to the top of the list
+        filteredData.sort((a: any, b: any) => {
+          if (a.isCached && !b.isCached) return -1;
+          if (!a.isCached && b.isCached) return 1;
+          return 0;
+        });
+
         setStreams(filteredData);
         setLoading(false);
+        setPollingActive(true);
         });
       }
     }
@@ -289,13 +299,13 @@ export default function MediaModal({
                 if (tRes && tRes.ok) {
                     const tData = await tRes.json();
                     if (tData && tData.success && tData.data) {
-                        activeTorrents = tData.data.filter((t: any) => t.download_state === 'downloading' || t.progress < 100);
+                        activeTorrents = tData.data;
                     }
                 }
                 if (uRes && uRes.ok) {
                     const uData = await uRes.json();
                     if (uData && uData.success && uData.data) {
-                        activeUsenet = uData.data.filter((u: any) => u.download_state === 'downloading' || u.progress < 100);
+                        activeUsenet = uData.data;
                     }
                 }
             } catch (err) {
@@ -343,6 +353,13 @@ export default function MediaModal({
             if (desc.includes('1080p')) return allowedRes.includes('1080p');
             if (desc.includes('720p')) return allowedRes.includes('720p');
             return true;
+        });
+
+        // Sort cached items to the top of the list
+        filteredData.sort((a: any, b: any) => {
+          if (a.isCached && !b.isCached) return -1;
+          if (!a.isCached && b.isCached) return 1;
+          return 0;
         });
 
         setStreams(filteredData);
