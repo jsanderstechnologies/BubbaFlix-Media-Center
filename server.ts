@@ -1031,6 +1031,15 @@ app.get('/api/youtube/search', async (req, res) => {
       ffmpegProcess.stdin.end();
     }
     
+    ffmpegProcess.on('error', (err) => {
+      console.error('[FFmpeg Subtitle] Error:', err);
+    });
+    
+    req.on('close', () => {
+      ffmpegProcess.kill('SIGKILL');
+    });
+  });
+    
   app.get("/api/transcode/stream.mp4", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl || typeof targetUrl !== 'string') {
@@ -1162,6 +1171,8 @@ app.get('/api/youtube/search', async (req, res) => {
 
     req.on('close', () => {
       console.log(`[FFmpeg] Client disconnected, killing ffmpeg process`);
+      ffmpegProcess.kill('SIGKILL');
+    });
   });
 
   // API Route: Test IPC Bridge Playback
