@@ -243,7 +243,7 @@ export default function MediaModal({
               const progress = Math.round(matchTorrent.progress * 100);
               const state = matchTorrent.download_state || '';
               mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === '');
+              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === '');
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
               mappedStream.id = matchTorrent.id;
@@ -254,7 +254,7 @@ export default function MediaModal({
               const progress = Math.round(matchUsenet.progress * 100);
               const state = matchUsenet.download_state || '';
               mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === '');
+              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === '');
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
               mappedStream.id = matchUsenet.id;
@@ -283,7 +283,7 @@ export default function MediaModal({
                         type: 'torrent',
                         hash: t.hash,
                         downloadState: t.download_state || '',
-                        isCached: progress >= 100 && ((t.download_state || '') === 'completed' || (t.download_state || '') === 'cached' || !t.download_state),
+                        isCached: progress >= 100 && ((t.download_state || '') === 'completed' || (t.download_state || '') === 'cached' || (t.download_state || '') === 'downloaded' || !t.download_state),
                         downloadProgress: progress,
                         downloadSpeed: t.download_speed || 0,
                         url: `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${t.id}&zip_link=false&redirect=true`,
@@ -309,7 +309,7 @@ export default function MediaModal({
                         sizeStr: (u.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
                         type: 'usenet',
                         downloadState: u.download_state || '',
-                        isCached: progress >= 100 && ((u.download_state || '') === 'completed' || (u.download_state || '') === 'cached' || !u.download_state),
+                        isCached: progress >= 100 && ((u.download_state || '') === 'completed' || (u.download_state || '') === 'cached' || (u.download_state || '') === 'downloaded' || !u.download_state),
                         downloadProgress: progress,
                         downloadSpeed: u.download_speed || 0,
                         url: `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${u.id}&zip_link=false&redirect=true`,
@@ -420,14 +420,14 @@ export default function MediaModal({
               const progress = Math.round(matchTorrent.progress * 100);
               const state = matchTorrent.download_state || '';
               mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === '');
+              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === '');
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
             } else if (matchUsenet) {
               const progress = Math.round(matchUsenet.progress * 100);
               const state = matchUsenet.download_state || '';
               mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === '');
+              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === '');
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
             }
@@ -454,7 +454,7 @@ export default function MediaModal({
                         type: 'torrent',
                         hash: t.hash,
                         downloadState: t.download_state || '',
-                        isCached: progress >= 100 && ((t.download_state || '') === 'completed' || (t.download_state || '') === 'cached' || !t.download_state),
+                        isCached: progress >= 100 && ((t.download_state || '') === 'completed' || (t.download_state || '') === 'cached' || (t.download_state || '') === 'downloaded' || !t.download_state),
                         downloadProgress: progress,
                         downloadSpeed: t.download_speed || 0,
                         url: `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${t.id}&zip_link=false&redirect=true`,
@@ -480,7 +480,7 @@ export default function MediaModal({
                         sizeStr: (u.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
                         type: 'usenet',
                         downloadState: u.download_state || '',
-                        isCached: progress >= 100 && ((u.download_state || '') === 'completed' || (u.download_state || '') === 'cached' || !u.download_state),
+                        isCached: progress >= 100 && ((u.download_state || '') === 'completed' || (u.download_state || '') === 'cached' || (u.download_state || '') === 'downloaded' || !u.download_state),
                         downloadProgress: progress,
                         downloadSpeed: u.download_speed || 0,
                         url: `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${u.id}&zip_link=false&redirect=true`,
@@ -1073,12 +1073,12 @@ export default function MediaModal({
                                             </div>
                                         </div>
                                         <div className="flex gap-2 shrink-0">
-                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'))}`}>
+                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'))}`}>
                                               {stream.isCached 
                                                 ? 'Instant Cached' 
                                                 : stream.isAdding 
                                                   ? 'Adding to provider...' 
-                                                  : stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadProgress >= 100
+                                                  : stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100
                                                     ? `Processing (${stream.downloadState})`
                                                     : stream.downloadProgress !== undefined 
                                                       ? `Downloading ${stream.downloadProgress}%` 
