@@ -803,11 +803,6 @@ export default function MediaModal({
                                           </div>
                                         </div>
                                       </div>
-                                      {stream.fullDescription && (
-                                        <div className="mt-2.5 text-[10px] text-white/60 font-mono whitespace-pre-wrap leading-tight hidden group-hover:block border-t border-white/5 pt-2">
-                                          {stream.fullDescription}
-                                        </div>
-                                      )}
                                   </div>
                                 );
                             })}

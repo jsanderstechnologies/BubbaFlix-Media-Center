@@ -1138,7 +1138,30 @@ app.get('/api/youtube/search', async (req, res) => {
         if (link.includes("![CDATA[")) {
           link = link.replace("<![CDATA[", "").replace("]]>", "").trim();
         }
+
+        // 1. FILTER: Only accept video formats. Ignore subtitle/metadata files.
+        const titleLower = title.toLowerCase();
+        const nonVideoPatterns = [/\.srt\b/i, /\.sub\b/i, /\.nfo\b/i, /\.txt\b/i, /\.jpg\b/i, /\.png\b/i, /\.sfv\b/i, /\.par2\b/i, /\.nzb\b/i];
+        const isNonVideo = nonVideoPatterns.some(pat => pat.test(titleLower));
+        if (isNonVideo) {
+          continue;
+        }
+
+        // 2. CLEAN TITLE: Try to extract actual clean release filename (e.g. remove Usenet release prefixes like [01/10] - or quotes)
+        let cleanTitle = title;
         
+        // Remove quotes around titles if present
+        if (cleanTitle.startsWith('"') && cleanTitle.endsWith('"')) {
+          cleanTitle = cleanTitle.substring(1, cleanTitle.length - 1);
+        }
+        
+        // Strip common Usenet prefix patterns like "[01/25] - " or "yEnc (" or "Part 1 of 5"
+        cleanTitle = cleanTitle.replace(/^\[\d+\/\d+\]\s*(-\s*)?/, ''); // Removes "[01/12] - "
+        cleanTitle = cleanTitle.replace(/^\(\d+\/\d+\)\s*(-\s*)?/, ''); // Removes "(01/12) - "
+        cleanTitle = cleanTitle.replace(/^[^"]*"\s*/, ''); // If it has quotes embedded, grab content inside/after quotes
+        cleanTitle = cleanTitle.replace(/"\s*$/, '');
+        cleanTitle = cleanTitle.trim();
+
         let size = 0;
         if (sizeMatch) {
           if (sizeMatch[1].match(/^\d+$/)) {
@@ -1156,8 +1179,8 @@ app.get('/api/youtube/search', async (req, res) => {
 
         if (link) {
           items.push({
-            name: title,
-            title: title,
+            name: cleanTitle,
+            title: cleanTitle,
             link: link,
             size: size,
             cached: false,
