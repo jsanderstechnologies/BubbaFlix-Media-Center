@@ -95,9 +95,11 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
 
   try {
     let results = await performSearch();
-    if (results.length === 0) {
-        console.log(`[TorBox Search] 0 results found for "${queryStr}". Retrying in 1.5s to allow background scraper to finish...`);
-        await new Promise(resolve => setTimeout(resolve, 1500));
+    let attempts = 0;
+    while (results.length === 0 && attempts < 3) {
+        attempts++;
+        console.log(`[TorBox Search] 0 results found for "${queryStr}". Retrying in 2.5s to allow background scraper to finish (Attempt ${attempts}/3)...`);
+        await new Promise(resolve => setTimeout(resolve, 2500));
         results = await performSearch();
     }
     return results;
@@ -108,7 +110,7 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
 };
 
 export const fetchStreamsForMovie = async (title: string, year?: string): Promise<TorBoxSearchResult[]> => {
-  const queryStr = year ? `${title} ${year}` : title;
+  const queryStr = (year && year !== 'N/A') ? `${title} ${year}` : title;
   console.log(`[TorBox Search] Searching Movie: "${queryStr}"`);
   
   const headers = getAuthHeaders();
@@ -143,9 +145,11 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
 
   try {
     let results = await performSearch();
-    if (results.length === 0) {
-        console.log(`[TorBox Search] 0 results found for "${queryStr}". Retrying in 1.5s to allow background scraper to finish...`);
-        await new Promise(resolve => setTimeout(resolve, 1500));
+    let attempts = 0;
+    while (results.length === 0 && attempts < 3) {
+        attempts++;
+        console.log(`[TorBox Search] 0 results found for "${queryStr}". Retrying in 2.5s to allow background scraper to finish (Attempt ${attempts}/3)...`);
+        await new Promise(resolve => setTimeout(resolve, 2500));
         results = await performSearch();
     }
     return results;
