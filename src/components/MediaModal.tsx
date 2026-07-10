@@ -217,16 +217,16 @@ export default function MediaModal({
         // Cross-reference streams with Torbox active downloads
         const matchedTorboxIds = new Set<number>();
         const updatedData = data.map((stream: any) => {
-            const matchTorrent = activeTorrents.find(t => 
-                (stream.hash && t.hash === stream.hash) ||
-                t.name === stream.name || 
-                stream.name.includes(t.name) || 
-                t.name.includes(stream.name)
-            );
+            const matchTorrent = activeTorrents.find(t => {
+                if (stream.hash && t.hash === stream.hash) return true;
+                const sName = (stream.name || "").toLowerCase();
+                const tName = (t.name || "").toLowerCase();
+                return tName === sName || sName.includes(tName) || tName.includes(sName);
+            });
             const matchUsenet = activeUsenet.find(u => {
-                const nameMatch = u.name === stream.name || 
-                                  stream.name.includes(u.name) || 
-                                  u.name.includes(stream.name);
+                const sName = (stream.name || "").toLowerCase();
+                const uName = (u.name || "").toLowerCase();
+                const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
                 // Widen to 15% for Usenet unpack/par2 size differences
                 const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
                 return nameMatch || sizeMatch;
@@ -775,12 +775,14 @@ export default function MediaModal({
                                         const result = await res.json();
                                         // Try to find if this item is already in user downloads list
                                         const existing = result.data?.find((t: any) => {
+                                          const sName = (stream.name || "").toLowerCase();
+                                          const tName = (t.name || "").toLowerCase();
                                           if (stream.type === 'usenet') {
-                                            const nameMatch = t.name === stream.name || stream.name.includes(t.name) || t.name.includes(stream.name);
-                                            const sizeMatch = stream.sizeBytes && t.size && Math.abs(t.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
+                                            const nameMatch = tName === sName || sName.includes(tName) || tName.includes(sName);
+                                            const sizeMatch = stream.sizeBytes && t.size && Math.abs(t.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
                                             return nameMatch || sizeMatch;
                                           }
-                                          return t.hash === stream.hash || t.name === stream.name;
+                                          return t.hash === stream.hash || tName === sName;
                                         });
                                         
                                         if (existing) {
