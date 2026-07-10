@@ -1300,13 +1300,29 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     try {
-      const response = await axios.get(`https://api.torbox.app/v1/api/torrents/search?query=${encodeURIComponent(q)}`, {
-        headers: { Authorization: authHeader }
+      // TorBox doesn't have a native public search API, so we proxy to APIBay (PirateBay)
+      const response = await axios.get(`https://apibay.org/q.php?q=${encodeURIComponent(q)}`);
+      
+      const mappedTorrents = (response.data || []).filter((t: any) => t.id && t.info_hash && t.info_hash !== '0000000000000000000000000000000000000000').map((t: any) => {
+        // Build a standard magnet link
+        const magnet = `magnet:?xt=urn:btih:${t.info_hash}&dn=${encodeURIComponent(t.name)}&tr=udp://tracker.opentrackr.org:1337/announce`;
+        return {
+          id: t.id,
+          name: t.name,
+          hash: t.info_hash,
+          size: parseInt(t.size || "0", 10),
+          seeds: parseInt(t.seeders || "0", 10),
+          peers: parseInt(t.leechers || "0", 10),
+          magnet: magnet,
+          link: magnet,
+          cached: false // Torrents are usually added instantly or streamed dynamically
+        };
       });
-      res.json(response.data);
+
+      res.json({ success: true, data: mappedTorrents });
     } catch (err: any) {
       console.error("[Torrents Search API Error]", err.message);
-      res.status(err.response?.status || 500).json({ error: err.message });
+      res.status(500).json({ error: err.message, success: false, data: [] });
     }
   });
 
