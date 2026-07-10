@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { collection, query, where, getDocs, updateDoc, doc } from '../lib/localDb';
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
-import { fetchStreamsForMovie } from '../services/aiostreamsApi';
+import { fetchStreamsForMovie } from '../services/torboxSearchApi';
 
 // Note: In a production app, this might be handled by a dedicated backend cron job.
 // For this preview applet, we handle periodic stream updates client-side.

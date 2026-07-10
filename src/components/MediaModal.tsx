@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchStreamsForMovie, fetchStreamsForTvSeries } from '../services/aiostreamsApi';
+import { fetchStreamsForMovie, fetchStreamsForTvSeries } from '../services/torboxSearchApi';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails } from '../services/tmdbApi';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from '../lib/localDb';
