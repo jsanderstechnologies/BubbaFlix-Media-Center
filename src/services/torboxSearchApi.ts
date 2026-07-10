@@ -11,6 +11,7 @@ export interface TorBoxSearchResult {
   isCached: boolean;
   quality: string;
   size: string;
+  sizeBytes?: number;
   url: string;
   type: 'torrent' | 'usenet';
   fullDescription: string;
@@ -49,6 +50,7 @@ const mapResults = (items: any[], type: 'torrent' | 'usenet'): TorBoxSearchResul
       isCached: item.cached === true || item.is_cached === true,
       quality,
       size,
+      sizeBytes: item.size || 0,
       url,
       type,
       hash,

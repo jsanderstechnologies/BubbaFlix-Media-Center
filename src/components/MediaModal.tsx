@@ -124,8 +124,8 @@ export default function MediaModal({
                 const nameMatch = u.name === stream.name || 
                                   stream.name.includes(u.name) || 
                                   u.name.includes(stream.name);
-                // Usenet name from TorBox can be a random UUID, so fallback match by size (within 5% delta)
-                const sizeMatch = stream.size && u.size && Math.abs(u.size - stream.size) < (stream.size * 0.05);
+                // Usenet name from TorBox can be a random UUID, so fallback match by size (within 5% delta) using raw sizeBytes
+                const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
                 return nameMatch || sizeMatch;
               });
 
@@ -222,7 +222,7 @@ export default function MediaModal({
                 const nameMatch = u.name === stream.name || 
                                   stream.name.includes(u.name) || 
                                   u.name.includes(stream.name);
-                const sizeMatch = stream.size && u.size && Math.abs(u.size - stream.size) < (stream.size * 0.05);
+                const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
                 return nameMatch || sizeMatch;
             });
 
@@ -330,7 +330,7 @@ export default function MediaModal({
                 const nameMatch = u.name === stream.name || 
                                   stream.name.includes(u.name) || 
                                   u.name.includes(stream.name);
-                const sizeMatch = stream.size && u.size && Math.abs(u.size - stream.size) < (stream.size * 0.05);
+                const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
                 return nameMatch || sizeMatch;
             });
 
