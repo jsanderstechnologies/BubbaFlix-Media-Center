@@ -60,6 +60,107 @@ export default function MediaModal({
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
   const [seriesDetailsLoading, setSeriesDetailsLoading] = useState(false);
+  const [pollingActive, setPollingActive] = useState(false);
+
+  useEffect(() => {
+    let intervalId: any;
+    const apiKey = localStorage.getItem('torboxApiKey');
+
+    async function pollDownloads() {
+      if (!apiKey || streams.length === 0) return;
+      try {
+        const [tRes, uRes] = await Promise.all([
+          fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }),
+          fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null)
+        ]);
+
+        let activeTorrents: any[] = [];
+        let activeUsenet: any[] = [];
+
+        if (tRes && tRes.ok) {
+          const tData = await tRes.json();
+          if (tData && tData.success && tData.data) {
+            activeTorrents = tData.data;
+          }
+        }
+        if (uRes && uRes.ok) {
+          const uData = await uRes.json();
+          if (uData && uData.success && uData.data) {
+            activeUsenet = uData.data;
+          }
+        }
+
+        // Check if any matching stream has completed downloading
+        let playUrlToTrigger: string | null = null;
+
+        setStreams(prevStreams => {
+          return prevStreams.map(stream => {
+            let updatedStream = { ...stream };
+            
+            // Find in torrents
+            if (stream.type === 'torrent') {
+              const match = activeTorrents.find(t => 
+                (stream.hash && t.hash === stream.hash) ||
+                t.name === stream.name || 
+                stream.name.includes(t.name) || 
+                t.name.includes(stream.name)
+              );
+
+              if (match) {
+                const progress = Math.round(match.progress * 100);
+                updatedStream.downloadProgress = progress;
+                updatedStream.isCached = match.progress >= 1; // Completed is cached
+
+                // Auto-play trigger: transition from downloading to completed
+                if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
+                  playUrlToTrigger = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${match.id}&zip_link=true&redirect=true`;
+                }
+              }
+            }
+            
+            // Find in Usenet
+            if (stream.type === 'usenet') {
+              const match = activeUsenet.find(u => 
+                u.name === stream.name || 
+                stream.name.includes(u.name) || 
+                u.name.includes(stream.name)
+              );
+
+              if (match) {
+                const progress = Math.round(match.progress * 100);
+                updatedStream.downloadProgress = progress;
+                updatedStream.isCached = match.progress >= 1; // Completed is cached
+
+                // Auto-play trigger: transition from downloading to completed
+                if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
+                  playUrlToTrigger = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${match.id}&zip_link=true&redirect=true`;
+                }
+              }
+            }
+
+            return updatedStream;
+          });
+        });
+
+        if (playUrlToTrigger) {
+          console.log("[Auto-Play] Triggering playback for finished download:", playUrlToTrigger);
+          onPlay(playUrlToTrigger);
+        }
+
+      } catch (err) {
+        console.error("Error polling TorBox downloads:", err);
+      }
+    }
+
+    if (pollingActive && apiKey) {
+      intervalId = setInterval(pollDownloads, 4000);
+      pollDownloads(); // Run instantly on mount/enable
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [pollingActive, streams.length]);
 
   useEffect(() => {
     if (movie) {
@@ -204,29 +305,31 @@ export default function MediaModal({
 
         // Cross-reference streams with Torbox active downloads
         const updatedData = data.map((stream: any) => {
-            if (stream.isCached && activeTorrents.length > 0 && stream.type === 'torrent') {
-                const match = activeTorrents.find(t => 
-                    (stream.hash && t.hash === stream.hash) ||
-                    t.name === stream.name || 
-                    stream.name.includes(t.name) || 
-                    t.name.includes(stream.name)
-                );
-                if (match) {
-                    stream.isCached = false;
-                    stream.downloadProgress = Math.round(match.progress * 100);
-                }
-            } else if (stream.isCached && activeUsenet.length > 0 && stream.type === 'usenet') {
-                const match = activeUsenet.find(u => 
-                    u.name === stream.name || 
-                    stream.name.includes(u.name) || 
-                    u.name.includes(stream.name)
-                );
-                if (match) {
-                    stream.isCached = false;
-                    stream.downloadProgress = Math.round(match.progress * 100);
-                }
+            const matchTorrent = activeTorrents.find(t => 
+                (stream.hash && t.hash === stream.hash) ||
+                t.name === stream.name || 
+                stream.name.includes(t.name) || 
+                t.name.includes(stream.name)
+            );
+            const matchUsenet = activeUsenet.find(u => 
+                u.name === stream.name || 
+                stream.name.includes(u.name) || 
+                u.name.includes(stream.name)
+            );
+
+            let mappedStream = { ...stream };
+
+            if (matchTorrent) {
+              const progress = Math.round(matchTorrent.progress * 100);
+              mappedStream.isCached = progress >= 100;
+              mappedStream.downloadProgress = progress;
+            } else if (matchUsenet) {
+              const progress = Math.round(matchUsenet.progress * 100);
+              mappedStream.isCached = progress >= 100;
+              mappedStream.downloadProgress = progress;
             }
-            return stream;
+
+            return mappedStream;
         });
 
         const uSettings = localStorage.getItem('userSettings_' + user?.uid);
@@ -244,6 +347,7 @@ export default function MediaModal({
 
         setStreams(filteredData);
         setLoading(false);
+        setPollingActive(true);
       });
     }
   }, [isSeries, selectedSeason, selectedEpisode, movie]);
@@ -636,6 +740,14 @@ export default function MediaModal({
                                         });
                                         const resData = await createRes.json();
                                         if (resData.success) {
+                                          // Update local state item to start showing 0% downloading immediately
+                                          setStreams(prev => prev.map(s => {
+                                            if (s.id === stream.id) {
+                                              return { ...s, downloadProgress: 0, isCached: false };
+                                            }
+                                            return s;
+                                          }));
+                                          setPollingActive(true);
                                           alert("Usenet NZB queued successfully! Watch download progress in Settings -> TorBox status.");
                                         } else {
                                           const errMsg = typeof resData.detail === 'object' ? JSON.stringify(resData.detail) : (resData.detail || resData.error || "Unknown error");
