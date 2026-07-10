@@ -110,9 +110,11 @@ export default function MediaModal({
                 const progress = Math.round(match.progress * 100);
                 updatedStream.downloadProgress = progress;
                 updatedStream.isCached = match.progress >= 1; // Completed is cached
+                updatedStream.downloadSpeed = match.download_speed || 0;
 
                 // Auto-play trigger: transition from downloading to completed
                 if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
+                  // Direct token download request
                   playUrlToTrigger = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${match.id}&zip_link=true&redirect=true`;
                 }
               }
@@ -133,9 +135,11 @@ export default function MediaModal({
                 const progress = Math.round(match.progress * 100);
                 updatedStream.downloadProgress = progress;
                 updatedStream.isCached = match.progress >= 1; // Completed is cached
+                updatedStream.downloadSpeed = match.download_speed || 0;
 
                 // Auto-play trigger: transition from downloading to completed
                 if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
+                  // Direct token download request
                   playUrlToTrigger = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${match.id}&zip_link=true&redirect=true`;
                 }
               }
@@ -232,10 +236,12 @@ export default function MediaModal({
               const progress = Math.round(matchTorrent.progress * 100);
               mappedStream.isCached = progress >= 100;
               mappedStream.downloadProgress = progress;
+              mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
             } else if (matchUsenet) {
               const progress = Math.round(matchUsenet.progress * 100);
               mappedStream.isCached = progress >= 100;
               mappedStream.downloadProgress = progress;
+              mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
             }
 
             return mappedStream;
@@ -340,10 +346,12 @@ export default function MediaModal({
               const progress = Math.round(matchTorrent.progress * 100);
               mappedStream.isCached = progress >= 100;
               mappedStream.downloadProgress = progress;
+              mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
             } else if (matchUsenet) {
               const progress = Math.round(matchUsenet.progress * 100);
               mappedStream.isCached = progress >= 100;
               mappedStream.downloadProgress = progress;
+              mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
             }
 
             return mappedStream;
@@ -690,10 +698,15 @@ export default function MediaModal({
                                       });
                                       if (res.ok) {
                                         const result = await res.json();
-                                        // Try to find if this torrent is already in user downloads list
-                                        const existing = result.data?.find((t: any) => 
-                                          t.hash === stream.hash || t.name === stream.name
-                                        );
+                                        // Try to find if this item is already in user downloads list
+                                        const existing = result.data?.find((t: any) => {
+                                          if (stream.type === 'usenet') {
+                                            const nameMatch = t.name === stream.name || stream.name.includes(t.name) || t.name.includes(stream.name);
+                                            const sizeMatch = stream.sizeBytes && t.size && Math.abs(t.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
+                                            return nameMatch || sizeMatch;
+                                          }
+                                          return t.hash === stream.hash || t.name === stream.name;
+                                        });
                                         
                                         if (existing) {
                                           const dlUrl = `https://api.torbox.app/v1/api/${stream.type === 'usenet' ? 'usenet' : 'torrents'}/requestdl?token=${apiKey}&${stream.type === 'usenet' ? 'usenet_id' : 'torrent_id'}=${existing.id}&zip_link=true&redirect=true`;
@@ -813,7 +826,14 @@ export default function MediaModal({
                                       <div className="flex items-start justify-between gap-3">
                                         <div className="flex flex-col min-w-0">
                                             <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
-                                            <span className="text-[10px] text-white/60 font-mono mt-1">Size: {stream.size}</span>
+                                            <div className="flex items-center gap-2 mt-1">
+                                              <span className="text-[10px] text-white/60 font-mono">Size: {stream.size}</span>
+                                              {stream.downloadProgress !== undefined && stream.downloadProgress < 100 && stream.downloadSpeed !== undefined && (
+                                                <span className="text-[10px] text-indigo-400 font-mono font-semibold">
+                                                  • {(stream.downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s
+                                                </span>
+                                              )}
+                                            </div>
                                         </div>
                                         <div className="flex gap-2 shrink-0">
                                           <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
