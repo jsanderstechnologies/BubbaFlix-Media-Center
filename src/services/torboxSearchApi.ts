@@ -63,10 +63,9 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
   const queryStr = `${title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`;
   console.log(`[TorBox Search] Searching TV Series: "${queryStr}"`);
   
-  try {
-    const headers = getAuthHeaders();
-    
-    // 1. Try Usenet
+  const headers = getAuthHeaders();
+  
+  const performSearch = async (): Promise<TorBoxSearchResult[]> => {
     let usenetResults: TorBoxSearchResult[] = [];
     try {
       const usenetRes = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
@@ -78,12 +77,8 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
       }
     } catch (e) { console.error("[TorBox Search] Usenet query error:", e); }
 
-    if (usenetResults.length > 0) {
-      return usenetResults;
-    }
+    if (usenetResults.length > 0) return usenetResults;
 
-    // 2. Fallback to Torrents if Usenet failed or found nothing
-    console.log(`[TorBox Search] Usenet returned 0 results. Falling back to Torrents for "${queryStr}"`);
     let torrentResults: TorBoxSearchResult[] = [];
     try {
       const torrentRes = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
@@ -96,7 +91,16 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
     } catch (e) { console.error("[TorBox Search] Torrent query error:", e); }
     
     return torrentResults;
+  };
 
+  try {
+    let results = await performSearch();
+    if (results.length === 0) {
+        console.log(`[TorBox Search] 0 results found for "${queryStr}". Retrying in 1.5s to allow background scraper to finish...`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        results = await performSearch();
+    }
+    return results;
   } catch (error) {
     console.error("[TorBox Search] Error querying TV series streams:", error);
     return [];
@@ -107,10 +111,9 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
   const queryStr = year ? `${title} ${year}` : title;
   console.log(`[TorBox Search] Searching Movie: "${queryStr}"`);
   
-  try {
-    const headers = getAuthHeaders();
-    
-    // 1. Try Usenet
+  const headers = getAuthHeaders();
+  
+  const performSearch = async (): Promise<TorBoxSearchResult[]> => {
     let usenetResults: TorBoxSearchResult[] = [];
     try {
       const usenetRes = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
@@ -122,12 +125,8 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
       }
     } catch (e) { console.error("[TorBox Search] Usenet query error:", e); }
 
-    if (usenetResults.length > 0) {
-      return usenetResults;
-    }
+    if (usenetResults.length > 0) return usenetResults;
 
-    // 2. Fallback to Torrents if Usenet failed or found nothing
-    console.log(`[TorBox Search] Usenet returned 0 results. Falling back to Torrents for "${queryStr}"`);
     let torrentResults: TorBoxSearchResult[] = [];
     try {
       const torrentRes = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
@@ -140,7 +139,16 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
     } catch (e) { console.error("[TorBox Search] Torrent query error:", e); }
     
     return torrentResults;
+  };
 
+  try {
+    let results = await performSearch();
+    if (results.length === 0) {
+        console.log(`[TorBox Search] 0 results found for "${queryStr}". Retrying in 1.5s to allow background scraper to finish...`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        results = await performSearch();
+    }
+    return results;
   } catch (error) {
     console.error("[TorBox Search] Error querying movie streams:", error);
     return [];

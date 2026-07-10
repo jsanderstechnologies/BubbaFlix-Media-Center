@@ -185,7 +185,7 @@ export default function MediaModal({
         });
       } else {
         setLoading(true);
-        fetchStreamsForMovie(movie.title, movie.year).then(async data => {
+        fetchStreamsForMovie(movie.title || movie.name, movie.year).then(async data => {
           
         const apiKey = localStorage.getItem('torboxApiKey');
         let activeTorrents: any[] = [];
@@ -419,6 +419,61 @@ export default function MediaModal({
             }
 
             return mappedStream;
+        });
+
+        // Inject any Torbox downloads that match the title but weren't in the search results
+        const normalizedTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const seasonEpisodeStr = `s${String(selectedSeason).padStart(2, '0')}e${String(selectedEpisode).padStart(2, '0')}`;
+        
+        activeTorrents.forEach(t => {
+            if (!matchedTorboxIds.has(t.id)) {
+                const normalizedTorrentName = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (normalizedTorrentName.includes(normalizedTitle) && normalizedTorrentName.includes(seasonEpisodeStr)) {
+                    const progress = Math.round(t.progress * 100);
+                    updatedData.push({
+                        name: t.name,
+                        title: t.name,
+                        fullDescription: t.name,
+                        quality: t.name.includes('4K') || t.name.includes('2160p') ? '4K' : (t.name.includes('1080p') ? '1080p' : '720p'),
+                        sizeBytes: t.size,
+                        sizeStr: (t.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+                        type: 'torrent',
+                        hash: t.hash,
+                        isCached: progress >= 100,
+                        downloadProgress: progress,
+                        downloadSpeed: t.download_speed || 0,
+                        url: `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${t.id}&zip_link=false&redirect=true`,
+                        isTorBox: true,
+                        id: t.id,
+                        availability: 'Cached'
+                    });
+                }
+            }
+        });
+
+        activeUsenet.forEach(u => {
+            if (!matchedTorboxIds.has(u.id)) {
+                const normalizedUsenetName = (u.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (normalizedUsenetName.includes(normalizedTitle) && normalizedUsenetName.includes(seasonEpisodeStr)) {
+                    const progress = Math.round(u.progress * 100);
+                    updatedData.push({
+                        name: u.name,
+                        title: u.name,
+                        fullDescription: u.name,
+                        quality: u.name.includes('4K') || u.name.includes('2160p') ? '4K' : (u.name.includes('1080p') ? '1080p' : '720p'),
+                        sizeBytes: u.size,
+                        sizeStr: (u.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+                        type: 'usenet',
+                        isCached: progress >= 100,
+                        downloadProgress: progress,
+                        downloadSpeed: u.download_speed || 0,
+                        url: `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${u.id}&zip_link=false&redirect=true`,
+                        isTorBox: true,
+                        id: u.id,
+                        availability: 'Cached'
+                    });
+                }
+            }
         });
 
         const uSettings = localStorage.getItem('userSettings_' + user?.uid);
