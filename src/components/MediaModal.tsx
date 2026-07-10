@@ -908,7 +908,12 @@ export default function MediaModal({
                                           } else if (resData.error) {
                                               errMsg = resData.error;
                                           }
-                                          alert("Failed to queue Usenet download: " + errMsg);
+
+                                          if (errMsg.toLowerCase().includes('rate limit')) {
+                                              alert("TorBox Limit Reached: TorBox strictly limits how many Usenet items you can queue in a short period (usually 15-20 per hour). Please wait a few minutes before queuing more Usenet streams.");
+                                          } else {
+                                              alert("Failed to queue Usenet download: " + errMsg);
+                                          }
                                         }
                                       } catch (err: any) {
                                         setStreams(prev => prev.map(s => {
