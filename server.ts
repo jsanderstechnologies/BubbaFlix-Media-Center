@@ -1128,8 +1128,16 @@ app.get('/api/youtube/search', async (req, res) => {
         const linkMatch = content.match(/<link>([\s\S]*?)<\/link>/);
         const sizeMatch = content.match(/<description>[\s\S]*?Size: ([\s\S]*?)<br \/>/i) || content.match(/length="(\d+)"/);
         
-        const title = titleMatch ? titleMatch[1].trim() : "Unknown NZB Release";
-        const link = linkMatch ? linkMatch[1].trim() : "";
+        let title = titleMatch ? titleMatch[1].trim() : "Unknown NZB Release";
+        let link = linkMatch ? linkMatch[1].trim() : "";
+
+        // Clean CDATA wrappers if present
+        if (title.includes("![CDATA[")) {
+          title = title.replace("<![CDATA[", "").replace("]]>", "").trim();
+        }
+        if (link.includes("![CDATA[")) {
+          link = link.replace("<![CDATA[", "").replace("]]>", "").trim();
+        }
         
         let size = 0;
         if (sizeMatch) {

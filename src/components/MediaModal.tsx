@@ -593,7 +593,8 @@ export default function MediaModal({
                                           const dlUrl = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${resData.data.usenet_id}&zip_link=true&redirect=true`;
                                           onPlay(dlUrl);
                                         } else {
-                                          alert("Failed to queue Usenet download: " + (resData.detail || "Unknown error"));
+                                          const errMsg = typeof resData.detail === 'object' ? JSON.stringify(resData.detail) : (resData.detail || resData.error || "Unknown error");
+                                          alert("Failed to queue Usenet download: " + errMsg);
                                         }
                                       } catch (err: any) {
                                         alert("Error adding Usenet stream: " + err.message);
@@ -637,7 +638,8 @@ export default function MediaModal({
                                         if (resData.success) {
                                           alert("Usenet NZB queued successfully! Watch download progress in Settings -> TorBox status.");
                                         } else {
-                                          alert("Failed to queue Usenet download: " + (resData.detail || "Unknown error"));
+                                          const errMsg = typeof resData.detail === 'object' ? JSON.stringify(resData.detail) : (resData.detail || resData.error || "Unknown error");
+                                          alert("Failed to queue Usenet download: " + errMsg);
                                         }
                                       } catch (err: any) {
                                         alert("Error queueing Usenet: " + err.message);
