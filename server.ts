@@ -1107,115 +1107,62 @@ app.get('/api/youtube/search', async (req, res) => {
 
   // TorBox API Proxies
   app.get("/api/torbox/search", async (req, res) => {
-    const { q, type } = req.query;
-    const authHeader = req.headers.authorization;
+    const { q } = req.query;
     if (!q || typeof q !== 'string') {
       return res.status(400).json({ error: "Query 'q' parameter is required." });
     }
 
     try {
-      const searchUrl = type === 'usenet' 
-        ? `https://search-api.torbox.app/usenet/search/${encodeURIComponent(q)}`
-        : `https://search-api.torbox.app/torrents/search/${encodeURIComponent(q)}`;
+      const fallbackUrl = `https://www.nzbindex.nl/rss/?q=${encodeURIComponent(q)}&nzblink=1`;
+      console.log(`[Usenet Search Direct] Fetching from NZBIndex: ${fallbackUrl}`);
+      const rssRes = await axios.get(fallbackUrl);
+      const xml = rssRes.data;
+      
+      // Simple regex-based parsing of RSS items
+      const items: any[] = [];
+      const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+      let match;
+      while ((match = itemRegex.exec(xml)) !== null) {
+        const content = match[1];
+        const titleMatch = content.match(/<title>([\s\S]*?)<\/title>/);
+        const linkMatch = content.match(/<link>([\s\S]*?)<\/link>/);
+        const sizeMatch = content.match(/<description>[\s\S]*?Size: ([\s\S]*?)<br \/>/i) || content.match(/length="(\d+)"/);
+        
+        const title = titleMatch ? titleMatch[1].trim() : "Unknown NZB Release";
+        const link = linkMatch ? linkMatch[1].trim() : "";
+        
+        let size = 0;
+        if (sizeMatch) {
+          if (sizeMatch[1].match(/^\d+$/)) {
+            size = parseInt(sizeMatch[1]);
+          } else {
+            // Parse string representation e.g. "1.2 GB"
+            const sizeStr = sizeMatch[1].toUpperCase();
+            const num = parseFloat(sizeStr);
+            if (sizeStr.includes("GB")) size = num * 1024 * 1024 * 1024;
+            else if (sizeStr.includes("MB")) size = num * 1024 * 1024;
+            else if (sizeStr.includes("KB")) size = num * 1024;
+            else size = num;
+          }
+        }
 
-      console.log(`[TorBox Search Proxy] Querying: ${searchUrl}`);
-      const headers: any = {};
-      if (authHeader) {
-        headers['Authorization'] = authHeader;
+        if (link) {
+          items.push({
+            name: title,
+            title: title,
+            link: link,
+            size: size,
+            cached: false,
+            seeds: 0,
+            peers: 0
+          });
+        }
       }
       
-      const response = await axios.get(searchUrl, { headers });
-      res.json(response.data);
+      res.json({ success: true, detail: "Usenet search completed successfully.", data: items });
     } catch (err: any) {
-      console.warn("[TorBox Search Proxy] Search failed, attempting RSS fallback:", err.message);
-      
-      // Fallback for Usenet searches: Query NZBIndex RSS feed
-      if (type === 'usenet') {
-        try {
-          const fallbackUrl = `https://www.nzbindex.nl/rss/?q=${encodeURIComponent(q)}&nzblink=1`;
-          console.log(`[Usenet RSS Fallback] Fetching from NZBIndex: ${fallbackUrl}`);
-          const rssRes = await axios.get(fallbackUrl);
-          const xml = rssRes.data;
-          
-          // Simple regex-based parsing of RSS items
-          const items: any[] = [];
-          const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-          let match;
-          while ((match = itemRegex.exec(xml)) !== null) {
-            const content = match[1];
-            const titleMatch = content.match(/<title>([\s\S]*?)<\/title>/);
-            const linkMatch = content.match(/<link>([\s\S]*?)<\/link>/);
-            const sizeMatch = content.match(/<description>[\s\S]*?Size: ([\s\S]*?)<br \/>/i) || content.match(/length="(\d+)"/);
-            
-            const title = titleMatch ? titleMatch[1].trim() : "Unknown NZB Release";
-            const link = linkMatch ? linkMatch[1].trim() : "";
-            
-            let size = 0;
-            if (sizeMatch) {
-              if (sizeMatch[1].match(/^\d+$/)) {
-                size = parseInt(sizeMatch[1]);
-              } else {
-                // Parse string representation e.g. "1.2 GB"
-                const sizeStr = sizeMatch[1].toUpperCase();
-                const num = parseFloat(sizeStr);
-                if (sizeStr.includes("GB")) size = num * 1024 * 1024 * 1024;
-                else if (sizeStr.includes("MB")) size = num * 1024 * 1024;
-                else if (sizeStr.includes("KB")) size = num * 1024;
-                else size = num;
-              }
-            }
-
-            if (link) {
-              items.push({
-                name: title,
-                title: title,
-                link: link,
-                size: size,
-                cached: false,
-                seeds: 0,
-                peers: 0
-              });
-            }
-          }
-          
-          return res.json({ success: true, detail: "Usenet search completed via RSS fallback.", data: items });
-        } catch (rssErr: any) {
-          console.error("[Usenet RSS Fallback] RSS search failed:", rssErr.message);
-        }
-      } else {
-        // Fallback for Torrents: Query YTS movie API (quick free public endpoint)
-        try {
-          const ytsUrl = `https://yts.mx/api/v2/list_movies.json?query_term=${encodeURIComponent(q)}`;
-          console.log(`[Torrent Fallback] Fetching from YTS: ${ytsUrl}`);
-          const ytsRes = await axios.get(ytsUrl);
-          const ytsData = ytsRes.data;
-          
-          if (ytsData && ytsData.status === 'ok' && ytsData.data && ytsData.data.movies) {
-            const items: any[] = [];
-            ytsData.data.movies.forEach((m: any) => {
-              if (m.torrents) {
-                m.torrents.forEach((t: any) => {
-                  const qual = t.quality === '2160p' ? '4K' : t.quality;
-                  items.push({
-                    name: `${m.title} (${m.year}) [${qual}] [YTS]`,
-                    title: `${m.title} (${m.year}) [${qual}] [YTS]`,
-                    magnet: `magnet:?xt=urn:btih:${t.hash}&dn=${encodeURIComponent(m.title)}`,
-                    size: t.size_bytes,
-                    cached: false,
-                    seeds: t.seeds,
-                    peers: t.peers
-                  });
-                });
-              }
-            });
-            return res.json({ success: true, detail: "Torrent search completed via YTS fallback.", data: items });
-          }
-        } catch (ytsErr: any) {
-          console.error("[Torrent Fallback] YTS search failed:", ytsErr.message);
-        }
-      }
-
-      res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
+      console.error("[Usenet Search Direct] NZBIndex query failed:", err.message);
+      res.status(500).json({ error: err.message });
     }
   });
 

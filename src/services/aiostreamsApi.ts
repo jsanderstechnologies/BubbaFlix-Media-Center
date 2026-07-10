@@ -63,28 +63,15 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
   
   try {
     const headers = getAuthHeaders();
-    const [torrentRes, usenetRes] = await Promise.all([
-      fetch(`/api/torbox/search?type=torrent&q=${encodeURIComponent(queryStr)}`, { headers }),
-      fetch(`/api/torbox/search?type=usenet&q=${encodeURIComponent(queryStr)}`, { headers }).catch(() => null)
-    ]);
+    const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
 
-    let torrents: any[] = [];
-    if (torrentRes && torrentRes.ok) {
-      const parsed = await torrentRes.json();
+    if (res.ok) {
+      const parsed = await res.json();
       if (parsed.success && parsed.data) {
-        torrents = mapResults(parsed.data, 'torrent');
+        return mapResults(parsed.data, 'usenet');
       }
     }
-
-    let usenet: any[] = [];
-    if (usenetRes && usenetRes.ok) {
-      const parsed = await usenetRes.json();
-      if (parsed.success && parsed.data) {
-        usenet = mapResults(parsed.data, 'usenet');
-      }
-    }
-
-    return [...torrents, ...usenet];
+    return [];
   } catch (error) {
     console.error("[TorBox Search] Error querying TV series streams:", error);
     return [];
@@ -97,28 +84,15 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
   
   try {
     const headers = getAuthHeaders();
-    const [torrentRes, usenetRes] = await Promise.all([
-      fetch(`/api/torbox/search?type=torrent&q=${encodeURIComponent(queryStr)}`, { headers }),
-      fetch(`/api/torbox/search?type=usenet&q=${encodeURIComponent(queryStr)}`, { headers }).catch(() => null)
-    ]);
+    const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
 
-    let torrents: any[] = [];
-    if (torrentRes && torrentRes.ok) {
-      const parsed = await torrentRes.json();
+    if (res.ok) {
+      const parsed = await res.json();
       if (parsed.success && parsed.data) {
-        torrents = mapResults(parsed.data, 'torrent');
+        return mapResults(parsed.data, 'usenet');
       }
     }
-
-    let usenet: any[] = [];
-    if (usenetRes && usenetRes.ok) {
-      const parsed = await usenetRes.json();
-      if (parsed.success && parsed.data) {
-        usenet = mapResults(parsed.data, 'usenet');
-      }
-    }
-
-    return [...torrents, ...usenet];
+    return [];
   } catch (error) {
     console.error("[TorBox Search] Error querying movie streams:", error);
     return [];
