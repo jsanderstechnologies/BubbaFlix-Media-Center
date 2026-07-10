@@ -356,7 +356,6 @@ async function startServer() {
     const settings = readJson(SETTINGS_FILE);
     if (tmdbKey) settings.tmdbKey = tmdbKey;
     if (torboxApiKey) settings.torboxApiKey = torboxApiKey;
-    if (aiostreamsUrl) settings.aiostreamsUrl = aiostreamsUrl;
     writeJson(SETTINGS_FILE, settings);
 
     res.json({ success: true, user: { uid, email, username, role: 'admin', status: 'approved' }, token });
@@ -367,8 +366,7 @@ async function startServer() {
     const settings = readJson(SETTINGS_FILE);
     res.json({
       tmdbKey: settings.tmdbKey || '',
-      torboxApiKey: settings.torboxApiKey || '',
-      aiostreamsUrl: settings.aiostreamsUrl || ''
+      torboxApiKey: settings.torboxApiKey || ''
     });
   });
 

@@ -74,7 +74,6 @@ export function AuthModal() {
   const [setupStep, setSetupStep] = useState(1); // 1 = Admin User, 2 = API integrations
   const [tmdbKey, setTmdbKey] = useState('');
   const [torboxApiKey, setTorboxApiKey] = useState('');
-  const [aiostreamsUrl, setAiostreamsUrl] = useState('');
 
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -98,7 +97,6 @@ export function AuthModal() {
       .then(data => {
         if (data.tmdbKey) setTmdbKey(data.tmdbKey);
         if (data.torboxApiKey) setTorboxApiKey(data.torboxApiKey);
-        if (data.aiostreamsUrl) setAiostreamsUrl(data.aiostreamsUrl);
       })
       .catch(console.error);
   }, []);
@@ -134,7 +132,7 @@ export function AuthModal() {
 
     const endpoint = setupRequired ? '/api/auth/setup-init' : (isLogin ? '/api/auth/login' : '/api/auth/register');
     const body = setupRequired 
-      ? { email, username, password, tmdbKey, torboxApiKey, aiostreamsUrl }
+      ? { email, username, password, tmdbKey, torboxApiKey }
       : (isLogin ? { email, password } : { email, username });
 
     try {
@@ -156,7 +154,6 @@ export function AuthModal() {
       if (setupRequired) {
         if (tmdbKey) localStorage.setItem('tmdbKey', tmdbKey);
         if (torboxApiKey) localStorage.setItem('torboxApiKey', torboxApiKey);
-        if (aiostreamsUrl) localStorage.setItem('aiostreamsUrl', aiostreamsUrl);
         setSetupRequired(false);
       }
 
@@ -363,27 +360,6 @@ export function AuthModal() {
                   value={torboxApiKey}
                   onChange={e => setTorboxApiKey(e.target.value)}
                   className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <label className="text-[11px] text-white/60 block font-semibold">AIOStreams Manifest URL</label>
-                  <a 
-                    href="https://aiostreams.elfhosted.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-[10px] text-emerald-400 hover:underline hover:text-emerald-300"
-                  >
-                    Visit ElfHosted AIOStreams
-                  </a>
-                </div>
-                <input 
-                  type="url" 
-                  placeholder="https://aiostreams.elfhosted.com/manifest.json" 
-                  value={aiostreamsUrl}
-                  onChange={e => setAiostreamsUrl(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none font-mono text-xs"
                 />
               </div>
             </div>
