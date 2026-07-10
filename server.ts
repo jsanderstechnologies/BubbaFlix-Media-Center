@@ -1339,6 +1339,27 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
+  app.get("/api/torbox/torrents/search", async (req, res) => {
+    const { q } = req.query;
+    if (!q || typeof q !== 'string') {
+      return res.status(400).json({ error: "Query 'q' parameter is required." });
+    }
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Authorization key is required." });
+    }
+
+    try {
+      const response = await axios.get(`https://api.torbox.app/v1/api/torrents/search?query=${encodeURIComponent(q)}`, {
+        headers: { Authorization: authHeader }
+      });
+      res.json(response.data);
+    } catch (err: any) {
+      console.error("[Torrents Search API Error]", err.message);
+      res.status(err.response?.status || 500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/torbox/torrents", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
