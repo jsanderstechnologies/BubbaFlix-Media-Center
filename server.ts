@@ -1158,6 +1158,11 @@ app.get('/api/youtube/search', async (req, res) => {
         // Strip common Usenet prefix patterns like "[01/25] - " or "yEnc (" or "Part 1 of 5"
         cleanTitle = cleanTitle.replace(/^\[\d+\/\d+\]\s*(-\s*)?/, ''); // Removes "[01/12] - "
         cleanTitle = cleanTitle.replace(/^\(\d+\/\d+\)\s*(-\s*)?/, ''); // Removes "(01/12) - "
+        
+        // Strip trailing yEnc suffixes e.g. "yEnc (1/120)" or just "yEnc"
+        cleanTitle = cleanTitle.replace(/\s*yenc\s*(\(\d+\/\d+\))?.*$/i, '');
+        cleanTitle = cleanTitle.replace(/\s*yenc\s*.*$/i, '');
+        
         cleanTitle = cleanTitle.replace(/^[^"]*"\s*/, ''); // If it has quotes embedded, grab content inside/after quotes
         cleanTitle = cleanTitle.replace(/"\s*$/, '');
         cleanTitle = cleanTitle.trim();
