@@ -737,6 +737,10 @@ export default function MediaModal({
                         <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
                             {streams.map(stream => {
                                 const handleStreamClick = async () => {
+                                  if (stream.isAdding) return;
+                                  // Don't re-queue if it's already downloading
+                                  if (stream.downloadProgress !== undefined && stream.downloadProgress < 100) return;
+
                                   const apiKey = localStorage.getItem('torboxApiKey');
                                   if (!apiKey) {
                                     alert("Please configure your TorBox API Key in Settings to stream or queue downloads.");
@@ -883,7 +887,14 @@ export default function MediaModal({
                                             }
                                             return s;
                                           }));
-                                          const errMsg = typeof resData.detail === 'object' ? JSON.stringify(resData.detail) : (resData.detail || resData.error || "Unknown error");
+                                          let errMsg = "Unknown error";
+                                          if (resData.detail) {
+                                              if (typeof resData.detail === 'string') errMsg = resData.detail;
+                                              else if (Array.isArray(resData.detail) && resData.detail.length > 0 && resData.detail[0].msg) errMsg = resData.detail[0].msg;
+                                              else errMsg = JSON.stringify(resData.detail);
+                                          } else if (resData.error) {
+                                              errMsg = resData.error;
+                                          }
                                           alert("Failed to queue Usenet download: " + errMsg);
                                         }
                                       } catch (err: any) {
@@ -929,7 +940,15 @@ export default function MediaModal({
                                             }
                                             return s;
                                           }));
-                                          alert("Failed to queue Torrent: " + (resData.detail || "Unknown error"));
+                                          let errMsg = "Unknown error";
+                                          if (resData.detail) {
+                                              if (typeof resData.detail === 'string') errMsg = resData.detail;
+                                              else if (Array.isArray(resData.detail) && resData.detail.length > 0 && resData.detail[0].msg) errMsg = resData.detail[0].msg;
+                                              else errMsg = JSON.stringify(resData.detail);
+                                          } else if (resData.error) {
+                                              errMsg = resData.error;
+                                          }
+                                          alert("Failed to queue Torrent: " + errMsg);
                                         }
                                       } catch (err: any) {
                                         setStreams(prev => prev.map(s => {
