@@ -793,14 +793,44 @@ async function startServer() {
       }
     });
 
-    // Pipe remote stream directly into ffprobe stdin via Axios (handles redirects natively)
+    // Resolve TorBox requestdl redirects before piping into ffprobe
+    let probeUrl = targetUrl;
+    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+      try {
+        const redirectRes = await axios({
+          method: 'get', url: targetUrl, maxRedirects: 0,
+          validateStatus: (s) => s >= 200 && s < 400,
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (redirectRes.status === 307 && redirectRes.headers['location']) {
+          probeUrl = redirectRes.headers['location'] as string;
+          console.log('[FFprobe-Proxy] Resolved CDN URL:', probeUrl);
+        }
+      } catch (resolveErr: any) {
+        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
+          probeUrl = resolveErr.response.headers.location;
+          console.log('[FFprobe-Proxy] Resolved CDN URL from error response:', probeUrl);
+        }
+      }
+    }
+
+    // Swallow EPIPE — ffprobe closes stdin once it has enough header data
+    ffprobeProcess.stdin.on('error', (err: any) => {
+      if (err.code !== 'EPIPE') console.error('[FFprobe-Proxy] stdin error:', err.message);
+    });
+
+    // Pipe remote stream directly into ffprobe stdin via Axios
     try {
       const response = await axios({
         method: 'get',
-        url: targetUrl,
+        url: probeUrl,
         responseType: 'stream',
+        maxRedirects: 5,
         timeout: 15000,
         headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      response.data.on('error', (err: any) => {
+        if (err.code !== 'EPIPE') console.error('[FFprobe-Proxy] stream error:', err.message);
       });
       response.data.pipe(ffprobeProcess.stdin);
     } catch (err: any) {
@@ -1146,6 +1176,11 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     }
 
+    // Swallow EPIPE — ffmpeg closes stdin when it's done reading header/seeking
+    ffmpegProcess.stdin.on('error', (err: any) => {
+      if (err.code !== 'EPIPE') console.error('[FFmpeg-Proxy] stdin error:', err.message);
+    });
+
     let responseStream: any = null;
     try {
       const response = await axios({
@@ -1157,6 +1192,10 @@ app.get('/api/youtube/search', async (req, res) => {
         headers: { 'User-Agent': 'Mozilla/5.0' }
       });
       responseStream = response.data;
+      responseStream.on('error', (err: any) => {
+        if (err.code !== 'EPIPE') console.error('[FFmpeg-Proxy] response stream error:', err.message);
+        try { ffmpegProcess.stdin.end(); } catch {}
+      });
       responseStream.pipe(ffmpegProcess.stdin);
     } catch (err: any) {
       console.error('[FFmpeg-Proxy] Media pipe failed to establish connection:', err.message);
