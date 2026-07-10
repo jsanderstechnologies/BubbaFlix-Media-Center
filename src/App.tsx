@@ -94,7 +94,6 @@ function MainApp() {
       .then(data => {
         if (data.tmdbKey) localStorage.setItem('tmdbKey', data.tmdbKey);
         if (data.torboxApiKey) localStorage.setItem('torboxApiKey', data.torboxApiKey);
-        if (data.aiostreamsUrl) localStorage.setItem('aiostreamsUrl', data.aiostreamsUrl);
       })
       .catch(err => console.error('[Config Sync] Failed to load server configs:', err));
   }, []);

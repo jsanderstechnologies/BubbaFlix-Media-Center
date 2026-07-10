@@ -30,8 +30,8 @@ const _dirname = _filename ? path.dirname(_filename) : '';
 // ============================================================================
 
 /**
- * Fetches and parses a standard AIOStreams manifest.json
- * @param {string} manifestUrl - The AIOStreams manifest URL
+ * Fetches and parses a standard streams manifest.json
+ * @param {string} manifestUrl - The manifest URL
  * @returns {Promise<Object>} - The parsed manifest object
  */
 export async function fetchAIOStreamsManifest(manifestUrl: string) {
@@ -194,10 +194,7 @@ async function startServer() {
     settings.torboxApiKey = process.env.TORBOX_API_KEY;
     settingsChanged = true;
   }
-  if (process.env.AIOSTREAMS_URL && settings.aiostreamsUrl !== process.env.AIOSTREAMS_URL) {
-    settings.aiostreamsUrl = process.env.AIOSTREAMS_URL;
-    settingsChanged = true;
-  }
+
   if (settingsChanged) {
     writeJson(SETTINGS_FILE, settings);
   }
@@ -316,7 +313,7 @@ async function startServer() {
       return res.status(400).json({ error: 'Setup has already been completed' });
     }
 
-    const { email, username, password, tmdbKey, torboxApiKey, aiostreamsUrl } = req.body;
+    const { email, username, password, tmdbKey, torboxApiKey } = req.body;
     if (!email || !username || !password) {
       return res.status(400).json({ error: 'Admin email, username, and password are required' });
     }
@@ -1052,12 +1049,45 @@ app.get('/api/youtube/search', async (req, res) => {
     ffmpegProcess.stdout.pipe(bufferStream).pipe(res);
 
     // Stream remote media content directly into FFmpeg stdin via Axios
+    // If targetUrl is a TorBox requestdl URL, resolve the redirect first to get the actual CDN media URL
+    let resolvedUrl = targetUrl;
+    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+      try {
+        console.log('[FFmpeg-Proxy] TorBox requestdl URL detected - resolving redirect...');
+        const redirectRes = await axios({
+          method: 'get',
+          url: targetUrl,
+          maxRedirects: 0,
+          validateStatus: (status) => status >= 200 && status < 400,
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        // 307: redirect location header has the real CDN URL
+        if (redirectRes.status === 307 && redirectRes.headers['location']) {
+          resolvedUrl = redirectRes.headers['location'] as string;
+          console.log('[FFmpeg-Proxy] Resolved CDN URL:', resolvedUrl);
+        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
+          // JSON response with .data field (older TorBox behavior)
+          resolvedUrl = redirectRes.data.data;
+          console.log('[FFmpeg-Proxy] Resolved JSON CDN URL:', resolvedUrl);
+        }
+      } catch (resolveErr: any) {
+        // If resolving fails (e.g., 307 throws), check for location header in error response
+        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
+          resolvedUrl = resolveErr.response.headers.location;
+          console.log('[FFmpeg-Proxy] Resolved CDN URL from error response:', resolvedUrl);
+        } else {
+          console.error('[FFmpeg-Proxy] Failed to resolve TorBox redirect:', resolveErr.message);
+        }
+      }
+    }
+
     let responseStream: any = null;
     try {
       const response = await axios({
         method: 'get',
-        url: targetUrl,
+        url: resolvedUrl,
         responseType: 'stream',
+        maxRedirects: 5,
         timeout: 30000,
         headers: { 'User-Agent': 'Mozilla/5.0' }
       });

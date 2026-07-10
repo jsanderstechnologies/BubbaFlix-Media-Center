@@ -115,7 +115,7 @@ export default function MediaModal({
                 // Auto-play trigger: transition from downloading to completed
                 if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
                   // Direct token download request
-                  playUrlToTrigger = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${match.id}&zip_link=true&redirect=true`;
+                  playUrlToTrigger = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${match.id}&zip_link=false&redirect=true`;
                 }
               }
             }
@@ -140,7 +140,7 @@ export default function MediaModal({
                 // Auto-play trigger: transition from downloading to completed
                 if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
                   // Direct token download request
-                  playUrlToTrigger = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${match.id}&zip_link=true&redirect=true`;
+                  playUrlToTrigger = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${match.id}&zip_link=false&redirect=true`;
                 }
               }
             }
@@ -167,7 +167,7 @@ export default function MediaModal({
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [pollingActive, streams.length]);
+  }, [pollingActive, streams]);
 
   useEffect(() => {
     if (movie) {
@@ -709,7 +709,7 @@ export default function MediaModal({
                                         });
                                         
                                         if (existing) {
-                                          const dlUrl = `https://api.torbox.app/v1/api/${stream.type === 'usenet' ? 'usenet' : 'torrents'}/requestdl?token=${apiKey}&${stream.type === 'usenet' ? 'usenet_id' : 'torrent_id'}=${existing.id}&zip_link=true&redirect=true`;
+                                          const dlUrl = `https://api.torbox.app/v1/api/${stream.type === 'usenet' ? 'usenet' : 'torrents'}/requestdl?token=${apiKey}&${stream.type === 'usenet' ? 'usenet_id' : 'torrent_id'}=${existing.id}&zip_link=false&redirect=true`;
                                           onPlay(dlUrl);
                                           return;
                                         }
@@ -745,7 +745,7 @@ export default function MediaModal({
                                             }
                                             return s;
                                           }));
-                                          const dlUrl = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${resData.data.usenet_id}&zip_link=true&redirect=true`;
+                                          const dlUrl = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${resData.data.usenet_id}&zip_link=false&redirect=true`;
                                           onPlay(dlUrl);
                                         } else {
                                           setStreams(prev => prev.map(s => {
@@ -780,7 +780,7 @@ export default function MediaModal({
                                         const resData = await createRes.json();
                                         if (resData.success && resData.data) {
                                           const torrentId = resData.data.torrent_id || resData.data.id;
-                                          const dlUrl = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${torrentId}&zip_link=true&redirect=true`;
+                                          const dlUrl = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${torrentId}&zip_link=false&redirect=true`;
                                           onPlay(dlUrl);
                                         } else {
                                           alert("Failed to add Torrent: " + (resData.detail || "Unknown error"));
