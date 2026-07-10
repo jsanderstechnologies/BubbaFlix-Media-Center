@@ -120,11 +120,14 @@ export default function MediaModal({
             
             // Find in Usenet
             if (stream.type === 'usenet') {
-              const match = activeUsenet.find(u => 
-                u.name === stream.name || 
-                stream.name.includes(u.name) || 
-                u.name.includes(stream.name)
-              );
+              const match = activeUsenet.find(u => {
+                const nameMatch = u.name === stream.name || 
+                                  stream.name.includes(u.name) || 
+                                  u.name.includes(stream.name);
+                // Usenet name from TorBox can be a random UUID, so fallback match by size (within 5% delta)
+                const sizeMatch = stream.size && u.size && Math.abs(u.size - stream.size) < (stream.size * 0.05);
+                return nameMatch || sizeMatch;
+              });
 
               if (match) {
                 const progress = Math.round(match.progress * 100);
@@ -215,11 +218,13 @@ export default function MediaModal({
                 stream.name.includes(t.name) || 
                 t.name.includes(stream.name)
             );
-            const matchUsenet = activeUsenet.find(u => 
-                u.name === stream.name || 
-                stream.name.includes(u.name) || 
-                u.name.includes(stream.name)
-            );
+            const matchUsenet = activeUsenet.find(u => {
+                const nameMatch = u.name === stream.name || 
+                                  stream.name.includes(u.name) || 
+                                  u.name.includes(stream.name);
+                const sizeMatch = stream.size && u.size && Math.abs(u.size - stream.size) < (stream.size * 0.05);
+                return nameMatch || sizeMatch;
+            });
 
             let mappedStream = { ...stream };
 
@@ -321,11 +326,13 @@ export default function MediaModal({
                 stream.name.includes(t.name) || 
                 t.name.includes(stream.name)
             );
-            const matchUsenet = activeUsenet.find(u => 
-                u.name === stream.name || 
-                stream.name.includes(u.name) || 
-                u.name.includes(stream.name)
-            );
+            const matchUsenet = activeUsenet.find(u => {
+                const nameMatch = u.name === stream.name || 
+                                  stream.name.includes(u.name) || 
+                                  u.name.includes(stream.name);
+                const sizeMatch = stream.size && u.size && Math.abs(u.size - stream.size) < (stream.size * 0.05);
+                return nameMatch || sizeMatch;
+            });
 
             let mappedStream = { ...stream };
 
