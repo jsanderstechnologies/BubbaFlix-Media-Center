@@ -215,6 +215,7 @@ export default function MediaModal({
         }
 
         // Cross-reference streams with Torbox active downloads
+        const matchedTorboxIds = new Set<number>();
         const updatedData = data.map((stream: any) => {
             const matchTorrent = activeTorrents.find(t => 
                 (stream.hash && t.hash === stream.hash) ||
@@ -226,18 +227,21 @@ export default function MediaModal({
                 const nameMatch = u.name === stream.name || 
                                   stream.name.includes(u.name) || 
                                   u.name.includes(stream.name);
-                const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
+                // Widen to 15% for Usenet unpack/par2 size differences
+                const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
                 return nameMatch || sizeMatch;
             });
 
             let mappedStream = { ...stream };
 
             if (matchTorrent) {
+              matchedTorboxIds.add(matchTorrent.id);
               const progress = Math.round(matchTorrent.progress * 100);
               mappedStream.isCached = progress >= 100;
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
             } else if (matchUsenet) {
+              matchedTorboxIds.add(matchUsenet.id);
               const progress = Math.round(matchUsenet.progress * 100);
               mappedStream.isCached = progress >= 100;
               mappedStream.downloadProgress = progress;
@@ -245,6 +249,60 @@ export default function MediaModal({
             }
 
             return mappedStream;
+        });
+
+        // Inject any Torbox downloads that match the title but weren't in the search results
+        const normalizedTitle = (movie.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        activeTorrents.forEach(t => {
+            if (!matchedTorboxIds.has(t.id)) {
+                const normalizedTorrentName = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (normalizedTorrentName.includes(normalizedTitle)) {
+                    const progress = Math.round(t.progress * 100);
+                    updatedData.push({
+                        name: t.name,
+                        title: t.name,
+                        fullDescription: t.name,
+                        quality: t.name.includes('4K') || t.name.includes('2160p') ? '4K' : (t.name.includes('1080p') ? '1080p' : '720p'),
+                        sizeBytes: t.size,
+                        sizeStr: (t.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+                        type: 'torrent',
+                        hash: t.hash,
+                        isCached: progress >= 100,
+                        downloadProgress: progress,
+                        downloadSpeed: t.download_speed || 0,
+                        url: `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${t.id}&zip_link=false&redirect=true`,
+                        isTorBox: true,
+                        id: t.id,
+                        availability: 'Cached'
+                    });
+                }
+            }
+        });
+
+        activeUsenet.forEach(u => {
+            if (!matchedTorboxIds.has(u.id)) {
+                const normalizedUsenetName = (u.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (normalizedUsenetName.includes(normalizedTitle)) {
+                    const progress = Math.round(u.progress * 100);
+                    updatedData.push({
+                        name: u.name,
+                        title: u.name,
+                        fullDescription: u.name,
+                        quality: u.name.includes('4K') || u.name.includes('2160p') ? '4K' : (u.name.includes('1080p') ? '1080p' : '720p'),
+                        sizeBytes: u.size,
+                        sizeStr: (u.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+                        type: 'usenet',
+                        isCached: progress >= 100,
+                        downloadProgress: progress,
+                        downloadSpeed: u.download_speed || 0,
+                        url: `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${u.id}&zip_link=false&redirect=true`,
+                        isTorBox: true,
+                        id: u.id,
+                        availability: 'Cached'
+                    });
+                }
+            }
         });
 
         const uSettings = localStorage.getItem('userSettings_' + user?.uid);
