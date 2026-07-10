@@ -133,12 +133,12 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
           {/* Auto CC */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Playback Options</h3>
-            <label className="flex items-center justify-between p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors">
-              <div>
+            <label className="flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors">
+              <div className="flex-1 pr-2">
                 <div className="text-sm font-medium text-white">Auto-enable Subtitles</div>
                 <div className="text-xs text-white/40 mt-1">Automatically turn on CC when playing a video</div>
               </div>
-              <div className={`w-10 h-6 rounded-full p-1 transition-colors ${settings.autoCC ? 'bg-emerald-500' : 'bg-white/10'}`}>
+              <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${settings.autoCC ? 'bg-emerald-500' : 'bg-white/10'}`}>
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform ${settings.autoCC ? 'translate-x-4' : 'translate-x-0'}`} />
               </div>
               <input 
@@ -149,12 +149,12 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
               />
             </label>
 
-            <label className="flex items-center justify-between p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors">
-              <div>
+            <label className="flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors">
+              <div className="flex-1 pr-2">
                 <div className="text-sm font-medium text-white">Dynamic Audio Leveling</div>
                 <div className="text-xs text-white/40 mt-1">Normalize video volume dynamically to prevent loud effects from overwhelming dialogues.</div>
               </div>
-              <div className={`w-10 h-6 rounded-full p-1 transition-colors ${settings.enableAudioLeveling ? 'bg-emerald-500' : 'bg-white/10'}`}>
+              <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${settings.enableAudioLeveling ? 'bg-emerald-500' : 'bg-white/10'}`}>
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform ${settings.enableAudioLeveling ? 'translate-x-4' : 'translate-x-0'}`} />
               </div>
               <input 
