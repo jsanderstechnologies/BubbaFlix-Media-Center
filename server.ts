@@ -1107,19 +1107,86 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
-  // API Route: Test fetching AIOStreams manifest
-  app.post("/api/manifest", async (req, res) => {
+  // TorBox API Proxies
+  app.get("/api/torbox/search", async (req, res) => {
+    const { q, type } = req.query;
+    const authHeader = req.headers.authorization;
+    if (!q || typeof q !== 'string') {
+      return res.status(400).json({ error: "Query 'q' parameter is required." });
+    }
+
     try {
-      const { url } = req.body;
-      if (!url) {
-        return res.status(400).json({ error: "URL is required" });
+      const searchUrl = type === 'usenet' 
+        ? `https://search-api.torbox.app/usenet/search/${encodeURIComponent(q)}`
+        : `https://search-api.torbox.app/torrents/search/${encodeURIComponent(q)}`;
+
+      console.log(`[TorBox Search Proxy] Querying: ${searchUrl}`);
+      const headers: any = {};
+      if (authHeader) {
+        headers['Authorization'] = authHeader;
       }
-      const manifest = await fetchAIOStreamsManifest(url);
-      res.json(manifest);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      
+      const response = await axios.get(searchUrl, { headers });
+      res.json(response.data);
+    } catch (err: any) {
+      console.error("[TorBox Search Proxy] Search failed:", err.message);
+      res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
     }
   });
+
+  app.get("/api/torbox/torrents", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Authorization key is required." });
+    }
+    try {
+      const response = await axios.get("https://api.torbox.app/v1/api/torrents/mylist", {
+        headers: { Authorization: authHeader }
+      });
+      res.json(response.data);
+    } catch (err: any) {
+      res.status(err.response?.status || 500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/torbox/usenet/list", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Authorization key is required." });
+    }
+    try {
+      const response = await axios.get("https://api.torbox.app/v1/api/usenet/mylist", {
+        headers: { Authorization: authHeader }
+      });
+      res.json(response.data);
+    } catch (err: any) {
+      res.status(err.response?.status || 500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/torbox/usenet/create", express.json(), async (req, res) => {
+    const authHeader = req.headers.authorization;
+    const { link } = req.body;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Authorization key is required." });
+    }
+    if (!link) {
+      return res.status(400).json({ error: "Usenet NZB link is required." });
+    }
+    try {
+      const response = await axios.post("https://api.torbox.app/v1/api/usenet/createusenetdownload", {
+        link,
+        post_processing: -1
+      }, {
+        headers: { Authorization: authHeader }
+      });
+      res.json(response.data);
+    } catch (err: any) {
+      console.error("[TorBox Usenet Create Proxy] Failed:", err.response?.data || err.message);
+      res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
+    }
+  });
+
 
   // API Route: Test parsing M3U (we'll create a dummy file to test)
   app.post("/api/m3u", async (req, res) => {

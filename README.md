@@ -31,7 +31,6 @@ Save the configuration below to run BubbaFlix:
 ```yaml
 services:
   bubbaflix:
-
     image: ghcr.io/jsanderstechnologies/bubbaflix-media-center:latest
     container_name: bubbaflix
     restart: unless-stopped
@@ -43,28 +42,10 @@ services:
       - PORT=5150
       - TMDB_KEY=your_tmdb_key_here
       - TORBOX_API_KEY=your_torbox_key_here
-      - AIOSTREAMS_URL=your_aiostreams_manifest_url_here
     labels:
       io.casaos.app.icon: "https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg"
       io.casaos.app.title: "BubbaFlix"
       io.casaos.app.desc: "Premium personal media center and TV coordinator"
-
-
-  aiostreams:
-    image: viren070/aiostreams:latest
-    container_name: aiostreams
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      - PORT=8008
-      - AIOSTREAMS_PORT=8008
-      - SECRET_KEY=48cf022aabbcf699bca69d838625fcfa5fbf1bf782076170dd9a30036b61cf02
-      # IMPORTANT: Replace YOUR_SERVER_IP below with your machine's actual local IP address
-      - BASE_URL=http://192.168.10.10:8008
-      - SEL_SYNC_ACCESS=all
-      - REGEX_FILTER_ACCESS=all
-    volumes:
-      - ./aiostreams-data:/app/data
 ```
 
  

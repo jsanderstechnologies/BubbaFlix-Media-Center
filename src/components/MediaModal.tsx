@@ -77,39 +77,54 @@ export default function MediaModal({
         });
       } else {
         setLoading(true);
-        fetchStreamsForMovie(movie.id).then(async data => {
+        fetchStreamsForMovie(movie.title, movie.year).then(async data => {
           
         const apiKey = localStorage.getItem('torboxApiKey');
         let activeTorrents: any[] = [];
+        let activeUsenet: any[] = [];
         
         if (apiKey) {
             try {
-                const res = await fetch('/api/torbox/torrents', {
-                    headers: { Authorization: `Bearer ${apiKey}` }
-                });
-                if (res.ok) {
-                    const tData = await res.json();
+                const [tRes, uRes] = await Promise.all([
+                  fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }),
+                  fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null)
+                ]);
+                if (tRes && tRes.ok) {
+                    const tData = await tRes.json();
                     if (tData && tData.success && tData.data) {
                         activeTorrents = tData.data.filter((t: any) => t.download_state === 'downloading' || t.progress < 100);
                     }
                 }
+                if (uRes && uRes.ok) {
+                    const uData = await uRes.json();
+                    if (uData && uData.success && uData.data) {
+                        activeUsenet = uData.data.filter((u: any) => u.download_state === 'downloading' || u.progress < 100);
+                    }
+                }
             } catch (err) {
-                console.error("Failed to fetch torbox torrents for cross-reference", err);
+                console.error("Failed to fetch active torbox lists for cross-reference", err);
             }
         }
 
         // Cross-reference streams with Torbox active downloads
         const updatedData = data.map((stream: any) => {
-            if (stream.isCached && stream.filename && activeTorrents.length > 0) {
-                // Check if filename matches any active torrent
-                // Sometimes the torrent name differs slightly, so we can do a loose match or exact
+            if (stream.isCached && activeTorrents.length > 0 && stream.type === 'torrent') {
                 const match = activeTorrents.find(t => 
-                    t.name === stream.filename || 
-                    stream.filename.includes(t.name) || 
-                    t.name.includes(stream.filename) ||
-                    (stream.name && t.name.includes(stream.name.replace(/[^a-zA-Z0-9 ]/g, '').trim()))
+                    (stream.hash && t.hash === stream.hash) ||
+                    t.name === stream.name || 
+                    stream.name.includes(t.name) || 
+                    t.name.includes(stream.name)
                 );
-                
+                if (match) {
+                    stream.isCached = false;
+                    stream.downloadProgress = Math.round(match.progress * 100);
+                }
+            } else if (stream.isCached && activeUsenet.length > 0 && stream.type === 'usenet') {
+                const match = activeUsenet.find(u => 
+                    u.name === stream.name || 
+                    stream.name.includes(u.name) || 
+                    u.name.includes(stream.name)
+                );
                 if (match) {
                     stream.isCached = false;
                     stream.downloadProgress = Math.round(match.progress * 100);
@@ -124,7 +139,7 @@ export default function MediaModal({
             try { allowedRes = JSON.parse(uSettings).resolutions; } catch(e){}
         }
         let filteredData = updatedData.filter((s: any) => {
-            const desc = (s.name || '') + ' ' + (s.description || '');
+            const desc = (s.name || '') + ' ' + (s.fullDescription || '');
             if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
             if (desc.includes('1080p')) return allowedRes.includes('1080p');
             if (desc.includes('720p')) return allowedRes.includes('720p');
@@ -132,8 +147,7 @@ export default function MediaModal({
         });
 
         setStreams(filteredData);
-
-          setLoading(false);
+        setLoading(false);
         });
       }
     }
@@ -159,39 +173,54 @@ export default function MediaModal({
   useEffect(() => {
     if (isSeries && selectedSeason !== null && selectedEpisode !== null && movie) {
       setLoading(true);
-      fetchStreamsForTvSeries(movie.id, selectedSeason, selectedEpisode).then(async data => {
+      fetchStreamsForTvSeries(movie.title, selectedSeason, selectedEpisode).then(async data => {
         
         const apiKey = localStorage.getItem('torboxApiKey');
         let activeTorrents: any[] = [];
+        let activeUsenet: any[] = [];
         
         if (apiKey) {
             try {
-                const res = await fetch('/api/torbox/torrents', {
-                    headers: { Authorization: `Bearer ${apiKey}` }
-                });
-                if (res.ok) {
-                    const tData = await res.json();
+                const [tRes, uRes] = await Promise.all([
+                  fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }),
+                  fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null)
+                ]);
+                if (tRes && tRes.ok) {
+                    const tData = await tRes.json();
                     if (tData && tData.success && tData.data) {
                         activeTorrents = tData.data.filter((t: any) => t.download_state === 'downloading' || t.progress < 100);
                     }
                 }
+                if (uRes && uRes.ok) {
+                    const uData = await uRes.json();
+                    if (uData && uData.success && uData.data) {
+                        activeUsenet = uData.data.filter((u: any) => u.download_state === 'downloading' || u.progress < 100);
+                    }
+                }
             } catch (err) {
-                console.error("Failed to fetch torbox torrents for cross-reference", err);
+                console.error("Failed to fetch active lists for TV cross-reference", err);
             }
         }
 
         // Cross-reference streams with Torbox active downloads
         const updatedData = data.map((stream: any) => {
-            if (stream.isCached && stream.filename && activeTorrents.length > 0) {
-                // Check if filename matches any active torrent
-                // Sometimes the torrent name differs slightly, so we can do a loose match or exact
+            if (stream.isCached && activeTorrents.length > 0 && stream.type === 'torrent') {
                 const match = activeTorrents.find(t => 
-                    t.name === stream.filename || 
-                    stream.filename.includes(t.name) || 
-                    t.name.includes(stream.filename) ||
-                    (stream.name && t.name.includes(stream.name.replace(/[^a-zA-Z0-9 ]/g, '').trim()))
+                    (stream.hash && t.hash === stream.hash) ||
+                    t.name === stream.name || 
+                    stream.name.includes(t.name) || 
+                    t.name.includes(stream.name)
                 );
-                
+                if (match) {
+                    stream.isCached = false;
+                    stream.downloadProgress = Math.round(match.progress * 100);
+                }
+            } else if (stream.isCached && activeUsenet.length > 0 && stream.type === 'usenet') {
+                const match = activeUsenet.find(u => 
+                    u.name === stream.name || 
+                    stream.name.includes(u.name) || 
+                    u.name.includes(stream.name)
+                );
                 if (match) {
                     stream.isCached = false;
                     stream.downloadProgress = Math.round(match.progress * 100);
@@ -206,7 +235,7 @@ export default function MediaModal({
             try { allowedRes = JSON.parse(uSettings).resolutions; } catch(e){}
         }
         let filteredData = updatedData.filter((s: any) => {
-            const desc = (s.name || '') + ' ' + (s.description || '');
+            const desc = (s.name || '') + ' ' + (s.fullDescription || '');
             if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
             if (desc.includes('1080p')) return allowedRes.includes('1080p');
             if (desc.includes('720p')) return allowedRes.includes('720p');
@@ -214,7 +243,6 @@ export default function MediaModal({
         });
 
         setStreams(filteredData);
-
         setLoading(false);
       });
     }
@@ -499,47 +527,176 @@ export default function MediaModal({
 
                 <div className="flex flex-col flex-1 min-h-0">
                     <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2 flex-shrink-0">
-                        AIOStreams Sources <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        TorBox Voyager Sources <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
                     </h3>
                     {loading ? (
                         <div className="text-white/60 text-xs italic py-4 flex items-center gap-2 bg-white/[0.01] p-4 rounded-xl border border-white/5">
                           <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                           </span>
-                          <span>Fetching streams from backend...</span>
+                          <span>Searching TorBox Voyager Indexers...</span>
                         </div>
                     ) : streams.length === 0 ? (
-                        <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5">No streaming sources found for this selection.</div>
+                        <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5">No indexed streams found. Ensure your TorBox Pro API key is configured.</div>
                     ) : (
                         <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
-                            {streams.map(stream => (
-                                <div 
-                                  key={stream.id} 
-                                  className="flex flex-col p-3.5 bg-white/5 border border-white/10 rounded-xl hover:bg-red-950/10 hover:border-red-500/20 transition-all cursor-pointer group" 
-                                  onClick={() => { onPlay(stream.url); }}
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="flex flex-col min-w-0">
-                                          <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
-                                          <span className="text-[10px] text-white/60 font-mono mt-1">Size: {stream.size}</span>
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
-                                            {stream.isCached ? 'Cached' : (stream.downloadProgress !== undefined ? `Downloading ${stream.downloadProgress}%` : 'Uncached')}
+                            {streams.map(stream => {
+                                const handleStreamClick = async () => {
+                                  const apiKey = localStorage.getItem('torboxApiKey');
+                                  if (!apiKey) {
+                                    alert("Please configure your TorBox API Key in Settings to stream or queue downloads.");
+                                    return;
+                                  }
+
+                                  if (stream.isCached) {
+                                    // Instant streaming via requestdl
+                                    const dlEndpoint = stream.type === 'usenet' 
+                                      ? `/api/torbox/usenet/list` // Usenet cached items require retrieving their list info first or linking directly
+                                      : `/api/torbox/torrents`;
+                                    
+                                    try {
+                                      // Get cached download url
+                                      const res = await fetch(dlEndpoint, {
+                                        headers: { Authorization: `Bearer ${apiKey}` }
+                                      });
+                                      if (res.ok) {
+                                        const result = await res.json();
+                                        // Try to find if this torrent is already in user downloads list
+                                        const existing = result.data?.find((t: any) => 
+                                          t.hash === stream.hash || t.name === stream.name
+                                        );
+                                        
+                                        if (existing) {
+                                          const dlUrl = `https://api.torbox.app/v1/api/${stream.type === 'usenet' ? 'usenet' : 'torrents'}/requestdl?token=${apiKey}&${stream.type === 'usenet' ? 'usenet_id' : 'torrent_id'}=${existing.id}&zip_link=true&redirect=true`;
+                                          onPlay(dlUrl);
+                                          return;
+                                        }
+                                      }
+                                    } catch (err) {
+                                      console.error("Failed to check active downloads", err);
+                                    }
+
+                                    // If not in downloads list, create download instantly (it will be instant since it's cached)
+                                    if (stream.type === 'usenet') {
+                                      try {
+                                        const createRes = await fetch('/api/torbox/usenet/create', {
+                                          method: 'POST',
+                                          headers: { 
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${apiKey}` 
+                                          },
+                                          body: JSON.stringify({ link: stream.url })
+                                        });
+                                        const resData = await createRes.json();
+                                        if (resData.success && resData.data) {
+                                          const dlUrl = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${resData.data.usenet_id}&zip_link=true&redirect=true`;
+                                          onPlay(dlUrl);
+                                        } else {
+                                          alert("Failed to queue Usenet download: " + (resData.detail || "Unknown error"));
+                                        }
+                                      } catch (err: any) {
+                                        alert("Error adding Usenet stream: " + err.message);
+                                      }
+                                    } else {
+                                      // Torrent instant cached add
+                                      try {
+                                        const createRes = await fetch('https://api.torbox.app/v1/api/torrents/createtorrent', {
+                                          method: 'POST',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${apiKey}`
+                                          },
+                                          body: JSON.stringify({ magnet: stream.url })
+                                        });
+                                        const resData = await createRes.json();
+                                        if (resData.success && resData.data) {
+                                          const torrentId = resData.data.torrent_id || resData.data.id;
+                                          const dlUrl = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${torrentId}&zip_link=true&redirect=true`;
+                                          onPlay(dlUrl);
+                                        } else {
+                                          alert("Failed to add Torrent: " + (resData.detail || "Unknown error"));
+                                        }
+                                      } catch (err: any) {
+                                        alert("Error adding Torrent stream: " + err.message);
+                                      }
+                                    }
+                                  } else {
+                                    // Uncached items: Queue download
+                                    if (stream.type === 'usenet') {
+                                      try {
+                                        const createRes = await fetch('/api/torbox/usenet/create', {
+                                          method: 'POST',
+                                          headers: { 
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${apiKey}` 
+                                          },
+                                          body: JSON.stringify({ link: stream.url })
+                                        });
+                                        const resData = await createRes.json();
+                                        if (resData.success) {
+                                          alert("Usenet NZB queued successfully! Watch download progress in Settings -> TorBox status.");
+                                        } else {
+                                          alert("Failed to queue Usenet download: " + (resData.detail || "Unknown error"));
+                                        }
+                                      } catch (err: any) {
+                                        alert("Error queueing Usenet: " + err.message);
+                                      }
+                                    } else {
+                                      // Queue Torrent
+                                      try {
+                                        const createRes = await fetch('https://api.torbox.app/v1/api/torrents/createtorrent', {
+                                          method: 'POST',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${apiKey}`
+                                          },
+                                          body: JSON.stringify({ magnet: stream.url })
+                                        });
+                                        const resData = await createRes.json();
+                                        if (resData.success) {
+                                          alert("Torrent queued successfully! Watch download progress in Settings.");
+                                        } else {
+                                          alert("Failed to queue Torrent: " + (resData.detail || "Unknown error"));
+                                        }
+                                      } catch (err: any) {
+                                        alert("Error queueing Torrent: " + err.message);
+                                      }
+                                    }
+                                  }
+                                };
+
+                                return (
+                                  <div 
+                                    key={stream.id} 
+                                    className="flex flex-col p-3.5 bg-white/5 border border-white/10 rounded-xl hover:bg-red-950/10 hover:border-red-500/20 transition-all cursor-pointer group" 
+                                    onClick={handleStreamClick}
+                                  >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
+                                            <span className="text-[10px] text-white/60 font-mono mt-1">Size: {stream.size}</span>
                                         </div>
-                                        <div className="px-2 py-0.5 bg-red-600/10 text-red-400 text-[10px] font-bold rounded border border-red-500/20 whitespace-nowrap uppercase">
-                                            {stream.quality}
+                                        <div className="flex gap-2 shrink-0">
+                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
+                                              {stream.isCached ? 'Instant Cached' : (stream.downloadProgress !== undefined ? `Downloading ${stream.downloadProgress}%` : 'Queue Download')}
+                                          </div>
+                                          <div className="px-2 py-0.5 bg-indigo-600/10 text-indigo-400 text-[10px] font-bold rounded border border-indigo-500/20 whitespace-nowrap uppercase">
+                                              {stream.type}
+                                          </div>
+                                          <div className="px-2 py-0.5 bg-red-600/10 text-red-400 text-[10px] font-bold rounded border border-red-500/20 whitespace-nowrap uppercase">
+                                              {stream.quality}
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                    {stream.fullDescription && (
-                                      <div className="mt-2.5 text-[10px] text-white/60 font-mono whitespace-pre-wrap leading-tight hidden group-hover:block border-t border-white/5 pt-2">
-                                        {stream.fullDescription}
-                                      </div>
-                                    )}
-                                </div>
-                            ))}
+                                      {stream.fullDescription && (
+                                        <div className="mt-2.5 text-[10px] text-white/60 font-mono whitespace-pre-wrap leading-tight hidden group-hover:block border-t border-white/5 pt-2">
+                                          {stream.fullDescription}
+                                        </div>
+                                      )}
+                                  </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>

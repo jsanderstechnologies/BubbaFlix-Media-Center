@@ -21,7 +21,6 @@ export default function SettingsPanel() {
   const [torboxApiKey, setTorboxApiKey] = useState(() => localStorage.getItem('torboxApiKey') || '');
   const [preferHEVC, setPreferHEVC] = useState(() => localStorage.getItem('preferHEVC') === 'true');
   const [maxResults, setMaxResults] = useState(() => localStorage.getItem('maxResults') || '20');
-  const [aiostreamsUrl, setAiostreamsUrl] = useState(() => localStorage.getItem('aiostreamsUrl') || '');
   const [providerType, setProviderType] = useState(() => localStorage.getItem('providerType') || 'm3u');
   const [iptvUrl, setIptvUrl] = useState(() => localStorage.getItem('iptvUrl') || '');
   const [epgUrl, setEpgUrl] = useState(() => localStorage.getItem('epgUrl') || '');
@@ -160,7 +159,6 @@ export default function SettingsPanel() {
     localStorage.setItem('torboxApiKey', torboxApiKey);
     localStorage.setItem('preferHEVC', preferHEVC.toString());
     localStorage.setItem('maxResults', maxResults);
-    localStorage.setItem('aiostreamsUrl', aiostreamsUrl);
     
     let finalIptvUrl = iptvUrl;
     let finalEpgUrl = epgUrl;
@@ -314,15 +312,7 @@ export default function SettingsPanel() {
             <h2 className="text-lg font-medium text-white">System Status</h2>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
-              <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">AIOStreams</span>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-sm font-semibold text-white">CONNECTED</span>
-              </div>
-            </div>
-            
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
               <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">TMDB API</span>
               <div className="flex items-center gap-2">
@@ -417,23 +407,6 @@ export default function SettingsPanel() {
                 />
               </div>
               <p className="text-xs text-white/80 mt-2">Required to fetch movie metadata, posters, and trending lists.</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">AIOStreams Manifest URL</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                  <LinkIcon className="w-4 h-4" />
-                </span>
-                <input 
-                  type="text"
-                  value={aiostreamsUrl}
-                  onChange={(e) => setAiostreamsUrl(e.target.value)}
-                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors font-mono text-xs"
-                  placeholder="https://aiostreams.elfhosted.com/..."
-                />
-              </div>
-              <p className="text-xs text-white/80 mt-2">Used to scrape and resolve torrents/streams for catalog items.</p>
             </div>
             
             <div>

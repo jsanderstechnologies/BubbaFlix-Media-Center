@@ -11,24 +11,8 @@ services:
       - PORT=5150
       - TMDB_KEY=
       - TORBOX_API_KEY=
-      - AIOSTREAMS_URL=
     labels:
       io.portainer.server: "true"
       io.casaos.app.icon: "https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg"
       io.casaos.app.title: "BubbaFlix"
       io.casaos.app.desc: "Premium personal media center and TV coordinator"
-
-  aiostreams:
-    image: viren070/aiostreams:latest
-    container_name: aiostreams
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      - PORT=8008
-      - AIOSTREAMS_PORT=8008
-      - SECRET_KEY=48cf022aabbcf699bca69d838625fcfa5fbf1bf782076170dd9a30036b61cf02
-      - BASE_URL=http://192.168.10.10:8008
-      - SEL_SYNC_ACCESS=all
-      - REGEX_FILTER_ACCESS=all
-    volumes:
-      - ./aiostreams-data:/app/data
