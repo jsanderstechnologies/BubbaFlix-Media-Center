@@ -766,12 +766,34 @@ async function startServer() {
 
     console.log(`[FFprobe-Proxy] Probing media info for: ${targetUrl}`);
 
+    // Resolve TorBox requestdl redirects before probing
+    let probeUrl = targetUrl;
+    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+      try {
+        const redirectRes = await axios({
+          method: 'get', url: targetUrl, maxRedirects: 0,
+          validateStatus: (s) => s >= 200 && s < 400,
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (redirectRes.status === 307 && redirectRes.headers['location']) {
+          probeUrl = redirectRes.headers['location'] as string;
+        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
+          probeUrl = redirectRes.data.data;
+        }
+      } catch (resolveErr: any) {
+        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
+          probeUrl = resolveErr.response.headers.location;
+        }
+      }
+    }
+
     const args = [
+      '-user_agent', 'Mozilla/5.0',
       '-v', 'error',
       '-print_format', 'json',
       '-show_streams',
       '-show_format',
-      '-i', 'pipe:0'
+      '-i', probeUrl
     ];
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args);
@@ -792,51 +814,6 @@ async function startServer() {
         res.status(500).json({ error: "Failed to get media info" });
       }
     });
-
-    // Resolve TorBox requestdl redirects before piping into ffprobe
-    let probeUrl = targetUrl;
-    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
-      try {
-        const redirectRes = await axios({
-          method: 'get', url: targetUrl, maxRedirects: 0,
-          validateStatus: (s) => s >= 200 && s < 400,
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        if (redirectRes.status === 307 && redirectRes.headers['location']) {
-          probeUrl = redirectRes.headers['location'] as string;
-          console.log('[FFprobe-Proxy] Resolved CDN URL:', probeUrl);
-        }
-      } catch (resolveErr: any) {
-        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
-          probeUrl = resolveErr.response.headers.location;
-          console.log('[FFprobe-Proxy] Resolved CDN URL from error response:', probeUrl);
-        }
-      }
-    }
-
-    // Swallow EPIPE — ffprobe closes stdin once it has enough header data
-    ffprobeProcess.stdin.on('error', (err: any) => {
-      if (err.code !== 'EPIPE') console.error('[FFprobe-Proxy] stdin error:', err.message);
-    });
-
-    // Pipe remote stream directly into ffprobe stdin via Axios
-    try {
-      const response = await axios({
-        method: 'get',
-        url: probeUrl,
-        responseType: 'stream',
-        maxRedirects: 5,
-        timeout: 15000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-      });
-      response.data.on('error', (err: any) => {
-        if (err.code !== 'EPIPE') console.error('[FFprobe-Proxy] stream error:', err.message);
-      });
-      response.data.pipe(ffprobeProcess.stdin);
-    } catch (err: any) {
-      console.error('[FFprobe-Proxy] Network connection failed:', err.message);
-      ffprobeProcess.stdin.end();
-    }
   });
 
   app.get("/api/subtitles", async (req, res) => {
@@ -971,11 +948,32 @@ app.get('/api/youtube/search', async (req, res) => {
 
     console.log(`[FFprobe-Proxy] Getting duration for: ${targetUrl}`);
 
+    let resolvedUrl = targetUrl;
+    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+      try {
+        const redirectRes = await axios({
+          method: 'get', url: targetUrl, maxRedirects: 0,
+          validateStatus: (s) => s >= 200 && s < 400,
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (redirectRes.status === 307 && redirectRes.headers['location']) {
+          resolvedUrl = redirectRes.headers['location'] as string;
+        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
+          resolvedUrl = redirectRes.data.data;
+        }
+      } catch (resolveErr: any) {
+        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
+          resolvedUrl = resolveErr.response.headers.location;
+        }
+      }
+    }
+
     const args = [
+      '-user_agent', 'Mozilla/5.0',
       '-v', 'error',
       '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1',
-      '-i', 'pipe:0'
+      '-i', resolvedUrl
     ];
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args);
@@ -992,20 +990,6 @@ app.get('/api/youtube/search', async (req, res) => {
         res.status(500).json({ error: "Failed to get duration" });
       }
     });
-
-    try {
-      const response = await axios({
-        method: 'get',
-        url: targetUrl,
-        responseType: 'stream',
-        timeout: 15000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-      });
-      response.data.pipe(ffprobeProcess.stdin);
-    } catch (err: any) {
-      console.error('[FFprobe-Proxy] Connection failed:', err.message);
-      ffprobeProcess.stdin.end();
-    }
   });
 
   
@@ -1047,22 +1031,13 @@ app.get('/api/youtube/search', async (req, res) => {
       ffmpegProcess.stdin.end();
     }
     
-    ffmpegProcess.on('error', (err) => {
-      console.error('[FFmpeg Subtitle] Error:', err);
-    });
-    
-    req.on('close', () => {
-      ffmpegProcess.kill('SIGKILL');
-    });
-  });
-
   app.get("/api/transcode/stream.mp4", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl || typeof targetUrl !== 'string') {
       return res.status(400).send("URL is required");
     }
 
-    console.log(`[FFmpeg-Proxy] Starting transcode pipe for: ${targetUrl}`);
+    console.log(`[FFmpeg-Proxy] Starting transcode stream for: ${targetUrl}`);
 
     res.header('Content-Type', 'video/mp4');
     res.header('Access-Control-Allow-Origin', '*');
@@ -1071,14 +1046,44 @@ app.get('/api/youtube/search', async (req, res) => {
     const audioTrack = req.query.audio;
     const startOffset = req.query.start as string;
     const bufsize = req.query.bufsize as string || '64M';
-    
+
+    // Resolve TorBox redirects FIRST so we can pass the direct HTTP URL to FFmpeg
+    let resolvedUrl = targetUrl;
+    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+      try {
+        console.log('[FFmpeg-Proxy] TorBox requestdl URL detected - resolving redirect...');
+        const redirectRes = await axios({
+          method: 'get',
+          url: targetUrl,
+          maxRedirects: 0,
+          validateStatus: (status) => status >= 200 && status < 400,
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (redirectRes.status === 307 && redirectRes.headers['location']) {
+          resolvedUrl = redirectRes.headers['location'] as string;
+          console.log('[FFmpeg-Proxy] Resolved CDN URL:', resolvedUrl);
+        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
+          resolvedUrl = redirectRes.data.data;
+          console.log('[FFmpeg-Proxy] Resolved JSON CDN URL:', resolvedUrl);
+        }
+      } catch (resolveErr: any) {
+        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
+          resolvedUrl = resolveErr.response.headers.location;
+          console.log('[FFmpeg-Proxy] Resolved CDN URL from error response:', resolvedUrl);
+        } else {
+          console.error('[FFmpeg-Proxy] Failed to resolve TorBox redirect:', resolveErr.message);
+        }
+      }
+    }
+
     const args = [];
     if (startOffset && !isNaN(parseFloat(startOffset))) {
       args.push('-ss', startOffset);
     }
     
     args.push(
-      '-i', 'pipe:0',
+      '-user_agent', 'Mozilla/5.0',
+      '-i', resolvedUrl,
       '-map', '0:v:0',
     );
     if (audioTrack && audioTrack !== '0') {
@@ -1091,8 +1096,8 @@ app.get('/api/youtube/search', async (req, res) => {
     let isHevc = false;
 
     try {
-      // Fetch media info from our local proxy API
-      const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(targetUrl)}`;
+      // Pass resolvedUrl to save /api/media-info from doing an extra redirect
+      const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(resolvedUrl)}`;
       const infoRes = await axios.get(infoUrl, { timeout: 15000 });
       const mediaInfo = infoRes.data;
       const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video');
@@ -1115,7 +1120,6 @@ app.get('/api/youtube/search', async (req, res) => {
       args.push('-c:v', 'copy');
     }
 
-    // Dynamic Audio Leveling filter (keeps loud parts in movies from overwhelming the user)
     const audioLeveling = req.query.audioLeveling === 'true';
     if (audioLeveling) {
       console.log('[FFmpeg-Proxy] Enabling Dynamic Audio Leveling (dynaudnorm filter)');
@@ -1133,7 +1137,6 @@ app.get('/api/youtube/search', async (req, res) => {
 
     const ffmpegProcess = spawn(ffmpegPath, args);
 
-    // Create an aggressive Node.js memory buffer (PassThrough)
     let hwMark = 64 * 1024 * 1024; // default 64MB
     if (bufsize.endsWith('M')) {
       hwMark = parseInt(bufsize.replace('M', ''), 10) * 1024 * 1024;
@@ -1142,65 +1145,6 @@ app.get('/api/youtube/search', async (req, res) => {
     
     const bufferStream = new PassThrough({ highWaterMark: hwMark });
     ffmpegProcess.stdout.pipe(bufferStream).pipe(res);
-
-    // Stream remote media content directly into FFmpeg stdin via Axios
-    // If targetUrl is a TorBox requestdl URL, resolve the redirect first to get the actual CDN media URL
-    let resolvedUrl = targetUrl;
-    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
-      try {
-        console.log('[FFmpeg-Proxy] TorBox requestdl URL detected - resolving redirect...');
-        const redirectRes = await axios({
-          method: 'get',
-          url: targetUrl,
-          maxRedirects: 0,
-          validateStatus: (status) => status >= 200 && status < 400,
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        // 307: redirect location header has the real CDN URL
-        if (redirectRes.status === 307 && redirectRes.headers['location']) {
-          resolvedUrl = redirectRes.headers['location'] as string;
-          console.log('[FFmpeg-Proxy] Resolved CDN URL:', resolvedUrl);
-        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
-          // JSON response with .data field (older TorBox behavior)
-          resolvedUrl = redirectRes.data.data;
-          console.log('[FFmpeg-Proxy] Resolved JSON CDN URL:', resolvedUrl);
-        }
-      } catch (resolveErr: any) {
-        // If resolving fails (e.g., 307 throws), check for location header in error response
-        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
-          resolvedUrl = resolveErr.response.headers.location;
-          console.log('[FFmpeg-Proxy] Resolved CDN URL from error response:', resolvedUrl);
-        } else {
-          console.error('[FFmpeg-Proxy] Failed to resolve TorBox redirect:', resolveErr.message);
-        }
-      }
-    }
-
-    // Swallow EPIPE — ffmpeg closes stdin when it's done reading header/seeking
-    ffmpegProcess.stdin.on('error', (err: any) => {
-      if (err.code !== 'EPIPE') console.error('[FFmpeg-Proxy] stdin error:', err.message);
-    });
-
-    let responseStream: any = null;
-    try {
-      const response = await axios({
-        method: 'get',
-        url: resolvedUrl,
-        responseType: 'stream',
-        maxRedirects: 5,
-        timeout: 30000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-      });
-      responseStream = response.data;
-      responseStream.on('error', (err: any) => {
-        if (err.code !== 'EPIPE') console.error('[FFmpeg-Proxy] response stream error:', err.message);
-        try { ffmpegProcess.stdin.end(); } catch {}
-      });
-      responseStream.pipe(ffmpegProcess.stdin);
-    } catch (err: any) {
-      console.error('[FFmpeg-Proxy] Media pipe failed to establish connection:', err.message);
-      ffmpegProcess.stdin.end();
-    }
 
     let errorOutput = '';
     ffmpegProcess.stderr.on('data', (data) => {
@@ -1218,11 +1162,6 @@ app.get('/api/youtube/search', async (req, res) => {
 
     req.on('close', () => {
       console.log(`[FFmpeg] Client disconnected, killing ffmpeg process`);
-      if (responseStream) {
-        try { responseStream.destroy(); } catch {}
-      }
-      ffmpegProcess.kill('SIGKILL');
-    });
   });
 
   // API Route: Test IPC Bridge Playback
