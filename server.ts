@@ -1139,9 +1139,12 @@ app.get('/api/youtube/search', async (req, res) => {
           link = link.replace("<![CDATA[", "").replace("]]>", "").trim();
         }
 
-        // 1. FILTER: Only accept video formats. Ignore subtitle/metadata files.
+        // 1. FILTER: Only accept video formats. Ignore subtitle/metadata/archive files.
         const titleLower = title.toLowerCase();
-        const nonVideoPatterns = [/\.srt\b/i, /\.sub\b/i, /\.nfo\b/i, /\.txt\b/i, /\.jpg\b/i, /\.png\b/i, /\.sfv\b/i, /\.par2\b/i, /\.nzb\b/i];
+        const nonVideoPatterns = [
+          /\.srt\b/i, /\.sub\b/i, /\.nfo\b/i, /\.txt\b/i, /\.jpg\b/i, /\.png\b/i, 
+          /\.sfv\b/i, /\.par2\b/i, /\.nzb\b/i, /\.rar\b/i, /\.zip\b/i, /\.r\d{2}\b/i
+        ];
         const isNonVideo = nonVideoPatterns.some(pat => pat.test(titleLower));
         if (isNonVideo) {
           continue;
