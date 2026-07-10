@@ -222,9 +222,6 @@ function MainApp() {
         .then(res => res.json())
         .then(data => {
           setMediaInfo(data);
-          // Set default audio track to first audio stream index
-          const audioStream = data.streams?.find((s: any) => s.codec_type === 'audio');
-          if (audioStream) setSelectedAudioTrack(audioStream.index);
         }).catch(e => console.error("Media info fetch error:", e));
     }
   }, [isPlaying, playingUrl]);
@@ -347,7 +344,7 @@ function MainApp() {
                     const saved = localStorage.getItem('userSettings_' + user?.uid);
                     return saved ? JSON.parse(saved).enableAudioLeveling === true : false;
                   } catch { return false; }
-                })()}&bufsize=${Math.max(16, Math.round(((mediaInfo?.format?.bit_rate || 15000000) * parseInt(localStorage.getItem('streamBufferSeconds') || '60', 10)) / 8000000))}M`}
+                })()}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(localStorage.getItem('streamBufferSeconds') || '60', 10)) / 8000000))}M`}
                 autoPlay
                 className="w-full h-full object-contain absolute top-0 left-0"
                 onTimeUpdate={(e) => {
