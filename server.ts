@@ -1338,22 +1338,31 @@ app.get('/api/youtube/search', async (req, res) => {
     if (!link) {
       return res.status(400).json({ error: "Usenet NZB link is required." });
     }
-    try {
-      const FormData = require('form-data');
-      const form = new FormData();
-      form.append('link', link);
-      form.append('post_processing', '-1');
+    let attempt = 0;
+    while (attempt < 3) {
+      try {
+        const FormData = require('form-data');
+        const form = new FormData();
+        form.append('link', link);
+        form.append('post_processing', '-1');
 
-      const response = await axios.post("https://api.torbox.app/v1/api/usenet/createusenetdownload", form, {
-        headers: { 
-          Authorization: authHeader,
-          ...form.getHeaders()
+        const response = await axios.post("https://api.torbox.app/v1/api/usenet/createusenetdownload", form, {
+          headers: { 
+            Authorization: authHeader,
+            ...form.getHeaders()
+          }
+        });
+        return res.json(response.data);
+      } catch (err: any) {
+        if (err.response?.status === 429 && attempt < 2) {
+          attempt++;
+          console.warn("[TorBox Usenet Create Proxy] Rate limited (429). Retrying in 2.5s...");
+          await new Promise(r => setTimeout(r, 2500));
+          continue;
         }
-      });
-      res.json(response.data);
-    } catch (err: any) {
-      console.error("[TorBox Usenet Create Proxy] Failed:", err.response?.data || err.message);
-      res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
+        console.error("[TorBox Usenet Create Proxy] Failed:", err.response?.data || err.message);
+        return res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
+      }
     }
   });
 
