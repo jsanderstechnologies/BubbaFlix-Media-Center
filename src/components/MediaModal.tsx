@@ -720,6 +720,14 @@ export default function MediaModal({
 
                                     // If not in downloads list, create download instantly (it will be instant since it's cached)
                                     if (stream.type === 'usenet') {
+                                      // Update local state to show 'Adding to provider...' immediately
+                                      setStreams(prev => prev.map(s => {
+                                        if (s.id === stream.id) {
+                                          return { ...s, isAdding: true, isCached: false };
+                                        }
+                                        return s;
+                                      }));
+
                                       try {
                                         const createRes = await fetch('/api/torbox/usenet/create', {
                                           method: 'POST',
@@ -731,13 +739,31 @@ export default function MediaModal({
                                         });
                                         const resData = await createRes.json();
                                         if (resData.success && resData.data) {
+                                          setStreams(prev => prev.map(s => {
+                                            if (s.id === stream.id) {
+                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false };
+                                            }
+                                            return s;
+                                          }));
                                           const dlUrl = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${resData.data.usenet_id}&zip_link=true&redirect=true`;
                                           onPlay(dlUrl);
                                         } else {
+                                          setStreams(prev => prev.map(s => {
+                                            if (s.id === stream.id) {
+                                              return { ...s, isAdding: false };
+                                            }
+                                            return s;
+                                          }));
                                           const errMsg = typeof resData.detail === 'object' ? JSON.stringify(resData.detail) : (resData.detail || resData.error || "Unknown error");
                                           alert("Failed to queue Usenet download: " + errMsg);
                                         }
                                       } catch (err: any) {
+                                        setStreams(prev => prev.map(s => {
+                                          if (s.id === stream.id) {
+                                            return { ...s, isAdding: false };
+                                          }
+                                          return s;
+                                        }));
                                         alert("Error adding Usenet stream: " + err.message);
                                       }
                                     } else {
@@ -766,6 +792,14 @@ export default function MediaModal({
                                   } else {
                                     // Uncached items: Queue download
                                     if (stream.type === 'usenet') {
+                                      // Update local state to show 'Adding to provider...' immediately
+                                      setStreams(prev => prev.map(s => {
+                                        if (s.id === stream.id) {
+                                          return { ...s, isAdding: true, isCached: false };
+                                        }
+                                        return s;
+                                      }));
+
                                       try {
                                         const createRes = await fetch('/api/torbox/usenet/create', {
                                           method: 'POST',
@@ -777,24 +811,41 @@ export default function MediaModal({
                                         });
                                         const resData = await createRes.json();
                                         if (resData.success) {
-                                          // Update local state item to start showing 0% downloading immediately
                                           setStreams(prev => prev.map(s => {
                                             if (s.id === stream.id) {
-                                              return { ...s, downloadProgress: 0, isCached: false };
+                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false };
                                             }
                                             return s;
                                           }));
                                           setPollingActive(true);
-                                          alert("Usenet NZB queued successfully! Watch download progress in Settings -> TorBox status.");
                                         } else {
+                                          setStreams(prev => prev.map(s => {
+                                            if (s.id === stream.id) {
+                                              return { ...s, isAdding: false };
+                                            }
+                                            return s;
+                                          }));
                                           const errMsg = typeof resData.detail === 'object' ? JSON.stringify(resData.detail) : (resData.detail || resData.error || "Unknown error");
                                           alert("Failed to queue Usenet download: " + errMsg);
                                         }
                                       } catch (err: any) {
+                                        setStreams(prev => prev.map(s => {
+                                          if (s.id === stream.id) {
+                                            return { ...s, isAdding: false };
+                                          }
+                                          return s;
+                                        }));
                                         alert("Error queueing Usenet: " + err.message);
                                       }
                                     } else {
                                       // Queue Torrent
+                                      setStreams(prev => prev.map(s => {
+                                        if (s.id === stream.id) {
+                                          return { ...s, isAdding: true, isCached: false };
+                                        }
+                                        return s;
+                                      }));
+
                                       try {
                                         const createRes = await fetch('https://api.torbox.app/v1/api/torrents/createtorrent', {
                                           method: 'POST',
@@ -806,11 +857,29 @@ export default function MediaModal({
                                         });
                                         const resData = await createRes.json();
                                         if (resData.success) {
-                                          alert("Torrent queued successfully! Watch download progress in Settings.");
+                                          setStreams(prev => prev.map(s => {
+                                            if (s.id === stream.id) {
+                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false };
+                                            }
+                                            return s;
+                                          }));
+                                          setPollingActive(true);
                                         } else {
+                                          setStreams(prev => prev.map(s => {
+                                            if (s.id === stream.id) {
+                                              return { ...s, isAdding: false };
+                                            }
+                                            return s;
+                                          }));
                                           alert("Failed to queue Torrent: " + (resData.detail || "Unknown error"));
                                         }
                                       } catch (err: any) {
+                                        setStreams(prev => prev.map(s => {
+                                          if (s.id === stream.id) {
+                                            return { ...s, isAdding: false };
+                                          }
+                                          return s;
+                                        }));
                                         alert("Error queueing Torrent: " + err.message);
                                       }
                                     }
@@ -836,8 +905,14 @@ export default function MediaModal({
                                             </div>
                                         </div>
                                         <div className="flex gap-2 shrink-0">
-                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
-                                              {stream.isCached ? 'Instant Cached' : (stream.downloadProgress !== undefined ? `Downloading ${stream.downloadProgress}%` : 'Queue Download')}
+                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20')}`}>
+                                              {stream.isCached 
+                                                ? 'Instant Cached' 
+                                                : stream.isAdding 
+                                                  ? 'Adding to provider...' 
+                                                  : stream.downloadProgress !== undefined 
+                                                    ? `Downloading ${stream.downloadProgress}%` 
+                                                    : 'Queue Download'}
                                           </div>
                                           <div className="px-2 py-0.5 bg-indigo-600/10 text-indigo-400 text-[10px] font-bold rounded border border-indigo-500/20 whitespace-nowrap uppercase">
                                               {stream.type}
