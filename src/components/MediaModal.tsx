@@ -240,12 +240,18 @@ export default function MediaModal({
               mappedStream.isCached = progress >= 100;
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
+              mappedStream.id = matchTorrent.id;
+              mappedStream.isTorBox = true;
+              mappedStream.url = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${matchTorrent.id}&zip_link=false&redirect=true`;
             } else if (matchUsenet) {
               matchedTorboxIds.add(matchUsenet.id);
               const progress = Math.round(matchUsenet.progress * 100);
               mappedStream.isCached = progress >= 100;
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
+              mappedStream.id = matchUsenet.id;
+              mappedStream.isTorBox = true;
+              mappedStream.url = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${matchUsenet.id}&zip_link=false&redirect=true`;
             }
 
             return mappedStream;
@@ -748,9 +754,16 @@ export default function MediaModal({
                                   }
 
                                   if (stream.isCached) {
-                                    // Instant streaming via requestdl
+                                    // If we already attached the exact download ID during cross-referencing or injection, play it instantly!
+                                    if (stream.id && stream.url && stream.url.includes('requestdl')) {
+                                      onPlay(stream.url);
+                                      return;
+                                    }
+
+                                    // Otherwise, this is a search result that TorBox says is cached on their end,
+                                    // but it's not in our personal download list yet.
                                     const dlEndpoint = stream.type === 'usenet' 
-                                      ? `/api/torbox/usenet/list` // Usenet cached items require retrieving their list info first or linking directly
+                                      ? `/api/torbox/usenet/list`
                                       : `/api/torbox/torrents`;
                                     
                                     try {
