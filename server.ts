@@ -1040,6 +1040,8 @@ app.get('/api/youtube/search', async (req, res) => {
     });
   });
     
+  const codecCache = new Map<string, boolean>();
+  
   app.get("/api/transcode/stream.mp4", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl || typeof targetUrl !== 'string') {
@@ -1104,17 +1106,22 @@ app.get('/api/youtube/search', async (req, res) => {
     // Auto-detect HEVC and transcode via inline probe
     let isHevc = false;
 
-    try {
-      // Pass resolvedUrl to save /api/media-info from doing an extra redirect
-      const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(resolvedUrl)}`;
-      const infoRes = await axios.get(infoUrl, { timeout: 15000 });
-      const mediaInfo = infoRes.data;
-      const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video');
-      if (videoStream && (videoStream.codec_name === 'hevc' || videoStream.codec_name === 'dvvideo')) {
-        isHevc = true;
+    if (codecCache.has(targetUrl)) {
+      isHevc = codecCache.get(targetUrl) as boolean;
+    } else {
+      try {
+        // Pass resolvedUrl to save /api/media-info from doing an extra redirect
+        const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(resolvedUrl)}`;
+        const infoRes = await axios.get(infoUrl, { timeout: 15000 });
+        const mediaInfo = infoRes.data;
+        const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video');
+        if (videoStream && (videoStream.codec_name === 'hevc' || videoStream.codec_name === 'dvvideo')) {
+          isHevc = true;
+        }
+        codecCache.set(targetUrl, isHevc);
+      } catch (err: any) {
+        console.warn('[FFmpeg-Proxy] Codec auto-detection failed:', err.message);
       }
-    } catch (err: any) {
-      console.warn('[FFmpeg-Proxy] Codec auto-detection failed:', err.message);
     }
 
     if (isHevc) {
