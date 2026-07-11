@@ -1199,7 +1199,9 @@ app.get('/api/youtube/search', async (req, res) => {
     try {
       const fallbackUrl = `https://www.nzbindex.nl/rss/?q=${encodeURIComponent(q)}&nzblink=1`;
       console.log(`[Usenet Search Direct] Fetching from NZBIndex: ${fallbackUrl}`);
-      const rssRes = await axios.get(fallbackUrl);
+      const rssRes = await axios.get(fallbackUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+      });
       const xml = rssRes.data;
       
       // Simple regex-based parsing of RSS items
