@@ -81,7 +81,7 @@ export default function MediaModal({
     const apiKey = localStorage.getItem('torboxApiKey');
 
     async function pollDownloads() {
-      if (!apiKey || streams.length === 0) return;
+      if (!apiKey) return;
       try {
         // TorBox Cloudflare firewall triggers a 3-second 429 IP ban if we send 2 requests at the exact same millisecond.
         // We MUST fetch these sequentially with a small delay.
@@ -186,7 +186,7 @@ export default function MediaModal({
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [pollingActive, streams]);
+  }, [pollingActive]);
 
   useEffect(() => {
     if (movie) {
