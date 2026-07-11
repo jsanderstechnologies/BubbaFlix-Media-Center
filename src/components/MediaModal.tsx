@@ -917,7 +917,7 @@ export default function MediaModal({
                                     } else {
                                       // Torrent instant cached add
                                       try {
-                                        const createRes = await fetch('https://api.torbox.app/v1/api/torrents/createtorrent', {
+                                        const createRes = await fetch('/api/torbox/torrents/create', {
                                           method: 'POST',
                                           headers: {
                                             'Content-Type': 'application/json',
@@ -1007,7 +1007,7 @@ export default function MediaModal({
                                       }));
 
                                       try {
-                                        const createRes = await fetch('https://api.torbox.app/v1/api/torrents/createtorrent', {
+                                        const createRes = await fetch('/api/torbox/torrents/create', {
                                           method: 'POST',
                                           headers: {
                                             'Content-Type': 'application/json',

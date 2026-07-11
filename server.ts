@@ -1393,6 +1393,44 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
+  app.post("/api/torbox/torrents/create", express.json(), async (req, res) => {
+    const authHeader = req.headers.authorization;
+    const { magnet } = req.body;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Authorization key is required." });
+    }
+    if (!magnet) {
+      return res.status(400).json({ error: "Torrent magnet link is required." });
+    }
+    let attempt = 0;
+    while (attempt < 3) {
+      try {
+        const FormData = require('form-data');
+        const form = new FormData();
+        form.append('magnet', magnet);
+        form.append('seed', '1');
+        form.append('allow_zip', 'false');
+
+        const response = await axios.post("https://api.torbox.app/v1/api/torrents/createtorrent", form, {
+          headers: { 
+            Authorization: authHeader,
+            ...form.getHeaders()
+          }
+        });
+        return res.json(response.data);
+      } catch (err: any) {
+        if (err.response?.status === 429 && attempt < 2) {
+          attempt++;
+          console.warn("[TorBox Torrent Create Proxy] Rate limited (429). Retrying in 2.5s...");
+          await new Promise(r => setTimeout(r, 2500));
+          continue;
+        }
+        console.error("[TorBox Torrent Create Proxy] Failed:", err.response?.data || err.message);
+        return res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
+      }
+    }
+  });
+
 
   // API Route: Test parsing M3U (we'll create a dummy file to test)
   app.post("/api/m3u", async (req, res) => {
