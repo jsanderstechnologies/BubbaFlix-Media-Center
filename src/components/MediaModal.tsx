@@ -6,6 +6,20 @@ import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimest
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
 
+function getTorrentRequestDlUrl(torrentMatch: any, apiKey: string): string {
+  let fileIdStr = '';
+  if (torrentMatch && torrentMatch.files && torrentMatch.files.length > 0) {
+      const videoFiles = torrentMatch.files.filter((f: any) => f.mimetype && f.mimetype.startsWith('video/'));
+      if (videoFiles.length > 0) {
+          const largest = videoFiles.sort((a: any, b: any) => b.size - a.size)[0];
+          fileIdStr = `&file_id=${largest.id}`;
+      } else {
+          fileIdStr = `&file_id=${torrentMatch.files[0].id}`;
+      }
+  }
+  return `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${torrentMatch.id}&zip_link=false&redirect=true${fileIdStr}`;
+}
+
 export default function MediaModal({ 
   movie, 
   onClose, 
@@ -118,7 +132,7 @@ export default function MediaModal({
                 // Auto-play trigger: transition from downloading to completed
                 if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
                   // Direct token download request
-                  playUrlToTrigger = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${match.id}&zip_link=false&redirect=true`;
+                  playUrlToTrigger = getTorrentRequestDlUrl(match, apiKey);
                 }
               }
             }
@@ -249,7 +263,7 @@ export default function MediaModal({
               mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
               mappedStream.id = matchTorrent.id;
               mappedStream.isTorBox = true;
-              mappedStream.url = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${matchTorrent.id}&zip_link=false&redirect=true`;
+              mappedStream.url = getTorrentRequestDlUrl(matchTorrent, apiKey);
             } else if (matchUsenet) {
               matchedTorboxIds.add(matchUsenet.id);
               const progress = Math.round(matchUsenet.progress * 100);
@@ -287,7 +301,7 @@ export default function MediaModal({
                         isCached: progress >= 100 && ((t.download_state || '') === 'completed' || (t.download_state || '') === 'cached' || (t.download_state || '') === 'downloaded' || !t.download_state),
                         downloadProgress: progress,
                         downloadSpeed: t.download_speed || 0,
-                        url: `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${t.id}&zip_link=false&redirect=true`,
+                        url: getTorrentRequestDlUrl(t, apiKey),
                         isTorBox: true,
                         id: t.id,
                         availability: 'Cached'
@@ -458,7 +472,7 @@ export default function MediaModal({
                         isCached: progress >= 100 && ((t.download_state || '') === 'completed' || (t.download_state || '') === 'cached' || (t.download_state || '') === 'downloaded' || !t.download_state),
                         downloadProgress: progress,
                         downloadSpeed: t.download_speed || 0,
-                        url: `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${t.id}&zip_link=false&redirect=true`,
+                        url: getTorrentRequestDlUrl(t, apiKey),
                         isTorBox: true,
                         id: t.id,
                         availability: 'Cached'
@@ -858,7 +872,9 @@ export default function MediaModal({
                                         });
                                         
                                         if (existing) {
-                                          const dlUrl = `https://api.torbox.app/v1/api/${stream.type === 'usenet' ? 'usenet' : 'torrents'}/requestdl?token=${apiKey}&${stream.type === 'usenet' ? 'usenet_id' : 'torrent_id'}=${existing.id}&zip_link=false&redirect=true`;
+                                          const dlUrl = stream.type === 'torrent' 
+                                            ? getTorrentRequestDlUrl(existing, apiKey)
+                                            : `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${existing.id}&zip_link=false&redirect=true`;
                                           onPlay(dlUrl);
                                           return;
                                         }
@@ -927,10 +943,14 @@ export default function MediaModal({
                                           body: JSON.stringify({ magnet: stream.url })
                                         });
                                         const resData = await createRes.json();
-                                        if (resData.success && resData.data) {
-                                          const torrentId = resData.data.torrent_id || resData.data.id;
-                                          const dlUrl = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${torrentId}&zip_link=false&redirect=true`;
-                                          onPlay(dlUrl);
+                                        if (resData.success) {
+                                          setStreams(prev => prev.map(s => {
+                                            if (s.id === stream.id) {
+                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false };
+                                            }
+                                            return s;
+                                          }));
+                                          setPollingActive(true);
                                         } else {
                                           alert("Failed to add Torrent: " + (resData.detail || "Unknown error"));
                                         }
