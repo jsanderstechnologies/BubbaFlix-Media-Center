@@ -115,7 +115,7 @@ export default function MediaModal({
             // Find in torrents
             if (stream.type === 'torrent') {
               const match = activeTorrents.find(t => 
-                (stream.hash && t.hash === stream.hash) ||
+                (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) ||
                 t.name === stream.name || 
                 stream.name.includes(t.name) || 
                 t.name.includes(stream.name)
@@ -237,7 +237,7 @@ export default function MediaModal({
         const matchedTorboxIds = new Set<number>();
         const updatedData = data.map((stream: any) => {
             const matchTorrent = activeTorrents.find(t => {
-                if (stream.hash && t.hash === stream.hash) return true;
+                if (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) return true;
                 const sName = (stream.name || "").toLowerCase();
                 const tName = (t.name || "").toLowerCase();
                 return tName === sName || sName.includes(tName) || tName.includes(sName);
@@ -416,7 +416,7 @@ export default function MediaModal({
         // Cross-reference streams with Torbox active downloads
         const updatedData = data.map((stream: any) => {
             const matchTorrent = activeTorrents.find(t => 
-                (stream.hash && t.hash === stream.hash) ||
+                (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) ||
                 t.name === stream.name || 
                 stream.name.includes(t.name) || 
                 t.name.includes(stream.name)
@@ -868,7 +868,7 @@ export default function MediaModal({
                                             const sizeMatch = stream.sizeBytes && t.size && Math.abs(t.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
                                             return nameMatch || sizeMatch;
                                           }
-                                          return t.hash === stream.hash || tName === sName;
+                                          return (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) || tName === sName;
                                         });
                                         
                                         if (existing) {
