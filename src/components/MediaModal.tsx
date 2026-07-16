@@ -116,8 +116,8 @@ export default function MediaModal({
             if (stream.type === 'torrent') {
               const match = activeTorrents.find(t => {
                 if (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) return true;
-                const sName = (stream.name || "").toLowerCase();
-                const tName = (t.name || "").toLowerCase();
+                const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+                const tName = (t.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
                 return tName === sName || sName.includes(tName) || tName.includes(sName);
               });
 
@@ -140,11 +140,11 @@ export default function MediaModal({
             // Find in Usenet
             if (stream.type === 'usenet') {
               const match = activeUsenet.find(u => {
-                const nameMatch = u.name === stream.name || 
-                                  stream.name.includes(u.name) || 
-                                  u.name.includes(stream.name);
-                // Usenet name from TorBox can be a random UUID, so fallback match by size (within 5% delta) using raw sizeBytes
-                const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
+                const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+                const uName = (u.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+                const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
+                // Usenet name from TorBox can be a random UUID, so fallback match by size (within 15% delta) using raw sizeBytes
+                const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
                 return nameMatch || sizeMatch;
               });
 
@@ -238,13 +238,13 @@ export default function MediaModal({
         const updatedData = data.map((stream: any) => {
             const matchTorrent = activeTorrents.find(t => {
                 if (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) return true;
-                const sName = (stream.name || "").toLowerCase();
-                const tName = (t.name || "").toLowerCase();
+                const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+                const tName = (t.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
                 return tName === sName || sName.includes(tName) || tName.includes(sName);
             });
             const matchUsenet = activeUsenet.find(u => {
-                const sName = (stream.name || "").toLowerCase();
-                const uName = (u.name || "").toLowerCase();
+                const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+                const uName = (u.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
                 const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
                 // Widen to 15% for Usenet unpack/par2 size differences
                 const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
@@ -419,13 +419,13 @@ export default function MediaModal({
         const updatedData = data.map((stream: any) => {
             const matchTorrent = activeTorrents.find(t => {
                 if (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) return true;
-                const sName = (stream.name || "").toLowerCase();
-                const tName = (t.name || "").toLowerCase();
+                const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+                const tName = (t.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
                 return tName === sName || sName.includes(tName) || tName.includes(sName);
             });
             const matchUsenet = activeUsenet.find(u => {
-                const sName = (stream.name || "").toLowerCase();
-                const uName = (u.name || "").toLowerCase();
+                const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+                const uName = (u.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
                 const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
                 const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
                 return nameMatch || sizeMatch;
@@ -890,8 +890,8 @@ export default function MediaModal({
                                         const result = await res.json();
                                         // Try to find if this item is already in user downloads list
                                         const existing = result.data?.find((t: any) => {
-                                          const sName = (stream.name || "").toLowerCase();
-                                          const tName = (t.name || "").toLowerCase();
+                                          const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+                                          const tName = (t.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
                                           if (stream.type === 'usenet') {
                                             const nameMatch = tName === sName || sName.includes(tName) || tName.includes(sName);
                                             const sizeMatch = stream.sizeBytes && t.size && Math.abs(t.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
