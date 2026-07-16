@@ -237,7 +237,12 @@ function MainApp() {
     setPlayerStatus('BUFFERING...');
     setIsPlaying(true);
     setPlayingUrl(url);
-    if ((window as any).mediaAPI) {
+    let savedPlayer = 'mpv';
+    try {
+      savedPlayer = localStorage.getItem('playerPath') || 'mpv';
+    } catch (e) {}
+
+    if ((window as any).mediaAPI && savedPlayer !== 'builtin') {
       try {
         (window as any).mediaAPI.playStream(url);
         setPlayerStatus('PLAYING 4K HDR');
@@ -274,7 +279,7 @@ function MainApp() {
       <div className="h-screen w-full bg-[#050507] text-white font-sans flex overflow-hidden select-none relative">
       <BackgroundUpdater />
       {/* Real Web Video Player Overlay */}
-      {isPlaying && !(window as any).mediaAPI && (
+      {isPlaying && (!(window as any).mediaAPI || localStorage.getItem('playerPath') === 'builtin') && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col">
           <div className={`absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-[110] bg-gradient-to-b from-black/80 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
             <div className="flex gap-4 pointer-events-auto items-center">

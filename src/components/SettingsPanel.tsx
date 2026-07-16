@@ -34,6 +34,15 @@ export default function SettingsPanel() {
   const [streamBufferSeconds, setStreamBufferSeconds] = useState(() => localStorage.getItem('streamBufferSeconds') || '60');
   const [filterAnime, setFilterAnime] = useState(() => localStorage.getItem('filterAnime') === 'true');
   const [preferredLanguage, setPreferredLanguage] = useState(() => localStorage.getItem('preferredLanguage') || 'all');
+
+  const [enableUsenetSearch, setEnableUsenetSearch] = useState(() => localStorage.getItem('enableUsenetSearch') !== 'false');
+  const [enableTorrentSearch, setEnableTorrentSearch] = useState(() => localStorage.getItem('enableTorrentSearch') !== 'false');
+  
+  const [usenetHost, setUsenetHost] = useState('');
+  const [usenetPort, setUsenetPort] = useState('');
+  const [usenetUsername, setUsenetUsername] = useState('');
+  const [usenetPassword, setUsenetPassword] = useState('');
+
   const [saved, setSaved] = useState(false);
   
   const { user } = useAuth();
@@ -63,6 +72,10 @@ export default function SettingsPanel() {
           setEmailAppUrl(data.email.appUrl || '');
           setEmailPasswordSet(!!data.email.gmailAppPasswordSet);
         }
+        if (data.usenetHost !== undefined) setUsenetHost(data.usenetHost);
+        if (data.usenetPort !== undefined) setUsenetPort(data.usenetPort);
+        if (data.usenetUsername !== undefined) setUsenetUsername(data.usenetUsername);
+        if (data.usenetPassword !== undefined) setUsenetPassword(data.usenetPassword);
       })
       .catch(console.error);
   }, [isAdmin]);
@@ -186,6 +199,18 @@ export default function SettingsPanel() {
     localStorage.setItem('preferredLanguage', preferredLanguage);
     localStorage.setItem('enabledGroups', JSON.stringify(enabledGroups));
     
+    localStorage.setItem('enableUsenetSearch', enableUsenetSearch.toString());
+    localStorage.setItem('enableTorrentSearch', enableTorrentSearch.toString());
+
+    if (isAdmin) {
+      const token = localStorage.getItem('authToken');
+      fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ usenetHost, usenetPort, usenetUsername, usenetPassword })
+      }).catch(console.error);
+    }
+
     queryClient.invalidateQueries({ queryKey: ['movies'] });
     queryClient.invalidateQueries({ queryKey: ['tvseries'] });
     
@@ -366,6 +391,72 @@ export default function SettingsPanel() {
               </div>
               <p className="text-xs text-white/80 mt-2">Required to monitor TorBox download caching status in real-time.</p>
             </div>
+            
+            <div className="space-y-4 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-sm font-medium text-white block mb-1">Enable TorBox Usenet Search</label>
+                  <p className="text-xs text-white/80">Fetch streams from Usenet via TorBox API.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!enableTorrentSearch && enableUsenetSearch) {
+                      alert("You must have at least one search method active.");
+                      return;
+                    }
+                    setEnableUsenetSearch(!enableUsenetSearch);
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enableUsenetSearch ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enableUsenetSearch ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+
+              {enableUsenetSearch && isAdmin && (
+                <div className="pl-4 border-l-2 border-indigo-500/50 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-white/80 mb-1">Usenet Host</label>
+                      <input type="text" value={usenetHost} onChange={(e) => setUsenetHost(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-indigo-500/50 text-sm" placeholder="news.usenet.com" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-white/80 mb-1">Usenet Port</label>
+                      <input type="text" value={usenetPort} onChange={(e) => setUsenetPort(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-indigo-500/50 text-sm" placeholder="563" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-white/80 mb-1">Username</label>
+                      <input type="text" value={usenetUsername} onChange={(e) => setUsenetUsername(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-indigo-500/50 text-sm" placeholder="Username" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-white/80 mb-1">Password</label>
+                      <input type="password" value={usenetPassword} onChange={(e) => setUsenetPassword(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-indigo-500/50 text-sm" placeholder="Password" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-sm font-medium text-white block mb-1">Enable TorBox Torrent Search</label>
+                  <p className="text-xs text-white/80">Fetch streams from Torrents via TorBox API.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!enableUsenetSearch && enableTorrentSearch) {
+                      alert("You must have at least one search method active.");
+                      return;
+                    }
+                    setEnableTorrentSearch(!enableTorrentSearch);
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enableTorrentSearch ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enableTorrentSearch ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            </div>
+
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium text-white block">Prefer HEVC / H.265</label>

@@ -560,21 +560,35 @@ async function startServer() {
         gmailAppPasswordSet: !!emailCfg.gmailAppPassword,
         appName: emailCfg.appName || 'BubbaFlix',
         appUrl: emailCfg.appUrl || '',
-      }
+      },
+      usenetHost: settings.usenetHost || '',
+      usenetPort: settings.usenetPort || '',
+      usenetUsername: settings.usenetUsername || '',
+      usenetPassword: settings.usenetPassword || ''
     });
   });
 
   // /api/admin/settings PUT
   app.put('/api/admin/settings', requireAdmin, (req, res) => {
     const settings = readJson(SETTINGS_FILE);
-    const { gmailUser, gmailAppPassword, appName, appUrl } = req.body.email || {};
-    settings.email = {
-      gmailUser: gmailUser ?? settings.email?.gmailUser ?? '',
-      // Only update the password if a new one was provided
-      gmailAppPassword: gmailAppPassword || settings.email?.gmailAppPassword || '',
-      appName: appName ?? settings.email?.appName ?? 'BubbaFlix',
-      appUrl: appUrl ?? settings.email?.appUrl ?? '',
-    };
+    const { email, usenetHost, usenetPort, usenetUsername, usenetPassword } = req.body;
+    
+    if (email) {
+      const { gmailUser, gmailAppPassword, appName, appUrl } = email;
+      settings.email = {
+        gmailUser: gmailUser ?? settings.email?.gmailUser ?? '',
+        // Only update the password if a new one was provided
+        gmailAppPassword: gmailAppPassword || settings.email?.gmailAppPassword || '',
+        appName: appName ?? settings.email?.appName ?? 'BubbaFlix',
+        appUrl: appUrl ?? settings.email?.appUrl ?? '',
+      };
+    }
+
+    if (usenetHost !== undefined) settings.usenetHost = usenetHost;
+    if (usenetPort !== undefined) settings.usenetPort = usenetPort;
+    if (usenetUsername !== undefined) settings.usenetUsername = usenetUsername;
+    if (usenetPassword !== undefined) settings.usenetPassword = usenetPassword;
+
     writeJson(SETTINGS_FILE, settings);
     res.json({ success: true });
   });
