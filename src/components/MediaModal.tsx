@@ -126,7 +126,7 @@ export default function MediaModal({
                 updatedStream.downloadProgress = progress;
                 const state = match.download_state || '';
                 updatedStream.downloadState = state;
-                updatedStream.isCached = match.progress >= 1 && (state === 'completed' || state === 'cached' || state === ''); // Completed is cached
+                updatedStream.isCached = match.progress >= 1 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === ''); // Completed is cached
                 updatedStream.downloadSpeed = match.download_speed || 0;
 
                 // Auto-play trigger: transition from downloading to completed
@@ -153,7 +153,7 @@ export default function MediaModal({
                 updatedStream.downloadProgress = progress;
                 const state = match.download_state || '';
                 updatedStream.downloadState = state;
-                updatedStream.isCached = match.progress >= 1 && (state === 'completed' || state === 'cached' || state === ''); // Completed is cached
+                updatedStream.isCached = match.progress >= 1 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === ''); // Completed is cached
                 updatedStream.downloadSpeed = match.download_speed || 0;
 
                 // Auto-play trigger: transition from downloading to completed
@@ -258,7 +258,7 @@ export default function MediaModal({
               const progress = Math.round(matchTorrent.progress * 100);
               const state = matchTorrent.download_state || '';
               mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === '');
+              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === '');
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
               mappedStream.id = matchTorrent.id;
@@ -269,7 +269,7 @@ export default function MediaModal({
               const progress = Math.round(matchUsenet.progress * 100);
               const state = matchUsenet.download_state || '';
               mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === '');
+              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === '');
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
               mappedStream.id = matchUsenet.id;
@@ -438,7 +438,7 @@ export default function MediaModal({
               const progress = Math.round(matchTorrent.progress * 100);
               const state = matchTorrent.download_state || '';
               mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === '');
+              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === '');
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
               mappedStream.id = matchTorrent.id;
@@ -449,7 +449,7 @@ export default function MediaModal({
               const progress = Math.round(matchUsenet.progress * 100);
               const state = matchUsenet.download_state || '';
               mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === '');
+              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === '');
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
               mappedStream.id = matchUsenet.id;
