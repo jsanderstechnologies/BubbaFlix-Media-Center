@@ -1211,6 +1211,9 @@ app.get('/api/youtube/search', async (req, res) => {
   });
 
   // TorBox API Proxies
+  const usenetSearchCache = new Map<string, { timestamp: number, data: any[] }>();
+  const USENET_CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+
   app.get("/api/torbox/search", async (req, res) => {
     const { q } = req.query;
     if (!q || typeof q !== 'string') {
@@ -1218,6 +1221,15 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     try {
+      const cacheKey = q;
+      const now = Date.now();
+      if (usenetSearchCache.has(cacheKey)) {
+        const cached = usenetSearchCache.get(cacheKey)!;
+        if (now - cached.timestamp < USENET_CACHE_TTL) {
+          return res.json({ success: true, detail: "Usenet search returned from cache.", data: cached.data });
+        }
+      }
+
       const fallbackUrl = `https://www.nzbindex.nl/rss/?q=${encodeURIComponent(q)}&nzblink=1`;
       console.log(`[Usenet Search Direct] Fetching from NZBIndex: ${fallbackUrl}`);
       const rssRes = await axios.get(fallbackUrl, {
@@ -1305,8 +1317,19 @@ app.get('/api/youtube/search', async (req, res) => {
         }
       }
       
+      // Cleanup old cache entries
+      if (usenetSearchCache.size > 100) {
+        const oldest = [...usenetSearchCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0][0];
+        usenetSearchCache.delete(oldest);
+      }
+
+      usenetSearchCache.set(cacheKey, { timestamp: now, data: items });
       res.json({ success: true, detail: "Usenet search completed successfully.", data: items });
     } catch (err: any) {
+      if (err.response && err.response.status === 429) {
+        console.warn(`[Usenet Search Direct] Rate limited by NZBIndex for query '${q}'. Returning empty array.`);
+        return res.json({ success: true, detail: "Rate limited by NZBIndex. Returning empty result.", data: [] });
+      }
       console.error("[Usenet Search Direct] NZBIndex query failed:", err.message);
       res.status(500).json({ error: err.message });
     }
