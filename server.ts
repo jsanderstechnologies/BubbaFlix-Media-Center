@@ -1378,7 +1378,7 @@ app.get('/api/youtube/search', async (req, res) => {
       return res.status(401).json({ error: "Authorization key is required." });
     }
     try {
-      const response = await axios.get("https://api.torbox.app/v1/api/torrents/mylist", {
+      const response = await axios.get("https://api.torbox.app/v1/api/torrents/mylist?bypass_cache=true", {
         headers: { Authorization: authHeader }
       });
       res.json(response.data);
@@ -1393,7 +1393,7 @@ app.get('/api/youtube/search', async (req, res) => {
       return res.status(401).json({ error: "Authorization key is required." });
     }
     try {
-      const response = await axios.get("https://api.torbox.app/v1/api/usenet/mylist", {
+      const response = await axios.get("https://api.torbox.app/v1/api/usenet/mylist?bypass_cache=true", {
         headers: { Authorization: authHeader }
       });
       res.json(response.data);
