@@ -219,17 +219,15 @@ export default function SettingsPanel() {
   };
 
   return (
-    <div className="flex flex-col gap-8 max-w-4xl mx-auto w-full pb-10 relative">
-      <div className="sticky top-[-24px] sm:top-[-40px] z-30 bg-transparent py-4 flex items-center justify-end -mx-6 px-6 sm:-mx-10 sm:px-10 transition-all duration-300">
-        <div className="flex justify-end w-full">
-          <button 
-            onClick={handleSave}
-            className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-semibold shadow-lg shadow-red-600/20 active:scale-95 transition-all cursor-pointer"
-          >
-            <Save className="w-4 h-4" />
-            {saved ? 'Saved!' : 'Save Changes'}
-          </button>
-        </div>
+    <div className="flex flex-col gap-8 max-w-4xl mx-auto w-full pb-32 relative">
+      <div className="fixed bottom-8 right-8 z-50 transition-all duration-300">
+        <button 
+          onClick={handleSave}
+          className="flex items-center gap-3 px-6 py-4 bg-red-600 hover:bg-red-500 text-white rounded-full font-semibold shadow-2xl shadow-black/80 border border-red-500/50 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        >
+          <Save className="w-5 h-5" />
+          {saved ? 'Saved!' : 'Save Changes'}
+        </button>
       </div>
 
       <div className="grid gap-6">
