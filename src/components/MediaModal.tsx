@@ -114,12 +114,12 @@ export default function MediaModal({
             
             // Find in torrents
             if (stream.type === 'torrent') {
-              const match = activeTorrents.find(t => 
-                (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) ||
-                t.name === stream.name || 
-                stream.name.includes(t.name) || 
-                t.name.includes(stream.name)
-              );
+              const match = activeTorrents.find(t => {
+                if (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) return true;
+                const sName = (stream.name || "").toLowerCase();
+                const tName = (t.name || "").toLowerCase();
+                return tName === sName || sName.includes(tName) || tName.includes(sName);
+              });
 
               if (match) {
                 const progress = Math.round(match.progress * 100);
@@ -414,16 +414,19 @@ export default function MediaModal({
         }
 
         // Cross-reference streams with Torbox active downloads
-        const matchedTorboxIds = new Set<any>();
+        const matchedTorboxIds = new Set<number>();
         const updatedData = data.map((stream: any) => {
-            const matchTorrent = activeTorrents.find(t => 
-                (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) ||
-                (stream.title && t.name === stream.title) ||
-                (t.name === stream.name)
-            );
+            const matchTorrent = activeTorrents.find(t => {
+                if (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) return true;
+                const sName = (stream.name || "").toLowerCase();
+                const tName = (t.name || "").toLowerCase();
+                return tName === sName || sName.includes(tName) || tName.includes(sName);
+            });
             const matchUsenet = activeUsenet.find(u => {
-                const nameMatch = (stream.title && u.name === stream.title) || u.name === stream.name;
-                const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
+                const sName = (stream.name || "").toLowerCase();
+                const uName = (u.name || "").toLowerCase();
+                const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
+                const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
                 return nameMatch || sizeMatch;
             });
 
@@ -437,6 +440,9 @@ export default function MediaModal({
               mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === '');
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
+              mappedStream.id = matchTorrent.id;
+              mappedStream.isTorBox = true;
+              mappedStream.url = getTorrentRequestDlUrl(matchTorrent, apiKey);
             } else if (matchUsenet) {
               matchedTorboxIds.add(matchUsenet.id);
               const progress = Math.round(matchUsenet.progress * 100);
@@ -445,6 +451,9 @@ export default function MediaModal({
               mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === '');
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
+              mappedStream.id = matchUsenet.id;
+              mappedStream.isTorBox = true;
+              mappedStream.url = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${matchUsenet.id}&zip_link=false&redirect=true`;
             }
 
             return mappedStream;
@@ -909,7 +918,8 @@ export default function MediaModal({
                                             const sizeMatch = stream.sizeBytes && t.size && Math.abs(t.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
                                             return nameMatch || sizeMatch;
                                           }
-                                          return (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) || tName === sName;
+                                          if (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) return true;
+                                          return tName === sName || sName.includes(tName) || tName.includes(sName);
                                         });
                                         
                                         if (existing) {
