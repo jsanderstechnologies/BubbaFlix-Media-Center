@@ -228,6 +228,7 @@ function MainApp() {
   }, [isPlaying, playingUrl]);
 
   const handlePlayStream = async (url: string) => {
+    logger.info("Built-in Player: Requesting to play stream", { url });
     setStreamOffset(0);
     setCurrentTime(0);
     setBufferedSeconds(0);
@@ -364,13 +365,34 @@ function MainApp() {
                     setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
                   }
                 }}
+                onLoadStart={() => {
+                  logger.info("Built-in Player: Load started", { src: videoRef.current?.src });
+                }}
                 onError={(e) => {
+                  const error = e.currentTarget.error;
+                  logger.error("Built-in Player Error", { 
+                    code: error?.code, 
+                    message: error?.message, 
+                    networkState: e.currentTarget.networkState,
+                    readyState: e.currentTarget.readyState,
+                    src: e.currentTarget.src 
+                  });
                   console.error("Video element error", e);
                   setPlayerStatus("ERROR: Video failed to load.");
                 }}
-                onPlay={() => { setIsVideoPlaying(true); setPlayerStatus("PLAYING 4K HDR"); }}
-                onPause={() => setIsVideoPlaying(false)}
-                onWaiting={() => setPlayerStatus("BUFFERING...")}
+                onPlay={() => { 
+                  logger.info("Built-in Player: Playing");
+                  setIsVideoPlaying(true); 
+                  setPlayerStatus("PLAYING 4K HDR"); 
+                }}
+                onPause={() => { 
+                  logger.info("Built-in Player: Paused");
+                  setIsVideoPlaying(false); 
+                }}
+                onWaiting={() => { 
+                  logger.info("Built-in Player: Buffering");
+                  setPlayerStatus("BUFFERING..."); 
+                }}
               >
                 {selectedSubtitleTrack !== null && (
                   <track
