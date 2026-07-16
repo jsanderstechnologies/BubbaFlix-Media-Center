@@ -418,14 +418,11 @@ export default function MediaModal({
         const updatedData = data.map((stream: any) => {
             const matchTorrent = activeTorrents.find(t => 
                 (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) ||
-                t.name === stream.name || 
-                stream.name.includes(t.name) || 
-                t.name.includes(stream.name)
+                (stream.title && t.name === stream.title) ||
+                (t.name === stream.name)
             );
             const matchUsenet = activeUsenet.find(u => {
-                const nameMatch = u.name === stream.name || 
-                                  stream.name.includes(u.name) || 
-                                  u.name.includes(stream.name);
+                const nameMatch = (stream.title && u.name === stream.title) || u.name === stream.name;
                 const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
                 return nameMatch || sizeMatch;
             });
@@ -454,13 +451,25 @@ export default function MediaModal({
         });
 
         // Inject any Torbox downloads that match the title but weren't in the search results
-        const normalizedTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const titleWords = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 0);
         const seasonEpisodeStr = `s${String(selectedSeason).padStart(2, '0')}e${String(selectedEpisode).padStart(2, '0')}`;
         
         activeTorrents.forEach(t => {
             if (!matchedTorboxIds.has(t.id)) {
-                const normalizedTorrentName = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (normalizedTorrentName.includes(normalizedTitle) && normalizedTorrentName.includes(seasonEpisodeStr)) {
+                const torrentWords = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/);
+                const hasAllTitleWords = titleWords.length > 0 && titleWords.every(tw => torrentWords.includes(tw));
+                
+                let matchesMedia = false;
+                if (movie.type === 'movie') {
+                    // Movies: must have all title words, and optionally check year
+                    const year = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
+                    matchesMedia = hasAllTitleWords && (!year || torrentWords.includes(year.toString()));
+                } else {
+                    // TV: must have all title words AND the exact season/episode string
+                    matchesMedia = hasAllTitleWords && torrentWords.includes(seasonEpisodeStr);
+                }
+
+                if (matchesMedia) {
                     const progress = Math.round(t.progress * 100);
                     updatedData.push({
                         name: t.name,
@@ -486,8 +495,18 @@ export default function MediaModal({
 
         activeUsenet.forEach(u => {
             if (!matchedTorboxIds.has(u.id)) {
-                const normalizedUsenetName = (u.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (normalizedUsenetName.includes(normalizedTitle) && normalizedUsenetName.includes(seasonEpisodeStr)) {
+                const usenetWords = (u.name || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/);
+                const hasAllTitleWords = titleWords.length > 0 && titleWords.every(tw => usenetWords.includes(tw));
+                
+                let matchesMedia = false;
+                if (movie.type === 'movie') {
+                    const year = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
+                    matchesMedia = hasAllTitleWords && (!year || usenetWords.includes(year.toString()));
+                } else {
+                    matchesMedia = hasAllTitleWords && usenetWords.includes(seasonEpisodeStr);
+                }
+
+                if (matchesMedia) {
                     const progress = Math.round(u.progress * 100);
                     updatedData.push({
                         name: u.name,
