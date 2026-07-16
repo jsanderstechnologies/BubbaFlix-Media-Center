@@ -769,24 +769,26 @@ export default function MusicPanel({ initialQuery = '' }: MusicPanelProps) {
       {playingTrack?.type === 'video' && (
         <div className="w-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl mb-6 relative group border border-white/10 flex items-center justify-center">
           <ReactPlayer 
-            url={playingTrack.previewUrl} 
-            playing={isPlaying} 
-            controls={true}
-            width="100%" 
-            height="100%" 
-            volume={isMuted ? 0 : volume}
-            onProgress={({ playedSeconds }) => {
-              if (Math.abs(playedSeconds - currentTime) > 1) {
-                setCurrentTime(playedSeconds);
-              }
-            }}
-            onDuration={(d) => setDuration(d)}
-            onEnded={() => {
-              // Create a synthetic event or simply call playNextTrackInQueue logic manually
-              const e = new CustomEvent('playNextTrackInQueue');
-              window.dispatchEvent(e);
-            }}
-            style={{ position: 'absolute', top: 0, left: 0 }}
+            {...({
+              url: playingTrack.previewUrl,
+              playing: isPlaying,
+              controls: true,
+              width: "100%",
+              height: "100%",
+              volume: isMuted ? 0 : volume,
+              onProgress: ({ playedSeconds }: any) => {
+                if (Math.abs(playedSeconds - currentTime) > 1) {
+                  setCurrentTime(playedSeconds);
+                }
+              },
+              onDuration: (d: any) => setDuration(d),
+              onEnded: () => {
+                // Create a synthetic event or simply call playNextTrackInQueue logic manually
+                const e = new CustomEvent('playNextTrackInQueue');
+                window.dispatchEvent(e);
+              },
+              style: { position: 'absolute', top: 0, left: 0 }
+            } as any)}
           />
         </div>
       )}

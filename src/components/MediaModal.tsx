@@ -414,6 +414,7 @@ export default function MediaModal({
         }
 
         // Cross-reference streams with Torbox active downloads
+        const matchedTorboxIds = new Set<any>();
         const updatedData = data.map((stream: any) => {
             const matchTorrent = activeTorrents.find(t => 
                 (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) ||
@@ -432,6 +433,7 @@ export default function MediaModal({
             let mappedStream = { ...stream };
 
             if (matchTorrent) {
+              matchedTorboxIds.add(matchTorrent.id);
               const progress = Math.round(matchTorrent.progress * 100);
               const state = matchTorrent.download_state || '';
               mappedStream.downloadState = state;
@@ -439,6 +441,7 @@ export default function MediaModal({
               mappedStream.downloadProgress = progress;
               mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
             } else if (matchUsenet) {
+              matchedTorboxIds.add(matchUsenet.id);
               const progress = Math.round(matchUsenet.progress * 100);
               const state = matchUsenet.download_state || '';
               mappedStream.downloadState = state;

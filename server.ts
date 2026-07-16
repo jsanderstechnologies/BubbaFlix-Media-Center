@@ -504,7 +504,7 @@ async function startServer() {
     
     const token = authHeader.split(' ')[1];
     const users = readJson(USERS_FILE);
-    const user = Object.values(users).find(u => u.token === token);
+    const user = Object.values(users as Record<string, any>).find((u: any) => u.token === token);
 
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     res.json({ user: { uid: user.uid, email: user.email, username: user.username, role: user.role || 'user' } });
@@ -517,10 +517,10 @@ async function startServer() {
     
     const token = authHeader.split(' ')[1];
     const users = readJson(USERS_FILE);
-    const user = Object.values(users).find(u => u.token === token);
+    const user = Object.values(users as Record<string, any>).find((u: any) => u.token === token);
     
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    req.user = user;
+    (req as any).user = user;
     next();
   };
 
@@ -528,7 +528,7 @@ async function startServer() {
   // Admin Middleware
   const requireAdmin = (req, res, next) => {
     requireAuth(req, res, () => {
-      if (req.user.role !== 'admin') {
+      if ((req as any).user.role !== 'admin') {
         return res.status(403).json({ error: 'Forbidden: Admins only' });
       }
       next();
@@ -597,8 +597,8 @@ async function startServer() {
   app.post('/api/admin/test-email', requireAdmin, async (req, res) => {
     try {
       const result = await sendWelcomeEmail(
-        req.user.email,
-        req.user.username,
+        (req as any).user.email,
+        (req as any).user.username,
         'TestPassword123!'
       );
       if (!result.sent) return res.status(400).json({ error: result.reason });
@@ -723,14 +723,14 @@ async function startServer() {
   // /api/db/get/:collection
   app.get('/api/db/get/:collection', requireAuth, (req, res) => {
     const db = readJson(DB_FILE);
-    const key = `${req.user.uid}_${req.params.collection}`;
+    const key = `${(req as any).user.uid}_${req.params.collection}`;
     res.json(db[key] || []);
   });
 
   // /api/db/post/:collection
   app.post('/api/db/post/:collection', requireAuth, (req, res) => {
     const db = readJson(DB_FILE);
-    const key = `${req.user.uid}_${req.params.collection}`;
+    const key = `${(req as any).user.uid}_${req.params.collection}`;
     db[key] = req.body;
     writeJson(DB_FILE, db);
     res.json({ success: true });

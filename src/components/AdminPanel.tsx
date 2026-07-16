@@ -20,6 +20,8 @@ export default function AdminPanel() {
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('user');
+  const [emailPassword, setEmailPassword] = useState(true);
+  const [generatedPasswordResult, setGeneratedPasswordResult] = useState<string | null>(null);
   const [addError, setAddError] = useState('');
   const [error, setError] = useState<string | null>(null);
 
