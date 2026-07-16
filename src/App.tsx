@@ -17,7 +17,6 @@ import MediaModal from './components/MediaModal';
 import SettingsPanel from './components/SettingsPanel';
 import { AuthButton, AuthModal, useAuth } from './components/Auth';
 import LibraryGrid from './components/LibraryGrid';
-import { BackgroundUpdater } from './components/BackgroundUpdater';
 import { VirtualKeyboard } from './components/VirtualKeyboard';
 import HomePanel from './components/HomePanel';
 import SearchPanel from './components/SearchPanel';
@@ -279,7 +278,6 @@ function MainApp() {
         </div>
       )}
       <div className="h-screen w-full bg-[#050507] text-white font-sans flex overflow-hidden select-none relative">
-      <BackgroundUpdater />
       {/* Real Web Video Player Overlay */}
       {isPlaying && (!(window as any).mediaAPI || localStorage.getItem('playerPath') === 'builtin') && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col">

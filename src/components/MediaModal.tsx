@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchStreamsForMovie, fetchStreamsForTvSeries } from '../services/torboxSearchApi';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails } from '../services/tmdbApi';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from '../lib/localDb';
+import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from '../lib/localDb';
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
 
@@ -552,6 +552,25 @@ export default function MediaModal({
         setStreams(filteredData);
         setLoading(false);
         setPollingActive(true);
+
+        // Update library streamInfo if it's a favorite
+        if (user && movie) {
+            const q = query(collection(db, 'favorites'), where('userId', '==', user.uid), where('tmdbId', '==', movie.id));
+            getDocs(q).then(snapshot => {
+                if (snapshot.docs.length > 0) {
+                    const bestStream = filteredData.length > 0 ? filteredData[0] : null;
+                    if (bestStream) {
+                        updateDoc(doc(db, 'favorites', snapshot.docs[0].id), {
+                            streamInfo: {
+                                name: bestStream.name,
+                                url: bestStream.url,
+                                quality: bestStream.quality
+                            }
+                        }).catch(err => console.error("Failed to update favorite streamInfo", err));
+                    }
+                }
+            }).catch(err => console.error("Failed to check favorites for streamInfo update", err));
+        }
       });
     }
   }, [isSeries, selectedSeason, selectedEpisode, movie]);
