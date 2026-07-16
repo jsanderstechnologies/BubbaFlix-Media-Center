@@ -82,6 +82,11 @@ class DebugLogger {
       this.addLog('error', ...args);
     };
   }
+
+  public info(...args: any[]) {
+    this.originalLog(...args);
+    this.addLog('log', ...args);
+  }
 }
 
 export const logger = new DebugLogger();

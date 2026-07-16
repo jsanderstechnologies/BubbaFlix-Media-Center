@@ -981,6 +981,8 @@ export default function MediaModal({
                                             return s;
                                           }));
                                           setPollingActive(true);
+                                          const dlUrl = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${resData.data.torrent_id}&zip_link=false&redirect=true&file_id=0`;
+                                          onPlay(dlUrl);
                                         } else {
                                           alert("Failed to add Torrent: " + (resData.detail || "Unknown error"));
                                         }
