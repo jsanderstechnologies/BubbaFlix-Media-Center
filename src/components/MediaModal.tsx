@@ -281,12 +281,13 @@ export default function MediaModal({
         });
 
         // Inject any Torbox downloads that match the title but weren't in the search results
-        const normalizedTitle = (movie.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalizedTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const year = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
         
         activeTorrents.forEach(t => {
             if (!matchedTorboxIds.has(t.id)) {
                 const normalizedTorrentName = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (normalizedTorrentName.includes(normalizedTitle)) {
+                if (normalizedTorrentName.includes(normalizedTitle) && (!year || normalizedTorrentName.includes(year))) {
                     const progress = Math.round(t.progress * 100);
                     updatedData.push({
                         name: t.name,
@@ -313,7 +314,7 @@ export default function MediaModal({
         activeUsenet.forEach(u => {
             if (!matchedTorboxIds.has(u.id)) {
                 const normalizedUsenetName = (u.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (normalizedUsenetName.includes(normalizedTitle)) {
+                if (normalizedUsenetName.includes(normalizedTitle) && (!year || normalizedUsenetName.includes(year))) {
                     const progress = Math.round(u.progress * 100);
                     updatedData.push({
                         name: u.name,
@@ -460,25 +461,13 @@ export default function MediaModal({
         });
 
         // Inject any Torbox downloads that match the title but weren't in the search results
-        const titleWords = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+        const normalizedTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const seasonEpisodeStr = `s${String(selectedSeason).padStart(2, '0')}e${String(selectedEpisode).padStart(2, '0')}`;
         
         activeTorrents.forEach(t => {
             if (!matchedTorboxIds.has(t.id)) {
-                const torrentWords = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/);
-                const hasAllTitleWords = titleWords.length > 0 && titleWords.every(tw => torrentWords.includes(tw));
-                
-                let matchesMedia = false;
-                if (movie.type === 'movie') {
-                    // Movies: must have all title words, and optionally check year
-                    const year = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
-                    matchesMedia = hasAllTitleWords && (!year || torrentWords.includes(year.toString()));
-                } else {
-                    // TV: must have all title words AND the exact season/episode string
-                    matchesMedia = hasAllTitleWords && torrentWords.includes(seasonEpisodeStr);
-                }
-
-                if (matchesMedia) {
+                const normalizedTorrentName = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (normalizedTorrentName.includes(normalizedTitle) && normalizedTorrentName.includes(seasonEpisodeStr)) {
                     const progress = Math.round(t.progress * 100);
                     updatedData.push({
                         name: t.name,
@@ -504,18 +493,8 @@ export default function MediaModal({
 
         activeUsenet.forEach(u => {
             if (!matchedTorboxIds.has(u.id)) {
-                const usenetWords = (u.name || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/);
-                const hasAllTitleWords = titleWords.length > 0 && titleWords.every(tw => usenetWords.includes(tw));
-                
-                let matchesMedia = false;
-                if (movie.type === 'movie') {
-                    const year = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
-                    matchesMedia = hasAllTitleWords && (!year || usenetWords.includes(year.toString()));
-                } else {
-                    matchesMedia = hasAllTitleWords && usenetWords.includes(seasonEpisodeStr);
-                }
-
-                if (matchesMedia) {
+                const normalizedUsenetName = (u.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (normalizedUsenetName.includes(normalizedTitle) && normalizedUsenetName.includes(seasonEpisodeStr)) {
                     const progress = Math.round(u.progress * 100);
                     updatedData.push({
                         name: u.name,
