@@ -498,8 +498,8 @@ function MainApp() {
 
       {/* Sidebar */}
       <div className="w-20 bg-black/60 border-r border-white/10 flex flex-col items-center py-10 gap-10 z-20 shrink-0">
-        <div className="font-['Bebas_Neue'] text-4xl text-red-600 select-none cursor-pointer flex items-center justify-center leading-none tracking-tighter hover:scale-110 transition-transform duration-300" style={{ WebkitTextStroke: '1px black', textShadow: '0 2px 4px rgba(0,0,0,0.6)' }} title="BUBBAFLIX">
-          B
+        <div className="select-none cursor-pointer flex items-center justify-center hover:scale-110 transition-transform duration-300" title="BUBBAFLIX">
+          <img src="https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg" alt="BubbaFlix Icon" className="w-10 h-10 drop-shadow-lg" />
         </div>
         <div className="flex flex-col gap-8 text-white/60 w-full px-2">
           <div 
