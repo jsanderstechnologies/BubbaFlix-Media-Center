@@ -9,6 +9,7 @@ import ReactPlayer from 'react-player';
 import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind } from 'lucide-react';
 import { collection, query, where, onSnapshot } from './lib/localDb';
 import { db } from './lib/localDb';
+import { logger } from './lib/logger';
 import CatalogGrid from './components/CatalogGrid';
 import TvSeriesGrid from './components/TvSeriesGrid';
 import IptvGuide from './components/IptvGuide';

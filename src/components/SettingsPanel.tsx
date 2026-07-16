@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal } from 'lucide-react';
+import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminPanel from './AdminPanel';
 import { useAuth } from './Auth';
+import { logger, LogEntry } from '../lib/logger';
 
 const fetchM3U = async (url: string) => {
   if (!url) return null;
@@ -47,6 +48,19 @@ export default function SettingsPanel() {
   
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+
+  // --- Debug Logging state ---
+  const [enableDebugLog, setEnableDebugLog] = useState(() => localStorage.getItem('enableDebugLog') === 'true');
+  const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
+
+  useEffect(() => {
+    if (enableDebugLog) {
+      const unsubscribe = logger.subscribe((logs) => {
+        setDebugLogs(logs);
+      });
+      return unsubscribe;
+    }
+  }, [enableDebugLog]);
 
   // --- Email Config state (admin only) ---
   const [emailGmailUser, setEmailGmailUser] = useState('');
@@ -201,6 +215,9 @@ export default function SettingsPanel() {
     
     localStorage.setItem('enableUsenetSearch', enableUsenetSearch.toString());
     localStorage.setItem('enableTorrentSearch', enableTorrentSearch.toString());
+
+    localStorage.setItem('enableDebugLog', enableDebugLog.toString());
+    logger.setEnabled(enableDebugLog);
 
     if (isAdmin) {
       const token = localStorage.getItem('authToken');
@@ -732,6 +749,62 @@ export default function SettingsPanel() {
               </select>
               <p className="text-xs text-white/80 mt-2">Adjust the FFmpeg transcoding buffer size. Higher values increase stability but delay stream startup.</p>
             </div>
+          </div>
+        </div>
+
+        {/* Developer / Debug */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
+            <Terminal className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-lg font-medium text-white">Developer / Debug</h2>
+          </div>
+          
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium text-white block mb-1">Enable Debug Logging</label>
+                <p className="text-xs text-white/80">Capture and display frontend console logs below.</p>
+              </div>
+              <button
+                onClick={() => setEnableDebugLog(!enableDebugLog)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enableDebugLog ? 'bg-indigo-600' : 'bg-slate-700'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enableDebugLog ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {enableDebugLog && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-white">Live Logs</h3>
+                  <button 
+                    onClick={() => logger.clearLogs()}
+                    className="text-xs px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded transition-colors"
+                  >
+                    Clear Logs
+                  </button>
+                </div>
+                <div className="bg-black/50 border border-white/10 rounded-lg p-4 h-64 overflow-y-auto font-mono text-xs flex flex-col gap-1 custom-scrollbar">
+                  {debugLogs.length === 0 ? (
+                    <div className="text-white/40 italic">Waiting for logs...</div>
+                  ) : (
+                    debugLogs.map((log, i) => (
+                      <div key={i} className="flex gap-3">
+                        <span className="text-white/40 shrink-0">[{log.timestamp}]</span>
+                        <span className={`shrink-0 w-10 uppercase ${
+                          log.level === 'error' ? 'text-red-400' : 
+                          log.level === 'warn' ? 'text-yellow-400' : 
+                          'text-blue-400'
+                        }`}>
+                          {log.level}
+                        </span>
+                        <span className="text-white/80 break-words whitespace-pre-wrap">{log.message}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
