@@ -1290,11 +1290,7 @@ app.get('/api/youtube/search', async (req, res) => {
       args.push('-af', 'dynaudnorm=f=150:g=15:p=0.95');
     }
 
-    if (isLive) {
-      args.push('-c:a', 'copy');
-    } else {
-      args.push('-c:a', 'aac');
-    }
+    args.push('-c:a', 'aac');
     
     args.push(
       '-f', 'mp4',
