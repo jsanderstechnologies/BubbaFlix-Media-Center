@@ -1,7 +1,8 @@
 export interface LogEntry {
   timestamp: string;
-  level: 'log' | 'warn' | 'error';
+  level: 'log' | 'warn' | 'error' | 'info';
   message: string;
+  source?: 'frontend' | 'backend';
 }
 
 class DebugLogger {
@@ -58,7 +59,8 @@ class DebugLogger {
     this.logs.push({
       timestamp: new Date().toISOString().split('T')[1].slice(0, -5), // HH:MM:SS
       level,
-      message
+      message,
+      source: 'frontend'
     });
 
     if (this.logs.length > this.maxLogs) {
@@ -86,6 +88,29 @@ class DebugLogger {
   public info(...args: any[]) {
     this.originalLog(...args);
     this.addLog('log', ...args);
+  }
+
+  public async fetchBackendLogs(adminToken: string): Promise<LogEntry[]> {
+    if (!adminToken) return [];
+    try {
+      const res = await fetch('/api/admin/logs', {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.map((log: any) => ({
+          timestamp: log.timestamp.split('T')[1]?.slice(0, -5) || log.timestamp,
+          level: log.level,
+          message: log.message,
+          source: 'backend'
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to fetch backend logs", e);
+    }
+    return [];
   }
 }
 

@@ -52,16 +52,38 @@ export default function SettingsPanel() {
   // --- Debug Logging state ---
   const [enableDebugLog, setEnableDebugLog] = useState(() => localStorage.getItem('enableDebugLog') === 'true');
   const [intelTranscoding, setIntelTranscoding] = useState(() => localStorage.getItem('intelTranscoding') === 'true');
-  const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
+  const [frontendLogs, setFrontendLogs] = useState<LogEntry[]>([]);
+  const [backendLogs, setBackendLogs] = useState<LogEntry[]>([]);
+
+  const debugLogs = React.useMemo(() => {
+    return [...frontendLogs, ...backendLogs].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  }, [frontendLogs, backendLogs]);
 
   useEffect(() => {
     if (enableDebugLog) {
       const unsubscribe = logger.subscribe((logs) => {
-        setDebugLogs(logs);
+        setFrontendLogs(logs);
       });
-      return unsubscribe;
+
+      let interval: NodeJS.Timeout;
+      if (isAdmin) {
+        const fetchLogs = async () => {
+          const token = localStorage.getItem('authToken');
+          if (token) {
+            const bLogs = await logger.fetchBackendLogs(token);
+            setBackendLogs(bLogs);
+          }
+        };
+        fetchLogs();
+        interval = setInterval(fetchLogs, 2000);
+      }
+
+      return () => {
+        unsubscribe();
+        if (interval) clearInterval(interval);
+      };
     }
-  }, [enableDebugLog]);
+  }, [enableDebugLog, isAdmin]);
 
   // --- Email Config state (admin only) ---
   const [emailGmailUser, setEmailGmailUser] = useState('');
@@ -806,6 +828,11 @@ export default function SettingsPanel() {
                     debugLogs.map((log, i) => (
                       <div key={i} className="flex gap-3">
                         <span className="text-white/40 shrink-0">[{log.timestamp}]</span>
+                        {log.source === 'backend' ? (
+                          <span className="text-purple-400 font-bold shrink-0 w-8">[BE]</span>
+                        ) : (
+                          <span className="text-emerald-400 font-bold shrink-0 w-8">[FE]</span>
+                        )}
                         <span className={`shrink-0 w-10 uppercase ${
                           log.level === 'error' ? 'text-red-400' : 
                           log.level === 'warn' ? 'text-yellow-400' : 

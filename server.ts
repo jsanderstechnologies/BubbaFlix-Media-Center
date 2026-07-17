@@ -29,6 +29,58 @@ const _dirname = _filename ? path.dirname(_filename) : '';
 // PHASE 1: NODE.JS BACKEND FUNCTIONS (For your Electron main.js)
 // ============================================================================
 
+// Backend Logger Interception
+interface BackendLogEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  source: 'backend';
+}
+
+const backendLogs: BackendLogEntry[] = [];
+const MAX_BACKEND_LOGS = 500;
+
+const originalConsoleLog = console.log;
+const originalConsoleWarn = console.warn;
+const originalConsoleError = console.error;
+
+function formatLogMessage(args: any[]): string {
+  return args.map(arg => typeof arg === 'object' ? util.inspect(arg) : String(arg)).join(' ');
+}
+
+console.log = function (...args) {
+  backendLogs.push({
+    timestamp: new Date().toISOString(),
+    level: 'info',
+    message: formatLogMessage(args),
+    source: 'backend'
+  });
+  if (backendLogs.length > MAX_BACKEND_LOGS) backendLogs.shift();
+  originalConsoleLog.apply(console, args);
+};
+
+console.warn = function (...args) {
+  backendLogs.push({
+    timestamp: new Date().toISOString(),
+    level: 'warn',
+    message: formatLogMessage(args),
+    source: 'backend'
+  });
+  if (backendLogs.length > MAX_BACKEND_LOGS) backendLogs.shift();
+  originalConsoleWarn.apply(console, args);
+};
+
+console.error = function (...args) {
+  backendLogs.push({
+    timestamp: new Date().toISOString(),
+    level: 'error',
+    message: formatLogMessage(args),
+    source: 'backend'
+  });
+  if (backendLogs.length > MAX_BACKEND_LOGS) backendLogs.shift();
+  originalConsoleError.apply(console, args);
+};
+
 /**
  * Fetches and parses a standard streams manifest.json
  * @param {string} manifestUrl - The manifest URL
