@@ -351,6 +351,42 @@ async function startServer() {
     return { sent: true };
   };
 
+  const sendPasswordResetEmail = async (toEmail: string, username: string, password: string) => {
+    const emailCfg = settings.email || {};
+    if (!emailCfg.gmailUser || !emailCfg.gmailAppPassword) {
+      console.warn('[Email] Gmail not configured — skipping password reset email.');
+      return { sent: false };
+    }
+    const appName = emailCfg.appName || 'BubbaFlix';
+    const appUrl = emailCfg.appUrl || '';
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: emailCfg.gmailUser, pass: emailCfg.gmailAppPassword },
+    });
+    const html = `
+      <div style="font-family:sans-serif;background-color:#111;color:#eee;padding:40px 20px;">
+        <div style="max-width:500px;margin:0 auto;background:#222;border:1px solid #333;border-radius:12px;padding:32px;">
+          <h1 style="color:#ef4444;margin-top:0;font-size:24px;text-align:center;">Password Reset</h1>
+          <p style="font-size:16px;line-height:1.5;">Hi <b>${username}</b>,</p>
+          <p style="font-size:15px;line-height:1.5;color:#bbb;">An administrator has reset your password for ${appName}. Your new password is below.</p>
+          <div style="background:#000;padding:16px;border-radius:8px;margin:24px 0;text-align:center;">
+            <p style="margin:0;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">New Password</p>
+            <p style="margin:0;font-size:24px;font-family:monospace;color:#fff;letter-spacing:2px;">${password}</p>
+          </div>
+          ${appUrl ? `<p style="text-align:center;margin-top:28px;"><a href="${appUrl}" style="background:#dc2626;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:14px;">Sign In to ${appName}</a></p>` : ''}
+          <p style="color:#444;font-size:11px;margin-top:32px;text-align:center;line-height:1.4;">For your security, we recommend changing your password after your next login.</p>
+        </div>
+      </div>
+    `;
+    await transporter.sendMail({
+      from: `"${appName}" <${emailCfg.gmailUser}>`,
+      to: toEmail,
+      subject: `Password Reset for ${appName}`,
+      html,
+    });
+    return { sent: true };
+  };
+
   // Check if first-time setup is required (zero users in db)
   app.get('/api/auth/setup-status', (req, res) => {
     const users = readJson(USERS_FILE);
@@ -485,6 +521,9 @@ async function startServer() {
     const status = (user as any).status || 'approved';
     if (status === 'pending') {
       return res.status(403).json({ error: 'Your account is awaiting admin approval.', pending: true });
+    }
+    if (status === 'locked') {
+      return res.status(403).json({ error: 'Your account has been locked by an administrator.' });
     }
     if (status === 'denied') {
       return res.status(403).json({ error: 'Your account registration was denied.' });
@@ -642,6 +681,60 @@ async function startServer() {
     users[req.params.uid].status = 'denied';
     writeJson(USERS_FILE, users);
     res.json({ success: true });
+  });
+
+  // /api/admin/users/:uid/lock PUT
+  app.put('/api/admin/users/:uid/lock', requireAdmin, (req, res) => {
+    const users = readJson(USERS_FILE);
+    if (!users[req.params.uid]) return res.status(404).json({ error: 'User not found' });
+    users[req.params.uid].status = 'locked';
+    users[req.params.uid].token = null; // Invalidate current session
+    writeJson(USERS_FILE, users);
+    res.json({ success: true });
+  });
+
+  // /api/admin/users/:uid/unlock PUT
+  app.put('/api/admin/users/:uid/unlock', requireAdmin, (req, res) => {
+    const users = readJson(USERS_FILE);
+    if (!users[req.params.uid]) return res.status(404).json({ error: 'User not found' });
+    users[req.params.uid].status = 'approved';
+    writeJson(USERS_FILE, users);
+    res.json({ success: true });
+  });
+
+  // /api/admin/users/:uid/reset-password PUT
+  app.put('/api/admin/users/:uid/reset-password', requireAdmin, async (req, res) => {
+    const users = readJson(USERS_FILE);
+    if (!users[req.params.uid]) return res.status(404).json({ error: 'User not found' });
+    
+    // Generate secure random password
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
+    let password = '';
+    for(let i = 0; i < 16; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    // Hash it
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // Update user
+    users[req.params.uid].salt = salt;
+    users[req.params.uid].hash = hash;
+    users[req.params.uid].token = token;
+    writeJson(USERS_FILE, users);
+
+    // Send email
+    let emailResult = { sent: false };
+    try {
+      const u = users[req.params.uid];
+      emailResult = await sendPasswordResetEmail(u.email, u.username, password) as any;
+    } catch (err: any) {
+      console.error('[Email] Failed to send password reset email:', err.message);
+    }
+
+    res.json({ success: true, generatedPassword: password, emailSent: emailResult.sent });
   });
 
   // /api/admin/users POST — admin creating a user: supports manual or auto-generated password

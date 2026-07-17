@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './Auth';
-import { Trash2, UserCog, ShieldCheck, ShieldAlert, Shield, Plus, X, Check, Clock, Ban } from 'lucide-react';
+import { Trash2, UserCog, ShieldCheck, ShieldAlert, Shield, Plus, X, Check, Clock, Ban, Lock, Unlock, KeyRound, Copy } from 'lucide-react';
 
 interface UserData {
   uid: string;
@@ -24,6 +24,7 @@ export default function AdminPanel() {
   const [generatedPasswordResult, setGeneratedPasswordResult] = useState<string | null>(null);
   const [addError, setAddError] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [resetModalData, setResetModalData] = useState<{username: string, password: string} | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -109,6 +110,47 @@ export default function AdminPanel() {
     } catch (err: any) { alert(err.message); }
   };
 
+  const handleLock = async (uid: string) => {
+    if (!confirm('Lock this user? They will be immediately disconnected and unable to log in.')) return;
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(`/api/admin/users/${uid}/lock`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to lock user');
+      fetchUsers();
+    } catch (err: any) { alert(err.message); }
+  };
+
+  const handleUnlock = async (uid: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(`/api/admin/users/${uid}/unlock`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to unlock user');
+      fetchUsers();
+    } catch (err: any) { alert(err.message); }
+  };
+
+  const handleResetPassword = async (uid: string, username: string) => {
+    if (!confirm(`Are you sure you want to reset the password for ${username}? They will receive an email if configured.`)) return;
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(`/api/admin/users/${uid}/reset-password`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reset password');
+      
+      setResetModalData({ username, password: data.generatedPassword });
+      fetchUsers();
+    } catch (err: any) { alert(err.message); }
+  };
+
   const handleDeleteUser = async (uid: string) => {
     if (!confirm('Are you sure you want to delete this user? All their data will be lost.')) return;
     try {
@@ -142,6 +184,11 @@ export default function AdminPanel() {
     if (status === 'pending') return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
         <Clock className="w-3 h-3" /> Pending
+      </span>
+    );
+    if (status === 'locked') return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
+        <Lock className="w-3 h-3" /> Locked
       </span>
     );
     return (
@@ -328,6 +375,27 @@ export default function AdminPanel() {
                           Demote
                         </button>
                       )}
+
+                      <button onClick={() => handleResetPassword(u.uid, u.username)}
+                        className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-semibold rounded transition-colors flex items-center gap-1"
+                        title="Reset Password">
+                        <KeyRound className="w-3.5 h-3.5" />
+                      </button>
+
+                      {u.status === 'locked' ? (
+                        <button onClick={() => handleUnlock(u.uid)}
+                          className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-semibold rounded transition-colors flex items-center gap-1"
+                          title="Unlock User">
+                          <Unlock className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button onClick={() => handleLock(u.uid)}
+                          className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-xs font-semibold rounded transition-colors flex items-center gap-1"
+                          disabled={u.uid === user?.uid}
+                          title={u.uid === user?.uid ? "Cannot lock yourself" : "Lock User"}>
+                          <Lock className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button onClick={() => handleDeleteUser(u.uid)}
                         className="p-1.5 text-red-400 hover:bg-red-500/20 rounded transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
                         disabled={u.uid === user?.uid}
@@ -345,6 +413,34 @@ export default function AdminPanel() {
           </table>
         </div>
       </div>
+
+      {/* Password Reset Modal */}
+      {resetModalData && (
+        <div className="fixed inset-0 z-[999] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl relative">
+            <h3 className="text-xl font-bold text-white mb-2">Password Reset Successful</h3>
+            <p className="text-white/60 mb-6 text-sm">
+              The password for <strong className="text-white">{resetModalData.username}</strong> has been regenerated.
+            </p>
+            <div className="bg-black border border-white/10 rounded-xl p-4 flex items-center justify-between mb-6">
+              <code className="text-emerald-400 font-mono text-xl tracking-widest">{resetModalData.password}</code>
+              <button 
+                onClick={() => navigator.clipboard.writeText(resetModalData.password)}
+                className="text-white/40 hover:text-white transition-colors"
+                title="Copy to clipboard"
+              >
+                <Copy className="w-5 h-5" />
+              </button>
+            </div>
+            <button
+              onClick={() => setResetModalData(null)}
+              className="w-full py-3 bg-white hover:bg-gray-200 text-black font-bold rounded-xl transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
