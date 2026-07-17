@@ -52,6 +52,7 @@ export default function MediaModal({
 
   useEffect(() => {
     if (movie) {
+      setStreams([]);
       setExtraLoading(true);
       getMediaCreditsAndDetails(movie.id, isSeries).then(details => {
         setExtraDetails(details);
@@ -59,6 +60,7 @@ export default function MediaModal({
       });
     } else {
       setExtraDetails(null);
+      setStreams([]);
     }
   }, [movie, isSeries]);
 
@@ -204,6 +206,7 @@ export default function MediaModal({
         });
       } else {
         setLoading(true);
+        setStreams([]);
         fetchStreamsForMovie(movie.title || movie.name, movie.year).then(async data => {
           
         const apiKey = localStorage.getItem('torboxApiKey');
@@ -385,6 +388,7 @@ export default function MediaModal({
   useEffect(() => {
     if (isSeries && selectedSeason !== null && selectedEpisode !== null && movie) {
       setLoading(true);
+      setStreams([]);
       fetchStreamsForTvSeries(movie.title, selectedSeason, selectedEpisode).then(async data => {
         
         const apiKey = localStorage.getItem('torboxApiKey');
