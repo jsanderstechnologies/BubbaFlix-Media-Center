@@ -173,7 +173,6 @@ function MainApp() {
             setLogoUrl('');
           }
         }).catch((e) => { console.error('Logo fetch error:', e); setLogoUrl(''); });
-        }).catch((e) => { console.error('Logo fetch error:', e); setLogoUrl(''); });
     } else if (!isPlaying || activeTab !== 'tv') {
       setLogoUrl('');
     }
@@ -352,7 +351,7 @@ function MainApp() {
               <video 
                 key={`${streamOffset}-${selectedAudioTrack}`}
                 ref={videoRef}
-                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&audio=${selectedAudioTrack}&start=${streamOffset}&audioLeveling=${(() => {
+                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&audio=${selectedAudioTrack}&start=${streamOffset}&live=${activeTab === 'tv'}&audioLeveling=${(() => {
                   try {
                     const saved = localStorage.getItem('userSettings_' + user?.uid);
                     return saved ? JSON.parse(saved).enableAudioLeveling === true : false;

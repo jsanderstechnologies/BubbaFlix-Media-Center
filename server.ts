@@ -1216,8 +1216,10 @@ app.get('/api/youtube/search', async (req, res) => {
     const originalHost = new URL(resolvedUrl).hostname;
     const ipUrl = await resolveUrlIp(resolvedUrl);
 
+    const isLive = req.query.live === 'true';
+
     const args = [];
-    if (startOffset && !isNaN(parseFloat(startOffset))) {
+    if (!isLive && startOffset && !isNaN(parseFloat(startOffset))) {
       args.push('-ss', startOffset);
     }
     
@@ -1225,13 +1227,18 @@ app.get('/api/youtube/search', async (req, res) => {
       '-user_agent', 'Mozilla/5.0',
       '-tls_verify', '0',
       '-headers', `Host: ${originalHost}\r\n`,
-      '-i', ipUrl,
-      '-map', '0:v:0',
+      '-i', ipUrl
     );
-    if (audioTrack && audioTrack !== '0') {
-      args.push('-map', `0:${audioTrack}`);
+
+    if (isLive) {
+      args.push('-map', '0:v?', '-map', '0:a?');
     } else {
-      args.push('-map', '0:a:0');
+      args.push('-map', '0:v:0');
+      if (audioTrack && audioTrack !== '0') {
+        args.push('-map', `0:${audioTrack}`);
+      } else {
+        args.push('-map', '0:a:0');
+      }
     }
     
     // Auto-detect HEVC and transcode via inline probe
@@ -1239,7 +1246,7 @@ app.get('/api/youtube/search', async (req, res) => {
 
     if (codecCache.has(targetUrl)) {
       isHevc = codecCache.get(targetUrl) as boolean;
-    } else {
+    } else if (!isLive) {
       try {
         // Pass resolvedUrl to save /api/media-info from doing an extra redirect
         const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(resolvedUrl)}`;
