@@ -762,6 +762,20 @@ function MainApp() {
                 </button>
               )}
             </div>
+
+            {/* API Integrations Active Icons */}
+            <div className="flex items-center gap-3 opacity-70 shrink-0 mx-2 hidden sm:flex">
+              {localStorage.getItem('tmdbKey') && (
+                <img src="/images/tmdb-logo.png" alt="TMDB API" className="h-4 object-contain brightness-110" title="TMDB API Active" />
+              )}
+              {localStorage.getItem('torboxApiKey') && (
+                <img src="/images/torbox-logo.png" alt="TorBox API" className="h-5 object-contain brightness-110" title="TorBox API Active" />
+              )}
+              {localStorage.getItem('intelTranscoding') === 'true' && (
+                <img src="/images/intel-logo.png" alt="Intel QSV" className="h-4 object-contain brightness-110" title="Intel Quick Sync Hardware Transcoding Active" />
+              )}
+            </div>
+
             <AuthButton />
           </div>
         </header>

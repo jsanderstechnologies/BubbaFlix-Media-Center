@@ -51,6 +51,7 @@ export default function SettingsPanel() {
 
   // --- Debug Logging state ---
   const [enableDebugLog, setEnableDebugLog] = useState(() => localStorage.getItem('enableDebugLog') === 'true');
+  const [intelTranscoding, setIntelTranscoding] = useState(() => localStorage.getItem('intelTranscoding') === 'true');
   const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
@@ -217,6 +218,7 @@ export default function SettingsPanel() {
     localStorage.setItem('enableTorrentSearch', enableTorrentSearch.toString());
 
     localStorage.setItem('enableDebugLog', enableDebugLog.toString());
+    localStorage.setItem('intelTranscoding', intelTranscoding.toString());
     logger.setEnabled(enableDebugLog);
 
     if (isAdmin) {
@@ -770,6 +772,19 @@ export default function SettingsPanel() {
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enableDebugLog ? 'bg-indigo-600' : 'bg-slate-700'}`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enableDebugLog ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium text-white block mb-1">Intel Hardware Transcoding</label>
+                <p className="text-xs text-white/80">Use Intel Quick Sync Video (QSV) for hardware acceleration.</p>
+              </div>
+              <button
+                onClick={() => setIntelTranscoding(!intelTranscoding)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${intelTranscoding ? 'bg-indigo-600' : 'bg-slate-700'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${intelTranscoding ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
 
