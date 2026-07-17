@@ -803,6 +803,7 @@ async function startServer() {
 
     const args = [
       '-user_agent', 'Mozilla/5.0',
+      '-tls_verify', '0',
       '-v', 'error',
       '-print_format', 'json',
       '-show_streams',
@@ -815,6 +816,10 @@ async function startServer() {
 
     ffprobeProcess.stdout.on('data', (data) => {
       output += data.toString();
+    });
+
+    ffprobeProcess.stderr.on('data', (data) => {
+      console.error('[FFprobe Stderr]', data.toString());
     });
 
     ffprobeProcess.on('close', (code) => {
@@ -866,6 +871,10 @@ async function startServer() {
 
     ffmpegProcess.on('error', (err) => {
       console.error('[FFmpeg Subtitle Error]', err);
+    });
+
+    ffmpegProcess.stderr.on('data', (data) => {
+      console.error('[FFmpeg Stderr]', data.toString());
     });
 
     req.on('close', () => {
@@ -1108,6 +1117,7 @@ app.get('/api/youtube/search', async (req, res) => {
     
     args.push(
       '-user_agent', 'Mozilla/5.0',
+      '-tls_verify', '0',
       '-i', resolvedUrl,
       '-map', '0:v:0',
     );
