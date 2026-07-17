@@ -173,10 +173,11 @@ function MainApp() {
             setLogoUrl('');
           }
         }).catch((e) => { console.error('Logo fetch error:', e); setLogoUrl(''); });
-    } else {
+        }).catch((e) => { console.error('Logo fetch error:', e); setLogoUrl(''); });
+    } else if (!isPlaying || activeTab !== 'tv') {
       setLogoUrl('');
     }
-  }, [isPlaying, selectedMovie]);
+  }, [isPlaying, selectedMovie, activeTab]);
 
   
   const handleSeek = (secondsToAdd: number) => {
@@ -226,7 +227,7 @@ function MainApp() {
     }
   }, [isPlaying, playingUrl]);
 
-  const handlePlayStream = async (url: string) => {
+  const handlePlayStream = async (url: string, channelLogoUrl?: string) => {
     logger.info("Built-in Player: Requesting to play stream", { url });
     setStreamOffset(0);
     setCurrentTime(0);
@@ -236,6 +237,13 @@ function MainApp() {
     setSelectedSubtitleTrack(null);
     setMediaInfo(null);
     setPlayerStatus('BUFFERING...');
+    
+    if (channelLogoUrl) {
+      setLogoUrl(channelLogoUrl);
+    } else if (activeTab === 'tv') {
+      setLogoUrl('');
+    }
+    
     setIsPlaying(true);
     setPlayingUrl(url);
     let savedPlayer = 'mpv';

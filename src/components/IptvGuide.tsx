@@ -23,7 +23,11 @@ const fetchEPG = async (url: string) => {
   return res.json();
 };
 
-export default function IptvGuide({ onPlayStream }: { onPlayStream: (url: string) => void }) {
+interface IptvGuideProps {
+  onPlayStream: (url: string, logo?: string) => void;
+}
+
+export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
   const [playlistUrl] = useState(() => localStorage.getItem('iptvUrl') || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus');
   const [epgUrl] = useState(() => localStorage.getItem('epgUrl') || 'http://cord-cutter.net:8080/xmltv.php?username=foyers1@rogers.com&password=9jguFdUq3Y');
   const [epgOffsetHours] = useState(() => Number(localStorage.getItem('epgOffset') || 0));
@@ -379,7 +383,7 @@ export default function IptvGuide({ onPlayStream }: { onPlayStream: (url: string
                 const programs = channel.tvg?.id ? getProgramsForTimeline(channel.tvg.id) : [];
                 
                 return (
-                <div key={i} className={`flex border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group ${i % 2 === 0 ? 'bg-black/20' : ''}`} onClick={() => onPlayStream(channel.url)}>
+                <div key={i} className={`flex border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group ${i % 2 === 0 ? 'bg-black/20' : ''}`} onClick={() => onPlayStream(channel.url, channel.tvg?.logo)}>
                   
                   {/* Channel Info (Sticky Left) */}
                   <div className="w-48 sm:w-64 shrink-0 border-r border-white/10 p-2 py-1 flex items-center gap-3 sticky left-0 z-20 bg-black/80 backdrop-blur-sm group-hover:bg-white/5 h-10">
