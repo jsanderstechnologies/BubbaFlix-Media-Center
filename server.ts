@@ -1223,6 +1223,10 @@ app.get('/api/youtube/search', async (req, res) => {
       args.push('-ss', startOffset);
     }
     
+    if (isLive) {
+      args.push('-fflags', '+genpts+igndts');
+    }
+    
     args.push(
       '-user_agent', 'Mozilla/5.0',
       '-tls_verify', '0',
@@ -1231,7 +1235,7 @@ app.get('/api/youtube/search', async (req, res) => {
     );
 
     if (isLive) {
-      args.push('-map', '0:v?', '-map', '0:a?');
+      args.push('-map', '0:v:0', '-map', '0:a:0?');
     } else {
       args.push('-map', '0:v:0');
       if (audioTrack && audioTrack !== '0') {
@@ -1292,6 +1296,10 @@ app.get('/api/youtube/search', async (req, res) => {
 
     args.push('-c:a', 'aac');
     
+    if (isLive) {
+      args.push('-avoid_negative_ts', 'make_zero');
+    }
+
     args.push(
       '-f', 'mp4',
       '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
@@ -1314,7 +1322,10 @@ app.get('/api/youtube/search', async (req, res) => {
     let errorOutput = '';
     ffmpegProcess.stderr.on('data', (data) => {
       const str = data.toString();
-      errorOutput = str.substring(0, 200);
+      errorOutput += str;
+      if (str.toLowerCase().includes('error') || str.includes('Invalid data found') || str.includes('failed')) {
+        console.error('[FFmpeg-Proxy] STDERR:', str);
+      }
     });
 
     ffmpegProcess.on('close', (code) => {
