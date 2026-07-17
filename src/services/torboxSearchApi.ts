@@ -80,6 +80,8 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
           }
         }
       } catch (e) { console.error("[TorBox Search] Usenet query error:", e); }
+      // Delay to prevent Cloudflare 429 IP ban from TorBox
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     let torrentResults: TorBoxSearchResult[] = [];

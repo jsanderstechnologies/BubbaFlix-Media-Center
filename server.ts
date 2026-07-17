@@ -894,14 +894,18 @@ async function startServer() {
       }
     }
 
+    const originalHost = new URL(probeUrl).hostname;
+    const ipUrl = await resolveUrlIp(probeUrl);
+
     const args = [
       '-user_agent', 'Mozilla/5.0',
       '-tls_verify', '0',
+      '-headers', `Host: ${originalHost}\r\n`,
       '-v', 'error',
       '-print_format', 'json',
       '-show_streams',
       '-show_format',
-      '-i', probeUrl
+      '-i', ipUrl
     ];
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args);
@@ -1084,12 +1088,17 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     }
 
+    const originalHost = new URL(resolvedUrl).hostname;
+    const ipUrl = await resolveUrlIp(resolvedUrl);
+
     const args = [
       '-user_agent', 'Mozilla/5.0',
+      '-tls_verify', '0',
+      '-headers', `Host: ${originalHost}\r\n`,
       '-v', 'error',
       '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1',
-      '-i', resolvedUrl
+      '-i', ipUrl
     ];
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args);
@@ -1173,6 +1182,7 @@ app.get('/api/youtube/search', async (req, res) => {
     const audioTrack = req.query.audio;
     const startOffset = req.query.start as string;
     const bufsize = req.query.bufsize as string || '64M';
+    const intel = req.query.intel === 'true';
 
     // Resolve TorBox redirects FIRST so we can pass the direct HTTP URL to FFmpeg
     let resolvedUrl = targetUrl;
@@ -1203,6 +1213,9 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     }
 
+    const originalHost = new URL(resolvedUrl).hostname;
+    const ipUrl = await resolveUrlIp(resolvedUrl);
+
     const args = [];
     if (startOffset && !isNaN(parseFloat(startOffset))) {
       args.push('-ss', startOffset);
@@ -1211,7 +1224,8 @@ app.get('/api/youtube/search', async (req, res) => {
     args.push(
       '-user_agent', 'Mozilla/5.0',
       '-tls_verify', '0',
-      '-i', resolvedUrl,
+      '-headers', `Host: ${originalHost}\r\n`,
+      '-i', ipUrl,
       '-map', '0:v:0',
     );
     if (audioTrack && audioTrack !== '0') {
@@ -1242,13 +1256,23 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     if (isHevc) {
-      console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 for browser compatibility.');
-      args.push(
-        '-c:v', 'libx264', 
-        '-preset', 'ultrafast', 
-        '-crf', '28', 
-        '-vf', 'scale=-2:1080'
-      );
+      if (intel) {
+        console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 using Intel QSV hardware acceleration.');
+        args.push(
+          '-c:v', 'h264_qsv',
+          '-preset', 'veryfast',
+          '-b:v', '5M',
+          '-vf', 'scale_qsv=w=-2:h=1080'
+        );
+      } else {
+        console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 for browser compatibility.');
+        args.push(
+          '-c:v', 'libx264', 
+          '-preset', 'ultrafast', 
+          '-crf', '28', 
+          '-vf', 'scale=-2:1080'
+        );
+      }
     } else {
       args.push('-c:v', 'copy');
     }

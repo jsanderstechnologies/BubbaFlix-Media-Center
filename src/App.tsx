@@ -349,7 +349,7 @@ function MainApp() {
                     const saved = localStorage.getItem('userSettings_' + user?.uid);
                     return saved ? JSON.parse(saved).enableAudioLeveling === true : false;
                   } catch { return false; }
-                })()}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(localStorage.getItem('streamBufferSeconds') || '60', 10)) / 8000000))}M`}
+                })()}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(localStorage.getItem('streamBufferSeconds') || '60', 10)) / 8000000))}M&intel=${localStorage.getItem('intelTranscoding') === 'true'}`}
                 autoPlay
                 className="w-full h-full object-contain absolute top-0 left-0"
                 onTimeUpdate={(e) => {
