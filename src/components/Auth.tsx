@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { User, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
+import { User, Mail, Lock, UserPlus, LogIn, Eye, EyeOff } from 'lucide-react';
 
 export interface AuthUser {
   uid: string;
@@ -68,6 +68,8 @@ export function AuthModal() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
   // Setup Wizard States
   const [setupRequired, setSetupRequired] = useState(false);
@@ -107,8 +109,13 @@ export function AuthModal() {
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!email || !username || !password) {
-      setError('Admin email, username, and password are required.');
+    if (!email || !username || !password || !confirmPassword) {
+      setError('Admin email, username, and both password fields are required.');
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
     
@@ -297,15 +304,34 @@ export function AuthModal() {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
               <input 
-                type="password" 
+                type={showPassword ? "text" : "password"} 
                 placeholder="Admin Password (min 12 characters)" 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-12 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
                 required
                 minLength={12}
               />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
 
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+              <input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="Confirm Admin Password" 
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-12 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                required
+                minLength={12}
+              />
             </div>
 
             <button 
