@@ -158,7 +158,7 @@ function MainApp() {
 
   useEffect(() => {
     if (isPlaying && selectedMovie?.id) {
-      const type = selectedMovie.name ? 'tv' : 'movie';
+      const type = (selectedMovie.type === 'series' || !!selectedMovie.first_air_date) ? 'tv' : 'movie';
       const url = `https://api.themoviedb.org/3/${type}/${selectedMovie.id}/images?api_key=b4d4dfa06829b83e3a8b08fc89372a9d&include_image_language=en,null`;
       console.log('Fetching logo from:', url);
       fetch(url)
