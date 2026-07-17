@@ -1285,13 +1285,18 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     const audioLeveling = req.query.audioLeveling === 'true';
-    if (audioLeveling) {
+    if (audioLeveling && !isLive) {
       console.log('[FFmpeg-Proxy] Enabling Dynamic Audio Leveling (dynaudnorm filter)');
       args.push('-af', 'dynaudnorm=f=150:g=15:p=0.95');
     }
 
+    if (isLive) {
+      args.push('-c:a', 'copy');
+    } else {
+      args.push('-c:a', 'aac');
+    }
+    
     args.push(
-      '-c:a', 'aac',        
       '-f', 'mp4',
       '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
       '-bufsize', bufsize,
