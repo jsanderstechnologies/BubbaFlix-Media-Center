@@ -75,6 +75,16 @@ export default function MediaModal({
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
+  
+  const [prevMovieId, setPrevMovieId] = useState(movie?.id);
+  if (movie?.id !== prevMovieId) {
+    setPrevMovieId(movie?.id);
+    setStreams([]);
+    setSelectedSeason(null);
+    setSelectedEpisode(null);
+    setSeasons([]);
+    setEpisodes([]);
+  }
   const [seriesDetailsLoading, setSeriesDetailsLoading] = useState(false);
   const [pollingActive, setPollingActive] = useState(false);
 
@@ -825,7 +835,7 @@ export default function MediaModal({
                                 <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Season</label>
                                 <select 
                                     value={selectedSeason || ''} 
-                                    onChange={(e) => { setSelectedSeason(Number(e.target.value)); setSelectedEpisode(null); setEpisodes([]); }}
+                                    onChange={(e) => { setStreams([]); setSelectedSeason(Number(e.target.value)); setSelectedEpisode(null); setEpisodes([]); }}
                                     className="bg-[#12121a] border border-white/10 rounded-lg p-2 text-white text-xs focus:outline-none focus:border-red-500 w-full"
                                 >
                                     {seasons.map(s => (
@@ -840,7 +850,7 @@ export default function MediaModal({
                                     <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Episode</label>
                                     <select 
                                         value={selectedEpisode || ''} 
-                                        onChange={(e) => setSelectedEpisode(Number(e.target.value))}
+                                        onChange={(e) => { setStreams([]); setSelectedEpisode(Number(e.target.value)); }}
                                         className="bg-[#12121a] border border-white/10 rounded-lg p-2 text-white text-xs focus:outline-none focus:border-red-500 w-full"
                                     >
                                         {episodes.map(ep => (
