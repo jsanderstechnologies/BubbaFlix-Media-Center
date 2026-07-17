@@ -346,7 +346,22 @@ function MainApp() {
           <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black">
             
           {/* We determine the URL right before passing it to the player */}
-          {true ? (
+          {activeTab === 'tv' ? (
+            <ReactPlayer 
+              url={playingUrl}
+              playing
+              controls
+              width="100%"
+              height="100%"
+              className="absolute top-0 left-0"
+              style={{ objectFit: 'contain' }}
+              onReady={() => logger.info("ReactPlayer: Ready", { url: playingUrl })}
+              onError={(e) => {
+                logger.error("ReactPlayer: Error", e);
+                setPlayerStatus("ERROR: Live stream failed to load.");
+              }}
+            />
+          ) : (
             <>
               <video 
                 key={`${streamOffset}-${selectedAudioTrack}`}
@@ -408,6 +423,7 @@ function MainApp() {
                   />
                 )}
               </video>
+              {activeTab !== 'tv' && (
               <div className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-4 z-[110] bg-gradient-to-t from-black/90 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="flex items-center gap-6 pointer-events-auto w-full max-w-5xl mx-auto">
                   <button 
@@ -515,9 +531,8 @@ function MainApp() {
                   </div>
                 </div>
               </div>
+              )}
             </>
-          ) : (
-            null
           )}
 
           </div>
