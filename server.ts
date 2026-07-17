@@ -898,15 +898,21 @@ async function startServer() {
     const ipUrl = await resolveUrlIp(probeUrl);
 
     const args = [
-      '-user_agent', 'Mozilla/5.0',
-      '-tls_verify', '0',
+      '-user_agent', 'Mozilla/5.0'
+    ];
+    
+    if (ipUrl.startsWith('https')) {
+      args.push('-tls_verify', '0');
+    }
+    
+    args.push(
       '-headers', `Host: ${originalHost}\r\n`,
       '-v', 'error',
       '-print_format', 'json',
       '-show_streams',
       '-show_format',
       '-i', ipUrl
-    ];
+    );
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args);
     let output = '';
@@ -1092,14 +1098,20 @@ app.get('/api/youtube/search', async (req, res) => {
     const ipUrl = await resolveUrlIp(resolvedUrl);
 
     const args = [
-      '-user_agent', 'Mozilla/5.0',
-      '-tls_verify', '0',
+      '-user_agent', 'Mozilla/5.0'
+    ];
+    
+    if (ipUrl.startsWith('https')) {
+      args.push('-tls_verify', '0');
+    }
+    
+    args.push(
       '-headers', `Host: ${originalHost}\r\n`,
       '-v', 'error',
       '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1',
       '-i', ipUrl
-    ];
+    );
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args);
     let output = '';
@@ -1227,9 +1239,11 @@ app.get('/api/youtube/search', async (req, res) => {
       args.push('-fflags', '+genpts+igndts');
     }
     
+    args.push('-user_agent', 'Mozilla/5.0');
+    if (ipUrl.startsWith('https')) {
+      args.push('-tls_verify', '0');
+    }
     args.push(
-      '-user_agent', 'Mozilla/5.0',
-      '-tls_verify', '0',
       '-headers', `Host: ${originalHost}\r\n`,
       '-i', ipUrl
     );
