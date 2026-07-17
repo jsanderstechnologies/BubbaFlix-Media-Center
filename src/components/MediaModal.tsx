@@ -191,10 +191,12 @@ export default function MediaModal({
   }, [pollingActive]);
 
   useEffect(() => {
+    let isActive = true;
     if (movie) {
       if (isSeries) {
         setSeriesDetailsLoading(true);
         getTvSeriesDetails(movie.id).then(details => {
+          if (!isActive) return;
           if (details && details.seasons) {
             const validSeasons = details.seasons.filter((s: any) => s.season_number > 0);
             setSeasons(validSeasons);
@@ -208,6 +210,7 @@ export default function MediaModal({
         setLoading(true);
         setStreams([]);
         fetchStreamsForMovie(movie.title || movie.name, movie.year).then(async data => {
+          if (!isActive) return;
           
         const apiKey = localStorage.getItem('torboxApiKey');
         let activeTorrents: any[] = [];
@@ -360,19 +363,23 @@ export default function MediaModal({
           return 0;
         });
 
+        if (!isActive) return;
         setStreams(filteredData);
         setLoading(false);
         setPollingActive(true);
         });
       }
     }
+    return () => { isActive = false; };
   }, [movie, isSeries]);
 
   useEffect(() => {
+    let isActive = true;
     if (isSeries && selectedSeason !== null && movie) {
       setLoading(true);
       setStreams([]);
       getTvSeasonDetails(movie.id, selectedSeason).then(seasonData => {
+        if (!isActive) return;
         if (seasonData && seasonData.episodes) {
           setEpisodes(seasonData.episodes);
           if (seasonData.episodes.length > 0) {
@@ -383,13 +390,16 @@ export default function MediaModal({
         }
       });
     }
+    return () => { isActive = false; };
   }, [isSeries, selectedSeason, movie]);
 
   useEffect(() => {
+    let isActive = true;
     if (isSeries && selectedSeason !== null && selectedEpisode !== null && movie) {
       setLoading(true);
       setStreams([]);
       fetchStreamsForTvSeries(movie.title, selectedSeason, selectedEpisode).then(async data => {
+        if (!isActive) return;
         
         const apiKey = localStorage.getItem('torboxApiKey');
         let activeTorrents: any[] = [];
@@ -541,6 +551,7 @@ export default function MediaModal({
           return 0;
         });
 
+        if (!isActive) return;
         setStreams(filteredData);
         setLoading(false);
         setPollingActive(true);
@@ -565,6 +576,7 @@ export default function MediaModal({
         }
       });
     }
+    return () => { isActive = false; };
   }, [isSeries, selectedSeason, selectedEpisode, movie]);
 
   useEffect(() => {
