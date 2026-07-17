@@ -665,9 +665,9 @@ export default function MediaModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-6 animate-fadeIn">
       <div className="bg-[#0c0c12] border-0 md:border border-white/10 rounded-none md:rounded-2xl w-full h-full md:max-w-[96vw] md:max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
-        <div className="relative h-64 sm:h-72 md:h-80 bg-slate-800 shrink-0">
+        <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 shrink-0">
             {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-35" referrerPolicy="no-referrer" />}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/45 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/60 to-transparent"></div>
             <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer">
                 ✕
             </button>
@@ -685,9 +685,6 @@ export default function MediaModal({
                           ★ <span className="font-mono">{movie.rating}</span>
                       </span>
                   </div>
-                  {movie.overview && (
-                      <p className="mt-3 text-xs sm:text-sm text-white/80 max-w-xl line-clamp-2 leading-relaxed">{movie.overview}</p>
-                  )}
                 </div>
                 {user && (
                   <button 
@@ -708,6 +705,12 @@ export default function MediaModal({
         <div className="p-6 overflow-y-auto md:overflow-hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Left Column: Media Details & TMDB Cast */}
             <div className="space-y-6 h-full md:overflow-y-auto custom-scrollbar md:pr-4 pb-4">
+                {movie.overview && (
+                    <p className="text-sm text-white/90 leading-relaxed">
+                        {movie.overview}
+                    </p>
+                )}
+                
                 {extraLoading ? (
                   <div className="flex flex-col items-center justify-center py-10 space-y-3 bg-white/[0.01] border border-white/5 rounded-xl">
                     <span className="relative flex h-3 w-3">
