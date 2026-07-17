@@ -55,7 +55,7 @@ export default function SettingsPanel() {
   const [frontendLogs, setFrontendLogs] = useState<LogEntry[]>([]);
   const [backendLogs, setBackendLogs] = useState<LogEntry[]>([]);
 
-  const debugLogs = React.useMemo(() => {
+  const debugLogs = useMemo(() => {
     return [...frontendLogs, ...backendLogs].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
   }, [frontendLogs, backendLogs]);
 
