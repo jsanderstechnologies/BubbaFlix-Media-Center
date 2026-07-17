@@ -29,6 +29,22 @@ const _dirname = _filename ? path.dirname(_filename) : '';
 // PHASE 1: NODE.JS BACKEND FUNCTIONS (For your Electron main.js)
 // ============================================================================
 
+let hasQSV: boolean | null = null;
+
+function checkQSVSupport(): boolean {
+  if (hasQSV !== null) return hasQSV;
+  try {
+    const { execFileSync } = require('child_process');
+    const output = execFileSync(ffmpegPath, ['-encoders'], { encoding: 'utf-8' });
+    hasQSV = output.includes('h264_qsv');
+    console.log(`[FFmpeg-Proxy] Intel QSV hardware encoding support: ${hasQSV ? 'AVAILABLE' : 'UNAVAILABLE'}`);
+  } catch (e) {
+    hasQSV = false;
+    console.log('[FFmpeg-Proxy] Failed to check for Intel QSV support.');
+  }
+  return hasQSV;
+}
+
 // Backend Logger Interception
 interface BackendLogEntry {
   timestamp: string;
@@ -1339,13 +1355,23 @@ app.get('/api/youtube/search', async (req, res) => {
 
     if (isHevc) {
       if (intel) {
-        console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 using Intel QSV hardware acceleration.');
-        args.push(
-          '-c:v', 'h264_qsv',
-          '-preset', 'veryfast',
-          '-b:v', '5M',
-          '-vf', 'scale_qsv=w=-2:h=1080'
-        );
+        if (checkQSVSupport()) {
+          console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 using Intel QSV hardware acceleration.');
+          args.push(
+            '-c:v', 'h264_qsv',
+            '-preset', 'veryfast',
+            '-b:v', '5M',
+            '-vf', 'scale_qsv=w=-2:h=1080'
+          );
+        } else {
+          console.warn('[FFmpeg-Proxy] Intel QSV requested but NOT supported by this FFmpeg binary. Falling back to software encoding.');
+          args.push(
+            '-c:v', 'libx264', 
+            '-preset', 'ultrafast', 
+            '-crf', '28', 
+            '-vf', 'scale=-2:1080'
+          );
+        }
       } else {
         console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 for browser compatibility.');
         args.push(
