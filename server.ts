@@ -659,6 +659,11 @@ async function startServer() {
     });
   });
 
+  // /api/admin/logs GET
+  app.get('/api/admin/logs', requireAdmin, (req, res) => {
+    res.json(backendLogs);
+  });
+
   // /api/admin/settings PUT
   app.put('/api/admin/settings', requireAdmin, (req, res) => {
     const settings = readJson(SETTINGS_FILE);
