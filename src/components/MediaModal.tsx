@@ -919,15 +919,25 @@ export default function MediaModal({
                                         const result = await res.json();
                                         // Try to find if this item is already in user downloads list
                                         const existing = result.data?.find((t: any) => {
+                                          if (stream.type === 'torrent' && stream.hash && t.hash) {
+                                            return t.hash.toLowerCase() === stream.hash.toLowerCase();
+                                          }
+                                          
                                           const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
                                           const tName = (t.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+                                          
+                                          // Very loose names (e.g. short strings) shouldn't blindly match
+                                          const isValidNameMatch = (sName.length > 5 && tName.length > 5) && 
+                                            (tName === sName || sName.includes(tName) || tName.includes(sName));
+                                            
                                           if (stream.type === 'usenet') {
-                                            const nameMatch = tName === sName || sName.includes(tName) || tName.includes(sName);
-                                            const sizeMatch = stream.sizeBytes && t.size && Math.abs(t.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
-                                            return nameMatch || sizeMatch;
+                                            const sizeMatch = stream.sizeBytes && t.size && Math.abs(t.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
+                                            // For Usenet, we require BOTH a reasonable name match AND a size match to avoid false positives 
+                                            // on files of the exact same size, or files with very vague names.
+                                            return isValidNameMatch && sizeMatch;
                                           }
-                                          if (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) return true;
-                                          return tName === sName || sName.includes(tName) || tName.includes(sName);
+                                          
+                                          return isValidNameMatch;
                                         });
                                         
                                         if (existing) {
