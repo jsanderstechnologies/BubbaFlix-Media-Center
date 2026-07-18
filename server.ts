@@ -1477,6 +1477,7 @@ app.get('/api/youtube/search', async (req, res) => {
       const fallbackUrl = `https://www.nzbindex.nl/rss/?q=${encodeURIComponent(q)}&nzblink=1`;
       console.log(`[Usenet Search Direct] Fetching from NZBIndex: ${fallbackUrl}`);
       const rssRes = await axios.get(fallbackUrl, {
+        timeout: 7000,
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
       });
       const xml = rssRes.data;
@@ -1592,7 +1593,7 @@ app.get('/api/youtube/search', async (req, res) => {
 
     try {
       // TorBox doesn't have a native public search API, so we proxy to APIBay (PirateBay)
-      const response = await axios.get(`https://apibay.org/q.php?q=${encodeURIComponent(q)}`);
+      const response = await axios.get(`https://apibay.org/q.php?q=${encodeURIComponent(q)}`, { timeout: 7000 });
       
       const mappedTorrents = (response.data || []).filter((t: any) => t.id && t.info_hash && t.info_hash !== '0000000000000000000000000000000000000000').map((t: any) => {
         // Build a standard magnet link
@@ -1624,6 +1625,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
     try {
       const response = await axios.get("https://api.torbox.app/v1/api/torrents/mylist?bypass_cache=true", {
+        timeout: 7000,
         headers: { Authorization: authHeader }
       });
       res.json(response.data);
@@ -1639,6 +1641,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
     try {
       const response = await axios.get("https://api.torbox.app/v1/api/usenet/mylist?bypass_cache=true", {
+        timeout: 7000,
         headers: { Authorization: authHeader }
       });
       res.json(response.data);
