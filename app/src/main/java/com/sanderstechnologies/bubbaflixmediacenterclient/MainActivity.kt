@@ -7,13 +7,23 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sanderstechnologies.bubbaflixmediacenterclient.data.remote.NetworkModule
+import com.sanderstechnologies.bubbaflixmediacenterclient.data.remote.model.TmdbMovie
+import com.sanderstechnologies.bubbaflixmediacenterclient.ui.auth.LoginScreen
 import com.sanderstechnologies.bubbaflixmediacenterclient.ui.dashboard.DashboardScreen
 import com.sanderstechnologies.bubbaflixmediacenterclient.ui.dashboard.DashboardViewModel
 import com.sanderstechnologies.bubbaflixmediacenterclient.ui.dashboard.DashboardViewModelFactory
+import com.sanderstechnologies.bubbaflixmediacenterclient.ui.details.MediaDetailsScreen
 import com.sanderstechnologies.bubbaflixmediacenterclient.ui.player.PlayerScreen
 import com.sanderstechnologies.bubbaflixmediacenterclient.ui.player.PlayerViewModel
 import com.sanderstechnologies.bubbaflixmediacenterclient.ui.player.PlayerViewModelFactory
 import com.sanderstechnologies.bubbaflixmediacenterclient.ui.theme.BubbaFlixMediaCenterClientTheme
+
+sealed class Screen {
+    object Login : Screen()
+    object Dashboard : Screen()
+    data class Details(val movie: TmdbMovie) : Screen()
+    data class Player(val movieQuery: String) : Screen()
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,31 +40,46 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             BubbaFlixMediaCenterClientTheme {
-                var currentMovieQuery by remember { mutableStateOf<String?>(null) }
+                var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
                 
-                if (currentMovieQuery == null) {
-                    val dashboardViewModel: DashboardViewModel = viewModel(
-                        factory = DashboardViewModelFactory(tmdbService)
-                    )
-                    DashboardScreen(
-                        viewModel = dashboardViewModel,
-                        onMovieClick = { movie ->
-                            currentMovieQuery = movie.title ?: movie.name
-                        }
-                    )
-                } else {
-                    val playerViewModel: PlayerViewModel = viewModel(
-                        factory = PlayerViewModelFactory(torBoxService, torBoxSearchService, torBoxToken)
-                    )
-                    
-                    LaunchedEffect(currentMovieQuery) {
-                        currentMovieQuery?.let { playerViewModel.searchAndPlay(it) }
+                when (val screen = currentScreen) {
+                    is Screen.Login -> {
+                        LoginScreen(onLoginSuccess = { currentScreen = Screen.Dashboard })
                     }
-                    
-                    PlayerScreen(
-                        viewModel = playerViewModel,
-                        onBack = { currentMovieQuery = null }
-                    )
+                    is Screen.Dashboard -> {
+                        val dashboardViewModel: DashboardViewModel = viewModel(
+                            factory = DashboardViewModelFactory(tmdbService)
+                        )
+                        DashboardScreen(
+                            viewModel = dashboardViewModel,
+                            onMovieClick = { movie ->
+                                currentScreen = Screen.Details(movie)
+                            }
+                        )
+                    }
+                    is Screen.Details -> {
+                        MediaDetailsScreen(
+                            movie = screen.movie,
+                            onPlayClick = { movie ->
+                                currentScreen = Screen.Player(movie.title ?: movie.name ?: "")
+                            },
+                            onBack = { currentScreen = Screen.Dashboard }
+                        )
+                    }
+                    is Screen.Player -> {
+                        val playerViewModel: PlayerViewModel = viewModel(
+                            factory = PlayerViewModelFactory(torBoxService, torBoxSearchService, torBoxToken)
+                        )
+                        
+                        LaunchedEffect(screen.movieQuery) {
+                            playerViewModel.searchAndPlay(screen.movieQuery)
+                        }
+                        
+                        PlayerScreen(
+                            viewModel = playerViewModel,
+                            onBack = { currentScreen = Screen.Dashboard }
+                        )
+                    }
                 }
             }
         }
