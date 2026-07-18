@@ -1462,6 +1462,7 @@ app.get('/api/youtube/search', async (req, res) => {
     if (!q || typeof q !== 'string') {
       return res.status(400).json({ error: "Query 'q' parameter is required." });
     }
+    console.log(`[Usenet Proxy] Received search request for: "${q}"`);
 
     try {
       const cacheKey = q;
@@ -1583,6 +1584,7 @@ app.get('/api/youtube/search', async (req, res) => {
     if (!q || typeof q !== 'string') {
       return res.status(400).json({ error: "Query 'q' parameter is required." });
     }
+    console.log(`[Torrent Proxy] Received search request for: "${q}"`);
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ error: "Authorization key is required." });
