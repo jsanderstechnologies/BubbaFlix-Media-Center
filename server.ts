@@ -1592,24 +1592,71 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     try {
-      // TorBox doesn't have a native public search API, so we proxy to APIBay (PirateBay)
-      const response = await axios.get(`https://apibay.org/q.php?q=${encodeURIComponent(q)}`, { timeout: 7000 });
+      const [pbRes, ytsRes, solidRes] = await Promise.all([
+        axios.get(`https://apibay.org/q.php?q=${encodeURIComponent(q)}`, { timeout: 7000 }).catch(() => null),
+        axios.get(`https://yts.mx/api/v2/list_movies.json?query_term=${encodeURIComponent(q)}`, { timeout: 7000 }).catch(() => null),
+        axios.get(`https://solidtorrents.to/api/v1/search?q=${encodeURIComponent(q)}`, { timeout: 7000 }).catch(() => null)
+      ]);
+
+      const mappedTorrents: any[] = [];
       
-      const mappedTorrents = (response.data || []).filter((t: any) => t.id && t.info_hash && t.info_hash !== '0000000000000000000000000000000000000000').map((t: any) => {
-        // Build a standard magnet link
-        const magnet = `magnet:?xt=urn:btih:${t.info_hash}&dn=${encodeURIComponent(t.name)}&tr=udp://tracker.opentrackr.org:1337/announce`;
-        return {
-          id: t.id,
-          name: t.name,
-          hash: t.info_hash,
-          size: parseInt(t.size || "0", 10),
-          seeds: parseInt(t.seeders || "0", 10),
-          peers: parseInt(t.leechers || "0", 10),
-          magnet: magnet,
-          link: magnet,
-          cached: false // Torrents are usually added instantly or streamed dynamically
-        };
-      });
+      if (pbRes && pbRes.data && Array.isArray(pbRes.data)) {
+        pbRes.data.filter((t: any) => t.id && t.info_hash && t.info_hash !== '0000000000000000000000000000000000000000').forEach((t: any) => {
+          const magnet = `magnet:?xt=urn:btih:${t.info_hash}&dn=${encodeURIComponent(t.name)}&tr=udp://tracker.opentrackr.org:1337/announce`;
+          mappedTorrents.push({
+            id: t.id,
+            name: t.name,
+            hash: t.info_hash,
+            size: parseInt(t.size || "0", 10),
+            seeds: parseInt(t.seeders || "0", 10),
+            peers: parseInt(t.leechers || "0", 10),
+            magnet: magnet,
+            link: magnet,
+            cached: false
+          });
+        });
+      }
+
+      if (ytsRes && ytsRes.data && ytsRes.data.data && ytsRes.data.data.movies) {
+        ytsRes.data.data.movies.forEach((m: any) => {
+          if (m.torrents) {
+            m.torrents.forEach((t: any) => {
+              const name = `${m.title} ${m.year || ''} ${t.quality} ${t.type} YTS`;
+              const magnet = `magnet:?xt=urn:btih:${t.hash}&dn=${encodeURIComponent(name)}&tr=udp://tracker.opentrackr.org:1337/announce`;
+              mappedTorrents.push({
+                id: `yts_${t.hash}`,
+                name: name,
+                hash: t.hash,
+                size: t.size_bytes || 0,
+                seeds: t.seeds || 0,
+                peers: t.peers || 0,
+                magnet: magnet,
+                link: magnet,
+                cached: false
+              });
+            });
+          }
+        });
+      }
+
+      if (solidRes && solidRes.data && Array.isArray(solidRes.data.results)) {
+        solidRes.data.results.forEach((t: any) => {
+          if (t.infohash && t.title) {
+            const magnet = `magnet:?xt=urn:btih:${t.infohash}&dn=${encodeURIComponent(t.title)}&tr=udp://tracker.opentrackr.org:1337/announce`;
+            mappedTorrents.push({
+              id: `st_${t.id || t.infohash}`,
+              name: t.title,
+              hash: t.infohash.toLowerCase(),
+              size: t.size || 0,
+              seeds: t.seeders || 0,
+              peers: t.leechers || 0,
+              magnet: magnet,
+              link: magnet,
+              cached: false
+            });
+          }
+        });
+      }
 
       res.json({ success: true, data: mappedTorrents });
     } catch (err: any) {
