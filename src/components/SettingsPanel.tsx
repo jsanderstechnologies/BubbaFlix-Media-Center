@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminPanel from './AdminPanel';
 import { useAuth } from './Auth';
 import { logger, LogEntry } from '../lib/logger';
+import { useSettings } from '../lib/settings';
 
 const fetchM3U = async (url: string) => {
   if (!url) return null;
@@ -52,32 +53,34 @@ export default function SettingsPanel() {
       prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
     );
   };
-  const [tmdbKey, setTmdbKey] = useState(() => localStorage.getItem('tmdbKey') || '');
-  const [torboxApiKey, setTorboxApiKey] = useState(() => localStorage.getItem('torboxApiKey') || '');
-  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
-  const [preferHEVC, setPreferHEVC] = useState(() => localStorage.getItem('preferHEVC') === 'true');
-  const [maxResults, setMaxResults] = useState(() => localStorage.getItem('maxResults') || '20');
+  const { systemSettings, userSettings, updateSystemSettings, updateUserSettings } = useSettings();
+
+  const [tmdbKey, setTmdbKey] = useState(systemSettings.tmdbKey || '');
+  const [torboxApiKey, setTorboxApiKey] = useState(systemSettings.torboxApiKey || '');
+  const [geminiApiKey, setGeminiApiKey] = useState(systemSettings.geminiApiKey || '');
+  const [preferHEVC, setPreferHEVC] = useState(systemSettings.preferHEVC === true);
+  const [maxResults, setMaxResults] = useState(systemSettings.maxResults || '20');
   const [providerType, setProviderType] = useState(() => localStorage.getItem('providerType') || 'm3u');
-  const [iptvUrl, setIptvUrl] = useState(() => localStorage.getItem('iptvUrl') || '');
-  const [epgUrl, setEpgUrl] = useState(() => localStorage.getItem('epgUrl') || '');
-  const [epgOffset, setEpgOffset] = useState(() => localStorage.getItem('epgOffset') || '0');
+  const [iptvUrl, setIptvUrl] = useState(systemSettings.iptvUrl || '');
+  const [epgUrl, setEpgUrl] = useState(systemSettings.epgUrl || '');
+  const [epgOffset, setEpgOffset] = useState(systemSettings.epgOffset || '0');
   
-  const [xtreamServer, setXtreamServer] = useState(() => localStorage.getItem('xtreamServer') || '');
-  const [xtreamUsername, setXtreamUsername] = useState(() => localStorage.getItem('xtreamUsername') || '');
-  const [xtreamPassword, setXtreamPassword] = useState(() => localStorage.getItem('xtreamPassword') || '');
+  const [xtreamServer, setXtreamServer] = useState(systemSettings.xtreamServer || '');
+  const [xtreamUsername, setXtreamUsername] = useState(systemSettings.xtreamUsername || '');
+  const [xtreamPassword, setXtreamPassword] = useState(systemSettings.xtreamPassword || '');
 
-  const [playerPath, setPlayerPath] = useState(() => localStorage.getItem('playerPath') || 'mpv');
-  const [streamBufferSeconds, setStreamBufferSeconds] = useState(() => localStorage.getItem('streamBufferSeconds') || '60');
-  const [filterAnime, setFilterAnime] = useState(() => localStorage.getItem('filterAnime') === 'true');
-  const [preferredLanguage, setPreferredLanguage] = useState(() => localStorage.getItem('preferredLanguage') || 'all');
+  const [playerPath, setPlayerPath] = useState(userSettings.playerPath || 'mpv');
+  const [streamBufferSeconds, setStreamBufferSeconds] = useState(systemSettings.streamBufferSeconds || '60');
+  const [filterAnime, setFilterAnime] = useState(userSettings.filterAnime === true);
+  const [preferredLanguage, setPreferredLanguage] = useState(userSettings.preferredLanguage || 'all');
 
-  const [enableUsenetSearch, setEnableUsenetSearch] = useState(() => localStorage.getItem('enableUsenetSearch') !== 'false');
-  const [enableTorrentSearch, setEnableTorrentSearch] = useState(() => localStorage.getItem('enableTorrentSearch') !== 'false');
+  const [enableUsenetSearch, setEnableUsenetSearch] = useState(systemSettings.enableUsenetSearch !== false);
+  const [enableTorrentSearch, setEnableTorrentSearch] = useState(systemSettings.enableTorrentSearch !== false);
   
-  const [usenetHost, setUsenetHost] = useState('');
-  const [usenetPort, setUsenetPort] = useState('');
-  const [usenetUsername, setUsenetUsername] = useState('');
-  const [usenetPassword, setUsenetPassword] = useState('');
+  const [usenetHost, setUsenetHost] = useState(systemSettings.usenetHost || '');
+  const [usenetPort, setUsenetPort] = useState(systemSettings.usenetPort || '');
+  const [usenetUsername, setUsenetUsername] = useState(systemSettings.usenetUsername || '');
+  const [usenetPassword, setUsenetPassword] = useState(systemSettings.usenetPassword || '');
 
   const [saved, setSaved] = useState(false);
   
@@ -86,8 +89,8 @@ export default function SettingsPanel() {
 
   // --- Debug Logging state ---
   const [enableDebugLog, setEnableDebugLog] = useState(() => localStorage.getItem('enableDebugLog') === 'true');
-  const [disableLogin, setDisableLogin] = useState(() => localStorage.getItem('disableLogin') === 'true');
-  const [intelTranscoding, setIntelTranscoding] = useState(() => localStorage.getItem('intelTranscoding') === 'true');
+  const [disableLogin, setDisableLogin] = useState(systemSettings.disableLogin === true);
+  const [intelTranscoding, setIntelTranscoding] = useState(systemSettings.intelTranscoding === true);
   const [frontendLogs, setFrontendLogs] = useState<LogEntry[]>([]);
   const [backendLogs, setBackendLogs] = useState<LogEntry[]>([]);
 
@@ -193,14 +196,7 @@ export default function SettingsPanel() {
     finally { setEmailTesting(false); }
   };
 
-  const [enabledGroups, setEnabledGroups] = useState<string[] | null>(() => {
-    try {
-      const stored = localStorage.getItem('enabledGroups');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [enabledGroups, setEnabledGroups] = useState<string[] | null>(userSettings.enabledGroups && userSettings.enabledGroups.length > 0 ? userSettings.enabledGroups : null);
 
   const { data: parsedM3u, isLoading: isM3uLoading } = useQuery({
     queryKey: ['m3u', iptvUrl],
@@ -245,12 +241,6 @@ export default function SettingsPanel() {
   };
 
   const handleSave = () => {
-    localStorage.setItem('tmdbKey', tmdbKey);
-    localStorage.setItem('torboxApiKey', torboxApiKey);
-    localStorage.setItem('geminiApiKey', geminiApiKey);
-    localStorage.setItem('preferHEVC', preferHEVC.toString());
-    localStorage.setItem('maxResults', maxResults);
-    
     let finalIptvUrl = iptvUrl;
     let finalEpgUrl = epgUrl;
     
@@ -263,36 +253,38 @@ export default function SettingsPanel() {
     }
     
     localStorage.setItem('providerType', providerType);
-    localStorage.setItem('iptvUrl', finalIptvUrl);
-    localStorage.setItem('epgUrl', finalEpgUrl);
-    localStorage.setItem('epgOffset', epgOffset);
-    
-    localStorage.setItem('xtreamServer', xtreamServer);
-    localStorage.setItem('xtreamUsername', xtreamUsername);
-    localStorage.setItem('xtreamPassword', xtreamPassword);
-
-    localStorage.setItem('playerPath', playerPath);
-    localStorage.setItem('streamBufferSeconds', streamBufferSeconds);
-    localStorage.setItem('filterAnime', filterAnime.toString());
-    localStorage.setItem('preferredLanguage', preferredLanguage);
-    localStorage.setItem('enabledGroups', JSON.stringify(enabledGroups));
-    
-    localStorage.setItem('enableUsenetSearch', enableUsenetSearch.toString());
-    localStorage.setItem('enableTorrentSearch', enableTorrentSearch.toString());
-
     localStorage.setItem('enableDebugLog', enableDebugLog.toString());
-    localStorage.setItem('disableLogin', disableLogin.toString());
-    localStorage.setItem('intelTranscoding', intelTranscoding.toString());
     logger.setEnabled(enableDebugLog);
 
-    if (isAdmin) {
-      const token = localStorage.getItem('authToken');
-      fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ usenetHost, usenetPort, usenetUsername, usenetPassword, geminiApiKey, disableLogin })
-      }).catch(console.error);
-    }
+    updateSystemSettings({
+      tmdbKey,
+      torboxApiKey,
+      geminiApiKey,
+      preferHEVC,
+      maxResults,
+      iptvUrl: finalIptvUrl,
+      epgUrl: finalEpgUrl,
+      epgOffset,
+      xtreamServer,
+      xtreamUsername,
+      xtreamPassword,
+      streamBufferSeconds,
+      enableUsenetSearch,
+      enableTorrentSearch,
+      intelTranscoding,
+      disableLogin,
+      usenetHost,
+      usenetPort,
+      usenetUsername,
+      usenetPassword
+    });
+
+    updateUserSettings({
+      playerPath,
+      filterAnime,
+      preferredLanguage,
+      enabledGroups: enabledGroups || []
+    });
 
     queryClient.invalidateQueries({ queryKey: ['movies'] });
     queryClient.invalidateQueries({ queryKey: ['tvseries'] });

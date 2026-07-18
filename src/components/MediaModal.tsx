@@ -5,6 +5,7 @@ import { Bookmark, BookmarkCheck } from 'lucide-react';
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from '../lib/localDb';
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
+import { useSettings } from '../lib/settings';
 
 function getTorrentRequestDlUrl(torrentMatch: any, apiKey: string): string {
   let fileIdStr = '';
@@ -34,6 +35,7 @@ export default function MediaModal({
   const [streams, setStreams] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const { systemSettings, userSettings } = useSettings();
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteId, setFavoriteId] = useState<string | null>(null);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
@@ -90,13 +92,11 @@ export default function MediaModal({
 
   useEffect(() => {
     let intervalId: any;
-    const apiKey = localStorage.getItem('torboxApiKey');
+    const apiKey = systemSettings.torboxApiKey;
 
     async function pollDownloads() {
       if (!apiKey) return;
       try {
-        // TorBox Cloudflare firewall triggers a 3-second 429 IP ban if we send 2 requests at the exact same millisecond.
-        // We MUST fetch these sequentially with a small delay.
         const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
         await new Promise(r => setTimeout(r, 1000));
         const uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
@@ -117,14 +117,12 @@ export default function MediaModal({
           }
         }
 
-        // Check if any matching stream has completed downloading
         let playUrlToTrigger: string | null = null;
 
         setStreams(prevStreams => {
           return prevStreams.map(stream => {
             let updatedStream = { ...stream };
             
-            // Find in torrents
             if (stream.type === 'torrent') {
               const match = activeTorrents.find(t => {
                 if (stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase()) return true;
@@ -136,18 +134,15 @@ export default function MediaModal({
                 updatedStream.downloadProgress = progress;
                 const state = match.download_state || '';
                 updatedStream.downloadState = state;
-                updatedStream.isCached = match.progress >= 1 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === ''); // Completed is cached
+                updatedStream.isCached = match.progress >= 1 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === ''); 
                 updatedStream.downloadSpeed = match.download_speed || 0;
 
-                // Auto-play trigger: transition from downloading to completed
                 if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
-                  // Direct token download request
                   playUrlToTrigger = getTorrentRequestDlUrl(match, apiKey);
                 }
               }
             }
             
-            // Find in Usenet
             if (stream.type === 'usenet') {
               const match = activeUsenet.find(u => {
                 if (!u.name || !stream.name) return false;
@@ -162,7 +157,7 @@ export default function MediaModal({
                 
                 let sizeMatch = true;
                 if (stream.sizeBytes && u.size) {
-                    sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05); // Must be within 5%
+                    sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
                 } else {
                     if (uName !== sName) return false;
                 }
@@ -175,12 +170,10 @@ export default function MediaModal({
                 updatedStream.downloadProgress = progress;
                 const state = match.download_state || '';
                 updatedStream.downloadState = state;
-                updatedStream.isCached = match.progress >= 1 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === ''); // Completed is cached
+                updatedStream.isCached = match.progress >= 1 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === ''); 
                 updatedStream.downloadSpeed = match.download_speed || 0;
 
-                // Auto-play trigger: transition from downloading to completed
                 if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
-                  // Direct token download request
                   playUrlToTrigger = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${match.id}&zip_link=false&redirect=true`;
                 }
               }
@@ -202,7 +195,7 @@ export default function MediaModal({
 
     if (pollingActive && apiKey) {
       intervalId = setInterval(pollDownloads, 4000);
-      pollDownloads(); // Run instantly on mount/enable
+      pollDownloads(); 
     }
 
     return () => {
@@ -232,13 +225,12 @@ export default function MediaModal({
         fetchStreamsForMovie(movie.title || movie.name, movie.year).then(async data => {
           if (!isActive) return;
           
-        const apiKey = localStorage.getItem('torboxApiKey');
+        const apiKey = systemSettings.torboxApiKey;
         let activeTorrents: any[] = [];
         let activeUsenet: any[] = [];
         
         if (apiKey) {
             try {
-                // TorBox Cloudflare firewall triggers a 3-second 429 IP ban if we send 2 requests at the exact same millisecond.
                 const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
                 await new Promise(r => setTimeout(r, 1000));
                 const uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
@@ -259,7 +251,6 @@ export default function MediaModal({
             }
         }
 
-        // Cross-reference streams with Torbox active downloads
         const matchedTorboxIds = new Set<number>();
         const updatedData = data.map((stream: any) => {
             const matchTorrent = activeTorrents.find(t => {
@@ -279,7 +270,7 @@ export default function MediaModal({
                 
                 let sizeMatch = true;
                 if (stream.sizeBytes && u.size) {
-                    sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05); // Must be within 5%
+                    sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
                 } else {
                     if (uName !== sName) return false;
                 }
@@ -316,7 +307,6 @@ export default function MediaModal({
             return mappedStream;
         });
 
-        // Inject any Torbox downloads that match the title but weren't in the search results
         const normalizedTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const year = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
         
@@ -373,11 +363,7 @@ export default function MediaModal({
             }
         });
 
-        const uSettings = localStorage.getItem('userSettings_' + user?.uid);
-        let allowedRes = ['4K', '1080p', '720p'];
-        if (uSettings) {
-            try { allowedRes = JSON.parse(uSettings).resolutions; } catch(e){}
-        }
+        let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
         let filteredData = updatedData.filter((s: any) => {
             const desc = (s.name || '') + ' ' + (s.fullDescription || '');
             if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
@@ -386,7 +372,6 @@ export default function MediaModal({
             return true;
         });
 
-        // Sort cached items to the top of the list
         filteredData.sort((a: any, b: any) => {
           if (a.isCached && !b.isCached) return -1;
           if (!a.isCached && b.isCached) return 1;
@@ -401,7 +386,7 @@ export default function MediaModal({
       }
     }
     return () => { isActive = false; };
-  }, [movie, isSeries]);
+  }, [movie, isSeries, userSettings]);
 
   useEffect(() => {
     let isActive = true;
@@ -431,13 +416,12 @@ export default function MediaModal({
       fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode).then(async data => {
         if (!isActive) return;
         
-        const apiKey = localStorage.getItem('torboxApiKey');
+        const apiKey = systemSettings.torboxApiKey;
         let activeTorrents: any[] = [];
         let activeUsenet: any[] = [];
         
         if (apiKey) {
             try {
-                // TorBox Cloudflare firewall triggers a 3-second 429 IP ban if we send 2 requests at the exact same millisecond.
                 const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
                 await new Promise(r => setTimeout(r, 1000));
                 const uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
@@ -459,19 +443,17 @@ export default function MediaModal({
             }
         }
 
-        // Cross-reference streams with Torbox active downloads
         const matchedTorboxIds = new Set<number>();
         const updatedData = data.map((stream: any) => {
             const matchTorrent = activeTorrents.find(t => {
                 if (stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase()) return true;
-                return false; // Torrents must strictly match by hash
+                return false;
             });
             const matchUsenet = activeUsenet.find(u => {
                 if (!u.name || !stream.name) return false;
                 const sName = stream.name.toLowerCase().replace(/[^a-z0-9]/g, '');
                 const uName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
                 
-                // Very short names cannot be substring matched safely
                 if (uName.length < 10 || sName.length < 10) {
                     if (uName !== sName) return false;
                 }
@@ -480,9 +462,9 @@ export default function MediaModal({
                 
                 let sizeMatch = true;
                 if (stream.sizeBytes && u.size) {
-                    sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05); // Must be within 5%
+                    sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
                 } else {
-                    if (uName !== sName) return false; // If no size, require exact name match
+                    if (uName !== sName) return false;
                 }
                 
                 return nameMatch && sizeMatch;
@@ -517,7 +499,6 @@ export default function MediaModal({
             return mappedStream;
         });
 
-        // Inject any Torbox downloads that match the title but weren't in the search results
         const normalizedTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const seasonEpisodeStr = `s${String(selectedSeason).padStart(2, '0')}e${String(selectedEpisode).padStart(2, '0')}`;
         
@@ -574,11 +555,7 @@ export default function MediaModal({
             }
         });
 
-        const uSettings = localStorage.getItem('userSettings_' + user?.uid);
-        let allowedRes = ['4K', '1080p', '720p'];
-        if (uSettings) {
-            try { allowedRes = JSON.parse(uSettings).resolutions; } catch(e){}
-        }
+        let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
         let filteredData = updatedData.filter((s: any) => {
             const desc = (s.name || '') + ' ' + (s.fullDescription || '');
             if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
@@ -587,7 +564,6 @@ export default function MediaModal({
             return true;
         });
 
-        // Sort cached items to the top of the list
         filteredData.sort((a: any, b: any) => {
           if (a.isCached && !b.isCached) return -1;
           if (!a.isCached && b.isCached) return 1;
@@ -599,7 +575,6 @@ export default function MediaModal({
         setLoading(false);
         setPollingActive(true);
 
-        // Update library streamInfo if it's a favorite
         if (user && movie) {
             const q = query(collection(db, 'favorites'), where('userId', '==', user.uid), where('tmdbId', '==', movie.id));
             getDocs(q).then(snapshot => {
@@ -620,7 +595,7 @@ export default function MediaModal({
       });
     }
     return () => { isActive = false; };
-  }, [isSeries, selectedSeason, selectedEpisode, movie]);
+  }, [isSeries, selectedSeason, selectedEpisode, movie, userSettings]);
 
   useEffect(() => {
     async function checkFavorite() {
@@ -660,7 +635,6 @@ export default function MediaModal({
         setIsFavorite(false);
         setFavoriteId(null);
       } else {
-        // Determine type based on where it came from if possible, assuming 'movie' for now if no type
         const type = movie.type || (movie.first_air_date ? 'series' : 'movie');
         const bestStream = streams.length > 0 ? streams[0] : null;
 
@@ -685,8 +659,6 @@ export default function MediaModal({
       }
     } catch (err: any) {
       console.error('Error toggling favorite:', err);
-      // For standard handling, we normally throw using the handleFirestoreError logic
-      // But a simple alert is fine for preview
       alert("Error saving: " + err.message);
     } finally {
       setFavoriteLoading(false);
@@ -736,7 +708,6 @@ export default function MediaModal({
         </div>
 
         <div className="p-6 overflow-y-auto md:overflow-hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Left Column: Media Details & TMDB Cast */}
             <div className="space-y-6 h-full md:overflow-y-auto custom-scrollbar md:pr-4 pb-4">
                 {movie.overview && (
                     <p className="text-sm text-white/90 leading-relaxed">
@@ -754,14 +725,12 @@ export default function MediaModal({
                   </div>
                 ) : extraDetails ? (
                   <div className="space-y-6">
-                    {/* Tagline */}
                     {extraDetails.tagline && (
                       <div className="bg-white/[0.02] border-l-2 border-red-500 p-3 rounded-r-lg italic text-xs text-white/80 leading-relaxed">
                         "{extraDetails.tagline}"
                       </div>
                     )}
 
-                    {/* Metadata Grid */}
                     <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4 text-xs">
                       <div>
                         <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Release / Air Date</span>
@@ -777,7 +746,6 @@ export default function MediaModal({
                       )}
                     </div>
 
-                    {/* Crew Info */}
                     {(extraDetails.directors.length > 0 || extraDetails.producers.length > 0) && (
                       <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4 text-xs">
                         {extraDetails.directors.length > 0 && (
@@ -799,7 +767,6 @@ export default function MediaModal({
                       </div>
                     )}
 
-                    {/* Cast list with portraits */}
                     {extraDetails.cast && extraDetails.cast.length > 0 && (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
@@ -858,7 +825,6 @@ export default function MediaModal({
                 )}
             </div>
 
-            {/* Right Column: Episode Selectors & Sources */}
             <div className="flex flex-col gap-6 h-full min-h-0 pb-4">
                 {isSeries && (
                   <div className="space-y-4 bg-white/[0.02] border border-white/5 p-4 rounded-xl flex-shrink-0">
@@ -921,10 +887,9 @@ export default function MediaModal({
                             {streams.map(stream => {
                                 const handleStreamClick = async () => {
                                   if (stream.isAdding) return;
-                                  // Don't re-queue if it's already downloading
                                   if (stream.downloadProgress !== undefined && stream.downloadProgress < 100) return;
 
-                                  const apiKey = localStorage.getItem('torboxApiKey');
+                                  const apiKey = systemSettings.torboxApiKey;
                                   if (!apiKey) {
                                     alert("Please configure your TorBox API Key in Settings to stream or queue downloads.");
                                     return;

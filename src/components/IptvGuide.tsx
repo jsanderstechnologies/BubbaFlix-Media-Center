@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useSettings } from '../lib/settings';
 
 const fetchM3U = async (url: string) => {
   const res = await fetch('/api/m3u', {
@@ -28,9 +29,10 @@ interface IptvGuideProps {
 }
 
 export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
-  const [playlistUrl] = useState(() => localStorage.getItem('iptvUrl') || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus');
-  const [epgUrl] = useState(() => localStorage.getItem('epgUrl') || 'http://cord-cutter.net:8080/xmltv.php?username=foyers1@rogers.com&password=9jguFdUq3Y');
-  const [epgOffsetHours] = useState(() => Number(localStorage.getItem('epgOffset') || 0));
+  const { systemSettings, userSettings } = useSettings();
+  const [playlistUrl] = useState(systemSettings.iptvUrl || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus');
+  const [epgUrl] = useState(systemSettings.epgUrl || 'http://cord-cutter.net:8080/xmltv.php?username=foyers1@rogers.com&password=9jguFdUq3Y');
+  const [epgOffsetHours] = useState(Number(systemSettings.epgOffset || 0));
   const epgOffsetMs = epgOffsetHours * 60 * 60 * 1000;
   
   const [selectedCategory, setSelectedCategory] = useState<string>('All Channels');
@@ -59,13 +61,8 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
   const rawChannels = parsedM3u?.items || [];
   
   const enabledGroups = useMemo(() => {
-    try {
-      const stored = localStorage.getItem('enabledGroups');
-      return stored ? JSON.parse(stored) as string[] : null;
-    } catch {
-      return null;
-    }
-  }, []);
+    return userSettings?.enabledGroups || null;
+  }, [userSettings]);
 
   const channels = useMemo(() => {
     if (enabledGroups === null) return rawChannels; // Never configured

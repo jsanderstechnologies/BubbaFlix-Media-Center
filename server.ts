@@ -534,7 +534,11 @@ async function startServer() {
       usenetHost: settings.usenetHost || '',
       usenetPort: settings.usenetPort || '',
       usenetUsername: settings.usenetUsername || '',
-      usenetPassword: settings.usenetPassword || ''
+      usenetPassword: settings.usenetPassword || '',
+      enableUsenetSearch: settings.enableUsenetSearch !== false,
+      enableTorrentSearch: settings.enableTorrentSearch !== false,
+      intelTranscoding: settings.intelTranscoding === true,
+      disableLogin: settings.disableLogin === true
     });
   });
 
@@ -626,6 +630,23 @@ async function startServer() {
 
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     res.json({ user: { uid: user.uid, email: user.email, username: user.username, role: user.role || 'user' } });
+  });
+
+  // /api/user/settings GET
+  app.get('/api/user/settings', requireAuth, (req, res) => {
+    const user = (req as any).user;
+    res.json({ settings: user.settings || {} });
+  });
+
+  // /api/user/settings PUT
+  app.put('/api/user/settings', requireAuth, (req, res) => {
+    const user = (req as any).user;
+    const users = readJson(USERS_FILE);
+    if (!users[user.uid]) return res.status(404).json({ error: 'User not found' });
+    
+    users[user.uid].settings = { ...users[user.uid].settings, ...req.body };
+    writeJson(USERS_FILE, users);
+    res.json({ success: true, settings: users[user.uid].settings });
   });
 
   // Simple Auth Middleware for DB routes
@@ -725,6 +746,22 @@ async function startServer() {
     if (usenetPassword !== undefined) settings.usenetPassword = usenetPassword;
     if (geminiApiKey !== undefined) settings.geminiApiKey = geminiApiKey;
     if (req.body.disableLogin !== undefined) settings.disableLogin = req.body.disableLogin;
+    if (req.body.enableUsenetSearch !== undefined) settings.enableUsenetSearch = req.body.enableUsenetSearch;
+    if (req.body.enableTorrentSearch !== undefined) settings.enableTorrentSearch = req.body.enableTorrentSearch;
+    if (req.body.intelTranscoding !== undefined) settings.intelTranscoding = req.body.intelTranscoding;
+    
+    // Some general settings that any admin can save from SettingsPanel
+    if (req.body.tmdbKey !== undefined) settings.tmdbKey = req.body.tmdbKey;
+    if (req.body.torboxApiKey !== undefined) settings.torboxApiKey = req.body.torboxApiKey;
+    if (req.body.preferHEVC !== undefined) settings.preferHEVC = req.body.preferHEVC;
+    if (req.body.maxResults !== undefined) settings.maxResults = req.body.maxResults;
+    if (req.body.streamBufferSeconds !== undefined) settings.streamBufferSeconds = req.body.streamBufferSeconds;
+    if (req.body.iptvUrl !== undefined) settings.iptvUrl = req.body.iptvUrl;
+    if (req.body.epgUrl !== undefined) settings.epgUrl = req.body.epgUrl;
+    if (req.body.epgOffset !== undefined) settings.epgOffset = req.body.epgOffset;
+    if (req.body.xtreamServer !== undefined) settings.xtreamServer = req.body.xtreamServer;
+    if (req.body.xtreamUsername !== undefined) settings.xtreamUsername = req.body.xtreamUsername;
+    if (req.body.xtreamPassword !== undefined) settings.xtreamPassword = req.body.xtreamPassword;
 
     writeJson(SETTINGS_FILE, settings);
     res.json({ success: true });

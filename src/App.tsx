@@ -6,10 +6,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database } from 'lucide-react';
 import { collection, query, where, onSnapshot } from './lib/localDb';
 import { db } from './lib/localDb';
 import { logger } from './lib/logger';
+import { useSettings } from './lib/settings';
 import CatalogGrid from './components/CatalogGrid';
 import TvSeriesGrid from './components/TvSeriesGrid';
 import IptvGuide from './components/IptvGuide';
@@ -36,6 +37,8 @@ const formatTime = (secs: number) => {
 function MainApp() {
   const isFetching = useIsFetching();
   const isPageLoading = isFetching > 0;
+  const { user } = useAuth();
+  const { systemSettings, userSettings } = useSettings();
 
   const [selectedMovie, setSelectedMovie] = useState<any>(null);
   const [playerStatus, setPlayerStatus] = useState<string>('STREAM READY');
@@ -58,14 +61,12 @@ function MainApp() {
 
   const [isIdle, setIsIdle] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [musicSearchQuery, setMusicSearchQuery] = useState<string>('');
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('home');
   const [sortOption, setSortOption] = useState<string>('newest');
   const [filterGenre, setFilterGenre] = useState<number>(0);
   const [showFilters, setShowFilters] = useState(false);
 
-  const { user } = useAuth();
   const [favorites, setFavorites] = useState<any[]>([]);
   const [backgroundPoster, setBackgroundPoster] = useState<string>('');
   const [hoveredPoster, setHoveredPoster] = useState<string>('');
@@ -88,30 +89,6 @@ function MainApp() {
   };
 
   useEffect(() => {
-    // Sync configurations set via Docker env variables to client localStorage automatically on boot
-    fetch('/api/auth/config')
-      .then(res => res.json())
-      .then(data => {
-        if (data.tmdbKey) localStorage.setItem('tmdbKey', data.tmdbKey);
-        if (data.torboxApiKey) localStorage.setItem('torboxApiKey', data.torboxApiKey);
-        if (data.preferHEVC !== null) localStorage.setItem('preferHEVC', String(data.preferHEVC));
-        if (data.maxResults) localStorage.setItem('maxResults', data.maxResults);
-        if (data.streamBufferSeconds) localStorage.setItem('streamBufferSeconds', data.streamBufferSeconds);
-        if (data.iptvUrl) localStorage.setItem('iptvUrl', data.iptvUrl);
-        if (data.epgUrl) localStorage.setItem('epgUrl', data.epgUrl);
-        if (data.epgOffset !== null) localStorage.setItem('epgOffset', String(data.epgOffset));
-        if (data.xtreamServer) localStorage.setItem('xtreamServer', data.xtreamServer);
-        if (data.xtreamUsername) localStorage.setItem('xtreamUsername', data.xtreamUsername);
-        if (data.xtreamPassword) localStorage.setItem('xtreamPassword', data.xtreamPassword);
-        if (data.usenetHost) localStorage.setItem('usenetHost', data.usenetHost);
-        if (data.usenetPort) localStorage.setItem('usenetPort', data.usenetPort);
-        if (data.usenetUsername) localStorage.setItem('usenetUsername', data.usenetUsername);
-        if (data.usenetPassword) localStorage.setItem('usenetPassword', data.usenetPassword);
-      })
-      .catch(err => console.error('[Config Sync] Failed to load server configs:', err));
-  }, []);
-
-  useEffect(() => {
     if (!user) {
       setFavorites([]);
       setBackgroundPoster('');
@@ -122,7 +99,6 @@ function MainApp() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map(doc => doc.data());
       setFavorites(items);
-      // Select initially
       selectRandomBackdrop(items);
     }, (error) => {
       console.error('Error in onSnapshot for background backdrop:', error);
@@ -130,7 +106,6 @@ function MainApp() {
     return () => unsubscribe();
   }, [user]);
 
-  // When activeTab changes, pick a new random background for a dynamic aesthetic
   useEffect(() => {
     if (favorites.length > 0) {
       selectRandomBackdrop(favorites);
@@ -160,15 +135,12 @@ function MainApp() {
     if (isPlaying && selectedMovie?.id) {
       const type = (selectedMovie.type === 'series' || !!selectedMovie.first_air_date) ? 'tv' : 'movie';
       const url = `https://api.themoviedb.org/3/${type}/${selectedMovie.id}/images?api_key=b4d4dfa06829b83e3a8b08fc89372a9d&include_image_language=en,null`;
-      console.log('Fetching logo from:', url);
       fetch(url)
         .then(res => res.json())
         .then(data => {
-          console.log('Logo data:', data.logos?.length);
           const logo = data.logos?.find((l: any) => l.iso_639_1 === 'en') || data.logos?.[0];
           if (logo) {
             setLogoUrl(`https://image.tmdb.org/t/p/w500${logo.file_path}`);
-            console.log('Set logo to:', logo.file_path);
           } else {
             setLogoUrl('');
           }
@@ -245,10 +217,11 @@ function MainApp() {
     
     setIsPlaying(true);
     setPlayingUrl(url);
+    
     let savedPlayer = 'mpv';
-    try {
-      savedPlayer = localStorage.getItem('playerPath') || 'mpv';
-    } catch (e) {}
+    if (url.includes('127.0.0.1')) {
+      savedPlayer = userSettings.playerPath || 'mpv';
+    }
 
     if ((window as any).mediaAPI && savedPlayer !== 'builtin') {
       try {
@@ -263,7 +236,6 @@ function MainApp() {
   return (
     <>
       <AuthModal />
-      {/* First-admin generated password banner */}
       {firstAdminPassword && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-lg px-4">
           <div className="bg-amber-950/95 border border-amber-500/40 rounded-2xl p-4 shadow-2xl backdrop-blur-md flex gap-4 items-start">
@@ -285,8 +257,7 @@ function MainApp() {
         </div>
       )}
       <div className="h-screen w-full bg-[#050507] text-white font-sans flex overflow-hidden select-none relative">
-      {/* Real Web Video Player Overlay */}
-      {isPlaying && (!(window as any).mediaAPI || localStorage.getItem('playerPath') === 'builtin') && (
+      {isPlaying && (!(window as any).mediaAPI || userSettings.playerPath === 'builtin') && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col">
           <div className={`absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-[110] bg-gradient-to-b from-black/80 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
             <div className="flex gap-4 pointer-events-auto items-center">
@@ -314,7 +285,6 @@ function MainApp() {
                 <h1 className="text-white text-xl font-bold tracking-wide drop-shadow-md">{selectedMovie.title || selectedMovie.name}</h1>
               ) : null}
             </div>
-              {/* Media Info Modal */}
               {showMediaInfo && mediaInfo && (
                 <div className="absolute top-24 right-10 bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl p-6 min-w-72 shadow-2xl z-[120] pointer-events-auto transform transition-all animate-in fade-in zoom-in-95 duration-200">
                   <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-3">
@@ -324,14 +294,14 @@ function MainApp() {
                   <div className="flex flex-col gap-3 text-sm">
                     <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Container</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{(mediaInfo.format?.format_name || '').split(',')[0].toUpperCase()}</span></div>
                     <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Bitrate</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{Math.round((mediaInfo.format?.bit_rate || 0)/1000)} kbps</span></div>
-                    {mediaInfo.streams?.filter((s) => s.codec_type === 'video')[0] && (
+                    {mediaInfo.streams?.filter((s: any) => s.codec_type === 'video')[0] && (
                       <>
-                        <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Video Codec</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.find((s) => s.codec_type === 'video').codec_name?.toUpperCase() || 'N/A'}</span></div>
-                        <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Resolution</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.find((s) => s.codec_type === 'video').width}x{mediaInfo.streams.find((s) => s.codec_type === 'video').height}</span></div>
+                        <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Video Codec</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.find((s: any) => s.codec_type === 'video').codec_name?.toUpperCase() || 'N/A'}</span></div>
+                        <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Resolution</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.find((s: any) => s.codec_type === 'video').width}x{mediaInfo.streams.find((s: any) => s.codec_type === 'video').height}</span></div>
                       </>
                     )}
-                    {mediaInfo.streams?.filter((s) => s.codec_type === 'audio').length > 0 && (
-                      <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Audio Tracks</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.filter((s) => s.codec_type === 'audio').length}</span></div>
+                    {mediaInfo.streams?.filter((s: any) => s.codec_type === 'audio').length > 0 && (
+                      <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Audio Tracks</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.filter((s: any) => s.codec_type === 'audio').length}</span></div>
                     )}
                     {mediaInfo.streams?.filter((s: any) => s.codec_type === 'subtitle').length > 0 && (
                       <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Subtitles</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.filter((s: any) => s.codec_type === 'subtitle').length}</span></div>
@@ -345,18 +315,12 @@ function MainApp() {
           </div>
           <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black">
             
-          {/* We determine the URL right before passing it to the player */}
           {true ? (
             <>
               <video 
                 key={`${streamOffset}-${selectedAudioTrack}`}
                 ref={videoRef}
-                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&audio=${selectedAudioTrack}&start=${streamOffset}&live=${activeTab === 'tv'}&audioLeveling=${(() => {
-                  try {
-                    const saved = localStorage.getItem('userSettings_' + user?.uid);
-                    return saved ? JSON.parse(saved).enableAudioLeveling === true : false;
-                  } catch { return false; }
-                })()}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(localStorage.getItem('streamBufferSeconds') || '60', 10)) / 8000000))}M&intel=${localStorage.getItem('intelTranscoding') === 'true'}`}
+                src={`http://127.0.0.1:4002/proxy?url=${encodeURIComponent(playingUrl)}&audio=${encodeURIComponent(userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
                 autoPlay
                 className="w-full h-full object-contain absolute top-0 left-0"
                 onTimeUpdate={(e) => {
@@ -370,44 +334,26 @@ function MainApp() {
                     setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
                   }
                 }}
-                onLoadStart={() => {
-                  logger.info("Built-in Player: Load started", { src: videoRef.current?.src });
-                }}
                 onError={(e) => {
                   const error = e.currentTarget.error;
                   logger.error("Built-in Player Error", { 
                     code: error?.code, 
                     message: error?.message, 
-                    networkState: e.currentTarget.networkState,
-                    readyState: e.currentTarget.readyState,
                     src: e.currentTarget.src 
                   });
-                  console.error("Video element error", e);
                   setPlayerStatus("ERROR: Video failed to load.");
                 }}
                 onPlay={() => { 
-                  logger.info("Built-in Player: Playing");
                   setIsVideoPlaying(true); 
                   setPlayerStatus("PLAYING 4K HDR"); 
                 }}
                 onPause={() => { 
-                  logger.info("Built-in Player: Paused");
                   setIsVideoPlaying(false); 
                 }}
                 onWaiting={() => { 
-                  logger.info("Built-in Player: Buffering");
                   setPlayerStatus("BUFFERING..."); 
                 }}
-              >
-                {selectedSubtitleTrack !== null && (
-                  <track
-                    key={`sub-${selectedSubtitleTrack}`}
-                    kind="subtitles"
-                    src={`/api/transcode/subtitle.vtt?url=${encodeURIComponent(playingUrl)}&track=${mediaInfo?.streams?.filter((s: any) => s.codec_type === 'subtitle').findIndex((s: any) => s.index === selectedSubtitleTrack)}`}
-                    default
-                  />
-                )}
-              </video>
+              />
               <div className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-4 z-[110] bg-gradient-to-t from-black/90 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="flex items-center gap-6 pointer-events-auto w-full max-w-5xl mx-auto">
                   <button 
@@ -472,46 +418,6 @@ function MainApp() {
                     <button onClick={() => setShowMediaInfo(!showMediaInfo)} className={`text-white/70 hover:text-white p-2 rounded-full transition-colors ${showMediaInfo ? 'bg-white/20 text-white' : 'hover:bg-white/10'}`} title="Media Info (Codec, Bitrate)">
                       <Info className="w-5 h-5" />
                     </button>
-                    
-                    {/* Popover Menus */}
-                    {(showSubtitleMenu || showAudioMenu) && (
-                      <div className="absolute bottom-16 right-0 bg-black/95 border border-white/20 rounded-xl p-4 min-w-64 shadow-2xl flex flex-col gap-2 max-h-64 overflow-y-auto z-[130] backdrop-blur-xl">
-                        {showAudioMenu && mediaInfo && (
-                          <>
-                            <h3 className="text-white/50 font-bold text-xs uppercase tracking-wider border-b border-white/20 pb-2 mb-2">Audio Tracks</h3>
-                            {mediaInfo.streams?.filter((s: any) => s.codec_type === 'audio').map((stream: any, idx: number) => (
-                              <button 
-                                key={idx}
-                                onClick={() => { setSelectedAudioTrack(stream.index); setShowAudioMenu(false); }}
-                                className={`text-left text-sm px-3 py-2 rounded transition-colors ${selectedAudioTrack === stream.index ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
-                              >
-                                {stream.tags?.language ? stream.tags.language.toUpperCase() : 'Track'} {idx + 1} - {stream.codec_name.toUpperCase()} {stream.channels ? `(${stream.channels}ch)` : ''}
-                              </button>
-                            ))}
-                          </>
-                        )}
-                        {showSubtitleMenu && mediaInfo && (
-                          <>
-                            <h3 className="text-white/50 font-bold text-xs uppercase tracking-wider border-b border-white/20 pb-2 mb-2">Subtitles</h3>
-                            <button 
-                                onClick={() => { setSelectedSubtitleTrack(null); setShowSubtitleMenu(false); }}
-                                className={`text-left text-sm px-3 py-2 rounded transition-colors ${selectedSubtitleTrack === null ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
-                              >
-                                None (Off)
-                              </button>
-                            {mediaInfo.streams?.filter((s: any) => s.codec_type === 'subtitle').map((stream: any, idx: number) => (
-                              <button 
-                                key={idx}
-                                onClick={() => { setSelectedSubtitleTrack(stream.index); setShowSubtitleMenu(false); }}
-                                className={`text-left text-sm px-3 py-2 rounded transition-colors ${selectedSubtitleTrack === stream.index ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
-                              >
-                                {stream.tags?.title || stream.tags?.language?.toUpperCase() || `Track ${idx + 1}`} ({stream.codec_name})
-                              </button>
-                            ))}
-                          </>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -601,29 +507,21 @@ function MainApp() {
         {/* Header */}
         <header className="h-20 shrink-0 flex items-center justify-between px-10 border-b border-white/5 bg-black/80 backdrop-blur-md z-10">
           <div className="flex items-center gap-5">
-            {/* BUBBAFLIX Full Brand Logo */}
             <svg 
               viewBox="0 0 320 70" 
               className="w-44 h-12 select-none cursor-pointer hover:scale-105 transition-transform duration-300 drop-shadow-[0_0_15px_rgba(229,9,20,0.25)]" 
               onClick={() => setActiveTab('home')}
             >
               <defs>
-                {/* A precise quadratic Bezier curve to arch the BUBBAFLIX text perfectly */}
                 <path id="bubbaflix-curve" d="M 12,56 Q 160,20 308,56" fill="none" />
-                
-                {/* Rich 3D cinematic red gradient */}
                 <linearGradient id="bubbaflix-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
                   <stop offset="0%" stopColor="#ff4d4d" />
                   <stop offset="35%" stopColor="#e50914" />
                   <stop offset="75%" stopColor="#b30000" />
                   <stop offset="100%" stopColor="#7a0000" />
                 </linearGradient>
-
-                {/* Combined professional text-shadow & vibrant backglow filter */}
                 <filter id="bubbaflix-glow" x="-20%" y="-20%" width="140%" height="140%">
-                  {/* Deep black structural drop shadow for readability */}
                   <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.95"/>
-                  {/* Subtle red ambient backglow to separate logo from dark background */}
                   <feDropShadow dx="0" dy="0" stdDeviation="5.5" floodColor="#e50914" floodOpacity="0.45"/>
                 </filter>
               </defs>
@@ -645,52 +543,17 @@ function MainApp() {
             </svg>
             <div className="w-px h-6 bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-4">
-             {activeTab === 'home' && (
-                <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">
-                  <span className="text-red-500 font-medium italic">Home</span>
-                </h1>
-              )}
-              {activeTab === 'search' && (
-                <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">
-                  <span className="text-red-500 font-medium italic">Search</span>
-                </h1>
-              )}
-              {activeTab === 'music' && (
-                <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">
-                  <span className="text-red-500 font-medium italic">Music</span>
-                </h1>
-              )}
-              {activeTab === 'catalog' && (
-              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">
-                Movie <span className="text-red-500 font-medium italic">Catalog</span>
-              </h1>
-            )}
-            {activeTab === 'series' && (
-              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">
-                TV <span className="text-red-500 font-medium italic">Series</span>
-              </h1>
-            )}
-            {activeTab === 'library' && (
-              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">
-                My <span className="text-red-500 font-medium italic">Library</span>
-              </h1>
-            )}
-            {activeTab === 'tv' && (
-              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">
-                Live <span className="text-emerald-400 font-medium italic">TV Guide</span>
-              </h1>
-            )}
-            {activeTab === 'settings' && (
-              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">
-                <span className="text-red-500 font-medium italic">Settings</span>
-              </h1>
-            )}
+              {activeTab === 'home' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Home</span></h1>}
+              {activeTab === 'search' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Search</span></h1>}
+              {activeTab === 'catalog' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Movie <span className="text-red-500 font-medium italic">Catalog</span></h1>}
+              {activeTab === 'series' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">TV <span className="text-red-500 font-medium italic">Series</span></h1>}
+              {activeTab === 'library' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">My <span className="text-red-500 font-medium italic">Library</span></h1>}
+              {activeTab === 'tv' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Live <span className="text-emerald-400 font-medium italic">TV Guide</span></h1>}
+              {activeTab === 'settings' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Settings</span></h1>}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-6">
-            {/* Loading Status Circles */}
+          <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
-              {/* Stream Status Circle */}
               {isPlaying && (
                 <div 
                   className={`flex items-center gap-2 bg-black/40 border px-3 py-1.5 rounded-full select-none transition-all duration-300 ${
@@ -698,45 +561,28 @@ function MainApp() {
                       ? 'border-red-500/20 text-red-400 bg-red-950/10' 
                       : 'border-emerald-500/20 text-emerald-400 bg-emerald-950/10'
                   }`}
-                  title={`Stream Status: ${playerStatus}`}
                 >
                   <span className="relative flex h-2 w-2">
-                    {playerStatus.includes('BUFFERING') && (
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    )}
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${
-                      playerStatus.includes('BUFFERING') ? 'bg-red-500' : 'bg-emerald-500'
-                    }`}></span>
+                    {playerStatus.includes('BUFFERING') && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${playerStatus.includes('BUFFERING') ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
                   </span>
-                  <span className="text-[10px] font-mono font-semibold tracking-widest uppercase">
-                    {playerStatus.includes('BUFFERING') ? 'STREAM BUFFERING' : 'STREAM PLAYING'}
-                  </span>
+                  <span className="text-[10px] font-mono font-semibold tracking-widest uppercase">{playerStatus.includes('BUFFERING') ? 'STREAM BUFFERING' : 'STREAM PLAYING'}</span>
                 </div>
               )}
-
-              {/* Page / Metadata Catalog Loading Circle */}
               {isPageLoading && (
-                <div 
-                  className="flex items-center gap-2 bg-black/40 border border-indigo-500/20 px-3 py-1.5 rounded-full select-none text-indigo-400 bg-indigo-950/10 transition-all duration-300"
-                  title="Retrieving media content..."
-                >
+                <div className="flex items-center gap-2 bg-black/40 border border-indigo-500/20 px-3 py-1.5 rounded-full select-none text-indigo-400 bg-indigo-950/10 transition-all duration-300">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                   </span>
-                  <span className="text-[10px] font-mono font-semibold tracking-widest uppercase animate-pulse">
-                    LOADING CONTENT
-                  </span>
+                  <span className="text-[10px] font-mono font-semibold tracking-widest uppercase animate-pulse">LOADING CONTENT</span>
                 </div>
               )}
             </div>
 
             <div 
               className="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-3 w-48 sm:w-64 cursor-pointer hover:bg-white/10 transition-colors relative"
-              onClick={() => {
-                setActiveTab('search');
-                setIsKeyboardOpen(true);
-              }}
+              onClick={() => { setActiveTab('search'); setIsKeyboardOpen(true); }}
             >
               <Search className="w-4 h-4 text-white/50 shrink-0" />
               <input 
@@ -744,46 +590,18 @@ function MainApp() {
                 placeholder="Search Catalog..." 
                 className="bg-transparent border-none outline-none text-sm text-white w-full pr-6 placeholder-white/30 cursor-pointer"
                 value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setActiveTab('search');
-                }}
-                onFocus={(e) => {
-                  e.target.blur();
-                  setActiveTab('search');
-                  setIsKeyboardOpen(true);
-                }}
+                onChange={(e) => { setSearchQuery(e.target.value); setActiveTab('search'); }}
                 readOnly
               />
               {searchQuery && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSearchQuery('');
-                  }}
-                  className="absolute right-3 p-1 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer z-10"
-                  title="Clear search"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setSearchQuery(''); }} className="absolute right-3 p-1 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer z-10"><X className="w-3.5 h-3.5" /></button>
               )}
             </div>
 
-            {/* API Integrations Active Icons */}
-            <div className="flex items-center gap-3 opacity-70 shrink-0 mx-2 hidden sm:flex">
-              {localStorage.getItem('tmdbKey') && (
-                <img src="/images/tmdb-logo.png" alt="TMDB API" className="h-4 object-contain brightness-110" title="TMDB API Active" />
-              )}
-              {localStorage.getItem('torboxApiKey') && (
-                <img src="/images/torbox-logo.png" alt="TorBox API" className="h-5 object-contain brightness-110" title="TorBox API Active" />
-              )}
-              {localStorage.getItem('geminiApiKey') && (
-                <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI API" className="h-4 object-contain brightness-110" title="Gemini AI Smart Filtering Active" />
-              )}
-              {localStorage.getItem('intelTranscoding') === 'true' && (
-                <img src="/images/intel-logo.png" alt="Intel QSV" className="h-4 object-contain brightness-110" title="Intel Quick Sync Hardware Transcoding Active" />
-              )}
+            <div className="flex items-center gap-4 text-[10px] font-bold text-white/40 tracking-wider">
+              {systemSettings.tmdbKey && <div className="flex items-center gap-1.5"><Database className="w-3 h-3 text-emerald-400" /> TMDB</div>}
+              {systemSettings.torboxApiKey && <div className="flex items-center gap-1.5"><Database className="w-3 h-3 text-purple-400" /> TORBOX</div>}
+              {systemSettings.geminiApiKey && <div className="flex items-center gap-1.5"><Database className="w-3 h-3 text-blue-400" /> GEMINI</div>}
             </div>
 
             <AuthButton />

@@ -2,48 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Save, Settings2 } from 'lucide-react';
 
-export interface UserSettings {
-  resolutions: string[];
-  audioLanguage: string;
-  ccLanguage: string;
-  autoCC: boolean;
-  enableAudioLeveling: boolean;
-}
+import { useSettings } from '../lib/settings';
 
-export const DEFAULT_USER_SETTINGS: UserSettings = {
-  resolutions: ['4K', '1080p', '720p'],
-  audioLanguage: 'eng',
-  ccLanguage: 'eng',
-  autoCC: false,
-  enableAudioLeveling: false
-};
+// Removed exported interfaces since they are now in lib/settings
 
 interface UserSettingsModalProps {
   onClose: () => void;
 }
 
 export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & { userId?: string }) {
+  const { userSettings, zoom, updateUserSettings, updateZoom } = useSettings();
   
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
+  const [settings, setSettings] = useState(userSettings);
+  const [localZoom, setLocalZoom] = useState(zoom);
 
   useEffect(() => {
-    if (userId) {
-      const saved = localStorage.getItem('userSettings_' + userId);
-      if (saved) {
-        try {
-          setSettings({ ...DEFAULT_USER_SETTINGS, ...JSON.parse(saved) });
-        } catch (e) {
-          console.error('Failed to load user settings', e);
-        }
-      }
-    }
-  }, [userId]);
+    setSettings(userSettings);
+    setLocalZoom(zoom);
+  }, [userSettings, zoom]);
 
   const handleSave = () => {
-    if (userId) {
-      localStorage.setItem('userSettings_' + userId, JSON.stringify(settings));
-      window.dispatchEvent(new Event('userSettingsChanged'));
-    }
+    updateUserSettings(settings);
+    updateZoom(localZoom);
+    window.dispatchEvent(new Event('userSettingsChanged'));
     onClose();
   };
 
@@ -86,14 +67,14 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
               {['4K', '1080p', '720p'].map(res => (
                 <label key={res} className="flex-1 cursor-pointer group">
                   <div className={`flex items-center justify-center p-3 rounded-xl border transition-all ${
-                    settings.resolutions.includes(res) 
+                    settings.resolutions?.includes(res) 
                       ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
                       : 'bg-black/50 border-white/5 text-white/40 group-hover:border-white/20'
                   }`}>
                     <input 
                       type="checkbox" 
                       className="hidden"
-                      checked={settings.resolutions.includes(res)}
+                      checked={settings.resolutions?.includes(res)}
                       onChange={() => toggleResolution(res)}
                     />
                     <span className="font-bold">{res}</span>
@@ -164,6 +145,28 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                 onChange={e => setSettings({...settings, enableAudioLeveling: e.target.checked})}
               />
             </label>
+          </div>
+          
+          {/* Zoom Setting */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Display Options</h3>
+            <div className="space-y-2">
+              <label className="text-xs text-white/50 block">Screen Zoom Level ({localZoom}x)</label>
+              <input 
+                type="range" 
+                min="0.5" 
+                max="2.0" 
+                step="0.1" 
+                value={localZoom}
+                onChange={e => setLocalZoom(parseFloat(e.target.value))}
+                className="w-full accent-emerald-500"
+              />
+              <div className="flex justify-between text-[10px] text-white/40">
+                <span>Smaller</span>
+                <span>Default</span>
+                <span>Larger</span>
+              </div>
+            </div>
           </div>
         </div>
 
