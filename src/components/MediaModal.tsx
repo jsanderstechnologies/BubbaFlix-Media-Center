@@ -891,7 +891,7 @@ export default function MediaModal({
                                     >
                                         {episodes.map(ep => (
                                             <option key={ep.episode_number} value={ep.episode_number}>
-                                                Ep {ep.episode_number} - {ep.name}
+                                                Ep {ep.episode_number} - {ep.name}{ep.air_date ? ` (${ep.air_date})` : ''}
                                             </option>
                                         ))}
                                     </select>
