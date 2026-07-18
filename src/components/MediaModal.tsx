@@ -437,11 +437,10 @@ export default function MediaModal({
         
         if (apiKey) {
             try {
-                // Fetch active torrents and usenet downloads concurrently to map progress
-                const [tRes, uRes] = await Promise.all([
-                    fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null),
-                    fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null)
-                ]);
+                // TorBox Cloudflare firewall triggers a 3-second 429 IP ban if we send 2 requests at the exact same millisecond.
+                const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+                await new Promise(r => setTimeout(r, 1000));
+                const uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
                 
                 if (tRes && tRes.ok) {
                     const tData = await tRes.json();
