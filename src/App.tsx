@@ -318,10 +318,10 @@ function MainApp() {
           </div>
           <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black">
             
-          {true ? (
+          {playingUrl ? (
             <>
               <video 
-                key={`${streamOffset}-${selectedAudioTrack}`}
+                key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}`}
                 ref={videoRef}
                 src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&audio=${encodeURIComponent(userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
                 autoPlay
