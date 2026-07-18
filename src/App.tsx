@@ -598,10 +598,20 @@ function MainApp() {
               )}
             </div>
 
-            <div className="flex items-center gap-4 text-[10px] font-bold text-white/40 tracking-wider">
-              {systemSettings.tmdbKey && <div className="flex items-center gap-1.5"><Database className="w-3 h-3 text-emerald-400" /> TMDB</div>}
-              {systemSettings.torboxApiKey && <div className="flex items-center gap-1.5"><Database className="w-3 h-3 text-purple-400" /> TORBOX</div>}
-              {systemSettings.geminiApiKey && <div className="flex items-center gap-1.5"><Database className="w-3 h-3 text-blue-400" /> GEMINI</div>}
+            {/* API Integrations Active Icons */}
+            <div className="flex items-center gap-3 opacity-70 shrink-0 mx-2 hidden sm:flex">
+              {systemSettings.tmdbKey && (
+                <img src="/images/tmdb-logo.png" alt="TMDB API" className="h-4 object-contain brightness-110" title="TMDB API Active" />
+              )}
+              {systemSettings.torboxApiKey && (
+                <img src="/images/torbox-logo.png" alt="TorBox API" className="h-5 object-contain brightness-110" title="TorBox API Active" />
+              )}
+              {systemSettings.geminiApiKey && (
+                <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI API" className="h-4 object-contain brightness-110" title="Gemini AI Smart Filtering Active" />
+              )}
+              {systemSettings.intelTranscoding === true && (
+                <img src="/images/intel-logo.png" alt="Intel QSV" className="h-4 object-contain brightness-110" title="Intel Quick Sync Hardware Transcoding Active" />
+              )}
             </div>
 
             <AuthButton />
