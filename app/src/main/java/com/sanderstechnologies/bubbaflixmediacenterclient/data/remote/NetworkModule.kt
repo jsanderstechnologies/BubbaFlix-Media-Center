@@ -1,6 +1,5 @@
 package com.sanderstechnologies.bubbaflixmediacenterclient.data.remote
 
-import com.sanderstechnologies.bubbaflixmediacenterclient.BuildConfig
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.Interceptor
@@ -47,28 +46,32 @@ object NetworkModule {
             .create(TmdbService::class.java)
     }
 
-    fun createTorBoxService(apiToken: String): TorBoxService {
+    fun createTorBoxService(baseUrl: String, apiToken: String): TorBoxService {
         val client = OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .addInterceptor(createAuthInterceptor(apiToken))
             .build()
 
+        val url = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+
         return Retrofit.Builder()
-            .baseUrl("https://api.torbox.app/v1/api/")
+            .baseUrl(url)
             .client(client)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(TorBoxService::class.java)
     }
 
-    fun createTorBoxSearchService(apiToken: String): TorBoxSearchService {
+    fun createTorBoxSearchService(baseUrl: String, apiToken: String): TorBoxSearchService {
         val client = OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .addInterceptor(createAuthInterceptor(apiToken))
             .build()
 
+        val url = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+
         return Retrofit.Builder()
-            .baseUrl("https://search-api.torbox.app/")
+            .baseUrl(url)
             .client(client)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
@@ -83,7 +86,6 @@ object NetworkModule {
             .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .build()
 
-        // Ensure baseUrl ends with a slash
         val url = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
 
         return Retrofit.Builder()

@@ -16,7 +16,9 @@ data class LoginResponse(
 
 @JsonClass(generateAdapter = true)
 data class BubbaUser(
-    val id: Int,
+    val uid: String,
     val email: String,
-    val name: String?
+    val username: String?,
+    val role: String?,
+    val status: String?
 )

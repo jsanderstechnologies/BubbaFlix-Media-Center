@@ -30,23 +30,33 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Note: In a real app, these would come from a secure source or local.properties
+        // TMDB is static for now
         val tmdbApiKey = "YOUR_TMDB_API_KEY" 
-        val torBoxToken = "YOUR_TORBOX_TOKEN"
-        
-        val tmdbService = NetworkModule.createTmdbService(tmdbApiKey)
-        val torBoxService = NetworkModule.createTorBoxService(torBoxToken)
-        val torBoxSearchService = NetworkModule.createTorBoxSearchService(torBoxToken)
         
         setContent {
             BubbaFlixMediaCenterClientTheme {
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
                 var serverAddress by remember { mutableStateOf("") }
+                var authToken by remember { mutableStateOf("") }
+                
+                // Services are recreated when address or token changes
+                val tmdbService = remember { NetworkModule.createTmdbService(tmdbApiKey) }
+                
+                val torBoxService = remember(serverAddress, authToken) { 
+                    if (serverAddress.isNotEmpty()) NetworkModule.createTorBoxService(serverAddress, authToken) 
+                    else null
+                }
+                
+                val torBoxSearchService = remember(serverAddress, authToken) { 
+                    if (serverAddress.isNotEmpty()) NetworkModule.createTorBoxSearchService(serverAddress, authToken) 
+                    else null
+                }
                 
                 when (val screen = currentScreen) {
                     is Screen.Login -> {
                         LoginScreen(onLoginSuccess = { address, token -> 
                             serverAddress = address
+                            authToken = token
                             currentScreen = Screen.Dashboard 
                         })
                     }
@@ -71,18 +81,23 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     is Screen.Player -> {
-                        val playerViewModel: PlayerViewModel = viewModel(
-                            factory = PlayerViewModelFactory(torBoxService, torBoxSearchService, torBoxToken)
-                        )
-                        
-                        LaunchedEffect(screen.movieQuery) {
-                            playerViewModel.searchAndPlay(screen.movieQuery)
+                        if (torBoxService != null && torBoxSearchService != null) {
+                            val playerViewModel: PlayerViewModel = viewModel(
+                                factory = PlayerViewModelFactory(torBoxService, torBoxSearchService, authToken)
+                            )
+                            
+                            LaunchedEffect(screen.movieQuery) {
+                                playerViewModel.searchAndPlay(screen.movieQuery)
+                            }
+                            
+                            PlayerScreen(
+                                viewModel = playerViewModel,
+                                onBack = { currentScreen = Screen.Dashboard }
+                            )
+                        } else {
+                            // Fallback if services aren't ready
+                            currentScreen = Screen.Login
                         }
-                        
-                        PlayerScreen(
-                            viewModel = playerViewModel,
-                            onBack = { currentScreen = Screen.Dashboard }
-                        )
                     }
                 }
             }

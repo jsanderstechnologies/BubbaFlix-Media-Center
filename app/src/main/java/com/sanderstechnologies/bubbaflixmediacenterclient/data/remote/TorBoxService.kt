@@ -9,27 +9,12 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface TorBoxService {
-    @GET("torrents/mylist")
+    @GET("api/torbox/torrents")
     suspend fun getMyTorrents(): TorBoxResponse<List<TorBoxTorrent>>
 
-    @GET("torrents/torrentinfo")
-    suspend fun getTorrentInfo(
-        @Query("hash") hash: String
-    ): TorBoxResponse<TorBoxTorrentInfo>
-
-    @GET("usenet/mylist")
+    @GET("api/torbox/usenet/list")
     suspend fun getMyUsenet(): TorBoxResponse<List<TorBoxUsenet>>
 
-    @POST("torrents/createtorrent")
-    suspend fun createTorrent(
-        @Query("magnet") magnet: String,
-        @Query("seed") seed: Int = 1,
-        @Query("allow_zip") allowZip: Boolean = true
-    ): TorBoxResponse<Any>
-
-    @GET("torrents/checkcached")
-    suspend fun checkCached(
-        @Query("hash") hash: String,
-        @Query("format") format: String = "object"
-    ): TorBoxResponse<Any>
+    // Note: getTorrentInfo might not be proxied in the same way or might need direct access
+    // For now, focusing on what's in the blueprint and server.ts
 }
