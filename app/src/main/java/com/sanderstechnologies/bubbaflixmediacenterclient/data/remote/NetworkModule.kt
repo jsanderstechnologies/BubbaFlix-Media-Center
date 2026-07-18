@@ -74,4 +74,23 @@ object NetworkModule {
             .build()
             .create(TorBoxSearchService::class.java)
     }
+
+    fun createBubbaService(baseUrl: String): BubbaService {
+        val client = OkHttpClient.Builder()
+            .addInterceptor(loggingInterceptor)
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+
+        // Ensure baseUrl ends with a slash
+        val url = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+
+        return Retrofit.Builder()
+            .baseUrl(url)
+            .client(client)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(BubbaService::class.java)
+    }
 }

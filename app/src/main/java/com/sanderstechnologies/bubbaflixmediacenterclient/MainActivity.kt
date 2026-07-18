@@ -41,10 +41,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             BubbaFlixMediaCenterClientTheme {
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
+                var serverAddress by remember { mutableStateOf("") }
                 
                 when (val screen = currentScreen) {
                     is Screen.Login -> {
-                        LoginScreen(onLoginSuccess = { currentScreen = Screen.Dashboard })
+                        LoginScreen(onLoginSuccess = { address, token -> 
+                            serverAddress = address
+                            currentScreen = Screen.Dashboard 
+                        })
                     }
                     is Screen.Dashboard -> {
                         val dashboardViewModel: DashboardViewModel = viewModel(
