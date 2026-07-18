@@ -77,47 +77,36 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
     const enableUsenet = localStorage.getItem('enableUsenetSearch') !== 'false';
     const enableTorrent = localStorage.getItem('enableTorrentSearch') !== 'false';
 
-    let usenetResults: TorBoxSearchResult[] = [];
-    if (enableUsenet) {
-      try {
-        const usenetRes = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
-        if (usenetRes.ok) {
-          const parsed = await usenetRes.json();
-          if (parsed.success && parsed.data && parsed.data.length > 0) {
-            usenetResults = mapResults(parsed.data, 'usenet');
-          }
+    const [usenetResults, torrentResults] = await Promise.all([
+      (async () => {
+        if (!enableUsenet) return [];
+        try {
+          const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
+          const json = res.ok ? await res.json() : null;
+          return (json?.success && json?.data) ? mapResults(json.data, 'usenet') : [];
+        } catch (e) {
+          console.error("[TorBox Search] Usenet query error:", e);
+          return [];
         }
-      } catch (e) { console.error("[TorBox Search] Usenet query error:", e); }
-      // Delay to prevent Cloudflare 429 IP ban from TorBox
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
-    let torrentResults: TorBoxSearchResult[] = [];
-    if (enableTorrent) {
-      try {
-        const torrentRes = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
-        if (torrentRes.ok) {
-          const parsed = await torrentRes.json();
-          if (parsed.success && parsed.data) {
-            torrentResults = mapResults(parsed.data, 'torrent');
-          }
+      })(),
+      (async () => {
+        if (!enableTorrent) return [];
+        try {
+          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
+          const json = res.ok ? await res.json() : null;
+          return (json?.success && json?.data) ? mapResults(json.data, 'torrent') : [];
+        } catch (e) {
+          console.error("[TorBox Search] Torrent query error:", e);
+          return [];
         }
-      } catch (e) { console.error("[TorBox Search] Torrent query error:", e); }
-    }
+      })()
+    ]);
     
     return [...usenetResults, ...torrentResults];
   };
 
   try {
-    let results = await performSearch();
-    let attempts = 0;
-    while (results.length === 0 && attempts < 3) {
-        attempts++;
-        console.log(`[TorBox Search] 0 results found for "${queryStr}". Retrying in 2.5s to allow background scraper to finish (Attempt ${attempts}/3)...`);
-        await new Promise(resolve => setTimeout(resolve, 2500));
-        results = await performSearch();
-    }
-    return results;
+    return await performSearch();
   } catch (error) {
     console.error("[TorBox Search] Error querying TV series streams:", error);
     return [];
@@ -134,45 +123,36 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
     const enableUsenet = localStorage.getItem('enableUsenetSearch') !== 'false';
     const enableTorrent = localStorage.getItem('enableTorrentSearch') !== 'false';
 
-    let usenetResults: TorBoxSearchResult[] = [];
-    if (enableUsenet) {
-      try {
-        const usenetRes = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
-        if (usenetRes.ok) {
-          const parsed = await usenetRes.json();
-          if (parsed.success && parsed.data && parsed.data.length > 0) {
-            usenetResults = mapResults(parsed.data, 'usenet');
-          }
+    const [usenetResults, torrentResults] = await Promise.all([
+      (async () => {
+        if (!enableUsenet) return [];
+        try {
+          const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
+          const json = res.ok ? await res.json() : null;
+          return (json?.success && json?.data) ? mapResults(json.data, 'usenet') : [];
+        } catch (e) {
+          console.error("[TorBox Search] Usenet query error:", e);
+          return [];
         }
-      } catch (e) { console.error("[TorBox Search] Usenet query error:", e); }
-    }
-
-    let torrentResults: TorBoxSearchResult[] = [];
-    if (enableTorrent) {
-      try {
-        const torrentRes = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
-        if (torrentRes.ok) {
-          const parsed = await torrentRes.json();
-          if (parsed.success && parsed.data) {
-            torrentResults = mapResults(parsed.data, 'torrent');
-          }
+      })(),
+      (async () => {
+        if (!enableTorrent) return [];
+        try {
+          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
+          const json = res.ok ? await res.json() : null;
+          return (json?.success && json?.data) ? mapResults(json.data, 'torrent') : [];
+        } catch (e) {
+          console.error("[TorBox Search] Torrent query error:", e);
+          return [];
         }
-      } catch (e) { console.error("[TorBox Search] Torrent query error:", e); }
-    }
+      })()
+    ]);
     
     return [...usenetResults, ...torrentResults];
   };
 
   try {
-    let results = await performSearch();
-    let attempts = 0;
-    while (results.length === 0 && attempts < 3) {
-        attempts++;
-        console.log(`[TorBox Search] 0 results found for "${queryStr}". Retrying in 2.5s to allow background scraper to finish (Attempt ${attempts}/3)...`);
-        await new Promise(resolve => setTimeout(resolve, 2500));
-        results = await performSearch();
-    }
-    return results;
+    return await performSearch();
   } catch (error) {
     console.error("[TorBox Search] Error querying movie streams:", error);
     return [];
