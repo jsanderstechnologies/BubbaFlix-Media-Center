@@ -144,11 +144,11 @@ function MainApp() {
     const handleMouseMove = () => {
       setIsIdle(false);
       clearTimeout(timeout);
-      timeout = setTimeout(() => setIsIdle(true), 3000);
+      timeout = setTimeout(() => setIsIdle(true), 6000);
     };
     if (isPlaying) {
       window.addEventListener('mousemove', handleMouseMove);
-      timeout = setTimeout(() => setIsIdle(true), 3000);
+      timeout = setTimeout(() => setIsIdle(true), 6000);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
