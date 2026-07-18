@@ -28,7 +28,7 @@ const formatBytes = (bytes: number, decimals = 2) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 };
 
-const mapResults = (items: any[], type: 'torrent' | 'usenet'): TorBoxSearchResult[] => {
+const mapResults = (items: any[], type: 'torrent' | 'usenet', originalTitle?: string): TorBoxSearchResult[] => {
   if (!items || !Array.isArray(items)) return [];
   
   const badExts = ['.exe', '.zip', '.rar', '.7z', '.txt', '.nfo', '.srt', '.sub', '.iso', '.pdf', '.apk', '.bin'];
@@ -37,6 +37,21 @@ const mapResults = (items: any[], type: 'torrent' | 'usenet'): TorBoxSearchResul
     .filter((item: any) => {
       const name = (item.name || item.title || "").toLowerCase();
       if (badExts.some(ext => name.endsWith(ext))) return false;
+      
+      if (originalTitle) {
+          const cleanTitle = originalTitle.toLowerCase().replace(/[^a-z0-9\s]/g, '');
+          const cleanName = name.replace(/[\._]/g, ' ').replace(/[^a-z0-9\s]/g, '');
+          
+          const words = cleanTitle.split(' ').filter((w: string) => w.length > 2 && w !== 'the' && w !== 'and');
+          if (words.length > 0) {
+              const primaryWord = words[0];
+              const regex = new RegExp(`\\b${primaryWord}\\b`, 'i');
+              if (!regex.test(cleanName)) {
+                  return false;
+              }
+          }
+      }
+      
       return true;
     })
     .map((item: any, index: number) => {
@@ -83,7 +98,7 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
         try {
           const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
           const json = res.ok ? await res.json() : null;
-          return (json?.success && json?.data) ? mapResults(json.data, 'usenet') : [];
+          return (json?.success && json?.data) ? mapResults(json.data, 'usenet', title) : [];
         } catch (e) {
           console.error("[TorBox Search] Usenet query error:", e);
           return [];
@@ -94,7 +109,7 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
         try {
           const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
           const json = res.ok ? await res.json() : null;
-          return (json?.success && json?.data) ? mapResults(json.data, 'torrent') : [];
+          return (json?.success && json?.data) ? mapResults(json.data, 'torrent', title) : [];
         } catch (e) {
           console.error("[TorBox Search] Torrent query error:", e);
           return [];
@@ -129,7 +144,7 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
         try {
           const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
           const json = res.ok ? await res.json() : null;
-          return (json?.success && json?.data) ? mapResults(json.data, 'usenet') : [];
+          return (json?.success && json?.data) ? mapResults(json.data, 'usenet', title) : [];
         } catch (e) {
           console.error("[TorBox Search] Usenet query error:", e);
           return [];
@@ -140,7 +155,7 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
         try {
           const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
           const json = res.ok ? await res.json() : null;
-          return (json?.success && json?.data) ? mapResults(json.data, 'torrent') : [];
+          return (json?.success && json?.data) ? mapResults(json.data, 'torrent', title) : [];
         } catch (e) {
           console.error("[TorBox Search] Torrent query error:", e);
           return [];
