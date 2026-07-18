@@ -111,13 +111,8 @@ export function AuthModal() {
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!email || !username || !password || !confirmPassword) {
-      setError('Admin email, username, and both password fields are required.');
-      return;
-    }
-    
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+    if (!email || !username || !password) {
+      setError('Admin email, username, and password are required.');
       return;
     }
     
@@ -323,18 +318,7 @@ export function AuthModal() {
               </button>
             </div>
 
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-              <input 
-                type={showPassword ? "text" : "password"} 
-                placeholder="Confirm Admin Password" 
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-12 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                required
-                minLength={12}
-              />
-            </div>
+
 
             <button 
               type="submit" 

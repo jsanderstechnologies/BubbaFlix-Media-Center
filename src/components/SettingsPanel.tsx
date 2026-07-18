@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal } from 'lucide-react';
+import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal, ChevronDown, ChevronUp, Users, PlayCircle, Search, Key } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminPanel from './AdminPanel';
 import { useAuth } from './Auth';
@@ -16,8 +16,42 @@ const fetchM3U = async (url: string) => {
   return res.json();
 };
 
+const CollapsibleSection = ({ id, title, icon: Icon, isOpen, onToggle, children, description, headerAction }: any) => {
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 mb-6">
+      <div className="w-full flex items-center justify-between p-6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+        <button onClick={() => onToggle(id)} className="flex-1 flex items-center gap-3 text-left focus:outline-none">
+          <Icon className="w-5 h-5 text-indigo-400" />
+          <div>
+            <h2 className="text-lg font-medium text-white">{title}</h2>
+            {description && <p className="text-xs text-white/40 mt-0.5">{description}</p>}
+          </div>
+        </button>
+        <div className="flex items-center gap-4">
+          {headerAction && <div onClick={e => e.stopPropagation()}>{headerAction}</div>}
+          <button onClick={() => onToggle(id)} className="text-white/40 hover:text-white/80 focus:outline-none">
+            {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+      <div className={`transition-all duration-300 overflow-hidden ${isOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className="p-6 pt-2 border-t border-white/10">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function SettingsPanel() {
   const queryClient = useQueryClient();
+  const [openSections, setOpenSections] = useState<string[]>([]);
+  
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => 
+      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
+    );
+  };
   const [tmdbKey, setTmdbKey] = useState(() => localStorage.getItem('tmdbKey') || '');
   const [torboxApiKey, setTorboxApiKey] = useState(() => localStorage.getItem('torboxApiKey') || '');
   const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
