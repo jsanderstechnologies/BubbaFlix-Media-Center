@@ -127,10 +127,8 @@ export default function MediaModal({
             // Find in torrents
             if (stream.type === 'torrent') {
               const match = activeTorrents.find(t => {
-                if (stream.hash && t.hash?.toLowerCase() === stream.hash.toLowerCase()) return true;
-                const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
-                const tName = (t.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
-                return tName === sName || sName.includes(tName) || tName.includes(sName);
+                if (stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase()) return true;
+                return false;
               });
 
               if (match) {
@@ -152,12 +150,24 @@ export default function MediaModal({
             // Find in Usenet
             if (stream.type === 'usenet') {
               const match = activeUsenet.find(u => {
-                const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
-                const uName = (u.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (!u.name || !stream.name) return false;
+                const sName = stream.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const uName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                
+                if (uName.length < 10 || sName.length < 10) {
+                    if (uName !== sName) return false;
+                }
+                
                 const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
-                // Usenet name from TorBox can be a random UUID, so fallback match by size (within 15% delta) using raw sizeBytes
-                const sizeMatch = stream.sizeBytes && u.size && Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.15);
-                return nameMatch || sizeMatch;
+                
+                let sizeMatch = true;
+                if (stream.sizeBytes && u.size) {
+                    sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05); // Must be within 5%
+                } else {
+                    if (uName !== sName) return false;
+                }
+                
+                return nameMatch && sizeMatch;
               });
 
               if (match) {
