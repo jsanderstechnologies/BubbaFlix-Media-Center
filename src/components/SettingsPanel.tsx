@@ -86,6 +86,7 @@ export default function SettingsPanel() {
 
   // --- Debug Logging state ---
   const [enableDebugLog, setEnableDebugLog] = useState(() => localStorage.getItem('enableDebugLog') === 'true');
+  const [disableLogin, setDisableLogin] = useState(() => localStorage.getItem('disableLogin') === 'true');
   const [intelTranscoding, setIntelTranscoding] = useState(() => localStorage.getItem('intelTranscoding') === 'true');
   const [frontendLogs, setFrontendLogs] = useState<LogEntry[]>([]);
   const [backendLogs, setBackendLogs] = useState<LogEntry[]>([]);
@@ -148,6 +149,10 @@ export default function SettingsPanel() {
         if (data.usenetPort !== undefined) setUsenetPort(data.usenetPort);
         if (data.usenetUsername !== undefined) setUsenetUsername(data.usenetUsername);
         if (data.usenetPassword !== undefined) setUsenetPassword(data.usenetPassword);
+        if (data.disableLogin !== undefined) {
+          setDisableLogin(data.disableLogin);
+          localStorage.setItem('disableLogin', data.disableLogin.toString());
+        }
       })
       .catch(console.error);
   }, [isAdmin]);
@@ -276,6 +281,7 @@ export default function SettingsPanel() {
     localStorage.setItem('enableTorrentSearch', enableTorrentSearch.toString());
 
     localStorage.setItem('enableDebugLog', enableDebugLog.toString());
+    localStorage.setItem('disableLogin', disableLogin.toString());
     localStorage.setItem('intelTranscoding', intelTranscoding.toString());
     logger.setEnabled(enableDebugLog);
 
@@ -284,7 +290,7 @@ export default function SettingsPanel() {
       fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ usenetHost, usenetPort, usenetUsername, usenetPassword, geminiApiKey })
+        body: JSON.stringify({ usenetHost, usenetPort, usenetUsername, usenetPassword, geminiApiKey, disableLogin })
       }).catch(console.error);
     }
 
@@ -845,6 +851,19 @@ export default function SettingsPanel() {
           </div>
           
           <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium text-white block mb-1">Disable Login (Auto Admin)</label>
+                <p className="text-xs text-white/80">Skip authentication entirely and auto-login as admin. Useful for local development.</p>
+              </div>
+              <button
+                onClick={() => setDisableLogin(!disableLogin)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${disableLogin ? 'bg-rose-600' : 'bg-slate-700'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${disableLogin ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-white block mb-1">Enable Debug Logging</label>

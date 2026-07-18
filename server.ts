@@ -608,11 +608,20 @@ async function startServer() {
 
   // /api/auth/me
   app.get('/api/auth/me', (req, res) => {
+    const settings = readJson(SETTINGS_FILE);
+    const users = readJson(USERS_FILE);
+    
+    if (settings.disableLogin) {
+      const firstAdmin = Object.values(users as Record<string, any>).find((u: any) => u.role === 'admin') || {
+        uid: 'dev-admin-id', email: 'dev@admin.local', username: 'Dev Admin', role: 'admin', status: 'approved'
+      };
+      return res.json({ user: { uid: firstAdmin.uid, email: firstAdmin.email, username: firstAdmin.username, role: firstAdmin.role || 'user' } });
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
     
     const token = authHeader.split(' ')[1];
-    const users = readJson(USERS_FILE);
     const user = Object.values(users as Record<string, any>).find((u: any) => u.token === token);
 
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -621,11 +630,21 @@ async function startServer() {
 
   // Simple Auth Middleware for DB routes
   const requireAuth = (req, res, next) => {
+    const settings = readJson(SETTINGS_FILE);
+    const users = readJson(USERS_FILE);
+    
+    if (settings.disableLogin) {
+      const firstAdmin = Object.values(users as Record<string, any>).find((u: any) => u.role === 'admin') || {
+        uid: 'dev-admin-id', email: 'dev@admin.local', username: 'Dev Admin', role: 'admin', status: 'approved'
+      };
+      (req as any).user = firstAdmin;
+      return next();
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
     
     const token = authHeader.split(' ')[1];
-    const users = readJson(USERS_FILE);
     const user = Object.values(users as Record<string, any>).find((u: any) => u.token === token);
     
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -674,7 +693,8 @@ async function startServer() {
       usenetPort: settings.usenetPort || '',
       usenetUsername: settings.usenetUsername || '',
       usenetPassword: settings.usenetPassword || '',
-      geminiApiKey: settings.geminiApiKey || ''
+      geminiApiKey: settings.geminiApiKey || '',
+      disableLogin: settings.disableLogin === true
     });
   });
 
@@ -704,6 +724,7 @@ async function startServer() {
     if (usenetUsername !== undefined) settings.usenetUsername = usenetUsername;
     if (usenetPassword !== undefined) settings.usenetPassword = usenetPassword;
     if (geminiApiKey !== undefined) settings.geminiApiKey = geminiApiKey;
+    if (req.body.disableLogin !== undefined) settings.disableLogin = req.body.disableLogin;
 
     writeJson(SETTINGS_FILE, settings);
     res.json({ success: true });
