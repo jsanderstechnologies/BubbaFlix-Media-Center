@@ -323,7 +323,7 @@ function MainApp() {
               <video 
                 key={`${streamOffset}-${selectedAudioTrack}`}
                 ref={videoRef}
-                src={`http://127.0.0.1:4002/proxy?url=${encodeURIComponent(playingUrl)}&audio=${encodeURIComponent(userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
+                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&audio=${encodeURIComponent(userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
                 autoPlay
                 className="w-full h-full object-contain absolute top-0 left-0"
                 onTimeUpdate={(e) => {
