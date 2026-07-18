@@ -59,6 +59,28 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
         </div>
 
         <div className="p-6 overflow-y-auto space-y-8 flex-1">
+          {/* Zoom Setting */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Display Options</h3>
+            <div className="space-y-2">
+              <label className="text-xs text-white/50 block">Screen Zoom Level ({localZoom}x)</label>
+              <input 
+                type="range" 
+                min="0.5" 
+                max="2.0" 
+                step="0.1" 
+                value={localZoom}
+                onChange={e => setLocalZoom(parseFloat(e.target.value))}
+                className="w-full accent-emerald-500"
+              />
+              <div className="flex justify-between text-[10px] text-white/40">
+                <span>Smaller</span>
+                <span>Default</span>
+                <span>Larger</span>
+              </div>
+            </div>
+          </div>
+
           {/* Resolutions */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Stream Resolutions</h3>
@@ -147,27 +169,6 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
             </label>
           </div>
           
-          {/* Zoom Setting */}
-          <div className="space-y-3 pt-2">
-            <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Display Options</h3>
-            <div className="space-y-2">
-              <label className="text-xs text-white/50 block">Screen Zoom Level ({localZoom}x)</label>
-              <input 
-                type="range" 
-                min="0.5" 
-                max="2.0" 
-                step="0.1" 
-                value={localZoom}
-                onChange={e => setLocalZoom(parseFloat(e.target.value))}
-                className="w-full accent-emerald-500"
-              />
-              <div className="flex justify-between text-[10px] text-white/40">
-                <span>Smaller</span>
-                <span>Default</span>
-                <span>Larger</span>
-              </div>
-            </div>
-          </div>
         </div>
 
 
