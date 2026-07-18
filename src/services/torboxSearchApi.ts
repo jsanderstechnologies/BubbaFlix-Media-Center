@@ -37,7 +37,6 @@ const mapResults = (items: any[], type: 'torrent' | 'usenet'): TorBoxSearchResul
     .filter((item: any) => {
       const name = (item.name || item.title || "").toLowerCase();
       if (badExts.some(ext => name.endsWith(ext))) return false;
-      if (item.size && item.size < 20 * 1024 * 1024) return false; // Filter < 20MB
       return true;
     })
     .map((item: any, index: number) => {
