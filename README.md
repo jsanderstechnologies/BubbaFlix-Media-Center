@@ -4,21 +4,30 @@
 
 ---
 
-## 🚀 Key Features Implemented
+## 🚀 Key Features
+
+### 🎬 Media Aggregation & Streaming
+- **TMDB Integration**: Browse rich metadata for movies and TV shows, complete with cast, crew, trailers, and recommendations.
+- **TorBox Streaming**: Search for Torrents and Usenet files directly through TorBox and stream them instantly without downloading.
+- **AI-Powered Filtering**: Integrated with Google Gemini (3.5-flash) to intelligently filter out non-English results and irrelevant file names, guaranteeing high-quality search results.
+- **Hardware-Accelerated Transcoding**: Support for Intel Quick Sync Video (QSV) to transcode media on the fly via FFmpeg with minimal CPU usage.
+- **Live TV (IPTV)**: Fully integrated M3U and Xtream Codes support with EPG (Electronic Program Guide) parsing and offset customization.
+- **Customizable Players**: Native browser playback or automatic spawning of external desktop players like VLC, mpv, or IINA.
 
 ### 👥 User Administration & Approvals
 - **Pending Registration Workflow**: New registrations are created without passwords and flagged as `pending` until approved by an administrator.
 - **Gmail Welcome Notification**: Upon admin approval, the system auto-generates a secure 12-character password, hashes it using `scrypt`, updates the database, and automatically sends a beautifully formatted email with access credentials to the user.
-- **Add User Actions**: Admins can either set passwords manually or generate and email them automatically during profile creation.
+- **Account Locking**: Administrators can lock or unlock user accounts at any time, instantly revoking access.
+- **Auto Admin / Dev Mode**: A handy toggle to completely disable login and boot straight into the administrator dashboard for local development or Android Studio layout inspection.
 
-### ⚙️ User Settings & Customization
-- **Playback Preferences**: Customized settings on a per-user basis stored in local storage (`resolutions`, `audioLanguage`, `ccLanguage`, `autoCC`).
+### ⚙️ Comprehensive Settings Panel
+- **Sleek Admin Controls**: All system settings are organized into a clean, collapsible UI for managing API keys, Scrapers, IPTV URLs, Developer logs, and more.
+- **Email Configuration**: Exposes a dedicated UI to manage and save credentials (Gmail address, App Password, App Name, App URL) to `data/settings.json`, complete with a "Test Email" button.
+- **Developer Debugging**: View real-time frontend and backend console logs directly within the browser Settings UI.
+
+### 🎵 Playback Preferences
+- **User Profiles**: Customized settings on a per-user basis stored in local storage (`resolutions`, `audioLanguage`, `ccLanguage`, `autoCC`).
 - **Dynamic Audio Leveling**: Keeps loud parts in movies and TV shows from overwhelming the user by enabling FFmpeg's Dynamic Audio Normalizer (`dynaudnorm`) filter on target transcode streams.
-- **Clean Access Rules**: Standard users are restricted from seeing or entering the admin panels or settings endpoints.
-
-### 📧 Email Configuration Panel
-- **Sleek Admin Controls**: Exposes a dedicated UI to manage and save credentials (Gmail address, App Password, App Name, App URL) to `data/settings.json`.
-- **Integrated Test Button**: Allows testing of Gmail credentials directly by sending a test mail immediately before deploying changes live.
 
 ---
 
@@ -48,14 +57,10 @@ services:
       io.casaos.app.desc: "Premium personal media center and TV coordinator"
 ```
 
- 
-
-
 Start the service with:
 ```bash
 docker compose up -d
 ```
-
 
 ---
 
