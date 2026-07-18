@@ -650,7 +650,7 @@ async function startServer() {
   });
 
   // Simple Auth Middleware for DB routes
-  const requireAuth = (req, res, next) => {
+  function requireAuth(req, res, next) {
     const settings = readJson(SETTINGS_FILE);
     const users = readJson(USERS_FILE);
     
@@ -675,7 +675,7 @@ async function startServer() {
 
 
   // Admin Middleware
-  const requireAdmin = (req, res, next) => {
+  function requireAdmin(req, res, next) {
     requireAuth(req, res, () => {
       if ((req as any).user.role !== 'admin') {
         return res.status(403).json({ error: 'Forbidden: Admins only' });
