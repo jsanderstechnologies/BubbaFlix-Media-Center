@@ -422,8 +422,8 @@ export function AuthModal() {
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
               <input 
-                type="email" 
-                placeholder="Email Address" 
+                type={isLogin ? "text" : "email"} 
+                placeholder={isLogin ? "Email or Username" : "Email Address"} 
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
