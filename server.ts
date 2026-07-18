@@ -1390,7 +1390,8 @@ app.get('/api/youtube/search', async (req, res) => {
       if (audioTrack && audioTrack !== '0') {
         if (isNaN(parseInt(audioTrack, 10))) {
           // It is a language code like 'eng'
-          args.push('-map', `0:m:language:${audioTrack}?`, '-map', '0:a:0?');
+          // We restrict the map to audio streams (0:a:m:language) to avoid accidentally mapping subtitle tracks which would crash the mp4 muxer
+          args.push('-map', `0:a:m:language:${audioTrack}?`, '-map', '0:a:0?');
         } else {
           // It is a specific numeric index like '1' (meaning 0:a:1)
           args.push('-map', `0:a:${audioTrack}?`);
