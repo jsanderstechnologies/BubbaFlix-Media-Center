@@ -16,6 +16,7 @@ export interface TorBoxSearchResult {
   type: 'torrent' | 'usenet';
   fullDescription: string;
   hash?: string;
+  source?: string;
 }
 
 const formatBytes = (bytes: number, decimals = 2) => {
@@ -66,6 +67,7 @@ const mapResults = (items: any[], type: 'torrent' | 'usenet', originalTitle?: st
     }
 
     const url = item.magnet || item.link || item.download || "";
+    const source = item.source || "";
 
     return {
       id: `${type}-${index}-${hash || name}`,
@@ -77,7 +79,8 @@ const mapResults = (items: any[], type: 'torrent' | 'usenet', originalTitle?: st
       url,
       type,
       hash,
-      fullDescription: `Source: TorBox Voyager Search (${type.toUpperCase()})\nSeeders/Peers: ${item.seeds || 0}/${item.peers || 0}\nHash/Id: ${hash || 'N/A'}`
+      source,
+      fullDescription: `Source: TorBox Voyager Search (${type.toUpperCase()})${source ? ` (${source})` : ''}\nSeeders/Peers: ${item.seeds || 0}/${item.peers || 0}\nHash/Id: ${hash || 'N/A'}`
     };
   });
 };

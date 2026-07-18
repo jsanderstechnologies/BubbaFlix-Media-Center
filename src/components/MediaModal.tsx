@@ -1190,6 +1190,11 @@ export default function MediaModal({
                                             <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
                                             <div className="flex items-center gap-2 mt-1">
                                               <span className="text-[10px] text-white/60 font-mono">Size: {stream.size}</span>
+                                              {stream.source && (
+                                                <span className="text-[10px] text-white/60 font-mono">
+                                                  • Source: {stream.source}
+                                                </span>
+                                              )}
                                               {stream.downloadProgress !== undefined && stream.downloadProgress < 100 && stream.downloadSpeed !== undefined && (
                                                 <span className="text-[10px] text-indigo-400 font-mono font-semibold">
                                                   • {(stream.downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s

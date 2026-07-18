@@ -1558,10 +1558,10 @@ app.get('/api/youtube/search', async (req, res) => {
             name: cleanTitle,
             title: cleanTitle,
             link: link,
-            size: size,
             cached: false,
             seeds: 0,
-            peers: 0
+            peers: 0,
+            source: 'NZBIndex'
           });
         }
       }
@@ -1644,10 +1644,10 @@ app.get('/api/youtube/search', async (req, res) => {
             hash: t.info_hash,
             size: parseInt(t.size || "0", 10),
             seeds: parseInt(t.seeders || "0", 10),
-            peers: parseInt(t.leechers || "0", 10),
             magnet: magnet,
             link: magnet,
-            cached: false
+            cached: false,
+            source: 'The Pirate Bay'
           });
         });
       }
@@ -1664,10 +1664,10 @@ app.get('/api/youtube/search', async (req, res) => {
                 hash: t.hash,
                 size: t.size_bytes || 0,
                 seeds: t.seeds || 0,
-                peers: t.peers || 0,
                 magnet: magnet,
                 link: magnet,
-                cached: false
+                cached: false,
+                source: 'YTS'
               });
             });
           }
@@ -1684,10 +1684,10 @@ app.get('/api/youtube/search', async (req, res) => {
               hash: t.infohash.toLowerCase(),
               size: t.size || 0,
               seeds: t.seeders || 0,
-              peers: t.leechers || 0,
               magnet: magnet,
               link: magnet,
-              cached: false
+              cached: false,
+              source: 'SolidTorrents'
             });
           }
         });
