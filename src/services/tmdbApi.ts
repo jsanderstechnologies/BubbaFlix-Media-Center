@@ -98,28 +98,8 @@ export const searchMovies = async (query: string) => {
     ]);
     let movieResults = pages.flatMap(p => p.results || []);
 
-    // 2. Search person credits (actor search)
-    let personMovieResults: any[] = [];
-    try {
-      const personRes = await fetch(`${BASE_URL}/search/person?api_key=${apiKey}&query=${encodeURIComponent(query)}`);
-      if (personRes.ok) {
-        const personData = await personRes.json();
-        if (personData.results && personData.results.length > 0) {
-          const person = personData.results[0];
-          const creditsRes = await fetch(`${BASE_URL}/person/${person.id}/combined_credits?api_key=${apiKey}`);
-          if (creditsRes.ok) {
-            const creditsData = await creditsRes.json();
-            personMovieResults = (creditsData.cast || []).filter((m: any) => m.media_type === 'movie');
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Error searching person for movie search:", err);
-    }
-
-    // Combine and apply filters (applyFilters also deduplicates by ID)
-    let combined = [...movieResults, ...personMovieResults];
-    combined = applyFilters(combined);
+    // Apply filters
+    let combined = applyFilters(movieResults);
 
     return combined.slice(0, 50).map((m: any) => ({
       id: m.id,
@@ -226,28 +206,8 @@ export const searchTvSeries = async (query: string) => {
     ]);
     let tvResults = pages.flatMap(p => p.results || []);
 
-    // 2. Search person credits (actor search)
-    let personTvResults: any[] = [];
-    try {
-      const personRes = await fetch(`${BASE_URL}/search/person?api_key=${apiKey}&query=${encodeURIComponent(query)}`);
-      if (personRes.ok) {
-        const personData = await personRes.json();
-        if (personData.results && personData.results.length > 0) {
-          const person = personData.results[0];
-          const creditsRes = await fetch(`${BASE_URL}/person/${person.id}/combined_credits?api_key=${apiKey}`);
-          if (creditsRes.ok) {
-            const creditsData = await creditsRes.json();
-            personTvResults = (creditsData.cast || []).filter((m: any) => m.media_type === 'tv');
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Error searching person for TV search:", err);
-    }
-
-    // Combine and apply filters
-    let combined = [...tvResults, ...personTvResults];
-    combined = applyFilters(combined);
+    // Apply filters
+    let combined = applyFilters(tvResults);
 
     return combined.slice(0, 50).map((m: any) => ({
       id: m.id,

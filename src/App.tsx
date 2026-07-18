@@ -778,6 +778,9 @@ function MainApp() {
               {localStorage.getItem('torboxApiKey') && (
                 <img src="/images/torbox-logo.png" alt="TorBox API" className="h-5 object-contain brightness-110" title="TorBox API Active" />
               )}
+              {localStorage.getItem('geminiApiKey') && (
+                <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI API" className="h-4 object-contain brightness-110" title="Gemini AI Smart Filtering Active" />
+              )}
               {localStorage.getItem('intelTranscoding') === 'true' && (
                 <img src="/images/intel-logo.png" alt="Intel QSV" className="h-4 object-contain brightness-110" title="Intel Quick Sync Hardware Transcoding Active" />
               )}

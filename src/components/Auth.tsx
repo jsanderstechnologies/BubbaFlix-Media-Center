@@ -76,6 +76,7 @@ export function AuthModal() {
   const [setupStep, setSetupStep] = useState(1); // 1 = Admin User, 2 = API integrations
   const [tmdbKey, setTmdbKey] = useState('');
   const [torboxApiKey, setTorboxApiKey] = useState('');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
 
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -99,6 +100,7 @@ export function AuthModal() {
       .then(data => {
         if (data.tmdbKey) setTmdbKey(data.tmdbKey);
         if (data.torboxApiKey) setTorboxApiKey(data.torboxApiKey);
+        if (data.geminiApiKey) setGeminiApiKey(data.geminiApiKey);
       })
       .catch(console.error);
   }, []);
@@ -139,7 +141,7 @@ export function AuthModal() {
 
     const endpoint = setupRequired ? '/api/auth/setup-init' : (isLogin ? '/api/auth/login' : '/api/auth/register');
     const body = setupRequired 
-      ? { email, username, password, tmdbKey, torboxApiKey }
+      ? { email, username, password, tmdbKey, torboxApiKey, geminiApiKey }
       : (isLogin ? { email, password } : { email, username });
 
     try {
@@ -385,6 +387,27 @@ export function AuthModal() {
                   placeholder="Enter TorBox key..." 
                   value={torboxApiKey}
                   onChange={e => setTorboxApiKey(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] text-white/60 block font-semibold">Gemini API Key (Optional)</label>
+                  <a 
+                    href="https://aistudio.google.com/app/apikey" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-[10px] text-emerald-400 hover:underline hover:text-emerald-300"
+                  >
+                    Get Gemini Key
+                  </a>
+                </div>
+                <input 
+                  type="password" 
+                  placeholder="Enter Gemini API key for smart filtering..." 
+                  value={geminiApiKey}
+                  onChange={e => setGeminiApiKey(e.target.value)}
                   className="w-full bg-black/50 border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 outline-none"
                 />
               </div>

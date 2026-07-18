@@ -469,7 +469,7 @@ async function startServer() {
       return res.status(400).json({ error: 'Setup has already been completed' });
     }
 
-    const { email, username, password, tmdbKey, torboxApiKey } = req.body;
+    const { email, username, password, tmdbKey, torboxApiKey, geminiApiKey } = req.body;
     if (!email || !username || !password) {
       return res.status(400).json({ error: 'Admin email, username, and password are required' });
     }
@@ -509,6 +509,7 @@ async function startServer() {
     const settings = readJson(SETTINGS_FILE);
     if (tmdbKey) settings.tmdbKey = tmdbKey;
     if (torboxApiKey) settings.torboxApiKey = torboxApiKey;
+    if (geminiApiKey) settings.geminiApiKey = geminiApiKey;
     writeJson(SETTINGS_FILE, settings);
 
     res.json({ success: true, user: { uid, email, username, role: 'admin', status: 'approved' }, token });
@@ -520,6 +521,7 @@ async function startServer() {
     res.json({
       tmdbKey: settings.tmdbKey || '',
       torboxApiKey: settings.torboxApiKey || '',
+      geminiApiKey: settings.geminiApiKey || '',
       preferHEVC: settings.preferHEVC ?? null,
       maxResults: settings.maxResults || null,
       streamBufferSeconds: settings.streamBufferSeconds || null,
@@ -671,7 +673,8 @@ async function startServer() {
       usenetHost: settings.usenetHost || '',
       usenetPort: settings.usenetPort || '',
       usenetUsername: settings.usenetUsername || '',
-      usenetPassword: settings.usenetPassword || ''
+      usenetPassword: settings.usenetPassword || '',
+      geminiApiKey: settings.geminiApiKey || ''
     });
   });
 
@@ -683,7 +686,7 @@ async function startServer() {
   // /api/admin/settings PUT
   app.put('/api/admin/settings', requireAdmin, (req, res) => {
     const settings = readJson(SETTINGS_FILE);
-    const { email, usenetHost, usenetPort, usenetUsername, usenetPassword } = req.body;
+    const { email, usenetHost, usenetPort, usenetUsername, usenetPassword, geminiApiKey } = req.body;
     
     if (email) {
       const { gmailUser, gmailAppPassword, appName, appUrl } = email;
@@ -700,6 +703,7 @@ async function startServer() {
     if (usenetPort !== undefined) settings.usenetPort = usenetPort;
     if (usenetUsername !== undefined) settings.usenetUsername = usenetUsername;
     if (usenetPassword !== undefined) settings.usenetPassword = usenetPassword;
+    if (geminiApiKey !== undefined) settings.geminiApiKey = geminiApiKey;
 
     writeJson(SETTINGS_FILE, settings);
     res.json({ success: true });
@@ -1568,8 +1572,11 @@ app.get('/api/youtube/search', async (req, res) => {
         usenetSearchCache.delete(oldest);
       }
 
-      usenetSearchCache.set(cacheKey, { timestamp: now, data: items });
-      res.json({ success: true, detail: "Usenet search completed successfully.", data: items });
+      const settings = readJson(SETTINGS_FILE);
+      const filteredItems = await filterWithGemini(q as string, items, settings);
+
+      usenetSearchCache.set(cacheKey, { timestamp: now, data: filteredItems });
+      res.json({ success: true, detail: "Usenet search completed successfully.", data: filteredItems });
     } catch (err: any) {
       if (err.response && err.response.status === 429) {
         console.warn(`[Usenet Search Direct] Rate limited by NZBIndex for query '${q}'. Returning empty array.`);
@@ -1579,6 +1586,34 @@ app.get('/api/youtube/search', async (req, res) => {
       res.status(500).json({ error: err.message });
     }
   });
+
+  async function filterWithGemini(query: string, items: any[], settings: any): Promise<any[]> {
+    if (!settings.geminiApiKey || items.length === 0) return items;
+    
+    try {
+      const list = items.map((t, i) => `${i}: ${t.name || t.title}`).join('\n');
+      const prompt = `I am searching for the TV show or Movie "${query}". I have the following list of file result names. Please filter out any results that do not definitively belong to this show/movie, for example if they belong to a different show with a similar name (like 'Preacher' instead of 'Reacher', or 'NYPD Blue' instead of 'The Boys'). Return ONLY a valid JSON array of indices (0-indexed) of the results that are CORRECT matches. Do not include any markdown formatting, backticks, or other text. Just the JSON array.\n\nList:\n${list}`;
+
+      const res = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${settings.geminiApiKey}`,
+        { contents: [{ parts: [{ text: prompt }] }] },
+        { timeout: 15000, headers: { 'Content-Type': 'application/json' } }
+      );
+      
+      const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+      const cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const indices = JSON.parse(cleanText);
+      
+      if (Array.isArray(indices)) {
+        console.log(`[Gemini Filter] Filtered from ${items.length} to ${indices.length} items for "${query}"`);
+        return indices.map(i => items[i]).filter(Boolean);
+      }
+      return items;
+    } catch (err: any) {
+      console.error("[Gemini Filter Error]", err.message);
+      return items; // Fallback to unfiltered if Gemini fails
+    }
+  }
 
   app.get("/api/torbox/torrents/search", async (req, res) => {
     const { q } = req.query;
@@ -1658,7 +1693,10 @@ app.get('/api/youtube/search', async (req, res) => {
         });
       }
 
-      res.json({ success: true, data: mappedTorrents });
+      const settings = readJson(SETTINGS_FILE);
+      const filteredTorrents = await filterWithGemini(q as string, mappedTorrents, settings);
+
+      res.json({ success: true, data: filteredTorrents });
     } catch (err: any) {
       console.error("[Torrents Search API Error]", err.message);
       res.status(500).json({ error: err.message, success: false, data: [] });

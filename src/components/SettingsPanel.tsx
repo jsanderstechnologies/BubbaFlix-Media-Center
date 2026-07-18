@@ -20,6 +20,7 @@ export default function SettingsPanel() {
   const queryClient = useQueryClient();
   const [tmdbKey, setTmdbKey] = useState(() => localStorage.getItem('tmdbKey') || '');
   const [torboxApiKey, setTorboxApiKey] = useState(() => localStorage.getItem('torboxApiKey') || '');
+  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
   const [preferHEVC, setPreferHEVC] = useState(() => localStorage.getItem('preferHEVC') === 'true');
   const [maxResults, setMaxResults] = useState(() => localStorage.getItem('maxResults') || '20');
   const [providerType, setProviderType] = useState(() => localStorage.getItem('providerType') || 'm3u');
@@ -207,6 +208,7 @@ export default function SettingsPanel() {
   const handleSave = () => {
     localStorage.setItem('tmdbKey', tmdbKey);
     localStorage.setItem('torboxApiKey', torboxApiKey);
+    localStorage.setItem('geminiApiKey', geminiApiKey);
     localStorage.setItem('preferHEVC', preferHEVC.toString());
     localStorage.setItem('maxResults', maxResults);
     
@@ -248,7 +250,7 @@ export default function SettingsPanel() {
       fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ usenetHost, usenetPort, usenetUsername, usenetPassword })
+        body: JSON.stringify({ usenetHost, usenetPort, usenetUsername, usenetPassword, geminiApiKey })
       }).catch(console.error);
     }
 
@@ -402,6 +404,14 @@ export default function SettingsPanel() {
                 <span className="text-sm font-semibold text-white">{torboxApiKey ? 'ONLINE' : 'MISSING KEY'}</span>
               </div>
             </div>
+
+            <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
+              <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">Gemini API</span>
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${geminiApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`}></span>
+                <span className="text-sm font-semibold text-white">{geminiApiKey ? 'ONLINE' : 'MISSING KEY'}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -429,6 +439,23 @@ export default function SettingsPanel() {
                 />
               </div>
               <p className="text-xs text-white/80 mt-2">Required to monitor TorBox download caching status in real-time.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Gemini API Key</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
+                  <Database className="w-4 h-4" />
+                </span>
+                <input 
+                  type="password"
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
+                  placeholder="Enter Gemini API Key..."
+                />
+              </div>
+              <p className="text-xs text-white/80 mt-2">Used by the backend to smartly filter out honeypot torrents and incorrect search results.</p>
             </div>
             
             <div className="space-y-4 pt-4 border-t border-white/10">
