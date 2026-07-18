@@ -1388,9 +1388,15 @@ app.get('/api/youtube/search', async (req, res) => {
     } else {
       args.push('-map', '0:v:0');
       if (audioTrack && audioTrack !== '0') {
-        args.push('-map', `0:${audioTrack}`);
+        if (isNaN(parseInt(audioTrack, 10))) {
+          // It is a language code like 'eng'
+          args.push('-map', `0:m:language:${audioTrack}?`, '-map', '0:a:0?');
+        } else {
+          // It is a specific numeric index like '1' (meaning 0:a:1)
+          args.push('-map', `0:a:${audioTrack}?`);
+        }
       } else {
-        args.push('-map', '0:a:0');
+        args.push('-map', '0:a:0?');
       }
     }
     
