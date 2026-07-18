@@ -428,7 +428,7 @@ export default function MediaModal({
     if (isSeries && selectedSeason !== null && selectedEpisode !== null && movie) {
       setLoading(true);
       setStreams([]);
-      fetchStreamsForTvSeries(movie.title, selectedSeason, selectedEpisode).then(async data => {
+      fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode).then(async data => {
         if (!isActive) return;
         
         const apiKey = localStorage.getItem('torboxApiKey');
