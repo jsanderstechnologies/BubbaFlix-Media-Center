@@ -38,7 +38,7 @@ function MainApp() {
   const isFetching = useIsFetching();
   const isPageLoading = isFetching > 0;
   const { user } = useAuth();
-  const { systemSettings, userSettings } = useSettings();
+  const { systemSettings, userSettings, zoom } = useSettings();
 
   const [selectedMovie, setSelectedMovie] = useState<any>(null);
   const [playerStatus, setPlayerStatus] = useState<string>('STREAM READY');
@@ -256,7 +256,10 @@ function MainApp() {
           </div>
         </div>
       )}
-      <div className="h-screen w-full bg-[#050507] text-white font-sans flex overflow-hidden select-none relative">
+      <div 
+        className="bg-[#050507] text-white font-sans flex overflow-hidden select-none relative"
+        style={{ width: `calc(100vw / ${zoom || 1})`, height: `calc(100vh / ${zoom || 1})` }}
+      >
       {isPlaying && (!(window as any).mediaAPI || userSettings.playerPath === 'builtin') && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col">
           <div className={`absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-[110] bg-gradient-to-b from-black/80 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
