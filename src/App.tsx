@@ -405,7 +405,7 @@ function MainApp() {
                 }}
                 onError={(e) => {
                   const error = e.currentTarget.error;
-                  logger.error("Built-in Player Error", { 
+                  console.error("Built-in Player Error", { 
                     code: error?.code, 
                     message: error?.message, 
                     src: e.currentTarget.src 
