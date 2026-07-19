@@ -191,7 +191,11 @@ function MainApp() {
     const interval = setInterval(() => {
       const currentAbsoluteTime = streamOffset + (videoRef.current?.currentTime || 0);
       const total = totalDuration || 0;
-      if (currentAbsoluteTime > 0 && total > 0 && currentAbsoluteTime < total - 5) {
+      if (currentAbsoluteTime > 0) {
+        // If total is 0, we can still save time, but percentage will just be 0 or estimated.
+        // Prevent saving if we are at the very end of the video
+        if (total > 0 && currentAbsoluteTime >= total - 5) return;
+        
         const progressRef = { collectionName: 'user_progress', id: `${user.uid}_${playingContext.id}` };
         setDoc(progressRef, {
           userId: user.uid,
@@ -202,7 +206,7 @@ function MainApp() {
           currentTime: currentAbsoluteTime,
           totalDuration: total,
           updatedAt: serverTimestamp(),
-          percentage: (currentAbsoluteTime / total) * 100
+          percentage: total > 0 ? (currentAbsoluteTime / total) * 100 : 0
         }, { merge: true }).catch(err => console.error("Failed to save progress:", err));
       }
     }, 10000); // Save every 10 seconds

@@ -1462,9 +1462,8 @@ app.get('/api/youtube/search', async (req, res) => {
 
     args.push('-c:a', 'aac');
     
-    if (isLive) {
-      args.push('-avoid_negative_ts', 'make_zero');
-    }
+    args.push('-avoid_negative_ts', 'make_zero');
+    args.push('-async', '1');
 
     args.push(
       '-f', 'mp4',

@@ -50,6 +50,7 @@ export default function MediaModal({
   } | null>(null);
   const [extraLoading, setExtraLoading] = useState(false);
   const [savedProgress, setSavedProgress] = useState<any>(null);
+  const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
 
   const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -61,14 +62,12 @@ export default function MediaModal({
   };
 
   const triggerPlay = (dlUrl: string) => {
-    let resumeTime = 0;
     if (savedProgress && savedProgress.currentTime > 0 && savedProgress.percentage < 95) {
-      if (window.confirm(`Resume playback from ${formatTime(savedProgress.currentTime)}?\n\nCancel to start from the beginning.`)) {
-        resumeTime = savedProgress.currentTime;
-      }
+      setResumePromptStream(dlUrl);
+    } else {
+      const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode };
+      onPlay(dlUrl, undefined, 0, context);
     }
-    const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode };
-    onPlay(dlUrl, undefined, resumeTime, context);
   };
 
   const isSeries = movie?.type === 'series' || !!movie?.first_air_date;
@@ -1220,6 +1219,44 @@ export default function MediaModal({
             </div>
         </div>
       </div>
+      {resumePromptStream && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#0f0f13] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-6">
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-white mb-2">Resume Playback?</h3>
+              <p className="text-white/60 text-sm">You left off at {formatTime(savedProgress.currentTime)}. Would you like to resume from where you stopped?</p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => {
+                  const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode };
+                  onPlay(resumePromptStream, undefined, savedProgress.currentTime, context);
+                  setResumePromptStream(null);
+                }}
+                className="w-full py-3 rounded-lg bg-emerald-600 text-white font-bold tracking-wide hover:bg-emerald-500 transition-colors cursor-pointer"
+              >
+                Resume from {formatTime(savedProgress.currentTime)}
+              </button>
+              <button 
+                onClick={() => {
+                  const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode };
+                  onPlay(resumePromptStream, undefined, 0, context);
+                  setResumePromptStream(null);
+                }}
+                className="w-full py-3 rounded-lg bg-white/5 text-white font-bold tracking-wide hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Start Over
+              </button>
+              <button 
+                onClick={() => setResumePromptStream(null)}
+                className="w-full py-3 rounded-lg text-white/40 font-bold tracking-wide hover:text-white transition-colors mt-2 cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
