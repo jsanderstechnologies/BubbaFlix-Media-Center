@@ -39,11 +39,11 @@ export const getTrendingMovies = async (genreId: number = 0) => {
   if (!apiKey) {
     console.warn("[Frontend] No VITE_TMDB_API_KEY found, using fallback mock data for preview.");
     const mockMovies = [
-      { id: 1, title: 'The Creator', year: '2023', rating: '8.2', resolution: '4K HDR', poster: 'https://image.tmdb.org/t/p/w500/vBZ0qvaRxqEhZwl6LWmruUqNP8.jpg', overview: 'Amid a future war between the human race and the forces of artificial intelligence, a hardened ex-special forces agent grieving the disappearance of his wife, is recruited to hunt down and kill the Creator.', genres: [28, 878, 53], type: 'movie' },
-      { id: 2, title: 'Dune: Part Two', year: '2024', rating: '9.1', resolution: '1080P', poster: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2JGqqBTrw.jpg', overview: 'Paul Atreides unites with Chani and the Fremen while on a warpath of revenge against the conspirators who destroyed his family.', genres: [28, 12, 878], type: 'movie' },
-      { id: 3, title: 'Poor Things', year: '2023', rating: '7.9', resolution: '4K', poster: 'https://image.tmdb.org/t/p/w500/kCGlIMHnOm8JPXq3rXM3c5wOX91.jpg', overview: 'Brought back to life by an unorthodox scientist, a young woman runs off with a debauched lawyer on a whirlwind adventure across the continents.', genres: [35, 14, 10749], type: 'movie' },
-      { id: 4, title: 'Saltburn', year: '2023', rating: '7.5', resolution: 'HDR10', poster: 'https://image.tmdb.org/t/p/w500/qjhahNLSZ705B5JP92IXymSmPIX.jpg', overview: 'Struggling to find his place at Oxford University, student Oliver Quick finds himself drawn into the world of the charming and aristocratic Felix Catton.', genres: [18, 9648, 53], type: 'movie' },
-      { id: 5, title: 'Argylle', year: '2024', rating: '5.8', resolution: 'SD', poster: 'https://image.tmdb.org/t/p/w500/siduVKgOnABO4WH4lOwPQwaGwAL.jpg', overview: 'When the plots of reclusive author Elly Conway\'s fictional espionage novels begin to mirror the covert actions of a real-life spy organization, quiet evenings at home become a thing of the past.', genres: [28, 35, 53], type: 'movie' }
+      { id: 1, title: 'The Creator', year: '2023', rating: '8.2', resolution: '4K HDR', poster: null, overview: 'Amid a future war between the human race and the forces of artificial intelligence, a hardened ex-special forces agent grieving the disappearance of his wife, is recruited to hunt down and kill the Creator.', genres: [28, 878, 53], type: 'movie' },
+      { id: 2, title: 'Dune: Part Two', year: '2024', rating: '9.1', resolution: '1080P', poster: null, overview: 'Paul Atreides unites with Chani and the Fremen while on a warpath of revenge against the conspirators who destroyed his family.', genres: [28, 12, 878], type: 'movie' },
+      { id: 3, title: 'Poor Things', year: '2023', rating: '7.9', resolution: '4K', poster: null, overview: 'Brought back to life by an unorthodox scientist, a young woman runs off with a debauched lawyer on a whirlwind adventure across the continents.', genres: [35, 14, 10749], type: 'movie' },
+      { id: 4, title: 'Saltburn', year: '2023', rating: '7.5', resolution: 'HDR10', poster: null, overview: 'Struggling to find his place at Oxford University, student Oliver Quick finds himself drawn into the world of the charming and aristocratic Felix Catton.', genres: [18, 9648, 53], type: 'movie' },
+      { id: 5, title: 'Argylle', year: '2024', rating: '5.8', resolution: 'SD', poster: null, overview: 'When the plots of reclusive author Elly Conway\'s fictional espionage novels begin to mirror the covert actions of a real-life spy organization, quiet evenings at home become a thing of the past.', genres: [28, 35, 53], type: 'movie' }
     ];
     if (genreId > 0) {
       const filtered = mockMovies.filter(m => m.genres && m.genres.includes(genreId));
@@ -147,17 +147,6 @@ export const getTvSeasonDetails = async (seriesId: number, seasonNumber: number)
 export const getTrendingTvSeries = async (genreId: number = 0) => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    const mockTv = [
-      { id: 101, title: 'Shōgun', year: '2024', rating: '8.6', resolution: '4K HDR', poster: 'https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WNzG1Syj.jpg', overview: 'In Japan in the year 1600, at the dawn of a century-defining civil war, Lord Yoshii Toranaga is fighting for his life as his enemies on the Council of Regents unite against him.', genres: [18, 10768], type: 'series' },
-      { id: 102, title: 'Fallout', year: '2024', rating: '8.4', resolution: '4K HDR', poster: 'https://image.tmdb.org/t/p/w500/A3s3AOWI1356oU02Z0ZETa9w8vW.jpg', overview: 'The story of haves and have-nots in a world in which there’s almost nothing left to have. 200 years after the apocalypse, the gentle denizens of luxury fallout shelters are forced to return to the irradiated hellscape their ancestors left behind.', genres: [10765, 28, 12, 18], type: 'series' },
-      { id: 103, title: '3 Body Problem', year: '2024', rating: '7.6', resolution: '4K', poster: 'https://image.tmdb.org/t/p/w500/YKZptD9tQjA05oQdtaB8gW8cMh.jpg', overview: 'Across continents and decades, five brilliant friends make earth-shattering discoveries as the laws of science unravel and an existential threat emerges.', genres: [10765, 9648, 18], type: 'series' },
-      { id: 104, title: 'True Detective', year: '2014', rating: '8.3', resolution: '1080p', poster: 'https://image.tmdb.org/t/p/w500/cuV2O5Zy6GLBsz0dBJC5AQpZl10.jpg', overview: 'An American anthology police detective series utilizing multiple timelines in which investigations seem to unearth personal and professional secrets of those involved, both within or outside the law.', genres: [18, 80, 9648], type: 'series' },
-      { id: 105, title: 'The Bear', year: '2022', rating: '8.3', resolution: '4K', poster: 'https://image.tmdb.org/t/p/w500/o7y1BGEy2X3yN5QJ0E5XwOIfU1Q.jpg', overview: 'Carmen Berzatto, a brilliant young chef from the fine-dining world is forced to return to run his family sandwich shop.', genres: [35, 18], type: 'series' }
-    ];
-    if (genreId > 0) {
-      const filtered = mockTv.filter(m => m.genres && m.genres.includes(genreId));
-      return filtered.length > 0 ? filtered : mockTv;
-    }
     return mockTv;
   }
 
@@ -266,8 +255,8 @@ export const getPopularMovies = async (): Promise<any[]> => {
   const apiKey = getApiKey();
   if (!apiKey) {
     return [
-      { id: 2, title: 'Dune: Part Two', year: '2024', rating: '9.1', poster: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2JGqqBTrw.jpg', overview: 'Paul Atreides unites with Chani and the Fremen while on a warpath of revenge against the conspirators who destroyed his family.', type: 'movie' },
-      { id: 4, title: 'Saltburn', year: '2023', rating: '7.5', poster: 'https://image.tmdb.org/t/p/w500/qjhahNLSZ705B5JP92IXymSmPIX.jpg', overview: 'Struggling to find his place at Oxford University, student Oliver Quick finds himself drawn into the world of the charming and aristocratic Felix Catton.', type: 'movie' }
+      { id: 2, title: 'Dune: Part Two', year: '2024', rating: '9.1', poster: null, overview: 'Paul Atreides unites with Chani and the Fremen while on a warpath of revenge against the conspirators who destroyed his family.', type: 'movie' },
+      { id: 4, title: 'Saltburn', year: '2023', rating: '7.5', poster: null, overview: 'Struggling to find his place at Oxford University, student Oliver Quick finds himself drawn into the world of the charming and aristocratic Felix Catton.', type: 'movie' }
     ];
   }
   try {
@@ -294,8 +283,8 @@ export const getTopRatedMovies = async (): Promise<any[]> => {
   const apiKey = getApiKey();
   if (!apiKey) {
     return [
-      { id: 3, title: 'Poor Things', year: '2023', rating: '7.9', poster: 'https://image.tmdb.org/t/p/w500/kCGlIMHnOm8JPXq3rXM3c5wOX91.jpg', overview: 'Brought back to life by an unorthodox scientist, a young woman runs off with a debauched lawyer on a whirlwind adventure across the continents.', type: 'movie' },
-      { id: 1, title: 'The Creator', year: '2023', rating: '8.2', poster: 'https://image.tmdb.org/t/p/w500/vBZ0qvaRxqEhZwl6LWmruUqNP8.jpg', overview: 'Amid a future war between the human race and the forces of artificial intelligence, a hardened ex-special forces agent grieving the disappearance of his wife, is recruited to hunt down and kill the Creator.', type: 'movie' }
+      { id: 3, title: 'Poor Things', year: '2023', rating: '7.9', poster: null, overview: 'Brought back to life by an unorthodox scientist, a young woman runs off with a debauched lawyer on a whirlwind adventure across the continents.', type: 'movie' },
+      { id: 1, title: 'The Creator', year: '2023', rating: '8.2', poster: null, overview: 'Amid a future war between the human race and the forces of artificial intelligence, a hardened ex-special forces agent grieving the disappearance of his wife, is recruited to hunt down and kill the Creator.', type: 'movie' }
     ];
   }
   try {
@@ -322,8 +311,8 @@ export const getPopularTvSeries = async (): Promise<any[]> => {
   const apiKey = getApiKey();
   if (!apiKey) {
     return [
-      { id: 102, title: 'Fallout', year: '2024', rating: '8.4', poster: 'https://image.tmdb.org/t/p/w500/A3s3AOWI1356oU02Z0ZETa9w8vW.jpg', overview: 'The story of haves and have-nots in a world in which there’s almost nothing left to have. 200 years after the apocalypse, the gentle denizens of luxury fallout shelters are forced to return to the irradiated hellscape their ancestors left behind.', type: 'series' },
-      { id: 105, title: 'The Bear', year: '2022', rating: '8.3', poster: 'https://image.tmdb.org/t/p/w500/o7y1BGEy2X3yN5QJ0E5XwOIfU1Q.jpg', overview: 'Carmen Berzatto, a brilliant young chef from the family sandwich shop is forced to return to run his family sandwich shop.', type: 'series' }
+      { id: 102, title: 'Fallout', year: '2024', rating: '8.4', poster: null, overview: 'The story of haves and have-nots in a world in which there’s almost nothing left to have. 200 years after the apocalypse, the gentle denizens of luxury fallout shelters are forced to return to the irradiated hellscape their ancestors left behind.', type: 'series' },
+      { id: 105, title: 'The Bear', year: '2022', rating: '8.3', poster: null, overview: 'Carmen Berzatto, a brilliant young chef from the family sandwich shop is forced to return to run his family sandwich shop.', type: 'series' }
     ];
   }
   try {
@@ -350,8 +339,8 @@ export const getTopRatedTvSeries = async (): Promise<any[]> => {
   const apiKey = getApiKey();
   if (!apiKey) {
     return [
-      { id: 101, title: 'Shōgun', year: '2024', rating: '8.6', poster: 'https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WNzG1Syj.jpg', overview: 'In Japan in the year 1600, at the dawn of a century-defining civil war, Lord Yoshii Toranaga is fighting for his life as his enemies on the Council of Regents unite against him.', type: 'series' },
-      { id: 103, title: '3 Body Problem', year: '2024', rating: '7.6', poster: 'https://image.tmdb.org/t/p/w500/YKZptD9tQjA05oQdtaB8gW8cMh.jpg', overview: 'Across continents and decades, five brilliant friends make earth-shattering discoveries as the laws of science unravel and an existential threat emerges.', type: 'series' }
+      { id: 101, title: 'Shōgun', year: '2024', rating: '8.6', poster: null, overview: 'In Japan in the year 1600, at the dawn of a century-defining civil war, Lord Yoshii Toranaga is fighting for his life as his enemies on the Council of Regents unite against him.', type: 'series' },
+      { id: 103, title: '3 Body Problem', year: '2024', rating: '7.6', poster: null, overview: 'Across continents and decades, five brilliant friends make earth-shattering discoveries as the laws of science unravel and an existential threat emerges.', type: 'series' }
     ];
   }
   try {
