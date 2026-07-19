@@ -112,26 +112,40 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               
               // Extract audio files
               const validExts = ['.mp3', '.flac', '.m4a', '.wav', '.ogg'];
-              const files = (match.files || []).filter((f: any) => {
-                const ext = f.short_name.substring(f.short_name.lastIndexOf('.')).toLowerCase();
-                return validExts.includes(ext);
-              }).map((f: any) => ({
-                id: f.id,
-                name: f.short_name,
-                size: f.size,
-                url: release.type === 'usenet' 
-                  ? `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${usenetId}&zip_link=false&redirect=true&file_id=${f.id}`
-                  : `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${torrentId}&zip_link=false&redirect=true&file_id=${f.id}`
-              }));
+              let files = (match.files || []).map((f: any) => {
+                const fname = f.short_name || f.name || f.filename || `File ${f.id}`;
+                return {
+                  id: f.id,
+                  name: fname,
+                  size: f.size || 0,
+                  ext: fname.includes('.') ? fname.substring(fname.lastIndexOf('.')).toLowerCase() : '',
+                  url: release.type === 'usenet' 
+                    ? `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${usenetId}&zip_link=false&redirect=true&file_id=${f.id}`
+                    : `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${torrentId}&zip_link=false&redirect=true&file_id=${f.id}`
+                };
+              });
+
+              let audioFiles = files.filter((f: any) => validExts.includes(f.ext));
               
-              files.sort((a: any, b: any) => a.name.localeCompare(b.name));
-              setAudioFiles(files);
-            } else if (match.download_state === 'downloading') {
+              // If no audio files found but there are files, maybe they are in a zip or different format. 
+              // Just show all files so the user can see what was downloaded.
+              if (audioFiles.length === 0 && files.length > 0) {
+                 audioFiles = files;
+              }
+              
+              audioFiles.sort((a: any, b: any) => a.name.localeCompare(b.name));
+              setAudioFiles(audioFiles);
+              
+              if (files.length === 0) {
+                 setReleaseStatus(`Download complete, but TorBox reported no files inside this ${release.type}.`);
+              }
+            } else if (match.download_state === 'downloading' || match.download_state === 'downloading (checking)') {
               setReleaseStatus(`Downloading from peers... ${Math.round(match.progress || 0)}%`);
             } else if (match.download_state === 'error' || match.download_state === 'paused') {
               clearInterval(pollInterval);
-              setReleaseStatus(`Error: TorBox could not cache this ${release.type}.`);
+              setReleaseStatus(`Error: TorBox could not cache this ${release.type}. (State: ${match.download_state})`);
             }
+
           }
         } catch (e) {
           console.error("Polling error", e);
