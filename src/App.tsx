@@ -68,7 +68,23 @@ function MainApp() {
     SpatialNavigation.makeFocusable();
     SpatialNavigation.focus();
     
+    const handleGlobalFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      // Skip if it's not a valid element or if it's the main app container
+      if (target && target.scrollIntoView && target.tagName !== 'VIDEO' && target.id !== 'root') {
+        try {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        } catch (err) {
+          // Fallback for older TV browsers (like Silk) that don't support the options object
+          target.scrollIntoView();
+        }
+      }
+    };
+    
+    window.addEventListener('focus', handleGlobalFocus, true);
+
     return () => {
+      window.removeEventListener('focus', handleGlobalFocus, true);
       SpatialNavigation.uninit();
     };
   }, []);
