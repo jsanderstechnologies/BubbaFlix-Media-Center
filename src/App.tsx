@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2 } from 'lucide-react';
 import { collection, query, where, onSnapshot } from './lib/localDb';
 import { db } from './lib/localDb';
 import { logger } from './lib/logger';
@@ -357,6 +357,16 @@ function MainApp() {
                   setPlayerStatus("BUFFERING..."); 
                 }}
               />
+              {playerStatus.includes('BUFFERING') && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[100] bg-black/20">
+                  <div className="flex flex-col items-center gap-4 p-6 bg-black/40 rounded-3xl backdrop-blur-md border border-white/10 shadow-2xl">
+                    <Loader2 className="w-12 h-12 text-red-500 animate-spin drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]" />
+                    <span className="text-white/90 font-mono font-medium tracking-widest text-xs uppercase animate-pulse">
+                      Loading Stream
+                    </span>
+                  </div>
+                </div>
+              )}
               <div className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-4 z-[110] bg-gradient-to-t from-black/90 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="flex items-center gap-6 pointer-events-auto w-full max-w-5xl mx-auto">
                   <button 
