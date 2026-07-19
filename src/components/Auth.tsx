@@ -525,9 +525,11 @@ export function AuthButton() {
       <>
         <div
           ref={avatarRef}
-          className="w-10 h-10 rounded-full border border-emerald-500/30 bg-emerald-900/20 flex items-center justify-center text-emerald-300 font-bold shrink-0 cursor-pointer hover:bg-emerald-800/30 transition-colors select-none"
+          tabIndex={0}
+          className="w-10 h-10 rounded-full border border-emerald-500/30 bg-emerald-900/20 flex items-center justify-center text-emerald-300 font-bold shrink-0 cursor-pointer hover:bg-emerald-800/30 transition-colors select-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:scale-110"
           title={user.username || user.email || 'User'}
           onClick={openDropdown}
+          onKeyDown={(e) => { if (e.key === 'Enter') openDropdown(); }}
         >
           {(user.username || user.email || 'U')[0].toUpperCase()}
         </div>
@@ -548,14 +550,18 @@ export function AuthButton() {
                   {user.username || user.email}
                 </div>
                 <button
+                  tabIndex={0}
                   onClick={() => { setShowSettings(true); setIsDropdownOpen(false); }}
-                  className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/5 rounded-lg transition-colors"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { setShowSettings(true); setIsDropdownOpen(false); } }}
+                  className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/5 rounded-lg transition-colors focus:bg-white/10 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                 >
                   Settings
                 </button>
                 <button
+                  tabIndex={0}
                   onClick={() => { logout(); setIsDropdownOpen(false); }}
-                  className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { logout(); setIsDropdownOpen(false); } }}
+                  className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-white/5 rounded-lg transition-colors focus:bg-white/10 focus:outline-none focus:ring-1 focus:ring-red-500/50"
                 >
                   Sign Out
                 </button>
