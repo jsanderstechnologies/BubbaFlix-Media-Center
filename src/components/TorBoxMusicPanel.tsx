@@ -514,7 +514,7 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               ))}
             </div>
           )}
-        </>
+        </div>
       ) : (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -601,6 +601,8 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
             </div>
           )}
         </div>
+      )}
+        </>
       )}
 
       {activeTab === 'library' && (
