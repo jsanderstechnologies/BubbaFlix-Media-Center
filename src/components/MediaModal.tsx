@@ -702,8 +702,8 @@ export default function MediaModal({
   if (!movie) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-6 animate-fadeIn">
-      <div className="bg-[#0c0c12] border-0 md:border border-white/10 rounded-none md:rounded-2xl w-full h-full md:max-w-[96vw] md:max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn">
+      <div className="bg-[#0c0c12] border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
         <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 shrink-0">
             {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-35" referrerPolicy="no-referrer" />}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/60 to-transparent"></div>
