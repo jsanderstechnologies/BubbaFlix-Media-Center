@@ -944,7 +944,7 @@ export default function MediaModal({
                             {episodes.length > 0 && (
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Episode</label>
-                                    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
+                                    <div className="flex flex-wrap items-center gap-2 pb-2">
                                         {episodes.map(ep => (
                                             <button 
                                                 key={ep.episode_number} 

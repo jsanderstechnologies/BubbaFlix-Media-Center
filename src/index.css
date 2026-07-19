@@ -30,13 +30,6 @@
   --zoom-level: 1;
 }
 
-/* Fix fixed positioning when zoom is applied so elements cover the physical screen */
-.fixed.inset-0 {
-  right: auto !important;
-  bottom: auto !important;
-  width: calc(100vw / var(--zoom-level, 1)) !important;
-  height: calc(100vh / var(--zoom-level, 1)) !important;
-}
 
 /* Spatial Navigation Focus Styles */
 *:focus-visible {

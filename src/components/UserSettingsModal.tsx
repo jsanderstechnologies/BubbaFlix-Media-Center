@@ -35,14 +35,15 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
     focusTimeout = setTimeout(() => {
       SpatialNavigation.makeFocusable('settings-modal');
       SpatialNavigation.focus('settings-modal');
-      SpatialNavigation.disable('');
+      SpatialNavigation.disable('auth-dropdown');
+      SpatialNavigation.disable(''); // Disable background
     }, 50);
 
     return () => {
       clearTimeout(focusTimeout);
       SpatialNavigation.remove('settings-modal');
-      SpatialNavigation.enable('');
-      SpatialNavigation.focus('');
+      SpatialNavigation.enable('auth-dropdown');
+      SpatialNavigation.focus('auth-dropdown');
     };
   }, []);
 
