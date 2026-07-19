@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
-  Play, Pause, Music, Search, Disc, Loader2, ArrowLeft, Download, Volume2, VolumeX, History
+  Play, Pause, Music, Search, Disc, Loader2, ArrowLeft, Download, Volume2, VolumeX, History, UserPlus, UserCheck
 } from 'lucide-react';
 import { fetchStreamsForMusic, TorBoxSearchResult } from '../services/torboxSearchApi';
 import { useSettings } from '../lib/settings';
+import { useAuth } from './Auth';
+import { collection, addDoc, query as firestoreQuery, onSnapshot, where, deleteDoc, doc, serverTimestamp } from '../lib/localDb';
+import { db } from '../lib/localDb';
 
 interface AudioFile {
   id: number;
@@ -29,7 +32,72 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   
+  const { user } = useAuth();
+  const [savedArtists, setSavedArtists] = useState<any[]>([]);
+  
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setSavedArtists([]);
+      return;
+    }
+    const q = firestoreQuery(collection(db, 'saved_artists'), where('userId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setSavedArtists(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.error('Error fetching saved artists:', err));
+    return () => unsubscribe();
+  }, [user]);
+
+  const toggleSaveArtist = async (artistName: string, artworkUrl: string) => {
+    if (!user) {
+      alert("Please log in to add artists to your library.");
+      return;
+    }
+    const existing = savedArtists.find(a => a.artistName.toLowerCase() === artistName.toLowerCase());
+    if (existing) {
+      try { await deleteDoc(doc(db, 'saved_artists', existing.id)); } catch (err) {}
+    } else {
+      try {
+        await addDoc(collection(db, 'saved_artists'), {
+          userId: user.uid,
+          artistName: artistName,
+          artwork: artworkUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=300&h=300',
+          addedAt: serverTimestamp()
+        });
+      } catch (err) {}
+    }
+  };
+
+  const { data: artistInfo } = useQuery<any>({
+    queryKey: ['itunes-artist-search', debouncedQuery],
+    queryFn: async () => {
+      if (!debouncedQuery) return null;
+      try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(debouncedQuery)}&entity=musicArtist&limit=1`);
+        const data = await res.json();
+        if (data.results && data.results.length > 0) {
+          const artist = data.results[0];
+          // Apple Music doesn't return high res images directly for artists on this endpoint often,
+          // but we can try to fetch a related track to get artwork if needed.
+          const trackRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(artist.artistName)}&entity=song&limit=1`);
+          const trackData = await trackRes.json();
+          const artwork = trackData.results?.[0]?.artworkUrl100?.replace('100x100bb', '640x640bb') 
+            || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=300&h=300';
+          
+          return {
+            name: artist.artistName,
+            genre: artist.primaryGenreName,
+            artwork
+          };
+        }
+      } catch (e) {
+        console.error("Artist fetch error:", e);
+      }
+      return null;
+    },
+    enabled: !!debouncedQuery,
+  });
 
   useEffect(() => {
     if (initialQuery) setQuery(initialQuery);
@@ -259,6 +327,32 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
           {isSearching && (
             <div className="flex items-center justify-center py-12 text-red-500">
               <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+          )}
+
+          {!isSearching && artistInfo && (
+            <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 p-6 bg-gradient-to-br from-red-900/20 to-black/40 border border-white/10 rounded-2xl mb-6">
+              <img src={artistInfo.artwork} alt={artistInfo.name} className="w-32 h-32 rounded-full object-cover shadow-2xl shadow-red-900/20" />
+              <div className="flex flex-col justify-center flex-1 text-center sm:text-left">
+                <span className="text-xs uppercase tracking-widest text-red-500 font-bold mb-1">Artist Profile</span>
+                <h3 className="text-3xl font-bold text-white mb-1">{artistInfo.name}</h3>
+                <span className="text-sm text-white/50">{artistInfo.genre}</span>
+              </div>
+              <div className="flex items-center">
+                <button 
+                  onClick={() => toggleSaveArtist(artistInfo.name, artistInfo.artwork)}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all shadow-lg
+                    ${savedArtists.some(a => a.artistName.toLowerCase() === artistInfo.name.toLowerCase())
+                      ? 'bg-red-500 text-white shadow-red-500/25 hover:bg-red-600' 
+                      : 'bg-white/10 text-white hover:bg-white/20'}`}
+                >
+                  {savedArtists.some(a => a.artistName.toLowerCase() === artistInfo.name.toLowerCase()) ? (
+                    <><UserCheck className="w-4 h-4" /> In Library</>
+                  ) : (
+                    <><UserPlus className="w-4 h-4" /> Save to Library</>
+                  )}
+                </button>
+              </div>
             </div>
           )}
 
