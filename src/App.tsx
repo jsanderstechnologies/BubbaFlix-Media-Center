@@ -21,6 +21,7 @@ import LibraryGrid from './components/LibraryGrid';
 import { VirtualKeyboard } from './components/VirtualKeyboard';
 import HomePanel from './components/HomePanel';
 import SearchPanel from './components/SearchPanel';
+import MusicPanel from './components/MusicPanel';
 
 
 const queryClient = new QueryClient();
@@ -482,6 +483,14 @@ function MainApp() {
             <span className="text-[9px] uppercase tracking-wider font-medium">Movies</span>
           </div>
           <div 
+            onClick={() => { setActiveTab('music'); setSearchQuery(''); }}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 ${activeTab === 'music' ? 'text-red-500' : ''}`}
+            title="Music Search"
+          >
+            <Music className="w-6 h-6" />
+            <span className="text-[9px] uppercase tracking-wider font-medium">Music</span>
+          </div>
+          <div 
             onClick={() => { setActiveTab('library'); setSearchQuery(''); }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 ${activeTab === 'library' ? 'text-red-500' : ''}`}
             title="Library / Favorites"
@@ -560,6 +569,7 @@ function MainApp() {
               {activeTab === 'search' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Search</span></h1>}
               {activeTab === 'catalog' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Movie <span className="text-red-500 font-medium italic">Catalog</span></h1>}
               {activeTab === 'series' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">TV <span className="text-red-500 font-medium italic">Series</span></h1>}
+              {activeTab === 'music' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Music <span className="text-red-500 font-medium italic">Search</span></h1>}
               {activeTab === 'library' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">My <span className="text-red-500 font-medium italic">Library</span></h1>}
               {activeTab === 'tv' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Live <span className="text-emerald-400 font-medium italic">TV Guide</span></h1>}
               {activeTab === 'settings' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Settings</span></h1>}
@@ -730,6 +740,8 @@ function MainApp() {
             <>
               <LibraryGrid onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} />
             </>
+          ) : activeTab === 'music' ? (
+            <MusicPanel initialQuery={searchQuery} />
           ) : activeTab === 'tv' ? (
             <IptvGuide onPlayStream={handlePlayStream} />
           ) : activeTab === 'settings' ? (
