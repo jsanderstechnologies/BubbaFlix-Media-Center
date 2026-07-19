@@ -132,8 +132,11 @@ export default function MediaModal({
       if (!apiKey) return;
       try {
         const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
-        await new Promise(r => setTimeout(r, 1000));
-        const uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+        let uRes = null;
+        if (systemSettings.enableUsenetSearch !== false) {
+          await new Promise(r => setTimeout(r, 1000));
+          uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+        }
 
         let activeTorrents: any[] = [];
         let activeUsenet: any[] = [];
@@ -266,8 +269,11 @@ export default function MediaModal({
         if (apiKey) {
             try {
                 const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
-                await new Promise(r => setTimeout(r, 1000));
-                const uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+                let uRes = null;
+                if (systemSettings.enableUsenetSearch !== false) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+                }
                 if (tRes && tRes.ok) {
                     const tData = await tRes.json();
                     if (tData && tData.success && tData.data) {
@@ -457,8 +463,11 @@ export default function MediaModal({
         if (apiKey) {
             try {
                 const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
-                await new Promise(r => setTimeout(r, 1000));
-                const uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+                let uRes = null;
+                if (systemSettings.enableUsenetSearch !== false) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+                }
                 
                 if (tRes && tRes.ok) {
                     const tData = await tRes.json();

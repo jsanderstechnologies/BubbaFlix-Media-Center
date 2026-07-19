@@ -52,6 +52,20 @@ let globalSystemSettings: SystemSettings = {};
 let globalUserSettings: UserSettings = DEFAULT_USER_SETTINGS;
 let globalZoom: number = parseFloat(localStorage.getItem('zoom') || '1');
 
+function syncSystemSettingsToLocalStorage(data: SystemSettings) {
+  if (data.tmdbKey) localStorage.setItem('tmdbKey', data.tmdbKey);
+  else localStorage.removeItem('tmdbKey');
+
+  if (data.torboxApiKey) localStorage.setItem('torboxApiKey', data.torboxApiKey);
+  else localStorage.removeItem('torboxApiKey');
+
+  if (data.geminiApiKey) localStorage.setItem('geminiApiKey', data.geminiApiKey);
+  else localStorage.removeItem('geminiApiKey');
+
+  localStorage.setItem('enableUsenetSearch', data.enableUsenetSearch !== false ? 'true' : 'false');
+  localStorage.setItem('enableTorrentSearch', data.enableTorrentSearch !== false ? 'true' : 'false');
+}
+
 type SystemSettingsListener = (settings: SystemSettings) => void;
 type UserSettingsListener = (settings: UserSettings) => void;
 type ZoomListener = (zoom: number) => void;
@@ -70,11 +84,7 @@ export function fetchSettings() {
     .then(res => res.json())
     .then(data => {
       globalSystemSettings = data;
-      if (data.tmdbKey) {
-        localStorage.setItem('tmdbKey', data.tmdbKey);
-      } else {
-        localStorage.removeItem('tmdbKey');
-      }
+      syncSystemSettingsToLocalStorage(data);
       systemSettingsListeners.forEach(fn => fn(data));
     })
     .catch(console.error);
@@ -98,11 +108,7 @@ export function fetchSettings() {
 
 export function updateSystemSettings(newSettings: SystemSettings) {
   globalSystemSettings = { ...globalSystemSettings, ...newSettings };
-  if (globalSystemSettings.tmdbKey) {
-    localStorage.setItem('tmdbKey', globalSystemSettings.tmdbKey);
-  } else {
-    localStorage.removeItem('tmdbKey');
-  }
+  syncSystemSettingsToLocalStorage(globalSystemSettings);
   systemSettingsListeners.forEach(fn => fn(globalSystemSettings));
   
   const token = localStorage.getItem('authToken');
