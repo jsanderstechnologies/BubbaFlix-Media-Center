@@ -1384,9 +1384,9 @@ app.get('/api/youtube/search', async (req, res) => {
     );
 
     if (isLive) {
-      args.push('-map', '0:v:0', '-map', '0:a:0?');
+      args.push('-map', '0:V:0', '-map', '0:a:0?');
     } else {
-      args.push('-map', '0:v:0');
+      args.push('-map', '0:V:0');
       if (audioTrack && audioTrack !== '0') {
         if (isNaN(parseInt(audioTrack as string, 10))) {
           // It is a language code like 'eng'
@@ -1412,8 +1412,8 @@ app.get('/api/youtube/search', async (req, res) => {
         const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(resolvedUrl)}`;
         const infoRes = await axios.get(infoUrl, { timeout: 15000 });
         const mediaInfo = infoRes.data;
-        const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video');
-        if (videoStream && (videoStream.codec_name === 'hevc' || videoStream.codec_name === 'dvvideo')) {
+        const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video' && s.codec_name !== 'mjpeg' && s.codec_name !== 'png' && s.codec_name !== 'bmp');
+        if (videoStream && (videoStream.codec_name !== 'h264' || (videoStream.pix_fmt && videoStream.pix_fmt.includes('10')) || (videoStream.width && videoStream.width > 2000))) {
           isHevc = true;
         }
         codecCache.set(targetUrl, isHevc);
