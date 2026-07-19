@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
 import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2 } from 'lucide-react';
-import { collection, query, where, onSnapshot } from './lib/localDb';
+import { collection, query, where, onSnapshot, setDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
 import { logger } from './lib/logger';
 import { useSettings } from './lib/settings';
@@ -46,6 +46,7 @@ function MainApp() {
   const [isTranscoding, setIsTranscoding] = useState<boolean>(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playingUrl, setPlayingUrl] = useState<string>('');
+  const [playingContext, setPlayingContext] = useState<any>(null);
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [mediaInfo, setMediaInfo] = useState<any>(null);
   const [selectedAudioTrack, setSelectedAudioTrack] = useState<number>(0);
@@ -178,8 +179,36 @@ function MainApp() {
     };
     
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isPlaying, totalDuration]);
+
+  // Periodically save playback progress
+  useEffect(() => {
+    if (!isPlaying || !playingContext || !user) return;
+    
+    const interval = setInterval(() => {
+      const currentAbsoluteTime = streamOffset + (videoRef.current?.currentTime || 0);
+      const total = totalDuration || 0;
+      if (currentAbsoluteTime > 0 && total > 0 && currentAbsoluteTime < total - 5) {
+        const progressRef = { collectionName: 'user_progress', id: `${user.uid}_${playingContext.id}` };
+        setDoc(progressRef, {
+          userId: user.uid,
+          mediaId: playingContext.id,
+          type: playingContext.type,
+          season: playingContext.season || null,
+          episode: playingContext.episode || null,
+          currentTime: currentAbsoluteTime,
+          totalDuration: total,
+          updatedAt: serverTimestamp(),
+          percentage: (currentAbsoluteTime / total) * 100
+        }, { merge: true }).catch(err => console.error("Failed to save progress:", err));
+      }
+    }, 10000); // Save every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [isPlaying, playingContext, streamOffset, totalDuration, user]);
 
   useEffect(() => {
     if (isPlaying && playingUrl) {
@@ -199,9 +228,10 @@ function MainApp() {
     }
   }, [isPlaying, playingUrl]);
 
-  const handlePlayStream = async (url: string, channelLogoUrl?: string) => {
+  const handlePlayStream = async (url: string, channelLogoUrl?: string, resumeTime?: number, context?: any) => {
     logger.info("Built-in Player: Requesting to play stream", { url });
-    setStreamOffset(0);
+    setStreamOffset(resumeTime || 0);
+    setPlayingContext(context || null);
     setCurrentTime(0);
     setBufferedSeconds(0);
     setTotalDuration(0);
@@ -270,6 +300,7 @@ function MainApp() {
                   setIsPlaying(false); 
                   setPlayerStatus('STREAM READY'); 
                   setPlayingUrl('');
+                  setPlayingContext(null);
                   setStreamOffset(0);
                   setCurrentTime(0);
                   setBufferedSeconds(0);
@@ -324,7 +355,7 @@ function MainApp() {
               <video 
                 key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}`}
                 ref={videoRef}
-                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&audio=${encodeURIComponent(userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
+                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&audio=${encodeURIComponent(userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
                 autoPlay
                 className="w-full h-full object-contain absolute top-0 left-0"
                 onTimeUpdate={(e) => {

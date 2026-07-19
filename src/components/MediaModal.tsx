@@ -29,7 +29,7 @@ export default function MediaModal({
 }: { 
   movie: any, 
   onClose: () => void, 
-  onPlay: (url: string) => void,
+  onPlay: (url: string, channelLogoUrl?: string, resumeTime?: number, context?: any) => void,
   onActorSearch?: (actorName: string) => void
 }) {
   const [streams, setStreams] = useState<any[]>([]);
@@ -49,6 +49,27 @@ export default function MediaModal({
     tagline?: string;
   } | null>(null);
   const [extraLoading, setExtraLoading] = useState(false);
+  const [savedProgress, setSavedProgress] = useState<any>(null);
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const triggerPlay = (dlUrl: string) => {
+    let resumeTime = 0;
+    if (savedProgress && savedProgress.currentTime > 0 && savedProgress.percentage < 95) {
+      if (window.confirm(`Resume playback from ${formatTime(savedProgress.currentTime)}?\n\nCancel to start from the beginning.`)) {
+        resumeTime = savedProgress.currentTime;
+      }
+    }
+    const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode };
+    onPlay(dlUrl, undefined, resumeTime, context);
+  };
 
   const isSeries = movie?.type === 'series' || !!movie?.first_air_date;
 
@@ -65,6 +86,18 @@ export default function MediaModal({
       setStreams([]);
     }
   }, [movie, isSeries]);
+
+  useEffect(() => {
+    if (!user || !movie) return;
+    const q = query(collection(db, 'progress'), where('userId', '==', user.uid), where('mediaId', '==', movie.id));
+    getDocs(q).then(snapshot => {
+      const docs = snapshot.docs.map(d => d.data());
+      const prog = docs.find(d => 
+        (isSeries ? d.season === selectedSeason && d.episode === selectedEpisode : true)
+      );
+      setSavedProgress(prog || null);
+    });
+  }, [user, movie, selectedSeason, selectedEpisode, isSeries]);
 
   useEffect(() => {
     if (movie) {
@@ -185,7 +218,7 @@ export default function MediaModal({
 
         if (playUrlToTrigger) {
           console.log("[Auto-Play] Triggering playback for finished download:", playUrlToTrigger);
-          onPlay(playUrlToTrigger);
+          triggerPlay(playUrlToTrigger);
         }
 
       } catch (err) {
@@ -896,26 +929,21 @@ export default function MediaModal({
                                   }
 
                                   if (stream.isCached) {
-                                    // If we already attached the exact download ID during cross-referencing or injection, play it instantly!
-                                    if (stream.id && stream.url && stream.url.includes('requestdl')) {
-                                      onPlay(stream.url);
+                                    if (stream.id !== 0 || (stream.type === 'usenet' && stream.isCached)) {
+                                      triggerPlay(stream.url);
                                       return;
                                     }
 
-                                    // Otherwise, this is a search result that TorBox says is cached on their end,
-                                    // but it's not in our personal download list yet.
                                     const dlEndpoint = stream.type === 'usenet' 
                                       ? `/api/torbox/usenet/list`
                                       : `/api/torbox/torrents`;
                                     
                                     try {
-                                      // Get cached download url
                                       const res = await fetch(dlEndpoint, {
                                         headers: { Authorization: `Bearer ${apiKey}` }
                                       });
                                       if (res.ok) {
                                         const result = await res.json();
-                                        // Try to find if this item is already in user downloads list
                                         const existing = result.data?.find((t: any) => {
                                           if (stream.type === 'torrent' && stream.hash && t.hash) {
                                             return t.hash.toLowerCase() === stream.hash.toLowerCase();
@@ -924,14 +952,11 @@ export default function MediaModal({
                                           const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
                                           const tName = (t.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
                                           
-                                          // Very loose names (e.g. short strings) shouldn't blindly match
                                           const isValidNameMatch = (sName.length > 5 && tName.length > 5) && 
                                             (tName === sName || sName.includes(tName) || tName.includes(sName));
                                             
                                           if (stream.type === 'usenet') {
                                             const sizeMatch = stream.sizeBytes && t.size && Math.abs(t.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
-                                            // For Usenet, we require BOTH a reasonable name match AND a size match to avoid false positives 
-                                            // on files of the exact same size, or files with very vague names.
                                             return isValidNameMatch && sizeMatch;
                                           }
                                           
@@ -942,7 +967,7 @@ export default function MediaModal({
                                           const dlUrl = stream.type === 'torrent' 
                                             ? getTorrentRequestDlUrl(existing, apiKey)
                                             : `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${existing.id}&zip_link=false&redirect=true`;
-                                          onPlay(dlUrl);
+                                          triggerPlay(dlUrl);
                                           return;
                                         }
                                       }
@@ -950,9 +975,7 @@ export default function MediaModal({
                                       console.error("Failed to check active downloads", err);
                                     }
 
-                                    // If not in downloads list, create download instantly (it will be instant since it's cached)
                                     if (stream.type === 'usenet') {
-                                      // Update local state to show 'Adding to provider...' immediately
                                       setStreams(prev => prev.map(s => {
                                         if (s.id === stream.id) {
                                           return { ...s, isAdding: true, isCached: false };
@@ -978,7 +1001,7 @@ export default function MediaModal({
                                             return s;
                                           }));
                                           const dlUrl = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${resData.data.usenet_id}&zip_link=false&redirect=true`;
-                                          onPlay(dlUrl);
+                                          triggerPlay(dlUrl);
                                         } else {
                                           setStreams(prev => prev.map(s => {
                                             if (s.id === stream.id) {
@@ -999,7 +1022,6 @@ export default function MediaModal({
                                         alert("Error adding Usenet stream: " + err.message);
                                       }
                                     } else {
-                                      // Torrent instant cached add
                                       try {
                                         const createRes = await fetch('/api/torbox/torrents/create', {
                                           method: 'POST',
@@ -1019,7 +1041,7 @@ export default function MediaModal({
                                           }));
                                           setPollingActive(true);
                                           const dlUrl = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${resData.data.torrent_id}&zip_link=false&redirect=true&file_id=0`;
-                                          onPlay(dlUrl);
+                                          triggerPlay(dlUrl);
                                         } else {
                                           alert("Failed to add Torrent: " + (resData.detail || "Unknown error"));
                                         }

@@ -184,6 +184,23 @@ export const updateDoc = async (docRef: { collectionName: string, id: string }, 
   }
 };
 
+export const setDoc = async (docRef: { collectionName: string, id: string }, data: any, options?: { merge?: boolean }) => {
+  const items = dbCache[docRef.collectionName] || await fetchCollection(docRef.collectionName);
+  const index = items.findIndex((item: any) => item.id === docRef.id);
+  
+  if (index !== -1) {
+    if (options?.merge) {
+      items[index] = { ...items[index], ...data, id: docRef.id };
+    } else {
+      items[index] = { ...data, id: docRef.id };
+    }
+  } else {
+    items.push({ ...data, id: docRef.id });
+  }
+  
+  await saveCollection(docRef.collectionName, items);
+};
+
 export const arrayRemove = (value: any) => ({ _isMockArrayRemove: true, value });
 export const arrayUnion = (value: any) => ({ _isMockArrayUnion: true, value });
 export const serverTimestamp = () => ({ toMillis: () => Date.now() });
