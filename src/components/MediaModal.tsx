@@ -6,6 +6,7 @@ import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, s
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
 import { useSettings } from '../lib/settings';
+import SpatialNavigation from 'spatial-navigation-js';
 
 function getTorrentRequestDlUrl(torrentMatch: any, apiKey: string): string {
   let fileIdStr = '';
@@ -51,6 +52,23 @@ export default function MediaModal({
   const [extraLoading, setExtraLoading] = useState(false);
   const [savedProgress, setSavedProgress] = useState<any>(null);
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
+
+  useEffect(() => {
+    SpatialNavigation.add('media-modal', {
+      selector: '#media-modal .focusable, #media-modal button, #media-modal input, #media-modal select, #media-modal [tabindex="0"]',
+      restrict: 'self-only',
+      enterTo: 'last-focused'
+    });
+    SpatialNavigation.makeFocusable('media-modal');
+    SpatialNavigation.focus('media-modal');
+    SpatialNavigation.disable('');
+
+    return () => {
+      SpatialNavigation.remove('media-modal');
+      SpatialNavigation.enable('');
+      SpatialNavigation.focus('');
+    };
+  }, []);
 
   const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -711,7 +729,7 @@ export default function MediaModal({
   if (!movie) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn">
+    <div id="media-modal" className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn">
       <div className="bg-[#0c0c12] border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
         <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 shrink-0">
             {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-35" referrerPolicy="no-referrer" />}

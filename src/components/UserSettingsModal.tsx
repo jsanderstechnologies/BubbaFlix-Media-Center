@@ -24,15 +24,18 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
 
   useEffect(() => {
     SpatialNavigation.add('settings-modal', {
-      selector: '#user-settings-modal .focusable',
+      selector: '#user-settings-modal .focusable, #user-settings-modal button, #user-settings-modal input, #user-settings-modal select, #user-settings-modal [tabindex="0"]',
       restrict: 'self-only',
       enterTo: 'last-focused'
     });
     SpatialNavigation.makeFocusable('settings-modal');
     SpatialNavigation.focus('settings-modal');
+    SpatialNavigation.disable('');
 
     return () => {
       SpatialNavigation.remove('settings-modal');
+      SpatialNavigation.enable('');
+      SpatialNavigation.focus('');
     };
   }, []);
 
