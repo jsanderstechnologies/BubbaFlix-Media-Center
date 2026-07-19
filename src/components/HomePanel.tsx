@@ -225,10 +225,12 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                   {sec.items.map((item) => (
                     <div 
                       key={item.id} 
-                      className="w-36 sm:w-44 shrink-0 group cursor-pointer"
+                      className="w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl"
                       onClick={() => onSelectMedia(item)}
                       onMouseEnter={() => onHoverMedia?.(item.poster)}
                       onMouseLeave={() => onHoverMedia?.('')}
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia(item); }}
                     >
                       <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
                         {item.poster ? (

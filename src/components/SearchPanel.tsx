@@ -410,10 +410,12 @@ export default function SearchPanel({
                   {movies.map((item: any) => (
                     <div 
                       key={item.id} 
-                      className="w-36 sm:w-44 shrink-0 group cursor-pointer"
+                      className="w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl"
                       onClick={() => onSelectMedia(item)}
                       onMouseEnter={() => onHoverMedia?.(item.poster)}
                       onMouseLeave={() => onHoverMedia?.('')}
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia(item); }}
                     >
                       <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
                         {item.poster ? (
@@ -465,10 +467,12 @@ export default function SearchPanel({
                   {tvSeries.map((item: any) => (
                     <div 
                       key={item.id} 
-                      className="w-36 sm:w-44 shrink-0 group cursor-pointer"
+                      className="w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl"
                       onClick={() => onSelectMedia({ ...item, type: 'series' })}
                       onMouseEnter={() => onHoverMedia?.(item.poster)}
                       onMouseLeave={() => onHoverMedia?.('')}
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia({ ...item, type: 'series' }); }}
                     >
                       <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-indigo-500 group-hover:ring-2 group-hover:ring-indigo-500/50 transition-all duration-500">
                         {item.poster ? (
@@ -520,7 +524,9 @@ export default function SearchPanel({
                   {musicArtists.map((artist: any) => (
                     <div 
                       key={artist.id} 
-                      className="w-24 sm:w-28 shrink-0 group cursor-pointer text-center animate-fadeIn"
+                      className="w-24 sm:w-28 shrink-0 group cursor-pointer text-center animate-fadeIn focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { if (onSelectMusic) onSelectMusic(artist.name); else onSelectSuggestion(artist.name); }}}
                       onClick={() => {
                         if (onSelectMusic) {
                           onSelectMusic(artist.name);
@@ -575,7 +581,9 @@ export default function SearchPanel({
                   {musicAlbums.map((album: any) => (
                     <div 
                       key={album.id} 
-                      className="w-32 sm:w-40 shrink-0 group cursor-pointer animate-fadeIn"
+                      className="w-32 sm:w-40 shrink-0 group cursor-pointer animate-fadeIn focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { if (onSelectMusic) onSelectMusic(album.title); else onSelectSuggestion(`${album.title} ${album.artist}`); }}}
                       onClick={() => {
                         if (onSelectMusic) {
                           onSelectMusic(album.title);
@@ -648,7 +656,9 @@ export default function SearchPanel({
                     return (
                       <div 
                         key={track.id} 
-                        className="w-32 sm:w-40 shrink-0 group cursor-pointer animate-fadeIn"
+                        className="w-32 sm:w-40 shrink-0 group cursor-pointer animate-fadeIn focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { if (onSelectMusic) onSelectMusic(track.title); else playTrack(track); }}}
                         onClick={() => {
                           if (onSelectMusic) {
                             onSelectMusic(track.title);
@@ -731,8 +741,10 @@ export default function SearchPanel({
                   >
                     <div 
                       onClick={() => onActorSearchClick(actor.name)}
-                      className="flex items-center gap-3.5 min-w-0 flex-1 cursor-pointer"
+                      className="flex items-center gap-3.5 min-w-0 flex-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
                       title={`Find movies and series starring ${actor.name}`}
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') onActorSearchClick(actor.name); }}
                     >
                       <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-slate-800 border border-white/10 group-hover:border-red-500/30 transition-colors shadow">
                         {actor.profilePath ? (

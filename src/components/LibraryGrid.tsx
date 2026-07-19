@@ -370,10 +370,12 @@ export function LibraryGrid({ onSelectMedia, onHoverMedia }: { onSelectMedia: (m
               {filteredFavorites.map((item: any) => (
                 <div 
                   key={item.favoriteId} 
-                  className="group cursor-pointer" 
+                  className="group cursor-pointer focus:outline-none" 
                   onClick={() => onSelectMedia(item)}
                   onMouseEnter={() => onHoverMedia?.(item.poster)}
                   onMouseLeave={() => onHoverMedia?.('')}
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia(item); }}
                 >
                   <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
                     {item.poster ? (
