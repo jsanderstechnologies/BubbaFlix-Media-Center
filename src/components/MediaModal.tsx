@@ -815,7 +815,8 @@ export default function MediaModal({
                             >
                               <div 
                                 onClick={() => onActorSearch && onActorSearch(actor.name)}
-                                className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                                tabIndex={0}
+                                className="focusable flex items-center gap-3 min-w-0 flex-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-xl"
                                 title={`Find media with ${actor.name} inside the app`}
                               >
                                 <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-slate-800 border border-white/10 group-hover:border-red-500/30 transition-colors">
@@ -1170,7 +1171,8 @@ export default function MediaModal({
                                 return (
                                   <div 
                                     key={stream.id} 
-                                    className="flex flex-col p-3.5 bg-white/5 border border-white/10 rounded-xl hover:bg-red-950/10 hover:border-red-500/20 transition-all cursor-pointer group" 
+                                    tabIndex={0}
+                                    className="focusable flex flex-col p-3.5 bg-white/5 border border-white/10 rounded-xl hover:bg-red-950/10 hover:border-red-500/20 transition-all cursor-pointer group focus:bg-red-950/20 focus:border-red-500/50 focus:outline-none focus:scale-[1.02]" 
                                     onClick={handleStreamClick}
                                   >
                                       <div className="flex items-start justify-between gap-3">
