@@ -87,17 +87,7 @@ export default function MediaModal({
     }
   }, [movie, isSeries]);
 
-  useEffect(() => {
-    if (!user || !movie) return;
-    const q = query(collection(db, 'progress'), where('userId', '==', user.uid), where('mediaId', '==', movie.id));
-    getDocs(q).then(snapshot => {
-      const docs = snapshot.docs.map(d => d.data());
-      const prog = docs.find(d => 
-        (isSeries ? d.season === selectedSeason && d.episode === selectedEpisode : true)
-      );
-      setSavedProgress(prog || null);
-    });
-  }, [user, movie, selectedSeason, selectedEpisode, isSeries]);
+
 
   useEffect(() => {
     if (movie) {
@@ -110,6 +100,18 @@ export default function MediaModal({
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user || !movie) return;
+    const q = query(collection(db, 'user_progress'), where('userId', '==', user.uid), where('mediaId', '==', movie.id));
+    getDocs(q).then(snapshot => {
+      const docs = snapshot.docs.map(d => d.data());
+      const prog = docs.find(d => 
+        (isSeries ? d.season === selectedSeason && d.episode === selectedEpisode : true)
+      );
+      setSavedProgress(prog || null);
+    });
+  }, [user, movie, selectedSeason, selectedEpisode, isSeries]);
   
   const [prevMovieId, setPrevMovieId] = useState(movie?.id);
   if (movie?.id !== prevMovieId) {

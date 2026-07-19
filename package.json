@@ -30,6 +30,7 @@
     "motion": "^12.23.24",
     "nodemailer": "^9.0.3",
     "play-dl": "^1.9.7",
+    "playwright": "^1.61.1",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-player": "^3.4.0",
