@@ -843,6 +843,7 @@ function MainApp() {
           setActiveTab('search');
           setSelectedMovie(null);
         }}
+        isHidden={!!playingUrl}
       />
 
       <VirtualKeyboard

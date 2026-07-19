@@ -26,12 +26,14 @@ export default function MediaModal({
   movie, 
   onClose, 
   onPlay,
-  onActorSearch 
+  onActorSearch,
+  isHidden
 }: { 
   movie: any, 
   onClose: () => void, 
   onPlay: (url: string, channelLogoUrl?: string, resumeTime?: number, context?: any) => void,
-  onActorSearch?: (actorName: string) => void
+  onActorSearch?: (actorName: string) => void,
+  isHidden?: boolean
 }) {
   const [streams, setStreams] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -54,6 +56,13 @@ export default function MediaModal({
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isHidden) {
+      SpatialNavigation.remove('media-modal');
+      SpatialNavigation.enable('');
+      SpatialNavigation.focus('');
+      return;
+    }
+
     SpatialNavigation.add('media-modal', {
       selector: '#media-modal .focusable, #media-modal button, #media-modal input, #media-modal select, #media-modal [tabindex="0"]',
       restrict: 'self-only',
@@ -68,7 +77,7 @@ export default function MediaModal({
       SpatialNavigation.enable('');
       SpatialNavigation.focus('');
     };
-  }, []);
+  }, [isHidden]);
 
   const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -729,7 +738,7 @@ export default function MediaModal({
   if (!movie) return null;
 
   return (
-    <div id="media-modal" className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn">
+    <div id="media-modal" className={`fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn ${isHidden ? 'hidden' : ''}`}>
       <div className="bg-[#0c0c12] border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
         <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 shrink-0">
             {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-35" referrerPolicy="no-referrer" />}
