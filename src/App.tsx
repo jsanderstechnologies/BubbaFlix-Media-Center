@@ -63,7 +63,7 @@ function MainApp() {
   useEffect(() => {
     SpatialNavigation.init();
     SpatialNavigation.add({
-      selector: 'button, a, input, [tabindex="0"]'
+      selector: 'button, a, input, select, textarea, [tabindex="0"]'
     });
     SpatialNavigation.makeFocusable();
     SpatialNavigation.focus();
