@@ -176,3 +176,51 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
     return [];
   }
 };
+
+export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchResult[]> => {
+  const queryStr = query;
+  console.log(`[TorBox Search] Searching Music: "${queryStr}"`);
+  
+  const headers = getAuthHeaders();
+  
+  const performSearch = async (): Promise<TorBoxSearchResult[]> => {
+    const enableUsenet = localStorage.getItem('enableUsenetSearch') !== 'false';
+    const enableTorrent = localStorage.getItem('enableTorrentSearch') !== 'false';
+
+    const [usenetResults, torrentResults] = await Promise.all([
+      (async () => {
+        if (!enableUsenet) return [];
+        try {
+          const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
+          const json = res.ok ? await res.json() : null;
+          // For music, we might not want strict title filtering, so we don't pass `query` to mapResults, 
+          // or we just pass undefined to allow broader matches (e.g. "Daft Punk Discovery" -> "Daft Punk Discography")
+          return (json?.success && json?.data) ? mapResults(json.data, 'usenet', undefined) : [];
+        } catch (e) {
+          console.error("[TorBox Search] Usenet query error:", e);
+          return [];
+        }
+      })(),
+      (async () => {
+        if (!enableTorrent) return [];
+        try {
+          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
+          const json = res.ok ? await res.json() : null;
+          return (json?.success && json?.data) ? mapResults(json.data, 'torrent', undefined) : [];
+        } catch (e) {
+          console.error("[TorBox Search] Torrent query error:", e);
+          return [];
+        }
+      })()
+    ]);
+    
+    return [...usenetResults, ...torrentResults];
+  };
+
+  try {
+    return await performSearch();
+  } catch (error) {
+    console.error("[TorBox Search] Error querying music streams:", error);
+    return [];
+  }
+};

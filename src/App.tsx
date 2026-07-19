@@ -21,7 +21,7 @@ import LibraryGrid from './components/LibraryGrid';
 import { VirtualKeyboard } from './components/VirtualKeyboard';
 import HomePanel from './components/HomePanel';
 import SearchPanel from './components/SearchPanel';
-import MusicPanel from './components/MusicPanel';
+import TorBoxMusicPanel from './components/TorBoxMusicPanel';
 
 
 const queryClient = new QueryClient();
@@ -741,7 +741,7 @@ function MainApp() {
               <LibraryGrid onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} />
             </>
           ) : activeTab === 'music' ? (
-            <MusicPanel initialQuery={searchQuery} />
+            <TorBoxMusicPanel initialQuery={searchQuery} />
           ) : activeTab === 'tv' ? (
             <IptvGuide onPlayStream={handlePlayStream} />
           ) : activeTab === 'settings' ? (
