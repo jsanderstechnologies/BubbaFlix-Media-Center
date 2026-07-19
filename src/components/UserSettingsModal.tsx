@@ -68,7 +68,6 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
           <button 
             tabIndex={0}
             onClick={onClose}
-            onKeyDown={(e) => { if (e.key === 'Enter') onClose(); }}
             className="focusable p-2 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors focus:bg-white/20 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
           >
             <X className="w-5 h-5" />
@@ -114,7 +113,6 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                 <label key={res} className="flex-1 cursor-pointer group">
                   <div 
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter') toggleResolution(res); }}
                     onClick={() => toggleResolution(res)}
                     className={`focusable flex items-center justify-center p-3 rounded-xl border transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
                     settings.resolutions?.includes(res) 
@@ -160,7 +158,6 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
             <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Playback Options</h3>
             <div 
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') setSettings({...settings, autoCC: !settings.autoCC}); }}
               onClick={() => setSettings({...settings, autoCC: !settings.autoCC})}
               className="focusable flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
             >
@@ -175,7 +172,6 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
 
             <div 
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') setSettings({...settings, enableAudioLeveling: !settings.enableAudioLeveling}); }}
               onClick={() => setSettings({...settings, enableAudioLeveling: !settings.enableAudioLeveling})}
               className="focusable flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
             >
@@ -196,7 +192,6 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
           <button 
             tabIndex={0}
             onClick={handleSave}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
             className="focusable w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-3 px-4 rounded-xl hover:bg-white/90 transition-colors focus:outline-none focus:ring-4 focus:ring-emerald-500/50"
           >
             <Save className="w-5 h-5" />

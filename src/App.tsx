@@ -518,7 +518,6 @@ function MainApp() {
           <div 
             tabIndex={0}
             onClick={() => { setActiveTab('home'); setSearchQuery(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setActiveTab('home'); setSearchQuery(''); } }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'home' ? 'text-red-500' : ''}`}
             title="Home"
           >
@@ -528,7 +527,6 @@ function MainApp() {
           <div 
             tabIndex={0}
             onClick={() => { setActiveTab('tv'); setSearchQuery(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setActiveTab('tv'); setSearchQuery(''); } }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'tv' ? 'text-red-500' : ''}`}
             title="Live TV"
           >
@@ -538,7 +536,6 @@ function MainApp() {
           <div 
             tabIndex={0}
             onClick={() => { setActiveTab('series'); setSearchQuery(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setActiveTab('series'); setSearchQuery(''); } }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'series' ? 'text-red-500' : ''}`}
             title="TV Series"
           >
@@ -548,7 +545,6 @@ function MainApp() {
           <div 
             tabIndex={0}
             onClick={() => { setActiveTab('catalog'); setSearchQuery(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setActiveTab('catalog'); setSearchQuery(''); } }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'catalog' ? 'text-red-500' : ''}`}
             title="Movies"
           >
@@ -558,7 +554,6 @@ function MainApp() {
           <div 
             tabIndex={0}
             onClick={() => { setActiveTab('music'); setSearchQuery(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setActiveTab('music'); setSearchQuery(''); } }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'music' ? 'text-red-500' : ''}`}
             title="Music Search"
           >
@@ -568,7 +563,6 @@ function MainApp() {
           <div 
             tabIndex={0}
             onClick={() => { setActiveTab('library'); setSearchQuery(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setActiveTab('library'); setSearchQuery(''); } }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'library' ? 'text-red-500' : ''}`}
             title="Library / Favorites"
           >
@@ -579,7 +573,6 @@ function MainApp() {
             <div 
               tabIndex={0}
               onClick={() => { setActiveTab('settings'); setSearchQuery(''); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setActiveTab('settings'); setSearchQuery(''); } }}
               className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
               title="Settings"
             >
@@ -686,7 +679,6 @@ function MainApp() {
               tabIndex={0}
               className="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-3 w-48 sm:w-64 cursor-pointer hover:bg-white/10 transition-colors relative focus:bg-white/10 focus:outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20"
               onClick={() => { setActiveTab('search'); setIsKeyboardOpen(true); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setActiveTab('search'); setIsKeyboardOpen(true); } }}
             >
               <Search className="w-4 h-4 text-white/50 shrink-0" />
               <input 
