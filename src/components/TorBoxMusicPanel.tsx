@@ -6,7 +6,7 @@ import {
 import { fetchStreamsForMusic, TorBoxSearchResult } from '../services/torboxSearchApi';
 import { useSettings } from '../lib/settings';
 import { useAuth } from './Auth';
-import { collection, addDoc, query as firestoreQuery, onSnapshot, where, deleteDoc, doc, serverTimestamp } from '../lib/localDb';
+import { collection, addDoc, query as firestoreQuery, onSnapshot, where, deleteDoc, doc, serverTimestamp, updateDoc, arrayUnion } from '../lib/localDb';
 import { db } from '../lib/localDb';
 
 interface AudioFile {
@@ -17,6 +17,7 @@ interface AudioFile {
 }
 
 export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?: string }) {
+  const [activeTab, setActiveTab] = useState<'search' | 'library' | 'playlists'>('search');
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const { systemSettings } = useSettings();
@@ -34,19 +35,41 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
   
   const { user } = useAuth();
   const [savedArtists, setSavedArtists] = useState<any[]>([]);
-  
+  const [savedAlbums, setSavedAlbums] = useState<any[]>([]);
+  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [selectedLibraryArtist, setSelectedLibraryArtist] = useState<any | null>(null);
+  const [selectedLibraryAlbum, setSelectedLibraryAlbum] = useState<any | null>(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<any | null>(null);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (!user) {
       setSavedArtists([]);
+      setSavedAlbums([]);
+      setPlaylists([]);
       return;
     }
-    const q = firestoreQuery(collection(db, 'saved_artists'), where('userId', '==', user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const qArtists = firestoreQuery(collection(db, 'saved_artists'), where('userId', '==', user.uid));
+    const unSubArtists = onSnapshot(qArtists, (snapshot) => {
       setSavedArtists(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error('Error fetching saved artists:', err));
-    return () => unsubscribe();
+
+    const qAlbums = firestoreQuery(collection(db, 'saved_albums'), where('userId', '==', user.uid));
+    const unSubAlbums = onSnapshot(qAlbums, (snapshot) => {
+      setSavedAlbums(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.error('Error fetching saved albums:', err));
+
+    const qPlaylists = firestoreQuery(collection(db, 'music_playlists'), where('userId', '==', user.uid));
+    const unSubPlaylists = onSnapshot(qPlaylists, (snapshot) => {
+      setPlaylists(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.error('Error fetching playlists:', err));
+
+    return () => {
+      unSubArtists();
+      unSubAlbums();
+      unSubPlaylists();
+    };
   }, [user]);
 
   const toggleSaveArtist = async (artistName: string, artworkUrl: string) => {
@@ -66,6 +89,107 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
           addedAt: serverTimestamp()
         });
       } catch (err) {}
+    }
+  };
+
+  const [showSaveAlbumModal, setShowSaveAlbumModal] = useState(false);
+  const [albumArtistName, setAlbumArtistName] = useState('');
+  const [showPlaylistModalForTrack, setShowPlaylistModalForTrack] = useState<any | null>(null);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [newPlaylistDesc, setNewPlaylistDesc] = useState('');
+
+  const createPlaylist = async (name: string, description: string) => {
+    if (!user) {
+      alert("Please log in to create playlists.");
+      return;
+    }
+    if (!name.trim()) return;
+    try {
+      await addDoc(collection(db, 'music_playlists'), {
+        userId: user.uid,
+        name: name.trim(),
+        description: description.trim() || '',
+        tracks: [],
+        addedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      setNewPlaylistName('');
+      setNewPlaylistDesc('');
+    } catch (err) {
+      console.error('Error creating playlist:', err);
+    }
+  };
+
+  const addTrackToPlaylist = async (playlistId: string, track: AudioFile) => {
+    if (!user) return;
+    const pl = playlists.find(p => p.id === playlistId);
+    if (!pl) return;
+    
+    if (pl.tracks.some((t: any) => t.id === track.id)) {
+      const updatedTracks = pl.tracks.filter((t: any) => t.id !== track.id);
+      try {
+        await updateDoc(doc(db, 'music_playlists', playlistId), {
+          tracks: updatedTracks,
+          updatedAt: serverTimestamp()
+        });
+      } catch (err) {
+        console.error('Error removing track from playlist:', err);
+      }
+    } else {
+      const serializedTrack = {
+        id: track.id,
+        name: track.name,
+        size: track.size,
+        url: track.url,
+        addedAt: Date.now()
+      };
+      try {
+        await updateDoc(doc(db, 'music_playlists', playlistId), {
+          tracks: arrayUnion(serializedTrack),
+          updatedAt: serverTimestamp()
+        });
+      } catch (err) {
+        console.error('Error adding track to playlist:', err);
+      }
+    }
+    setShowPlaylistModalForTrack(null);
+  };
+
+  const handleSaveAlbumToLibrary = async () => {
+    if (!user) {
+      alert("Please log in to save albums.");
+      return;
+    }
+    if (!albumArtistName.trim()) {
+      alert("Please specify the artist name.");
+      return;
+    }
+    
+    // First, ensure artist exists
+    const existingArtist = savedArtists.find(a => a.artistName.toLowerCase() === albumArtistName.trim().toLowerCase());
+    if (!existingArtist) {
+      await addDoc(collection(db, 'saved_artists'), {
+        userId: user.uid,
+        artistName: albumArtistName.trim(),
+        artwork: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=300&h=300',
+        addedAt: serverTimestamp()
+      });
+    }
+
+    try {
+      await addDoc(collection(db, 'saved_albums'), {
+        userId: user.uid,
+        artistName: albumArtistName.trim(),
+        albumName: selectedRelease?.name || 'Unknown Album',
+        torboxId: selectedRelease?.id,
+        torboxType: selectedRelease?.type,
+        audioFiles: audioFiles,
+        addedAt: serverTimestamp()
+      });
+      setShowSaveAlbumModal(false);
+      setAlbumArtistName('');
+    } catch (e) {
+      console.error("Error saving album:", e);
     }
   };
 
@@ -304,19 +428,28 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
 
   return (
     <div className="space-y-8 animate-fadeIn pb-32">
-      {/* Search Bar */}
-      <div className="bg-[#12121a] border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 shadow-lg max-w-3xl">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-          <input 
-            type="text"
-            placeholder="Search TorBox for music albums (e.g., 'Daft Punk FLAC')..."
-            className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/5 focus:border-red-500 rounded-xl text-sm text-white placeholder-white/30 outline-none transition-colors"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
+      {/* Tabs */}
+      <div className="flex items-center gap-6 border-b border-white/10 pb-4">
+        <button onClick={() => { setActiveTab('search'); setSelectedRelease(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'search' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>Search</button>
+        <button onClick={() => { setActiveTab('library'); setSelectedLibraryArtist(null); setSelectedLibraryAlbum(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'library' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>Library</button>
+        <button onClick={() => { setActiveTab('playlists'); setSelectedPlaylist(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'playlists' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>Playlists</button>
       </div>
+
+      {activeTab === 'search' && (
+        <>
+          {/* Search Bar */}
+          <div className="bg-[#12121a] border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 shadow-lg max-w-3xl">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <input 
+                type="text"
+                placeholder="Search TorBox for music albums (e.g., 'Daft Punk FLAC')..."
+                className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/5 focus:border-red-500 rounded-xl text-sm text-white placeholder-white/30 outline-none transition-colors"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+          </div>
 
       {!selectedRelease ? (
         <div className="space-y-4">
@@ -381,15 +514,29 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               ))}
             </div>
           )}
-        </div>
+        </>
       ) : (
         <div className="space-y-6">
-          <button 
-            onClick={() => setSelectedRelease(null)}
-            className="flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Results
-          </button>
+          <div className="flex items-center justify-between">
+            <button 
+              onClick={() => setSelectedRelease(null)}
+              className="flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to Results
+            </button>
+            
+            {audioFiles.length > 0 && (
+              <button
+                onClick={() => {
+                  setAlbumArtistName(artistInfo ? artistInfo.name : debouncedQuery);
+                  setShowSaveAlbumModal(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full text-sm font-medium transition-colors"
+              >
+                <Download className="w-4 h-4" /> Save Album to Library
+              </button>
+            )}
+          </div>
           
           <div className="bg-gradient-to-br from-red-900/20 to-black/40 border border-red-500/20 rounded-2xl p-6">
             <h2 className="text-xl font-bold text-white mb-2 break-words leading-tight">{selectedRelease.name}</h2>
@@ -441,11 +588,305 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                     <div className="text-xs text-white/30 font-mono shrink-0">
                       {formatBytes(file.size)}
                     </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowPlaylistModalForTrack(file); }}
+                      className="text-white/30 hover:text-white p-1.5 rounded-full transition-colors shrink-0"
+                      title="Add to Playlist"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    </button>
                   </div>
                 );
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'library' && (
+        <div className="space-y-6">
+          {!selectedLibraryArtist ? (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-white mb-6">Your Artists</h2>
+              {savedArtists.length === 0 ? (
+                <div className="text-center py-12 text-white/40">No artists saved yet. Search for an artist to add them!</div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                  {savedArtists.map(artist => (
+                    <div 
+                      key={artist.id} 
+                      onClick={() => setSelectedLibraryArtist(artist)}
+                      className="group cursor-pointer flex flex-col items-center gap-3 text-center"
+                    >
+                      <div className="w-32 h-32 rounded-full overflow-hidden shadow-lg border border-white/5 group-hover:border-red-500/50 transition-all group-hover:scale-105">
+                        <img src={artist.artwork} alt={artist.artistName} className="w-full h-full object-cover" />
+                      </div>
+                      <span className="text-sm font-medium text-white group-hover:text-red-400 transition-colors">{artist.artistName}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : !selectedLibraryAlbum ? (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 p-6 bg-gradient-to-br from-red-900/20 to-black/40 border border-white/10 rounded-2xl mb-6">
+                <img src={selectedLibraryArtist.artwork} alt={selectedLibraryArtist.artistName} className="w-32 h-32 rounded-full object-cover shadow-2xl" />
+                <div className="flex flex-col justify-center flex-1 text-center sm:text-left">
+                  <h3 className="text-3xl font-bold text-white mb-1">{selectedLibraryArtist.artistName}</h3>
+                  <button 
+                    onClick={() => setSelectedLibraryArtist(null)}
+                    className="mt-2 text-sm text-white/50 hover:text-white self-center sm:self-start flex items-center gap-2"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to Artists
+                  </button>
+                </div>
+                <div className="flex items-center">
+                  <button 
+                    onClick={() => toggleSaveArtist(selectedLibraryArtist.artistName, selectedLibraryArtist.artwork)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors text-sm"
+                  >
+                    <UserCheck className="w-4 h-4" /> Remove
+                  </button>
+                </div>
+              </div>
+
+              <h2 className="text-lg font-bold text-white mb-4">Saved Albums</h2>
+              {savedAlbums.filter(a => a.artistName.toLowerCase() === selectedLibraryArtist.artistName.toLowerCase()).length === 0 ? (
+                <div className="text-center py-12 text-white/40 bg-black/40 border border-white/5 rounded-2xl">
+                  No albums saved for this artist. Search TorBox and click "Save Album to Library".
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {savedAlbums
+                    .filter(a => a.artistName.toLowerCase() === selectedLibraryArtist.artistName.toLowerCase())
+                    .map(album => (
+                    <div 
+                      key={album.id}
+                      onClick={() => setSelectedLibraryAlbum(album)}
+                      className="bg-black/40 border border-white/5 hover:border-red-500/50 p-4 rounded-xl cursor-pointer transition-colors group flex items-center gap-4"
+                    >
+                      <div className="w-12 h-12 bg-red-950 rounded flex items-center justify-center shrink-0 border border-red-900/30">
+                        <Disc className="w-6 h-6 text-red-500" />
+                      </div>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-white font-medium truncate group-hover:text-red-400">{album.albumName}</span>
+                        <span className="text-xs text-white/40 mt-1">{album.audioFiles?.length || 0} tracks</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <button 
+                onClick={() => setSelectedLibraryAlbum(null)}
+                className="flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back to Albums
+              </button>
+              
+              <div className="bg-gradient-to-br from-red-900/20 to-black/40 border border-red-500/20 rounded-2xl p-6 flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-white mb-2 break-words leading-tight">{selectedLibraryAlbum.albumName}</h2>
+                  <div className="text-sm text-white/60">{selectedLibraryArtist.artistName}</div>
+                </div>
+              </div>
+
+              {selectedLibraryAlbum.audioFiles && selectedLibraryAlbum.audioFiles.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-sm font-semibold tracking-wider uppercase text-white/40 mb-2 pl-2">Tracks ({selectedLibraryAlbum.audioFiles.length})</h3>
+                  {selectedLibraryAlbum.audioFiles.map((file: any, idx: number) => {
+                    const isActive = playingTrack?.id === file.id;
+                    return (
+                      <div 
+                        key={file.id}
+                        onClick={() => playAudioFile(file)}
+                        className={`flex items-center gap-4 p-3 rounded-lg cursor-pointer transition-all ${
+                          isActive ? 'bg-red-500/10 border border-red-500/20' : 'hover:bg-white/5 border border-transparent'
+                        }`}
+                      >
+                        <div className="w-6 text-center text-xs text-white/40 font-mono">
+                          {isActive ? (
+                            <div className="flex items-end justify-center gap-0.5 h-3">
+                              <span className="w-1 h-3 bg-red-500 animate-pulse"></span>
+                              <span className="w-1 h-2 bg-red-500 animate-pulse delay-75"></span>
+                              <span className="w-1 h-3 bg-red-500 animate-pulse delay-150"></span>
+                            </div>
+                          ) : (
+                            idx + 1
+                          )}
+                        </div>
+                        <div className="flex-1 flex flex-col truncate">
+                          <span className={`truncate text-sm ${isActive ? 'text-red-400 font-medium' : 'text-white/80'}`}>
+                            {file.name}
+                          </span>
+                        </div>
+                        <div className="text-xs text-white/30 font-mono shrink-0">
+                          {formatBytes(file.size)}
+                        </div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setShowPlaylistModalForTrack(file); }}
+                          className="text-white/30 hover:text-white p-1.5 rounded-full transition-colors shrink-0"
+                          title="Add to Playlist"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'playlists' && (
+        <div className="space-y-6">
+          {!selectedPlaylist ? (
+            <div className="space-y-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Your Playlists</h2>
+              </div>
+              
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-3">
+                <h3 className="text-sm font-semibold text-white/80 uppercase tracking-widest">Create New Playlist</h3>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input type="text" placeholder="Playlist Name" value={newPlaylistName} onChange={e => setNewPlaylistName(e.target.value)} className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-red-500 outline-none flex-1" />
+                  <input type="text" placeholder="Description (Optional)" value={newPlaylistDesc} onChange={e => setNewPlaylistDesc(e.target.value)} className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-red-500 outline-none flex-1" />
+                  <button onClick={() => createPlaylist(newPlaylistName, newPlaylistDesc)} disabled={!newPlaylistName.trim()} className="bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:hover:bg-red-500 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors">Create</button>
+                </div>
+              </div>
+
+              {playlists.length === 0 ? (
+                <div className="text-center py-12 text-white/40">You haven't created any playlists yet.</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {playlists.map(pl => (
+                    <div key={pl.id} onClick={() => setSelectedPlaylist(pl)} className="bg-black/40 border border-white/10 hover:border-red-500/50 p-5 rounded-2xl cursor-pointer transition-colors group flex flex-col gap-2">
+                      <h3 className="text-lg font-bold text-white group-hover:text-red-400">{pl.name}</h3>
+                      {pl.description && <p className="text-xs text-white/50 line-clamp-2">{pl.description}</p>}
+                      <div className="mt-2 text-xs text-white/40 font-mono">{pl.tracks?.length || 0} tracks</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <button onClick={() => setSelectedPlaylist(null)} className="flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
+                <ArrowLeft className="w-4 h-4" /> Back to Playlists
+              </button>
+              
+              <div className="bg-gradient-to-br from-red-900/20 to-black/40 border border-red-500/20 rounded-2xl p-6">
+                <h2 className="text-3xl font-bold text-white mb-2">{selectedPlaylist.name}</h2>
+                {selectedPlaylist.description && <p className="text-white/60 text-sm mb-4">{selectedPlaylist.description}</p>}
+                <div className="text-sm text-white/40 font-mono">{selectedPlaylist.tracks?.length || 0} tracks</div>
+              </div>
+
+              {selectedPlaylist.tracks && selectedPlaylist.tracks.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {selectedPlaylist.tracks.map((track: any, idx: number) => {
+                    const isActive = playingTrack?.id === track.id;
+                    return (
+                      <div key={track.id + '-' + idx} onClick={() => playAudioFile(track)} className={`flex items-center gap-4 p-3 rounded-lg cursor-pointer transition-all ${isActive ? 'bg-red-500/10 border border-red-500/20' : 'hover:bg-white/5 border border-transparent'}`}>
+                        <div className="w-6 text-center text-xs text-white/40 font-mono">
+                          {isActive ? (
+                            <div className="flex items-end justify-center gap-0.5 h-3"><span className="w-1 h-3 bg-red-500 animate-pulse"></span><span className="w-1 h-2 bg-red-500 animate-pulse delay-75"></span><span className="w-1 h-3 bg-red-500 animate-pulse delay-150"></span></div>
+                          ) : idx + 1}
+                        </div>
+                        <div className="flex-1 flex flex-col truncate">
+                          <span className={`truncate text-sm ${isActive ? 'text-red-400 font-medium' : 'text-white/80'}`}>{track.name}</span>
+                        </div>
+                        <div className="text-xs text-white/30 font-mono shrink-0">
+                          {formatBytes(track.size)}
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); addTrackToPlaylist(selectedPlaylist.id, track); }} className="text-white/30 hover:text-white p-1.5 rounded-full transition-colors shrink-0" title="Remove from Playlist">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-white/40 bg-black/40 border border-white/5 rounded-2xl">This playlist is empty. Add tracks from TorBox search results.</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Save Album Modal */}
+      {showSaveAlbumModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#12121a] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+            <h2 className="text-xl font-bold text-white mb-2">Save Album to Library</h2>
+            <p className="text-sm text-white/60 mb-6">Link this TorBox album to an artist in your library so you can easily find it later.</p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-white/40 mb-2">Artist Name</label>
+                <input 
+                  type="text" 
+                  value={albumArtistName}
+                  onChange={(e) => setAlbumArtistName(e.target.value)}
+                  placeholder="e.g. Daft Punk"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:border-red-500 outline-none"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-4">
+                <button 
+                  onClick={() => setShowSaveAlbumModal(false)}
+                  className="px-5 py-2.5 rounded-xl font-medium text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSaveAlbumToLibrary}
+                  className="px-5 py-2.5 rounded-xl font-medium bg-red-500 hover:bg-red-600 text-white transition-colors"
+                >
+                  Save Album
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add to Playlist Modal */}
+      {showPlaylistModalForTrack && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setShowPlaylistModalForTrack(null)}>
+          <div className="bg-[#12121a] border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-white mb-4">Add to Playlist</h2>
+            
+            <div className="space-y-2 max-h-64 overflow-y-auto mb-6 pr-2">
+              {playlists.length === 0 ? (
+                <div className="text-sm text-white/50 text-center py-4">No playlists found. Create one below.</div>
+              ) : (
+                playlists.map(pl => {
+                  const hasTrack = pl.tracks?.some((t: any) => t.id === showPlaylistModalForTrack.id);
+                  return (
+                    <div 
+                      key={pl.id}
+                      onClick={() => addTrackToPlaylist(pl.id, showPlaylistModalForTrack)}
+                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors border ${hasTrack ? 'bg-red-500/10 border-red-500/30' : 'bg-white/5 border-transparent hover:bg-white/10'}`}
+                    >
+                      <span className={`text-sm ${hasTrack ? 'text-red-400' : 'text-white'}`}>{pl.name}</span>
+                      {hasTrack && <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="border-t border-white/10 pt-4 space-y-3">
+              <h3 className="text-xs font-semibold text-white/40 uppercase">New Playlist</h3>
+              <input type="text" placeholder="Name" value={newPlaylistName} onChange={e => setNewPlaylistName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-red-500 outline-none" />
+              <button onClick={() => { createPlaylist(newPlaylistName, ''); }} disabled={!newPlaylistName.trim()} className="w-full bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-medium transition-colors">Create & Add</button>
+            </div>
+          </div>
         </div>
       )}
 
