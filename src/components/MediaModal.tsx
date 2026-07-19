@@ -100,6 +100,27 @@ export default function MediaModal({
   const isSeries = movie?.type === 'series' || !!movie?.first_air_date;
 
   useEffect(() => {
+    if (resumePromptStream) {
+      SpatialNavigation.add('resume-modal', {
+        selector: '#resume-modal .focusable',
+        restrict: 'self-only',
+        enterTo: 'last-focused'
+      });
+      SpatialNavigation.makeFocusable('resume-modal');
+      SpatialNavigation.focus('resume-modal');
+      SpatialNavigation.disable('media-modal');
+      
+      return () => {
+        SpatialNavigation.remove('resume-modal');
+        if (!isHidden) {
+          SpatialNavigation.enable('media-modal');
+          SpatialNavigation.focus('media-modal');
+        }
+      };
+    }
+  }, [resumePromptStream, isHidden]);
+
+  useEffect(() => {
     if (movie) {
       setStreams([]);
       setExtraLoading(true);
@@ -1261,7 +1282,7 @@ export default function MediaModal({
         </div>
       </div>
       {resumePromptStream && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div id="resume-modal" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-[#0f0f13] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-6">
             <div className="text-center">
               <h3 className="text-xl font-bold text-white mb-2">Resume Playback?</h3>
@@ -1274,7 +1295,7 @@ export default function MediaModal({
                   onPlay(resumePromptStream, undefined, savedProgress.currentTime, context);
                   setResumePromptStream(null);
                 }}
-                className="w-full py-3 rounded-lg bg-emerald-600 text-white font-bold tracking-wide hover:bg-emerald-500 transition-colors cursor-pointer"
+                className="focusable w-full py-3 rounded-lg bg-emerald-600 text-white font-bold tracking-wide hover:bg-emerald-500 transition-colors cursor-pointer focus:outline-none focus:ring-4 focus:ring-emerald-500"
               >
                 Resume from {formatTime(savedProgress.currentTime)}
               </button>
@@ -1284,13 +1305,13 @@ export default function MediaModal({
                   onPlay(resumePromptStream, undefined, 0, context);
                   setResumePromptStream(null);
                 }}
-                className="w-full py-3 rounded-lg bg-white/5 text-white font-bold tracking-wide hover:bg-white/10 transition-colors cursor-pointer"
+                className="focusable w-full py-3 rounded-lg bg-white/5 text-white font-bold tracking-wide hover:bg-white/10 transition-colors cursor-pointer focus:outline-none focus:ring-4 focus:ring-white/50"
               >
                 Start Over
               </button>
               <button 
                 onClick={() => setResumePromptStream(null)}
-                className="w-full py-3 rounded-lg text-white/40 font-bold tracking-wide hover:text-white transition-colors mt-2 cursor-pointer"
+                className="focusable w-full py-3 rounded-lg text-white/40 font-bold tracking-wide hover:text-white transition-colors mt-2 cursor-pointer focus:outline-none focus:ring-4 focus:ring-white/50"
               >
                 Cancel
               </button>

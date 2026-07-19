@@ -386,52 +386,90 @@ function MainApp() {
             
           {playingUrl ? (
             <>
-              <video 
-                key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}-${selectedSubtitleTrack}`}
-                ref={videoRef}
-                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
-                autoPlay
-                className="w-full h-full object-contain absolute top-0 left-0"
-                onTimeUpdate={(e) => {
-                  setCurrentTime(e.currentTarget.currentTime);
-                  if (e.currentTarget.buffered.length > 0) {
-                    setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
-                  }
-                }}
-                onProgress={(e) => {
-                  if (e.currentTarget.buffered.length > 0) {
-                    setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
-                  }
-                }}
-                onError={(e) => {
-                  const error = e.currentTarget.error;
-                  console.error("Built-in Player Error", { 
-                    code: error?.code, 
-                    message: error?.message, 
-                    src: e.currentTarget.src 
-                  });
-                  setPlayerStatus("ERROR: Video failed to load.");
-                }}
-                onPlay={() => { 
-                  setIsVideoPlaying(true); 
-                  setPlayerStatus("PLAYING 4K HDR"); 
-                }}
-                onPause={() => { 
-                  setIsVideoPlaying(false); 
-                }}
-                onWaiting={() => { 
-                  setPlayerStatus("BUFFERING..."); 
-                }}
-              >
-                {selectedSubtitleTrack !== null && (
+              {selectedSubtitleTrack !== null ? (
+                <video 
+                  key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}-${selectedSubtitleTrack}`}
+                  ref={videoRef}
+                  src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
+                  autoPlay
+                  className="w-full h-full object-contain absolute top-0 left-0"
+                  onTimeUpdate={(e) => {
+                    setCurrentTime(e.currentTarget.currentTime);
+                    if (e.currentTarget.buffered.length > 0) {
+                      setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
+                    }
+                  }}
+                  onProgress={(e) => {
+                    if (e.currentTarget.buffered.length > 0) {
+                      setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
+                    }
+                  }}
+                  onError={(e) => {
+                    const error = e.currentTarget.error;
+                    console.error("Built-in Player Error", { 
+                      code: error?.code, 
+                      message: error?.message, 
+                      src: e.currentTarget.src 
+                    });
+                    setPlayerStatus("ERROR: Video failed to load.");
+                  }}
+                  onPlay={() => { 
+                    setIsVideoPlaying(true); 
+                    setPlayerStatus("PLAYING 4K HDR"); 
+                  }}
+                  onPause={() => { 
+                    setIsVideoPlaying(false); 
+                  }}
+                  onWaiting={() => { 
+                    setPlayerStatus("BUFFERING..."); 
+                  }}
+                >
                   <track 
                     kind="subtitles" 
                     src={`/api/transcode/subtitle.vtt?url=${encodeURIComponent(playingUrl)}&track=${selectedSubtitleTrack}`} 
                     srcLang="en" 
                     default 
                   />
-                )}
-              </video>
+                </video>
+              ) : (
+                <video 
+                  key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}-${selectedSubtitleTrack}`}
+                  ref={videoRef}
+                  src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
+                  autoPlay
+                  className="w-full h-full object-contain absolute top-0 left-0"
+                  onTimeUpdate={(e) => {
+                    setCurrentTime(e.currentTarget.currentTime);
+                    if (e.currentTarget.buffered.length > 0) {
+                      setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
+                    }
+                  }}
+                  onProgress={(e) => {
+                    if (e.currentTarget.buffered.length > 0) {
+                      setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
+                    }
+                  }}
+                  onError={(e) => {
+                    const error = e.currentTarget.error;
+                    console.error("Built-in Player Error", { 
+                      code: error?.code, 
+                      message: error?.message, 
+                      src: e.currentTarget.src 
+                    });
+                    setPlayerStatus("ERROR: Video failed to load.");
+                  }}
+                  onPlay={() => { 
+                    setIsVideoPlaying(true); 
+                    setPlayerStatus("PLAYING 4K HDR"); 
+                  }}
+                  onPause={() => { 
+                    setIsVideoPlaying(false); 
+                  }}
+                  onWaiting={() => { 
+                    setPlayerStatus("BUFFERING..."); 
+                  }}
+                />
+              )}
               {playerStatus.includes('BUFFERING') && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[100] bg-black/20">
                   <div className="flex flex-col items-center gap-4 p-6 bg-black/40 rounded-3xl backdrop-blur-md border border-white/10 shadow-2xl">
