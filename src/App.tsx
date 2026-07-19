@@ -22,6 +22,7 @@ import { VirtualKeyboard } from './components/VirtualKeyboard';
 import HomePanel from './components/HomePanel';
 import SearchPanel from './components/SearchPanel';
 import TorBoxMusicPanel from './components/TorBoxMusicPanel';
+import SpatialNavigation from 'spatial-navigation-js';
 
 
 const queryClient = new QueryClient();
@@ -58,6 +59,19 @@ function MainApp() {
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [bufferedSeconds, setBufferedSeconds] = useState<number>(0);
   const [streamOffset, setStreamOffset] = useState<number>(0);
+
+  useEffect(() => {
+    SpatialNavigation.init();
+    SpatialNavigation.add({
+      selector: 'button, a, input, [tabindex="0"]'
+    });
+    SpatialNavigation.makeFocusable();
+    SpatialNavigation.focus();
+    
+    return () => {
+      SpatialNavigation.uninit();
+    };
+  }, []);
   const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
   const videoRef = useRef<HTMLVideoElement>(null);
 
