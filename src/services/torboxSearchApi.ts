@@ -213,8 +213,16 @@ export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchR
         }
       })()
     ]);
+    const combined = [...usenetResults, ...torrentResults];
     
-    return [...usenetResults, ...torrentResults];
+    // Filter out obvious video/software releases so only music remains
+    const videoTerms = /(1080p|720p|2160p|4k|bluray|webrip|hdtv|x264|x265|hevc|xvid|divx|s\d\de\d\d|season \d|\.mkv|\.mp4|\.avi|\.wmv|camrip|ts|dvdrip|bdrip)/i;
+    
+    return combined.filter(res => {
+      // If it has video terms, hide it from music search
+      if (videoTerms.test(res.name)) return false;
+      return true;
+    });
   };
 
   try {
