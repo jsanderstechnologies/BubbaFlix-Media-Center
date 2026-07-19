@@ -23,16 +23,23 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
   }, [userSettings, zoom]);
 
   useEffect(() => {
+    let focusTimeout: any;
+    
     SpatialNavigation.add('settings-modal', {
       selector: '#user-settings-modal .focusable, #user-settings-modal button, #user-settings-modal input, #user-settings-modal select, #user-settings-modal [tabindex="0"]',
       restrict: 'self-only',
       enterTo: 'last-focused'
     });
-    SpatialNavigation.makeFocusable('settings-modal');
-    SpatialNavigation.focus('settings-modal');
-    SpatialNavigation.disable('');
+    
+    // Slight delay to ensure portal is rendered and layout calculated
+    focusTimeout = setTimeout(() => {
+      SpatialNavigation.makeFocusable('settings-modal');
+      SpatialNavigation.focus('settings-modal');
+      SpatialNavigation.disable('');
+    }, 50);
 
     return () => {
+      clearTimeout(focusTimeout);
       SpatialNavigation.remove('settings-modal');
       SpatialNavigation.enable('');
       SpatialNavigation.focus('');
@@ -92,8 +99,12 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                 onChange={e => setLocalZoom(parseFloat(e.target.value))}
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setLocalZoom(z => Math.max(0.5, Number((z - 0.1).toFixed(1))));
                   } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setLocalZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))));
                   }
                 }}

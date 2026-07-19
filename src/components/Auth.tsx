@@ -1,5 +1,5 @@
-
-import { useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import SpatialNavigation from 'spatial-navigation-js';
 import { createPortal } from 'react-dom';
 import { User, Mail, Lock, UserPlus, LogIn, Eye, EyeOff } from 'lucide-react';
 
@@ -516,6 +516,31 @@ export function AuthButton() {
     setIsDropdownOpen(true);
   };
 
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    
+    let focusTimeout: any;
+    SpatialNavigation.add('auth-dropdown', {
+      selector: '#auth-dropdown .focusable, #auth-dropdown button, #auth-dropdown [tabindex="0"]',
+      restrict: 'self-only',
+      enterTo: 'last-focused'
+    });
+    
+    // Slight delay to ensure portal is rendered and layout calculated
+    focusTimeout = setTimeout(() => {
+      SpatialNavigation.makeFocusable('auth-dropdown');
+      SpatialNavigation.focus('auth-dropdown');
+      SpatialNavigation.disable('');
+    }, 50);
+
+    return () => {
+      clearTimeout(focusTimeout);
+      SpatialNavigation.remove('auth-dropdown');
+      SpatialNavigation.enable('');
+      SpatialNavigation.focus('');
+    };
+  }, [isDropdownOpen]);
+
   if (loading) {
     return <div className="w-10 h-10 rounded-full bg-white/5 animate-pulse" />;
   }
@@ -544,7 +569,7 @@ export function AuthButton() {
               className="fixed min-w-[160px]"
               style={{ top: dropdownPos.top, right: dropdownPos.right, zIndex: 9999 }}
             >
-              <div className="bg-zinc-900 border border-white/10 rounded-xl p-2 shadow-2xl">
+              <div id="auth-dropdown" className="bg-zinc-900 border border-white/10 rounded-xl p-2 shadow-2xl">
                 <div className="px-3 py-2 text-sm text-white border-b border-white/10 mb-2 truncate">
                   {user.username || user.email}
                 </div>

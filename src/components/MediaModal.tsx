@@ -903,35 +903,36 @@ export default function MediaModal({
                     {seriesDetailsLoading ? (
                         <div className="text-white/60 text-xs italic">Loading series details...</div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Season</label>
-                                <select 
-                                    value={selectedSeason || ''} 
-                                    onChange={(e) => { setStreams([]); setSelectedSeason(Number(e.target.value)); setSelectedEpisode(null); setEpisodes([]); }}
-                                    className="bg-[#12121a] border border-white/10 rounded-lg p-2 text-white text-xs focus:outline-none focus:border-red-500 w-full"
-                                >
+                                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
                                     {seasons.map(s => (
-                                        <option key={s.season_number} value={s.season_number}>
+                                        <button 
+                                            key={s.season_number} 
+                                            onClick={() => { setStreams([]); setSelectedSeason(s.season_number); setSelectedEpisode(null); setEpisodes([]); }}
+                                            className={`focusable shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${selectedSeason === s.season_number ? 'bg-red-600 text-white' : 'bg-[#12121a] text-white/70 hover:bg-white/10'}`}
+                                        >
                                             Season {s.season_number}
-                                        </option>
+                                        </button>
                                     ))}
-                                </select>
+                                </div>
                             </div>
                             {episodes.length > 0 && (
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Episode</label>
-                                    <select 
-                                        value={selectedEpisode || ''} 
-                                        onChange={(e) => { setStreams([]); setSelectedEpisode(Number(e.target.value)); }}
-                                        className="bg-[#12121a] border border-white/10 rounded-lg p-2 text-white text-xs focus:outline-none focus:border-red-500 w-full"
-                                    >
+                                    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
                                         {episodes.map(ep => (
-                                            <option key={ep.episode_number} value={ep.episode_number}>
-                                                Ep {ep.episode_number} - {ep.name}{ep.air_date ? ` (${ep.air_date})` : ''}
-                                            </option>
+                                            <button 
+                                                key={ep.episode_number} 
+                                                onClick={() => { setStreams([]); setSelectedEpisode(ep.episode_number); }}
+                                                className={`focusable shrink-0 flex flex-col items-center justify-center min-w-[80px] px-3 py-2 rounded-lg text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${selectedEpisode === ep.episode_number ? 'bg-red-600 text-white' : 'bg-[#12121a] text-white/70 hover:bg-white/10'}`}
+                                            >
+                                                <span>Ep {ep.episode_number}</span>
+                                                <span className="text-[9px] opacity-70 mt-0.5 max-w-[100px] truncate">{ep.name}</span>
+                                            </button>
                                         ))}
-                                    </select>
+                                    </div>
                                 </div>
                             )}
                         </div>
