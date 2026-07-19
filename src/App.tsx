@@ -387,9 +387,9 @@ function MainApp() {
           {playingUrl ? (
             <>
               <video 
-                key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}`}
+                key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}-${selectedSubtitleTrack}`}
                 ref={videoRef}
-                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&audio=${encodeURIComponent(userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
+                src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
                 autoPlay
                 className="w-full h-full object-contain absolute top-0 left-0"
                 onTimeUpdate={(e) => {
@@ -422,7 +422,16 @@ function MainApp() {
                 onWaiting={() => { 
                   setPlayerStatus("BUFFERING..."); 
                 }}
-              />
+              >
+                {selectedSubtitleTrack !== null && (
+                  <track 
+                    kind="subtitles" 
+                    src={`/api/transcode/subtitle.vtt?url=${encodeURIComponent(playingUrl)}&track=${selectedSubtitleTrack}`} 
+                    srcLang="en" 
+                    default 
+                  />
+                )}
+              </video>
               {playerStatus.includes('BUFFERING') && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[100] bg-black/20">
                   <div className="flex flex-col items-center gap-4 p-6 bg-black/40 rounded-3xl backdrop-blur-md border border-white/10 shadow-2xl">
@@ -497,6 +506,49 @@ function MainApp() {
                     <button onClick={() => setShowMediaInfo(!showMediaInfo)} className={`text-white/70 hover:text-white p-2 rounded-full transition-colors ${showMediaInfo ? 'bg-white/20 text-white' : 'hover:bg-white/10'}`} title="Media Info (Codec, Bitrate)">
                       <Info className="w-5 h-5" />
                     </button>
+                    
+                    {/* Popover Menus */}
+                    {(showSubtitleMenu || showAudioMenu) && (
+                      <div className="absolute bottom-16 right-0 bg-black/95 border border-white/20 rounded-xl p-4 min-w-64 shadow-2xl flex flex-col gap-2 max-h-64 overflow-y-auto z-[130] backdrop-blur-xl">
+                        {showAudioMenu && mediaInfo && (
+                          <>
+                            <h3 className="text-white/50 font-bold text-xs uppercase tracking-wider border-b border-white/20 pb-2 mb-2">Audio Tracks</h3>
+                            {mediaInfo.streams?.filter((s: any) => s.codec_type === 'audio').map((stream: any, idx: number) => (
+                              <button 
+                                key={idx}
+                                tabIndex={0}
+                                onClick={() => { setSelectedAudioTrack(stream.index); setShowAudioMenu(false); }}
+                                className={`focusable text-left text-sm px-3 py-2 rounded transition-colors ${selectedAudioTrack === stream.index ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-red-500`}
+                              >
+                                {stream.tags?.language ? stream.tags.language.toUpperCase() : 'Track'} {idx + 1} - {stream.codec_name?.toUpperCase() || 'UNKNOWN'} {stream.channels ? `(${stream.channels}ch)` : ''}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                        {showSubtitleMenu && mediaInfo && (
+                          <>
+                            <h3 className="text-white/50 font-bold text-xs uppercase tracking-wider border-b border-white/20 pb-2 mb-2">Subtitles</h3>
+                            <button 
+                                tabIndex={0}
+                                onClick={() => { setSelectedSubtitleTrack(null); setShowSubtitleMenu(false); }}
+                                className={`focusable text-left text-sm px-3 py-2 rounded transition-colors ${selectedSubtitleTrack === null ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-red-500`}
+                              >
+                                None (Off)
+                              </button>
+                            {mediaInfo.streams?.filter((s: any) => s.codec_type === 'subtitle').map((stream: any, idx: number) => (
+                              <button 
+                                key={idx}
+                                tabIndex={0}
+                                onClick={() => { setSelectedSubtitleTrack(stream.index); setShowSubtitleMenu(false); }}
+                                className={`focusable text-left text-sm px-3 py-2 rounded transition-colors ${selectedSubtitleTrack === stream.index ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-red-500`}
+                              >
+                                {stream.tags?.title || stream.tags?.language?.toUpperCase() || `Track ${idx + 1}`} ({stream.codec_name})
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
