@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { getTrendingMovies, searchMovies } from '../services/tmdbApi';
+import { useSettings } from '../lib/settings';
 
 // Custom hook for debouncing
 function useDebounce<T>(value: T, delay: number): T {
@@ -18,9 +19,10 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, sortOption = 'default', filterGenre = 0 }: { onSelectMovie: (movie: any) => void, onHoverMedia?: (posterUrl: string) => void, searchQuery: string, sortOption?: string, filterGenre?: number }) {
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const { systemSettings } = useSettings();
 
   const { data: movies, isLoading } = useQuery({
-    queryKey: ['movies', debouncedSearchQuery, filterGenre],
+    queryKey: ['movies', debouncedSearchQuery, filterGenre, systemSettings.tmdbKey],
     queryFn: () => debouncedSearchQuery ? searchMovies(debouncedSearchQuery) : getTrendingMovies(filterGenre),
   });
 

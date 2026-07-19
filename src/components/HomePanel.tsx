@@ -6,6 +6,7 @@ import {
   getPopularTvSeries, 
   getTopRatedTvSeries 
 } from '../services/tmdbApi';
+import { useSettings } from '../lib/settings';
 import { Play, Info, Flame, Trophy, Film, Tv, Star } from 'lucide-react';
 
 interface HomePanelProps {
@@ -14,29 +15,30 @@ interface HomePanelProps {
 }
 
 export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProps) {
+  const { systemSettings } = useSettings();
   // Fetch multiple sections in parallel
   const { data: trendingMovies, isLoading: loadingTrending } = useQuery({
-    queryKey: ['home-trending-movies'],
+    queryKey: ['home-trending-movies', systemSettings.tmdbKey],
     queryFn: () => getTrendingMovies(),
   });
 
   const { data: popularMovies, isLoading: loadingPopularMovies } = useQuery({
-    queryKey: ['home-popular-movies'],
+    queryKey: ['home-popular-movies', systemSettings.tmdbKey],
     queryFn: getPopularMovies,
   });
 
   const { data: topRatedMovies, isLoading: loadingTopRatedMovies } = useQuery({
-    queryKey: ['home-top-rated-movies'],
+    queryKey: ['home-top-rated-movies', systemSettings.tmdbKey],
     queryFn: getTopRatedMovies,
   });
 
   const { data: popularTv, isLoading: loadingPopularTv } = useQuery({
-    queryKey: ['home-popular-tv'],
+    queryKey: ['home-popular-tv', systemSettings.tmdbKey],
     queryFn: getPopularTvSeries,
   });
 
   const { data: topRatedTv, isLoading: loadingTopRatedTv } = useQuery({
-    queryKey: ['home-top-rated-tv'],
+    queryKey: ['home-top-rated-tv', systemSettings.tmdbKey],
     queryFn: getTopRatedTvSeries,
   });
 

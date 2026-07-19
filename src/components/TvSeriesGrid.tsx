@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { getTrendingTvSeries, searchTvSeries } from '../services/tmdbApi';
+import { useSettings } from '../lib/settings';
 
 // Custom hook for debouncing
 function useDebounce<T>(value: T, delay: number): T {
@@ -18,9 +19,10 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery, sortOption = 'default', filterGenre = 0 }: { onSelectSeries: (series: any) => void, onHoverMedia?: (posterUrl: string) => void, searchQuery: string, sortOption?: string, filterGenre?: number }) {
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const { systemSettings } = useSettings();
 
   const { data: series, isLoading } = useQuery({
-    queryKey: ['tvseries', debouncedSearchQuery, filterGenre],
+    queryKey: ['tvseries', debouncedSearchQuery, filterGenre, systemSettings.tmdbKey],
     queryFn: () => debouncedSearchQuery ? searchTvSeries(debouncedSearchQuery) : getTrendingTvSeries(filterGenre),
   });
 

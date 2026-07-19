@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { searchMovies, searchTvSeries, searchActors } from '../services/tmdbApi';
+import { useSettings } from '../lib/settings';
 import { Play, Pause, Music, Info, Film, Tv, Users, Search, Sparkles, ExternalLink, Disc, Loader2, Volume2, SkipBack, SkipForward } from 'lucide-react';
 
 interface SearchPanelProps {
@@ -20,6 +21,7 @@ export default function SearchPanel({
   onActorSearchClick,
   onSelectMusic
 }: SearchPanelProps) {
+  const { systemSettings } = useSettings();
 
   // Player States
   const [playingTrack, setPlayingTrack] = useState<any>(null);
@@ -170,14 +172,14 @@ export default function SearchPanel({
 
   // Fetch Movies
   const { data: movies, isLoading: loadingMovies } = useQuery({
-    queryKey: ['search-movies', query],
+    queryKey: ['search-movies', query, systemSettings.tmdbKey],
     queryFn: () => searchMovies(query),
     enabled: !!query,
   });
 
   // Fetch TV Series
   const { data: tvSeries, isLoading: loadingTv } = useQuery({
-    queryKey: ['search-tv', query],
+    queryKey: ['search-tv', query, systemSettings.tmdbKey],
     queryFn: () => searchTvSeries(query),
     enabled: !!query,
   });
@@ -328,7 +330,7 @@ export default function SearchPanel({
 
   // Fetch Actors
   const { data: actors, isLoading: loadingActors } = useQuery({
-    queryKey: ['search-actors', query],
+    queryKey: ['search-actors', query, systemSettings.tmdbKey],
     queryFn: () => searchActors(query),
     enabled: !!query,
   });

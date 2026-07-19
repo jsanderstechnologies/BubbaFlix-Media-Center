@@ -70,6 +70,11 @@ export function fetchSettings() {
     .then(res => res.json())
     .then(data => {
       globalSystemSettings = data;
+      if (data.tmdbKey) {
+        localStorage.setItem('tmdbKey', data.tmdbKey);
+      } else {
+        localStorage.removeItem('tmdbKey');
+      }
       systemSettingsListeners.forEach(fn => fn(data));
     })
     .catch(console.error);
@@ -93,6 +98,11 @@ export function fetchSettings() {
 
 export function updateSystemSettings(newSettings: SystemSettings) {
   globalSystemSettings = { ...globalSystemSettings, ...newSettings };
+  if (globalSystemSettings.tmdbKey) {
+    localStorage.setItem('tmdbKey', globalSystemSettings.tmdbKey);
+  } else {
+    localStorage.removeItem('tmdbKey');
+  }
   systemSettingsListeners.forEach(fn => fn(globalSystemSettings));
   
   const token = localStorage.getItem('authToken');
