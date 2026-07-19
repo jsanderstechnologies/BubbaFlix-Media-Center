@@ -68,23 +68,25 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
 
       // Create stream
       if (release.type === 'usenet') {
-        const form = new FormData();
-        form.append('link', release.url);
         const res = await fetch('/api/torbox/usenet/create', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${apiKey}` },
-          body: form
+          headers: { 
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ link: release.url })
         });
         const data = await res.json();
         if (data.detail && !data.success) throw new Error(data.detail);
         usenetId = data.data.usenet_id;
       } else {
-        const form = new FormData();
-        form.append('magnet', release.url);
         const res = await fetch('/api/torbox/torrents/create', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${apiKey}` },
-          body: form
+          headers: { 
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ magnet: release.url })
         });
         const data = await res.json();
         if (data.detail && !data.success) throw new Error(data.detail);
