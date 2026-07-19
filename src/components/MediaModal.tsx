@@ -189,6 +189,7 @@ export default function MediaModal({
             
             if (stream.type === 'torrent') {
               const match = activeTorrents.find(t => {
+                if (stream.torboxId && t.id === stream.torboxId) return true;
                 if (stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase()) return true;
                 return false;
               });
@@ -209,6 +210,7 @@ export default function MediaModal({
             
             if (stream.type === 'usenet') {
               const match = activeUsenet.find(u => {
+                if (stream.torboxId && u.id === stream.torboxId) return true;
                 if (!u.name || !stream.name) return false;
                 const sName = stream.name.toLowerCase().replace(/[^a-z0-9]/g, '');
                 const uName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1035,7 +1037,7 @@ export default function MediaModal({
                                         if (resData.success && resData.data) {
                                           setStreams(prev => prev.map(s => {
                                             if (s.id === stream.id) {
-                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false };
+                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, torboxId: resData.data.usenet_id };
                                             }
                                             return s;
                                           }));
@@ -1074,7 +1076,7 @@ export default function MediaModal({
                                         if (resData.success) {
                                           setStreams(prev => prev.map(s => {
                                             if (s.id === stream.id) {
-                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false };
+                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, torboxId: resData.data.torrent_id };
                                             }
                                             return s;
                                           }));
@@ -1112,7 +1114,7 @@ export default function MediaModal({
                                         if (resData.success) {
                                           setStreams(prev => prev.map(s => {
                                             if (s.id === stream.id) {
-                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false };
+                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, torboxId: resData.data.usenet_id };
                                             }
                                             return s;
                                           }));
@@ -1170,7 +1172,7 @@ export default function MediaModal({
                                         if (resData.success) {
                                           setStreams(prev => prev.map(s => {
                                             if (s.id === stream.id) {
-                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false };
+                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, torboxId: resData.data.torrent_id };
                                             }
                                             return s;
                                           }));
