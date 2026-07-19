@@ -262,6 +262,23 @@ function MainApp() {
     }
   }, [isPlaying, playingUrl]);
 
+  // Spatial Navigation for Player
+  useEffect(() => {
+    if (isPlaying && (!(window as any).mediaAPI || userSettings.playerPath === 'builtin')) {
+      SpatialNavigation.add('player-container', {
+        selector: '#player-container .focusable',
+        restrict: 'self-first',
+        enterTo: 'last-focused'
+      });
+      SpatialNavigation.makeFocusable('player-container');
+      SpatialNavigation.focus('player-container');
+      
+      return () => {
+        SpatialNavigation.remove('player-container');
+      };
+    }
+  }, [isPlaying, userSettings.playerPath]);
+
   const handlePlayStream = async (url: string, channelLogoUrl?: string, resumeTime?: number, context?: any) => {
     logger.info("Built-in Player: Requesting to play stream", { url });
     setStreamOffset(resumeTime || 0);
@@ -326,7 +343,7 @@ function MainApp() {
         style={{ width: `calc(100vw / ${zoom || 1})`, height: `calc(100vh / ${zoom || 1})` }}
       >
       {isPlaying && (!(window as any).mediaAPI || userSettings.playerPath === 'builtin') && (
-        <div className="fixed inset-0 z-[100] bg-black flex flex-col">
+        <div id="player-container" className="fixed inset-0 z-[100] bg-black flex flex-col">
           <div className={`absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-[110] bg-gradient-to-b from-black/80 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
             <div className="flex gap-4 pointer-events-auto items-center">
               <button 
@@ -343,7 +360,7 @@ function MainApp() {
                   setSelectedSubtitleTrack(null);
                   setMediaInfo(null);
                 }}
-                className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors shadow-lg"
+                className="focusable p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors shadow-lg focus:outline-none focus:ring-4 focus:ring-white/50"
                 title="Go Back"
               >
                 <ArrowLeft className="w-6 h-6" />
@@ -358,7 +375,7 @@ function MainApp() {
                 <div className="absolute top-24 right-10 bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl p-6 min-w-72 shadow-2xl z-[120] pointer-events-auto transform transition-all animate-in fade-in zoom-in-95 duration-200">
                   <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-3">
                     <h2 className="text-white font-bold text-lg flex items-center gap-2"><Info className="w-5 h-5 text-red-500"/> Media Info</h2>
-                    <button onClick={() => setShowMediaInfo(false)} className="text-white/40 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+                    <button onClick={() => setShowMediaInfo(false)} className="focusable text-white/40 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"><X className="w-5 h-5"/></button>
                   </div>
                   <div className="flex flex-col gap-3 text-sm">
                     <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Container</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{(mediaInfo.format?.format_name || '').split(',')[0].toUpperCase()}</span></div>
@@ -484,7 +501,7 @@ function MainApp() {
                 <div className="flex items-center gap-6 pointer-events-auto w-full max-w-5xl mx-auto">
                   <button 
                     onClick={() => handleSeek(-15)}
-                    className="p-3 rounded-full hover:bg-white/10 text-white transition-colors"
+                    className="focusable p-3 rounded-full hover:bg-white/10 text-white transition-colors focus:outline-none focus:ring-4 focus:ring-white/50"
                     title="Rewind 15s"
                   >
                     <Rewind className="w-6 h-6" />
@@ -496,13 +513,13 @@ function MainApp() {
                         else videoRef.current.play();
                       }
                     }}
-                    className="p-4 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors"
+                    className="focusable p-4 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors focus:outline-none focus:ring-4 focus:ring-white/50"
                   >
                     {isVideoPlaying ? <span className="font-bold text-lg leading-none">||</span> : <Play className="w-6 h-6 fill-current" />}
                   </button>
                   <button 
                     onClick={() => handleSeek(30)}
-                    className="p-3 rounded-full hover:bg-white/10 text-white transition-colors"
+                    className="focusable p-3 rounded-full hover:bg-white/10 text-white transition-colors focus:outline-none focus:ring-4 focus:ring-white/50"
                     title="Forward 30s"
                   >
                     <FastForward className="w-6 h-6" />
@@ -535,13 +552,13 @@ function MainApp() {
                     {formatTime(totalDuration)}
                   </div>
                   <div className="flex items-center gap-2 border-l border-white/20 pl-6 relative">
-                    <button onClick={() => { setShowSubtitleMenu(!showSubtitleMenu); setShowAudioMenu(false); }} className={`text-white/70 hover:text-white p-2 rounded-full transition-colors ${showSubtitleMenu ? 'bg-white/20 text-white' : 'hover:bg-white/10'}`} title="Subtitles / CC">
+                    <button onClick={() => { setShowSubtitleMenu(!showSubtitleMenu); setShowAudioMenu(false); }} className={`focusable text-white/70 hover:text-white p-2 rounded-full transition-colors ${showSubtitleMenu ? 'bg-white/20 text-white' : 'hover:bg-white/10'} focus:outline-none focus:ring-4 focus:ring-white/50`} title="Subtitles / CC">
                       <Subtitles className="w-5 h-5" />
                     </button>
-                    <button onClick={() => { setShowAudioMenu(!showAudioMenu); setShowSubtitleMenu(false); }} className={`text-white/70 hover:text-white p-2 rounded-full transition-colors ${showAudioMenu ? 'bg-white/20 text-white' : 'hover:bg-white/10'}`} title="Audio Track">
+                    <button onClick={() => { setShowAudioMenu(!showAudioMenu); setShowSubtitleMenu(false); }} className={`focusable text-white/70 hover:text-white p-2 rounded-full transition-colors ${showAudioMenu ? 'bg-white/20 text-white' : 'hover:bg-white/10'} focus:outline-none focus:ring-4 focus:ring-white/50`} title="Audio Track">
                       <AudioLines className="w-5 h-5" />
                     </button>
-                    <button onClick={() => setShowMediaInfo(!showMediaInfo)} className={`text-white/70 hover:text-white p-2 rounded-full transition-colors ${showMediaInfo ? 'bg-white/20 text-white' : 'hover:bg-white/10'}`} title="Media Info (Codec, Bitrate)">
+                    <button onClick={() => setShowMediaInfo(!showMediaInfo)} className={`focusable text-white/70 hover:text-white p-2 rounded-full transition-colors ${showMediaInfo ? 'bg-white/20 text-white' : 'hover:bg-white/10'} focus:outline-none focus:ring-4 focus:ring-white/50`} title="Media Info (Codec, Bitrate)">
                       <Info className="w-5 h-5" />
                     </button>
                     
