@@ -1367,7 +1367,7 @@ app.get('/api/youtube/search', async (req, res) => {
 
     const args = [];
     if (!isLive && startOffset && !isNaN(parseFloat(startOffset))) {
-      args.push('-ss', startOffset);
+      args.push('-noaccurate_seek', '-ss', startOffset);
     }
     
     if (isLive) {
