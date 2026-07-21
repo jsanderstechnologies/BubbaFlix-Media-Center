@@ -249,19 +249,17 @@ function MainApp() {
       setTotalDuration(0);
       setCurrentTime(0);
       
-      if (!playingContext?.isLive) {
-        fetch(`/api/duration?url=${encodeURIComponent(playingUrl)}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.duration) setTotalDuration(Number(data.duration));
-          }).catch(e => console.error("Duration fetch error:", e));
+      fetch(`/api/duration?url=${encodeURIComponent(playingUrl)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.duration) setTotalDuration(Number(data.duration));
+        }).catch(e => console.error("Duration fetch error:", e));
 
-        fetch(`/api/media-info?url=${encodeURIComponent(playingUrl)}`)
-          .then(res => res.json())
-          .then(data => {
-            setMediaInfo(data);
-          }).catch(e => console.error("Media info fetch error:", e));
-      }
+      fetch(`/api/media-info?url=${encodeURIComponent(playingUrl)}`)
+        .then(res => res.json())
+        .then(data => {
+          setMediaInfo(data);
+        }).catch(e => console.error("Media info fetch error:", e));
     }
   }, [isPlaying, playingUrl, playingContext]);
 

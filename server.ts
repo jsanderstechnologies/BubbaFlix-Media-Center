@@ -1094,6 +1094,8 @@ async function startServer() {
       '-print_format', 'json',
       '-show_streams',
       '-show_format',
+      '-analyzeduration', '5000000',
+      '-probesize', '5000000',
       '-i', ipUrl
     );
 
@@ -1294,6 +1296,8 @@ app.get('/api/youtube/search', async (req, res) => {
       '-v', 'error',
       '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1',
+      '-analyzeduration', '5000000',
+      '-probesize', '5000000',
       '-i', ipUrl
     );
 
