@@ -972,31 +972,9 @@ async function startServer() {
   // Resolves the hostname in a streaming URL to its IP address dynamically
   // to bypass static child process binary DNS resolution failures in bridge networks.
   const resolveUrlIp = async (urlStr: string): Promise<string> => {
-    try {
-      const parsedUrl = new URL(urlStr);
-      if (parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1' || parsedUrl.hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
-        return urlStr;
-      }
-      return new Promise((resolve) => {
-        dns.lookup(parsedUrl.hostname, (err, address) => {
-          if (err || !address) {
-            console.warn(`[DNS Resolve] Failed to resolve IP for ${parsedUrl.hostname}, using original URL.`);
-            resolve(urlStr);
-          } else {
-            console.log(`[DNS Resolve] Resolved ${parsedUrl.hostname} to ${address}`);
-            const headers = parsedUrl.searchParams.get('headers') || '';
-            
-            // Reconstruct URL with IP and keep original Host header parameter if needed,
-            // or pass Host headers via FFmpeg arguments. Modern cloudfront/cloudflare proxies 
-            // require the Host header to route traffic. We can tell FFmpeg to set the Host header.
-            parsedUrl.hostname = address;
-            resolve(parsedUrl.toString());
-          }
-        });
-      });
-    } catch {
-      return urlStr;
-    }
+    // Disabled: Replacing hostnames with IPs breaks HTTPS TLS SNI for Cloudflare/CDNs.
+    // FFmpeg can resolve DNS natively.
+    return urlStr;
   };
 
   // API Route: Get Media Duration Info
