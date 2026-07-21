@@ -69,7 +69,6 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
 
     return () => {
       clearTimeout(focusTimeout);
-      document.removeEventListener('keydown', handleKeyDown);
       SpatialNavigation.remove('settings-modal');
       SpatialNavigation.enable('auth-dropdown');
       SpatialNavigation.focus('auth-dropdown');
