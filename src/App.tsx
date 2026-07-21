@@ -342,7 +342,7 @@ function MainApp() {
         </div>
       )}
       <div 
-        className="bg-[#050507] text-white font-sans flex overflow-hidden select-none relative w-screen h-screen"
+        className="bg-[#050507] text-white font-sans flex overflow-hidden select-none relative w-full h-full"
       >
       {isPlaying && (!(window as any).mediaAPI || userSettings.playerPath === 'builtin') && (
         <div id="player-container" className="fixed inset-0 z-[100] bg-black flex flex-col">
