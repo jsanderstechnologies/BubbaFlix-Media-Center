@@ -25,7 +25,7 @@ const fetchEPG = async (url: string) => {
 };
 
 interface IptvGuideProps {
-  onPlayStream: (url: string, logo?: string) => void;
+  onPlayStream: (url: string, logo?: string, resumeTime?: number, context?: any) => void;
 }
 
 export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
@@ -380,7 +380,7 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
                 const programs = channel.tvg?.id ? getProgramsForTimeline(channel.tvg.id) : [];
                 
                 return (
-                <div key={i} className={`flex border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group ${i % 2 === 0 ? 'bg-black/20' : ''}`} onClick={() => onPlayStream(channel.url, channel.tvg?.logo)}>
+                <div key={i} className={`flex border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group ${i % 2 === 0 ? 'bg-black/20' : ''}`} onClick={() => onPlayStream(channel.url, channel.tvg?.logo, 0, { isLive: true })}>
                   
                   {/* Channel Info (Sticky Left) */}
                   <div className="w-48 sm:w-64 shrink-0 border-r border-white/10 p-2 py-1 flex items-center gap-3 sticky left-0 z-20 bg-black/80 backdrop-blur-sm group-hover:bg-white/5 h-10">
