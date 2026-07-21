@@ -285,7 +285,14 @@ function MainApp() {
   const handlePlayStream = async (url: string, channelLogoUrl?: string, resumeTime?: number, context?: any) => {
     logger.info("Built-in Player: Requesting to play stream", { url });
     setStreamOffset(resumeTime || 0);
-    setPlayingContext(context || null);
+    
+    // Auto-detect live streams (IPTV/HLS) if not explicitly set
+    let finalContext = context || {};
+    if (!finalContext.isLive && (url.includes('.m3u8') || url.includes('.ts') || url.includes('/ts/stream'))) {
+      finalContext = { ...finalContext, isLive: true };
+    }
+    setPlayingContext(finalContext);
+    
     setCurrentTime(0);
     setBufferedSeconds(0);
     setTotalDuration(0);
@@ -409,7 +416,7 @@ function MainApp() {
                 <video 
                   key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}-${selectedSubtitleTrack}`}
                   ref={videoRef}
-                  src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
+                  src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}&live=${playingContext?.isLive ? 'true' : 'false'}`}
                   autoPlay
                   className="w-full h-full object-contain absolute top-0 left-0"
                   onTimeUpdate={(e) => {
@@ -454,7 +461,7 @@ function MainApp() {
                 <video 
                   key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}-${selectedSubtitleTrack}`}
                   ref={videoRef}
-                  src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}`}
+                  src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}&live=${playingContext?.isLive ? 'true' : 'false'}`}
                   autoPlay
                   className="w-full h-full object-contain absolute top-0 left-0"
                   onTimeUpdate={(e) => {
