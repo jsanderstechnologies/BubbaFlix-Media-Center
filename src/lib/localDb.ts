@@ -77,7 +77,7 @@ export const onSnapshot = (q: any, callback: (snapshot: any) => void, errorCb?: 
     if (conditions && conditions.length > 0) {
       for (const cond of conditions) {
         if (cond.operator === '==') {
-          items = items.filter((item: any) => item[cond.field] === cond.value);
+          items = items.filter((item: any) => item[cond.field] == cond.value);
         }
       }
     }
@@ -115,7 +115,7 @@ export const getDocs = async (q: any) => {
   if (conditions) {
     for (const cond of conditions) {
       if (cond.operator === '==') {
-        items = items.filter((item: any) => item[cond.field] === cond.value);
+        items = items.filter((item: any) => item[cond.field] == cond.value);
       }
     }
   }
