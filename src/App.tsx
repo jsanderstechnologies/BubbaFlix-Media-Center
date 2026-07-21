@@ -264,34 +264,53 @@ function MainApp() {
 
   useEffect(() => {
     if (isPlaying && playingUrl) {
-      setTotalDuration(0);
-      setCurrentTime(0);
-      
-      if (!playingContext?.isLive) {
-        fetch(`/api/duration?url=${encodeURIComponent(playingUrl)}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.duration) setTotalDuration(Number(data.duration));
-          }).catch(e => console.error("Duration fetch error:", e));
+      const abortController = new AbortController();
+      let probeTimeout: ReturnType<typeof setTimeout>;
+
+      if (playingContext?.isLive) {
+        setTotalDuration(0); // Live streams don't have a fixed duration
+      } else {
+        // Debounce metadata probing to avoid 429 Too Many Requests from TorBox CDN
+        // This gives ffmpeg time to establish the main video connection first.
+        probeTimeout = setTimeout(() => {
+          if (!playingContext?.id) {
+            fetch(`/api/duration?url=${encodeURIComponent(playingUrl)}`, { signal: abortController.signal })
+              .then(res => res.json())
+              .then(data => {
+                if (data.duration) setTotalDuration(Number(data.duration));
+              }).catch(e => {
+                if (e.name !== 'AbortError') console.error("Duration fetch error:", e);
+              });
+          }
+
+          fetch(`/api/media-info?url=${encodeURIComponent(playingUrl)}`, { signal: abortController.signal })
+            .then(res => res.json())
+            .then(data => {
+              setMediaInfo(data);
+            }).catch(e => {
+              if (e.name !== 'AbortError') console.error("Media info fetch error:", e);
+            });
+        }, 3000);
+          
+        if (playingContext?.id) {
+          let osUrl = `/api/opensubtitles/search?tmdb_id=${playingContext.id}&type=${playingContext.type}`;
+          if (playingContext.type === 'tv') {
+            osUrl += `&season=${playingContext.season}&episode=${playingContext.episode}`;
+          }
+          fetch(osUrl, { signal: abortController.signal })
+            .then(res => res.json())
+            .then(data => {
+              if (data.subtitles) setOpenSubtitles(data.subtitles);
+            }).catch(e => {
+              if (e.name !== 'AbortError') console.error("OpenSubtitles fetch error:", e);
+            });
+        }
       }
 
-      fetch(`/api/media-info?url=${encodeURIComponent(playingUrl)}`)
-        .then(res => res.json())
-        .then(data => {
-          setMediaInfo(data);
-        }).catch(e => console.error("Media info fetch error:", e));
-        
-      if (playingContext?.id) {
-        let osUrl = `/api/opensubtitles/search?tmdb_id=${playingContext.id}&type=${playingContext.type}`;
-        if (playingContext.type === 'tv') {
-          osUrl += `&season=${playingContext.season}&episode=${playingContext.episode}`;
-        }
-        fetch(osUrl)
-          .then(res => res.json())
-          .then(data => {
-            if (data.subtitles) setOpenSubtitles(data.subtitles);
-          }).catch(e => console.error("OpenSubtitles fetch error:", e));
-      }
+      return () => {
+        clearTimeout(probeTimeout);
+        abortController.abort();
+      };
     }
   }, [isPlaying, playingUrl, playingContext]);
 
