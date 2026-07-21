@@ -59,6 +59,8 @@ function MainApp() {
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [bufferedSeconds, setBufferedSeconds] = useState<number>(0);
   const [streamOffset, setStreamOffset] = useState<number>(0);
+  const [seekTarget, setSeekTarget] = useState<number | null>(null);
+  const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     SpatialNavigation.init();
@@ -183,17 +185,31 @@ function MainApp() {
   }, [isPlaying, selectedMovie, activeTab]);
 
   
+  const applySeek = (newTime: number) => {
+    setSeekTarget(newTime);
+    if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
+    
+    seekTimeoutRef.current = setTimeout(() => {
+      setStreamOffset(Math.floor(newTime));
+      setCurrentTime(0);
+      setBufferedSeconds(0);
+      setSeekTarget(null);
+      setPlayerStatus('BUFFERING...');
+    }, 700);
+  };
+
   const handleSeek = (secondsToAdd: number) => {
     if (!totalDuration) return;
-    setStreamOffset(prevOffset => {
-      const currentAbsoluteTime = prevOffset + (videoRef.current?.currentTime || 0);
-      let newTime = currentAbsoluteTime + secondsToAdd;
-      if (newTime < 0) newTime = 0;
-      if (newTime > totalDuration) newTime = totalDuration;
+    
+    const baseTime = seekTarget !== null 
+      ? seekTarget 
+      : streamOffset + (videoRef.current?.currentTime || 0);
       
-      setCurrentTime(0);
-      return newTime;
-    });
+    let newTime = baseTime + secondsToAdd;
+    if (newTime < 0) newTime = 0;
+    if (newTime > totalDuration) newTime = totalDuration;
+    
+    applySeek(newTime);
   };
 
   useEffect(() => {
@@ -534,7 +550,7 @@ function MainApp() {
                     <FastForward className="w-6 h-6" />
                   </button>
                   <div className="text-white text-sm font-mono font-medium drop-shadow-md">
-                    {formatTime(streamOffset + currentTime)}
+                    {formatTime(seekTarget !== null ? seekTarget : streamOffset + currentTime)}
                   </div>
                   <div 
                     className="flex-1 bg-white/20 h-3 rounded-full overflow-hidden relative shadow-inner cursor-pointer"
@@ -544,8 +560,7 @@ function MainApp() {
                       const x = e.clientX - rect.left;
                       const percentage = x / rect.width;
                       const newTime = percentage * totalDuration;
-                      setStreamOffset(newTime);
-                      setCurrentTime(0);
+                      applySeek(newTime);
                     }}
                   >
                     <div 
@@ -554,7 +569,7 @@ function MainApp() {
                     />
                     <div 
                       className="absolute top-0 left-0 bottom-0 bg-red-500 transition-all duration-300 pointer-events-none" 
-                      style={{ width: `${totalDuration > 0 ? ((streamOffset + currentTime) / totalDuration) * 100 : 0}%` }}
+                      style={{ width: `${totalDuration > 0 ? ((seekTarget !== null ? seekTarget : streamOffset + currentTime) / totalDuration) * 100 : 0}%` }}
                     />
                   </div>
                   <div className="text-white/80 text-sm font-mono font-medium drop-shadow-md mr-4">
