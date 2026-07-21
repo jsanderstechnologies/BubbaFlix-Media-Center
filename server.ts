@@ -1133,8 +1133,29 @@ async function startServer() {
     res.header('Content-Type', 'text/vtt');
     res.header('Access-Control-Allow-Origin', '*');
 
+    let resolvedUrl = targetUrl;
+    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+      try {
+        const redirectRes = await axios({
+          method: 'get', url: targetUrl, maxRedirects: 0,
+          validateStatus: (s) => s >= 200 && s < 400,
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (redirectRes.status === 307 && redirectRes.headers['location']) {
+          resolvedUrl = redirectRes.headers['location'] as string;
+        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
+          resolvedUrl = redirectRes.data.data;
+        }
+      } catch (resolveErr: any) {
+        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
+          resolvedUrl = resolveErr.response.headers.location;
+        }
+      }
+    }
+
     const args = [
-      '-i', 'pipe:0',
+      '-user_agent', 'Mozilla/5.0',
+      '-i', resolvedUrl,
       '-map', `0:${index}`,
       '-f', 'webvtt',
       'pipe:1'
@@ -1142,20 +1163,6 @@ async function startServer() {
 
     const ffmpegProcess = spawn(ffmpegPath, args, { env: getFfmpegEnv() });
     ffmpegProcess.stdout.pipe(res);
-
-    try {
-      const response = await axios({
-        method: 'get',
-        url: targetUrl,
-        responseType: 'stream',
-        timeout: 15000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-      });
-      response.data.pipe(ffmpegProcess.stdin);
-    } catch (err: any) {
-      console.error('[Subtitle Proxy] Connection failed:', err.message);
-      ffmpegProcess.stdin.end();
-    }
 
     ffmpegProcess.on('error', (err) => {
       console.error('[FFmpeg Subtitle Error]', err);
@@ -1330,9 +1337,30 @@ app.get('/api/youtube/search', async (req, res) => {
 
     res.setHeader('Content-Type', 'text/vtt');
     
+    let resolvedUrl = targetUrl;
+    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+      try {
+        const redirectRes = await axios({
+          method: 'get', url: targetUrl, maxRedirects: 0,
+          validateStatus: (s) => s >= 200 && s < 400,
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (redirectRes.status === 307 && redirectRes.headers['location']) {
+          resolvedUrl = redirectRes.headers['location'] as string;
+        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
+          resolvedUrl = redirectRes.data.data;
+        }
+      } catch (resolveErr: any) {
+        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
+          resolvedUrl = resolveErr.response.headers.location;
+        }
+      }
+    }
+
     const args = [
       '-v', 'error',
-      '-i', 'pipe:0',
+      '-user_agent', 'Mozilla/5.0',
+      '-i', resolvedUrl,
       '-map', `0:s:${track}`,
       '-c:s', 'webvtt',
       '-f', 'webvtt',
@@ -1341,20 +1369,6 @@ app.get('/api/youtube/search', async (req, res) => {
     
     const ffmpegProcess = spawn(ffmpegPath, args, { env: getFfmpegEnv() });
     ffmpegProcess.stdout.pipe(res);
-
-    try {
-      const response = await axios({
-        method: 'get',
-        url: targetUrl,
-        responseType: 'stream',
-        timeout: 15000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-      });
-      response.data.pipe(ffmpegProcess.stdin);
-    } catch (err: any) {
-      console.error('[FFmpeg Subtitle Proxy] Connection failed:', err.message);
-      ffmpegProcess.stdin.end();
-    }
     
     ffmpegProcess.on('error', (err) => {
       console.error('[FFmpeg Subtitle] Error:', err);
