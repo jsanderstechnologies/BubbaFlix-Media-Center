@@ -630,16 +630,6 @@ function MainApp() {
                                 >
                                   None (Off)
                                 </button>
-                              {mediaInfo?.streams?.filter((s: any) => s.codec_type === 'subtitle').map((stream: any, idx: number) => (
-                                <button 
-                                  key={idx}
-                                  tabIndex={0}
-                                  onClick={() => { setSelectedSubtitleTrack(stream.index); setSelectedSubtitleIsOS(false); setShowSubtitleMenu(false); }}
-                                  className={`focusable text-left text-sm px-3 py-2 rounded transition-colors ${selectedSubtitleTrack === stream.index ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-red-500`}
-                                >
-                                  {stream.tags?.title || stream.tags?.language?.toUpperCase() || `Track ${idx + 1}`} ({stream.codec_name})
-                                </button>
-                              ))}
 
                               {openSubtitles?.length > 0 && (
                                 <>
