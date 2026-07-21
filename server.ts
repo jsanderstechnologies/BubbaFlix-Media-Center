@@ -45,8 +45,46 @@ ffmpegProxy.on('connect', (req, clientSocket, head) => {
   });
   
   clientSocket.on('error', (err) => {
-    serverSocket.end();
+    clientSocket.end();
   });
+});
+
+// Handle standard HTTP proxy requests
+ffmpegProxy.on('request', (req, res) => {
+  try {
+    if (!req.url) {
+      res.statusCode = 400;
+      return res.end('Bad Request');
+    }
+    
+    const targetUrl = new URL(req.url);
+    const options = {
+      hostname: targetUrl.hostname,
+      port: targetUrl.port || 80,
+      path: targetUrl.pathname + targetUrl.search,
+      method: req.method,
+      headers: req.headers,
+    };
+
+    const proxyReq = http.request(options, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+      console.error(`[FFmpeg-Proxy] HTTP error for ${req.url}:`, err.message);
+      if (!res.headersSent) {
+        res.statusCode = 502;
+        res.end('Proxy Error');
+      }
+    });
+
+    req.pipe(proxyReq);
+  } catch (err: any) {
+    console.error(`[FFmpeg-Proxy] Failed to proxy request:`, err.message);
+    res.statusCode = 500;
+    res.end('Internal Server Error');
+  }
 });
 
 ffmpegProxy.listen(0, '127.0.0.1', () => {
@@ -1042,6 +1080,7 @@ async function startServer() {
     const ipUrl = probeUrl;
 
     const args = [
+      '-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
       '-user_agent', 'Mozilla/5.0'
     ];
     
@@ -1242,6 +1281,7 @@ app.get('/api/youtube/search', async (req, res) => {
     const ipUrl = resolvedUrl;
 
     const args = [
+      '-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
       '-user_agent', 'Mozilla/5.0'
     ];
     
@@ -1384,6 +1424,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
     
     args.push('-user_agent', 'Mozilla/5.0');
+    args.push('-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`);
     if (ipUrl.startsWith('https')) {
       args.push('-tls_verify', '0');
     }
@@ -1393,7 +1434,8 @@ app.get('/api/youtube/search', async (req, res) => {
     );
 
     if (isLive) {
-      args.push('-map', '0:V:0', '-map', '0:a:0?');
+      // Allow FFmpeg to auto-map video and audio streams for IPTV playlists
+      // as stream indexes frequently change across different channels.
     } else {
       args.push('-map', '0:V:0');
       if (audioTrack && audioTrack !== '0') {
