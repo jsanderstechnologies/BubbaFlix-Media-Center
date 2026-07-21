@@ -139,7 +139,7 @@ export function updateZoom(zoom: number) {
   globalZoom = zoom;
   localStorage.setItem('zoom', zoom.toString());
   zoomListeners.forEach(fn => fn(globalZoom));
-  document.documentElement.style.zoom = globalZoom.toString();
+  document.body.style.zoom = globalZoom.toString();
   document.documentElement.style.setProperty('--zoom-level', globalZoom.toString());
 }
 
@@ -156,7 +156,7 @@ export function useSettings() {
     zoomListeners.push(setZoom);
 
     // Initial zoom application
-    document.documentElement.style.zoom = globalZoom.toString();
+    document.body.style.zoom = globalZoom.toString();
     document.documentElement.style.setProperty('--zoom-level', globalZoom.toString());
 
     return () => {
