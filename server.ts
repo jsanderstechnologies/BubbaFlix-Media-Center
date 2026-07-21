@@ -21,6 +21,38 @@ import nodemailer from 'nodemailer';
 import { PassThrough } from 'stream';
 import play from 'play-dl';
 import ytdl from '@distube/ytdl-core';
+import net from 'net';
+import http from 'http';
+
+// Create an internal HTTP CONNECT proxy to resolve DNS natively in Node
+// and tunnel FFmpeg traffic through it, bypassing FFmpeg's DNS bugs on Windows
+// while keeping SNI TLS intact!
+const ffmpegProxy = http.createServer();
+let FFMPEG_PROXY_PORT = 0;
+
+ffmpegProxy.on('connect', (req, clientSocket, head) => {
+  if (!req.url) return clientSocket.end();
+  const [hostname, port] = req.url.split(':');
+  const serverSocket = net.connect(parseInt(port) || 443, hostname, () => {
+    clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+    serverSocket.write(head);
+    serverSocket.pipe(clientSocket);
+    clientSocket.pipe(serverSocket);
+  });
+  
+  serverSocket.on('error', (err) => {
+    clientSocket.end();
+  });
+  
+  clientSocket.on('error', (err) => {
+    serverSocket.end();
+  });
+});
+
+ffmpegProxy.listen(0, '127.0.0.1', () => {
+  FFMPEG_PROXY_PORT = (ffmpegProxy.address() as net.AddressInfo).port;
+  console.log(`[FFmpeg-Proxy] Internal DNS tunnel listening on port ${FFMPEG_PROXY_PORT}`);
+});
 
 const _filename = typeof import.meta !== 'undefined' && import.meta.url ? fileURLToPath(import.meta.url) : '';
 const _dirname = _filename ? path.dirname(_filename) : '';
@@ -968,15 +1000,14 @@ async function startServer() {
 
 
   // API Route: Transcode Video using FFmpeg
-  
-  // Resolves the hostname in a streaming URL to its IP address dynamically
-  // to bypass static child process binary DNS resolution failures in bridge networks.
-  const resolveUrlIp = async (urlStr: string): Promise<string> => {
-    // Disabled: Replacing hostnames with IPs breaks HTTPS TLS SNI for Cloudflare/CDNs.
-    // FFmpeg can resolve DNS natively.
-    return urlStr;
-  };
-
+  // FFmpeg DNS tunnel env setup
+  const getFfmpegEnv = () => ({
+    ...process.env,
+    http_proxy: `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
+    https_proxy: `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
+    HTTP_PROXY: `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
+    HTTPS_PROXY: `http://127.0.0.1:${FFMPEG_PROXY_PORT}`
+  });
   // API Route: Get Media Duration Info
   app.get("/api/media-info", async (req, res) => {
     const targetUrl = req.query.url;
@@ -1008,7 +1039,7 @@ async function startServer() {
     }
 
     const originalHost = new URL(probeUrl).hostname;
-    const ipUrl = await resolveUrlIp(probeUrl);
+    const ipUrl = probeUrl;
 
     const args = [
       '-user_agent', 'Mozilla/5.0'
@@ -1027,7 +1058,7 @@ async function startServer() {
       '-i', ipUrl
     );
 
-    const ffprobeProcess = spawn(ffprobeStatic.path, args);
+    const ffprobeProcess = spawn(ffprobeStatic.path, args, { env: getFfmpegEnv() });
     let output = '';
 
     ffprobeProcess.stdout.on('data', (data) => {
@@ -1068,7 +1099,7 @@ async function startServer() {
       'pipe:1'
     ];
 
-    const ffmpegProcess = spawn(ffmpegPath, args);
+    const ffmpegProcess = spawn(ffmpegPath, args, { env: getFfmpegEnv() });
     ffmpegProcess.stdout.pipe(res);
 
     try {
@@ -1208,7 +1239,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     const originalHost = new URL(resolvedUrl).hostname;
-    const ipUrl = await resolveUrlIp(resolvedUrl);
+    const ipUrl = resolvedUrl;
 
     const args = [
       '-user_agent', 'Mozilla/5.0'
@@ -1226,7 +1257,7 @@ app.get('/api/youtube/search', async (req, res) => {
       '-i', ipUrl
     );
 
-    const ffprobeProcess = spawn(ffprobeStatic.path, args);
+    const ffprobeProcess = spawn(ffprobeStatic.path, args, { env: getFfmpegEnv() });
     let output = '';
 
     ffprobeProcess.stdout.on('data', (data) => {
@@ -1264,7 +1295,7 @@ app.get('/api/youtube/search', async (req, res) => {
       'pipe:1'
     ];
     
-    const ffmpegProcess = spawn(ffmpegPath, args);
+    const ffmpegProcess = spawn(ffmpegPath, args, { env: getFfmpegEnv() });
     ffmpegProcess.stdout.pipe(res);
 
     try {
@@ -1339,7 +1370,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     const originalHost = new URL(resolvedUrl).hostname;
-    const ipUrl = await resolveUrlIp(resolvedUrl);
+    const ipUrl = resolvedUrl;
 
     const isLive = req.query.live === 'true';
 
@@ -1451,7 +1482,7 @@ app.get('/api/youtube/search', async (req, res) => {
       'pipe:1'
     );
 
-    const ffmpegProcess = spawn(ffmpegPath, args);
+    const ffmpegProcess = spawn(ffmpegPath, args, { env: getFfmpegEnv() });
 
     let hwMark = 64 * 1024 * 1024; // default 64MB
     if (bufsize.endsWith('M')) {
