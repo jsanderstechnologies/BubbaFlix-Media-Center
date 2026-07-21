@@ -65,6 +65,7 @@ export function useAuth() {
 export function AuthModal() {
   const { user, loading, login } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
+  const modalRef = useRef<HTMLDivElement>(null);
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -104,6 +105,45 @@ export function AuthModal() {
       })
       .catch(console.error);
   }, []);
+
+  useEffect(() => {
+    if (loading || user) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab' && modalRef.current) {
+        // Only allow tab navigation between inputs and the submit button
+        const focusableElements = modalRef.current.querySelectorAll('input:not([tabindex="-1"]), button[type="submit"]');
+        if (focusableElements.length === 0) return;
+
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement || document.activeElement === document.body) {
+            lastElement.focus();
+            e.preventDefault();
+          }
+        } else {
+          if (document.activeElement === lastElement || document.activeElement === document.body) {
+            firstElement.focus();
+            e.preventDefault();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    
+    // Auto-focus first input on mount
+    setTimeout(() => {
+      if (modalRef.current) {
+        const firstElement = modalRef.current.querySelector('input') as HTMLElement;
+        if (firstElement) firstElement.focus();
+      }
+    }, 100);
+
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [loading, user]);
 
 
   if (loading || user) return null;
@@ -214,7 +254,7 @@ export function AuthModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-[999] bg-black flex items-center justify-center p-4">
+    <div ref={modalRef} className="fixed inset-0 z-[999] bg-black flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 to-black pointer-events-none" />
       <div className="bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-8 w-full max-w-md relative z-10 shadow-2xl">
         <div className="flex justify-center mb-6">
@@ -483,6 +523,7 @@ export function AuthModal() {
         {!setupRequired && (
           <div className="mt-6 text-center">
             <button 
+              tabIndex={-1}
               onClick={() => { setIsLogin(!isLogin); setError(''); }}
               className="text-white/50 hover:text-white transition-colors text-sm"
             >
