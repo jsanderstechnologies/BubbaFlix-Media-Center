@@ -1123,6 +1123,73 @@ async function startServer() {
     });
   });
 
+  // OpenSubtitles Stremio Addon Integration
+  app.get("/api/opensubtitles/search", async (req, res) => {
+    const tmdbId = req.query.tmdb_id;
+    const type = req.query.type; // 'movie' or 'tv'
+    const season = req.query.season;
+    const episode = req.query.episode;
+
+    if (!tmdbId || !type) {
+      return res.status(400).json({ error: "tmdb_id and type are required" });
+    }
+
+    try {
+      const settings = readJson(SETTINGS_FILE);
+      if (!settings.tmdbKey) {
+        return res.status(400).json({ error: "TMDB API key not configured" });
+      }
+
+      // Step 1: Resolve TMDB ID to IMDB ID
+      const tmdbUrl = `https://api.themoviedb.org/3/${type}/${tmdbId}/external_ids?api_key=${settings.tmdbKey}`;
+      const tmdbRes = await axios.get(tmdbUrl);
+      const imdbId = tmdbRes.data?.imdb_id;
+
+      if (!imdbId) {
+        return res.json({ subtitles: [] });
+      }
+
+      // Step 2: Query Stremio OpenSubtitles v3 Addon
+      let stremioUrl = `https://opensubtitles-v3.strem.io/subtitles/${type}/${imdbId}.json`;
+      if (type === 'tv' && season && episode) {
+        stremioUrl = `https://opensubtitles-v3.strem.io/subtitles/series/${imdbId}:${season}:${episode}.json`;
+      }
+
+      const osRes = await axios.get(stremioUrl);
+      const subtitles = osRes.data?.subtitles || [];
+      
+      res.json({ subtitles });
+    } catch (err: any) {
+      console.error('[OpenSubtitles Search Error]', err.message);
+      res.status(500).json({ error: "Failed to search subtitles" });
+    }
+  });
+
+  app.get("/api/opensubtitles/download", async (req, res) => {
+    const targetUrl = req.query.url;
+    if (!targetUrl || typeof targetUrl !== 'string') {
+      return res.status(400).send("URL is required");
+    }
+
+    res.header('Content-Type', 'text/vtt');
+    res.header('Access-Control-Allow-Origin', '*');
+
+    try {
+      const response = await axios.get(targetUrl, { responseType: 'text' });
+      const srtData = response.data;
+      
+      // Simple SRT to WebVTT conversion
+      // 1. Replace commas with periods in timestamps
+      // 2. Prepend WEBVTT header
+      let vttData = "WEBVTT\n\n" + srtData.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+      
+      res.send(vttData);
+    } catch (err: any) {
+      console.error('[OpenSubtitles Download Error]', err.message);
+      res.status(500).send("Failed to download subtitle");
+    }
+  });
+
   app.get("/api/subtitles", async (req, res) => {
     const targetUrl = req.query.url;
     const index = req.query.index;

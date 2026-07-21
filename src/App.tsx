@@ -50,8 +50,10 @@ function MainApp() {
   const [playingContext, setPlayingContext] = useState<any>(null);
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [mediaInfo, setMediaInfo] = useState<any>(null);
+  const [openSubtitles, setOpenSubtitles] = useState<any[]>([]);
   const [selectedAudioTrack, setSelectedAudioTrack] = useState<number>(0);
-  const [selectedSubtitleTrack, setSelectedSubtitleTrack] = useState<number | null>(null);
+  const [selectedSubtitleTrack, setSelectedSubtitleTrack] = useState<string | number | null>(null);
+  const [selectedSubtitleIsOS, setSelectedSubtitleIsOS] = useState<boolean>(false);
   const [showMediaInfo, setShowMediaInfo] = useState(false);
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
@@ -278,6 +280,18 @@ function MainApp() {
         .then(data => {
           setMediaInfo(data);
         }).catch(e => console.error("Media info fetch error:", e));
+        
+      if (playingContext?.id) {
+        let osUrl = `/api/opensubtitles/search?tmdb_id=${playingContext.id}&type=${playingContext.type}`;
+        if (playingContext.type === 'tv') {
+          osUrl += `&season=${playingContext.season}&episode=${playingContext.episode}`;
+        }
+        fetch(osUrl)
+          .then(res => res.json())
+          .then(data => {
+            if (data.subtitles) setOpenSubtitles(data.subtitles);
+          }).catch(e => console.error("OpenSubtitles fetch error:", e));
+      }
     }
   }, [isPlaying, playingUrl, playingContext]);
 
@@ -314,6 +328,8 @@ function MainApp() {
     setTotalDuration(0);
     setSelectedAudioTrack(0);
     setSelectedSubtitleTrack(null);
+    setSelectedSubtitleIsOS(false);
+    setOpenSubtitles([]);
     setMediaInfo(null);
     setPlayerStatus('BUFFERING...');
     
@@ -468,7 +484,7 @@ function MainApp() {
                 >
                   <track 
                     kind="subtitles" 
-                    src={`/api/transcode/subtitle.vtt?url=${encodeURIComponent(playingUrl)}&track=${selectedSubtitleTrack}`} 
+                    src={selectedSubtitleIsOS ? `/api/opensubtitles/download?url=${encodeURIComponent(selectedSubtitleTrack as string)}` : `/api/transcode/subtitle.vtt?url=${encodeURIComponent(playingUrl)}&track=${selectedSubtitleTrack}`} 
                     srcLang="en" 
                     default 
                   />
@@ -604,28 +620,44 @@ function MainApp() {
                             ))}
                           </>
                         )}
-                        {showSubtitleMenu && mediaInfo && (
-                          <>
-                            <h3 className="text-white/50 font-bold text-xs uppercase tracking-wider border-b border-white/20 pb-2 mb-2">Subtitles</h3>
-                            <button 
-                                tabIndex={0}
-                                onClick={() => { setSelectedSubtitleTrack(null); setShowSubtitleMenu(false); }}
-                                className={`focusable text-left text-sm px-3 py-2 rounded transition-colors ${selectedSubtitleTrack === null ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-red-500`}
-                              >
-                                None (Off)
-                              </button>
-                            {mediaInfo.streams?.filter((s: any) => s.codec_type === 'subtitle').map((stream: any, idx: number) => (
+                        {showSubtitleMenu && (
+                            <>
+                              <h3 className="text-white/50 font-bold text-xs uppercase tracking-wider border-b border-white/20 pb-2 mb-2">Subtitles</h3>
                               <button 
-                                key={idx}
-                                tabIndex={0}
-                                onClick={() => { setSelectedSubtitleTrack(stream.index); setShowSubtitleMenu(false); }}
-                                className={`focusable text-left text-sm px-3 py-2 rounded transition-colors ${selectedSubtitleTrack === stream.index ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-red-500`}
-                              >
-                                {stream.tags?.title || stream.tags?.language?.toUpperCase() || `Track ${idx + 1}`} ({stream.codec_name})
-                              </button>
-                            ))}
-                          </>
-                        )}
+                                  tabIndex={0}
+                                  onClick={() => { setSelectedSubtitleTrack(null); setSelectedSubtitleIsOS(false); setShowSubtitleMenu(false); }}
+                                  className={`focusable text-left text-sm px-3 py-2 rounded transition-colors ${selectedSubtitleTrack === null ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-red-500`}
+                                >
+                                  None (Off)
+                                </button>
+                              {mediaInfo?.streams?.filter((s: any) => s.codec_type === 'subtitle').map((stream: any, idx: number) => (
+                                <button 
+                                  key={idx}
+                                  tabIndex={0}
+                                  onClick={() => { setSelectedSubtitleTrack(stream.index); setSelectedSubtitleIsOS(false); setShowSubtitleMenu(false); }}
+                                  className={`focusable text-left text-sm px-3 py-2 rounded transition-colors ${selectedSubtitleTrack === stream.index ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-red-500`}
+                                >
+                                  {stream.tags?.title || stream.tags?.language?.toUpperCase() || `Track ${idx + 1}`} ({stream.codec_name})
+                                </button>
+                              ))}
+
+                              {openSubtitles?.length > 0 && (
+                                <>
+                                  <h3 className="text-white/50 font-bold text-xs uppercase tracking-wider border-b border-white/20 pb-2 mb-2 mt-4">OpenSubtitles</h3>
+                                  {openSubtitles.map((sub, idx) => (
+                                    <button 
+                                      key={`os-${idx}`}
+                                      tabIndex={0}
+                                      onClick={() => { setSelectedSubtitleTrack(sub.url); setSelectedSubtitleIsOS(true); setShowSubtitleMenu(false); }}
+                                      className={`focusable text-left text-sm px-3 py-2 rounded transition-colors ${selectedSubtitleTrack === sub.url ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-red-500`}
+                                    >
+                                      {sub.lang} - Community ({sub.id})
+                                    </button>
+                                  ))}
+                                </>
+                              )}
+                            </>
+                          )}
                       </div>
                     )}
                   </div>
