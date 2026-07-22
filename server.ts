@@ -1908,11 +1908,13 @@ const durationCache = new Map<string, number>();
     const scrapeHTML = require('cheerio');
 
     try {
-      const [pbRes, ytsRes, solidRes, limeRes, eztvRes] = await Promise.all([
+      const [pbRes, ytsRes, ytsLuRes, solidRes, limeRes, eztvRes] = await Promise.all([
         // The Pirate Bay
         axios.get(`https://apibay.org/q.php?q=${encodeURIComponent(q)}`, { timeout: 7000 }).catch(() => null),
-        // YTS (best for movies)
+        // YTS.mx (best for movies)
         axios.get(`https://yts.mx/api/v2/list_movies.json?query_term=${encodeURIComponent(q)}&limit=20`, { timeout: 7000 }).catch(() => null),
+        // YTS.lu (mirror with wider catalogue — same API format)
+        axios.get(`https://yts.lu/api/v2/list_movies.json?query_term=${encodeURIComponent(q)}&limit=20`, { timeout: 9000 }).catch(() => null),
         // SolidTorrents (aggregates 1337x, RARBG dumps, TorrentGalaxy & others)
         axios.get(`https://solidtorrents.to/api/v1/search?q=${encodeURIComponent(q)}&limit=20`, { timeout: 7000 }).catch(() => null),
         // LimeTorrents (HTML scrape — no Cloudflare, responds with 200)
@@ -1954,28 +1956,32 @@ const durationCache = new Map<string, number>();
           }));
       }
 
-      // ── YTS (movies) ──
-      if (ytsRes?.data?.data?.movies) {
-        ytsRes.data.data.movies.forEach((m: any) => {
-          if (m.torrents) {
-            m.torrents.forEach((t: any) => {
-              const name = `${m.title} ${m.year || ''} ${t.quality} ${t.type} YTS`;
-              addTorrent({
-                id: `yts_${t.hash}`,
-                name,
-                hash: t.hash.toLowerCase(),
-                size: t.size_bytes || 0,
-                seeds: t.seeds || 0,
-                peers: t.peers || 0,
-                magnet: buildMagnet(t.hash, name),
-                link: buildMagnet(t.hash, name),
-                cached: false,
-                source: 'YTS'
+      // ── YTS.mx (movies) ──
+      const processYtsData = (ytsData: any, sourceLabel: string) => {
+        if (ytsData?.data?.movies) {
+          ytsData.data.movies.forEach((m: any) => {
+            if (m.torrents) {
+              m.torrents.forEach((t: any) => {
+                const name = `${m.title} ${m.year || ''} ${t.quality} ${t.type} ${sourceLabel}`;
+                addTorrent({
+                  id: `yts_${t.hash}`,
+                  name,
+                  hash: t.hash.toLowerCase(),
+                  size: t.size_bytes || 0,
+                  seeds: t.seeds || 0,
+                  peers: t.peers || 0,
+                  magnet: buildMagnet(t.hash, name),
+                  link: buildMagnet(t.hash, name),
+                  cached: false,
+                  source: sourceLabel
+                });
               });
-            });
-          }
-        });
-      }
+            }
+          });
+        }
+      };
+      processYtsData(ytsRes?.data, 'YTS');
+      processYtsData(ytsLuRes?.data, 'YTS.lu');
 
       // ── SolidTorrents (indexes RARBG/1337x/TorrentGalaxy data) ──
       if (solidRes?.data && Array.isArray(solidRes.data.results)) {
