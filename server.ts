@@ -1096,7 +1096,7 @@ async function startServer() {
       '-reconnect_on_http_error', '4xx,5xx',
 
 
-      '-reconnect_delay_max', '10',
+      '-reconnect_delay_max', '60',
       '-multiple_requests', '1',
       '-headers', `Host: ${originalHost}\r\n`,
       '-v', 'error',
@@ -1237,7 +1237,7 @@ async function startServer() {
       '-reconnect_on_http_error', '4xx,5xx',
 
 
-      '-reconnect_delay_max', '10',
+      '-reconnect_delay_max', '60',
       '-multiple_requests', '1',
       '-user_agent', 'Mozilla/5.0',
       '-i', resolvedUrl,
@@ -1391,7 +1391,7 @@ app.get('/api/youtube/search', async (req, res) => {
       '-reconnect_on_http_error', '4xx,5xx',
 
 
-      '-reconnect_delay_max', '10',
+      '-reconnect_delay_max', '60',
       '-multiple_requests', '1',
       '-headers', `Host: ${originalHost}\r\n`,
       '-v', 'error',
@@ -1459,7 +1459,7 @@ app.get('/api/youtube/search', async (req, res) => {
       '-reconnect_on_http_error', '4xx,5xx',
 
 
-      '-reconnect_delay_max', '10',
+      '-reconnect_delay_max', '60',
       '-multiple_requests', '1',
       '-v', 'error',
       '-user_agent', 'Mozilla/5.0',
@@ -1557,7 +1557,7 @@ app.get('/api/youtube/search', async (req, res) => {
       '-reconnect_on_http_error', '4xx,5xx',
 
 
-      '-reconnect_delay_max', '10',
+      '-reconnect_delay_max', '60',
       '-multiple_requests', '1',
       '-headers', `Host: ${originalHost}\r\n`,
       '-i', ipUrl

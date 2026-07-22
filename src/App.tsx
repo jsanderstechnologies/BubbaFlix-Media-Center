@@ -277,18 +277,18 @@ function MainApp() {
             .then(res => res.json())
             .then(data => {
               if (data.duration) setTotalDuration(Number(data.duration));
-            }).catch(e => {
-              if (e.name !== 'AbortError') console.error("Duration fetch error:", e);
-            });
-
-          fetch(`/api/media-info?url=${encodeURIComponent(playingUrl)}`, { signal: abortController.signal })
-            .then(res => res.json())
+              
+              // Only fetch media info AFTER duration is complete!
+              return fetch(`/api/media-info?url=${encodeURIComponent(playingUrl)}`, { signal: abortController.signal });
+            })
+            .then(res => res ? res.json() : null)
             .then(data => {
-              setMediaInfo(data);
-            }).catch(e => {
-              if (e.name !== 'AbortError') console.error("Media info fetch error:", e);
+              if (data) setMediaInfo(data);
+            })
+            .catch(e => {
+              if (e.name !== 'AbortError') console.error("Metadata fetch error:", e);
             });
-        }, 3000);
+        }, 5000);
           
         if (playingContext?.id) {
           let osUrl = `/api/opensubtitles/search?tmdb_id=${playingContext.id}&type=${playingContext.type}`;
