@@ -1,7 +1,7 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { fetchStreamsForMovie, fetchStreamsForTvSeries } from '../services/torboxSearchApi';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X } from 'lucide-react';
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from '../lib/localDb';
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
@@ -913,7 +913,7 @@ export default function MediaModal({
             {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-35" referrerPolicy="no-referrer" />}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/60 to-transparent"></div>
             <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer">
-                âœ•
+                <X className="w-5 h-5" />
             </button>
             <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
                 <div className="min-w-0 flex-1">
