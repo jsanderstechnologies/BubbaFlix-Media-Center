@@ -906,226 +906,7 @@ export default function MediaModal({
 
   if (!movie) return null;
 
-  return (
-    <div id="media-modal" className={`fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn ${isHidden ? 'hidden' : ''}`}>
-      <div className="bg-[#0c0c12] border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
-        <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 shrink-0">
-            {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-35" referrerPolicy="no-referrer" />}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/60 to-transparent"></div>
-            <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer">
-                <X className="w-5 h-5" />
-            </button>
-            <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-3xl sm:text-4xl font-light tracking-tight text-white mb-2 truncate">{movie.title}</h2>
-                  <div className="flex flex-wrap items-center gap-3 text-sm">
-                      <span className="font-mono text-white font-medium">{movie.year}</span>
-                      {mpaaRating && (
-                        <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] font-bold text-white font-mono leading-none tracking-wide uppercase bg-white/5">
-                          {mpaaRating}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white font-mono bg-white/5">
-                          <Star className="w-3 h-3 text-yellow-500 fill-current" /> <span className="font-mono">{movie.rating}</span>
-                      </span>
-                  </div>
-                </div>
-                {user && (
-                  <button 
-                    onClick={toggleFavorite}
-                    disabled={favoriteLoading}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0
-                      ${isFavorite 
-                        ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30' 
-                        : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'}`}
-                  >
-                    {isFavorite ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-                    {isFavorite ? 'In Library' : 'Add To Library'}
-                  </button>
-                )}
-            </div>
-        </div>
-
-        <div className="p-6 overflow-y-auto md:overflow-hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-6 h-full md:overflow-y-auto custom-scrollbar md:pr-4 pb-4">
-                {movie.overview && (
-                    <p className="text-sm text-white/90 leading-relaxed">
-                        {movie.overview}
-                    </p>
-                )}
-                
-                {extraLoading ? (
-                  <div className="flex flex-col items-center justify-center py-10 space-y-3 bg-white/[0.01] border border-white/5 rounded-xl">
-                    <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                    </span>
-                    <span className="text-xs font-mono text-white/60 uppercase tracking-widest animate-pulse">Loading Credits...</span>
-                  </div>
-                ) : extraDetails ? (
-                  <div className="space-y-6">
-                    {extraDetails.tagline && (
-                      <div className="bg-white/[0.02] border-l-2 border-red-500 p-3 rounded-r-lg italic text-xs text-white/80 leading-relaxed">
-                        "{extraDetails.tagline}"
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4 text-xs">
-                      <div>
-                        <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Release / Air Date</span>
-                        <span className="text-white font-medium font-mono">{extraDetails.releaseDate}</span>
-                      </div>
-                      {extraDetails.genres && extraDetails.genres.length > 0 && (
-                        <div>
-                          <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Genres</span>
-                          <span className="text-white/80 font-medium truncate block" title={extraDetails.genres.join(', ')}>
-                            {extraDetails.genres.slice(0, 3).join(', ')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {(extraDetails.directors.length > 0 || extraDetails.producers.length > 0) && (
-                      <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4 text-xs">
-                        {extraDetails.directors.length > 0 && (
-                          <div>
-                            <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">
-                              {isSeries ? 'Creator / Showrunner' : 'Director'}
-                            </span>
-                            <span className="text-white font-semibold">{extraDetails.directors.join(', ')}</span>
-                          </div>
-                        )}
-                        {extraDetails.producers.length > 0 && (
-                          <div>
-                            <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Produced By</span>
-                            <span className="text-white font-medium truncate block" title={extraDetails.producers.join(', ')}>
-                              {extraDetails.producers.slice(0, 2).join(', ')}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {extraDetails.cast && extraDetails.cast.length > 0 && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider">Cast & Starring</h4>
-                          <span className="text-[10px] text-white/50">Click actor to discover</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          {extraDetails.cast.map(actor => (
-                            <div 
-                              key={actor.id} 
-                              className="flex items-center justify-between p-2 bg-white/5 border border-white/5 rounded-xl text-left transition-all group hover:bg-red-900/10 hover:border-red-500/20"
-                            >
-                              <div 
-                                onClick={() => onActorSearch && onActorSearch(actor.name)}
-                                tabIndex={0}
-                                className="focusable flex items-center gap-3 min-w-0 flex-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-xl"
-                                title={`Find media with ${actor.name} inside the app`}
-                              >
-                                <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-slate-800 border border-white/10 group-hover:border-red-500/30 transition-colors">
-                                  {actor.profilePath ? (
-                                    <img 
-                                      src={actor.profilePath} 
-                                      alt={actor.name} 
-                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" 
-                                      referrerPolicy="no-referrer" 
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white/70 bg-slate-900 uppercase">
-                                      {actor.name.substring(0, 2)}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-semibold text-white truncate group-hover:text-red-400 transition-colors">{actor.name}</p>
-                                  <p className="text-[10px] text-white/60 truncate mt-0.5">{actor.character}</p>
-                                </div>
-                              </div>
-                              
-                              <a 
-                                href={`https://www.imdb.com/find?q=${encodeURIComponent(actor.name)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2 py-1 rounded bg-[#f5c518] hover:bg-[#e2b512] text-black transition-colors text-[10px] font-black shrink-0 ml-1.5 shadow-sm"
-                                title={`Search ${actor.name} on IMDb`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                IMDb
-                              </a>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-white/50 text-xs italic py-4">No metadata details available.</div>
-                )}
-            </div>
-
-            <div className="flex flex-col gap-6 h-full min-h-0 pb-4">
-                {isSeries && (
-                  <div className="space-y-4 bg-white/[0.02] border border-white/5 p-4 rounded-xl flex-shrink-0">
-                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider">Select Episode</h4>
-                    {seriesDetailsLoading ? (
-                        <div className="text-white/60 text-xs italic">Loading series details...</div>
-                    ) : (
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Season</label>
-                                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
-                                    {seasons.map(s => (
-                                        <button 
-                                            key={s.season_number} 
-                                            onClick={() => { setStreams([]); setSelectedSeason(s.season_number); setSelectedEpisode(null); setEpisodes([]); }}
-                                            className={`focusable shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${selectedSeason === s.season_number ? 'bg-red-600 text-white' : 'bg-[#12121a] text-white/70 hover:bg-white/10'}`}
-                                        >
-                                            Season {s.season_number}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            {episodes.length > 0 && (
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Episode</label>
-                                    <div className="flex flex-wrap items-center gap-2 pb-2">
-                                        {episodes.map(ep => (
-                                            <button 
-                                                key={ep.episode_number} 
-                                                onClick={() => { setStreams([]); setSelectedEpisode(ep.episode_number); }}
-                                                className={`focusable shrink-0 flex flex-col items-center justify-center min-w-[80px] px-3 py-2 rounded-lg text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${selectedEpisode === ep.episode_number ? 'bg-red-600 text-white' : 'bg-[#12121a] text-white/70 hover:bg-white/10'}`}
-                                            >
-                                                <span>Ep {ep.episode_number}</span>
-                                                <span className="text-[9px] opacity-70 mt-0.5 max-w-[100px] truncate">{ep.name}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex flex-col flex-1 min-h-0">
-                    <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2 flex-shrink-0">
-                        TorBox Voyager Sources <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                    </h3>
-                    {loading ? (
-                        <div className="text-white/60 text-xs italic py-4 flex items-center gap-2 bg-white/[0.01] p-4 rounded-xl border border-white/5">
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                          </span>
-                          <span>Searching TorBox Voyager Indexers...</span>
-                        </div>
-                    ) : streams.length === 0 ? (
-                        <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5">No indexed streams found. Ensure your TorBox Pro API key is configured.</div>
-                    ) : (
-                        <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
-                            {streams.map(stream => {
+  const renderStream = (stream: any) => {
                                 const handleStreamClick = async () => {
                                   if (stream.isAdding) return;
                                   if (stream.downloadProgress !== undefined && stream.downloadProgress < 100) return;
@@ -1420,9 +1201,248 @@ export default function MediaModal({
                                       </div>
                                   </div>
                                 );
-                            })}
+  };
+
+  return (
+    <div id="media-modal" className={`fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn ${isHidden ? 'hidden' : ''}`}>
+      <div className="bg-[#0c0c12] border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
+        <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 shrink-0">
+            {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-35" referrerPolicy="no-referrer" />}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/60 to-transparent"></div>
+            <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer">
+                <X className="w-5 h-5" />
+            </button>
+            <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-3xl sm:text-4xl font-light tracking-tight text-white mb-2 truncate">{movie.title}</h2>
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                      <span className="font-mono text-white font-medium">{movie.year}</span>
+                      {mpaaRating && (
+                        <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] font-bold text-white font-mono leading-none tracking-wide uppercase bg-white/5">
+                          {mpaaRating}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white font-mono bg-white/5">
+                          <Star className="w-3 h-3 text-yellow-500 fill-current" /> <span className="font-mono">{movie.rating}</span>
+                      </span>
+                  </div>
+                </div>
+                {user && (
+                  <button 
+                    onClick={toggleFavorite}
+                    disabled={favoriteLoading}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0
+                      ${isFavorite 
+                        ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30' 
+                        : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'}`}
+                  >
+                    {isFavorite ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                    {isFavorite ? 'In Library' : 'Add To Library'}
+                  </button>
+                )}
+            </div>
+        </div>
+
+        <div className="p-6 overflow-y-auto md:overflow-hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6 h-full md:overflow-y-auto custom-scrollbar md:pr-4 pb-4">
+                {movie.overview && (
+                    <p className="text-sm text-white/90 leading-relaxed">
+                        {movie.overview}
+                    </p>
+                )}
+                
+                {extraLoading ? (
+                  <div className="flex flex-col items-center justify-center py-10 space-y-3 bg-white/[0.01] border border-white/5 rounded-xl">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    </span>
+                    <span className="text-xs font-mono text-white/60 uppercase tracking-widest animate-pulse">Loading Credits...</span>
+                  </div>
+                ) : extraDetails ? (
+                  <div className="space-y-6">
+                    {extraDetails.tagline && (
+                      <div className="bg-white/[0.02] border-l-2 border-red-500 p-3 rounded-r-lg italic text-xs text-white/80 leading-relaxed">
+                        "{extraDetails.tagline}"
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4 text-xs">
+                      <div>
+                        <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Release / Air Date</span>
+                        <span className="text-white font-medium font-mono">{extraDetails.releaseDate}</span>
+                      </div>
+                      {extraDetails.genres && extraDetails.genres.length > 0 && (
+                        <div>
+                          <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Genres</span>
+                          <span className="text-white/80 font-medium truncate block" title={extraDetails.genres.join(', ')}>
+                            {extraDetails.genres.slice(0, 3).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {(extraDetails.directors.length > 0 || extraDetails.producers.length > 0) && (
+                      <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4 text-xs">
+                        {extraDetails.directors.length > 0 && (
+                          <div>
+                            <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">
+                              {isSeries ? 'Creator / Showrunner' : 'Director'}
+                            </span>
+                            <span className="text-white font-semibold">{extraDetails.directors.join(', ')}</span>
+                          </div>
+                        )}
+                        {extraDetails.producers.length > 0 && (
+                          <div>
+                            <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Produced By</span>
+                            <span className="text-white font-medium truncate block" title={extraDetails.producers.join(', ')}>
+                              {extraDetails.producers.slice(0, 2).join(', ')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {extraDetails.cast && extraDetails.cast.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider">Cast & Starring</h4>
+                          <span className="text-[10px] text-white/50">Click actor to discover</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {extraDetails.cast.map(actor => (
+                            <div 
+                              key={actor.id} 
+                              className="flex items-center justify-between p-2 bg-white/5 border border-white/5 rounded-xl text-left transition-all group hover:bg-red-900/10 hover:border-red-500/20"
+                            >
+                              <div 
+                                onClick={() => onActorSearch && onActorSearch(actor.name)}
+                                tabIndex={0}
+                                className="focusable flex items-center gap-3 min-w-0 flex-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-xl"
+                                title={`Find media with ${actor.name} inside the app`}
+                              >
+                                <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-slate-800 border border-white/10 group-hover:border-red-500/30 transition-colors">
+                                  {actor.profilePath ? (
+                                    <img 
+                                      src={actor.profilePath} 
+                                      alt={actor.name} 
+                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" 
+                                      referrerPolicy="no-referrer" 
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white/70 bg-slate-900 uppercase">
+                                      {actor.name.substring(0, 2)}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold text-white truncate group-hover:text-red-400 transition-colors">{actor.name}</p>
+                                  <p className="text-[10px] text-white/60 truncate mt-0.5">{actor.character}</p>
+                                </div>
+                              </div>
+                              
+                              <a 
+                                href={`https://www.imdb.com/find?q=${encodeURIComponent(actor.name)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2 py-1 rounded bg-[#f5c518] hover:bg-[#e2b512] text-black transition-colors text-[10px] font-black shrink-0 ml-1.5 shadow-sm"
+                                title={`Search ${actor.name} on IMDb`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                IMDb
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-white/50 text-xs italic py-4">No metadata details available.</div>
+                )}
+            </div>
+
+            <div className="flex flex-col gap-6 h-full min-h-0 pb-4">
+                {isSeries && (
+                  <div className="space-y-4 bg-white/[0.02] border border-white/5 p-4 rounded-xl flex-shrink-0">
+                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider">Select Episode</h4>
+                    {seriesDetailsLoading ? (
+                        <div className="text-white/60 text-xs italic">Loading series details...</div>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Season</label>
+                                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
+                                    {seasons.map(s => (
+                                        <button 
+                                            key={s.season_number} 
+                                            onClick={() => { setStreams([]); setSelectedSeason(s.season_number); setSelectedEpisode(null); setEpisodes([]); }}
+                                            className={`focusable shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${selectedSeason === s.season_number ? 'bg-red-600 text-white' : 'bg-[#12121a] text-white/70 hover:bg-white/10'}`}
+                                        >
+                                            Season {s.season_number}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            {episodes.length > 0 && (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Episode</label>
+                                    <div className="flex flex-wrap items-center gap-2 pb-2">
+                                        {episodes.map(ep => (
+                                            <button 
+                                                key={ep.episode_number} 
+                                                onClick={() => { setStreams([]); setSelectedEpisode(ep.episode_number); }}
+                                                className={`focusable shrink-0 flex flex-col items-center justify-center min-w-[80px] px-3 py-2 rounded-lg text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${selectedEpisode === ep.episode_number ? 'bg-red-600 text-white' : 'bg-[#12121a] text-white/70 hover:bg-white/10'}`}
+                                            >
+                                                <span>Ep {ep.episode_number}</span>
+                                                <span className="text-[9px] opacity-70 mt-0.5 max-w-[100px] truncate">{ep.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
+                  </div>
+                )}
+
+
+                <div className="flex flex-col flex-1 min-h-0 gap-6">
+                    {/* Instant Cached & Active Downloads Container */}
+                    <div className="flex flex-col shrink-0">
+                        <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2">
+                            Ready to Play / Active <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        </h3>
+                        <div className="flex flex-col gap-3">
+                            {streams.filter(s => s.isCached || s.downloadState || s.downloadProgress !== undefined).length > 0 ? (
+                                streams.filter(s => s.isCached || s.downloadState || s.downloadProgress !== undefined).map(stream => renderStream(stream))
+                            ) : (
+                                <div className="text-white/40 text-xs italic py-2">No active downloads or cached items found.</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Search Results Container */}
+                    <div className="flex flex-col flex-1 min-h-0">
+                        <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2 flex-shrink-0">
+                            TorBox Voyager Search Results <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                        </h3>
+                        {loading ? (
+                            <div className="text-white/60 text-xs italic py-4 flex items-center gap-2 bg-white/[0.01] p-4 rounded-xl border border-white/5">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                              </span>
+                              <span>Searching TorBox Voyager Indexers...</span>
+                            </div>
+                        ) : streams.filter(s => !s.isCached && !s.downloadState && s.downloadProgress === undefined).length === 0 ? (
+                            <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5">No indexed streams found. Ensure your TorBox Pro API key is configured.</div>
+                        ) : (
+                            <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-4">
+                                {streams.filter(s => !s.isCached && !s.downloadState && s.downloadProgress === undefined).map(stream => renderStream(stream))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
