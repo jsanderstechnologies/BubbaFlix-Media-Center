@@ -89,6 +89,9 @@ export default function MediaModal({
   };
 
   const triggerPlay = (dlUrl: string) => {
+    if (!isFavorite) {
+      toggleFavorite();
+    }
     if (savedProgress && savedProgress.currentTime > 0 && savedProgress.percentage < 95) {
       setResumePromptStream(dlUrl);
     } else {
