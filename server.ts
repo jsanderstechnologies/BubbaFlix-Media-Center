@@ -10,11 +10,11 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import epgParser from 'epg-parser';
 import ffmpegPath from 'ffmpeg-static';
-import ffprobePath from 'ffprobe-static';
+import ffprobePath from '@ffprobe-installer/ffprobe';
 import util from 'util';
 import { execFile } from 'child_process';
 const execFileAsync = util.promisify(execFile);
-import ffprobeStatic from 'ffprobe-static';
+import ffprobeStatic from '@ffprobe-installer/ffprobe';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
@@ -1092,6 +1092,8 @@ async function startServer() {
       '-reconnect', '1',
       '-reconnect_at_eof', '1',
       '-reconnect_streamed', '1',
+      '-reconnect_on_network_error', '1',
+      '-reconnect_on_http_error', '4xx,5xx',
 
 
       '-reconnect_delay_max', '10',
@@ -1231,6 +1233,8 @@ async function startServer() {
       '-reconnect', '1',
       '-reconnect_at_eof', '1',
       '-reconnect_streamed', '1',
+      '-reconnect_on_network_error', '1',
+      '-reconnect_on_http_error', '4xx,5xx',
 
 
       '-reconnect_delay_max', '10',
@@ -1383,6 +1387,8 @@ app.get('/api/youtube/search', async (req, res) => {
       '-reconnect', '1',
       '-reconnect_at_eof', '1',
       '-reconnect_streamed', '1',
+      '-reconnect_on_network_error', '1',
+      '-reconnect_on_http_error', '4xx,5xx',
 
 
       '-reconnect_delay_max', '10',
@@ -1449,6 +1455,8 @@ app.get('/api/youtube/search', async (req, res) => {
       '-reconnect', '1',
       '-reconnect_at_eof', '1',
       '-reconnect_streamed', '1',
+      '-reconnect_on_network_error', '1',
+      '-reconnect_on_http_error', '4xx,5xx',
 
 
       '-reconnect_delay_max', '10',
@@ -1545,6 +1553,8 @@ app.get('/api/youtube/search', async (req, res) => {
       '-reconnect', '1',
       '-reconnect_at_eof', '1',
       '-reconnect_streamed', '1',
+      '-reconnect_on_network_error', '1',
+      '-reconnect_on_http_error', '4xx,5xx',
 
 
       '-reconnect_delay_max', '10',
