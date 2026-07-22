@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { fetchStreamsForMovie, fetchStreamsForTvSeries } from '../services/torboxSearchApi';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck, X } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X, Star, Database, Download } from 'lucide-react';
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from '../lib/localDb';
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
@@ -926,7 +926,7 @@ export default function MediaModal({
                         </span>
                       )}
                       <span className="flex items-center gap-1 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white font-mono bg-white/5">
-                          â˜… <span className="font-mono">{movie.rating}</span>
+                          <Star className="w-3 h-3 text-yellow-500 fill-current" /> <span className="font-mono">{movie.rating}</span>
                       </span>
                   </div>
                 </div>
@@ -1387,13 +1387,13 @@ export default function MediaModal({
                                             <div className="flex items-center gap-2 mt-1">
                                               <span className="text-[10px] text-white/60 font-mono">Size: {stream.size}</span>
                                               {stream.source && (
-                                                <span className="text-[10px] text-white/60 font-mono">
-                                                  â€¢ Source: {stream.source}
+                                                <span className="text-[10px] text-white/60 font-mono flex items-center gap-1">
+                                                  <Database className="w-3 h-3" /> Source: {stream.source}
                                                 </span>
                                               )}
                                               {stream.downloadProgress !== undefined && stream.downloadProgress < 100 && stream.downloadSpeed !== undefined && (
-                                                <span className="text-[10px] text-indigo-400 font-mono font-semibold">
-                                                  â€¢ {(stream.downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s
+                                                <span className="text-[10px] text-indigo-400 font-mono font-semibold flex items-center gap-1">
+                                                  <Download className="w-3 h-3" /> {(stream.downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s
                                                 </span>
                                               )}
                                             </div>
