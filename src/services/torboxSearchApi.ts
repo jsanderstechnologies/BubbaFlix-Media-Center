@@ -85,9 +85,9 @@ const mapResults = (items: any[], type: 'torrent' | 'usenet', originalTitle?: st
   });
 };
 
-export const fetchStreamsForTvSeries = async (title: string, season: number, episode: number): Promise<TorBoxSearchResult[]> => {
+export const fetchStreamsForTvSeries = async (title: string, season: number, episode: number, imdbId?: string): Promise<TorBoxSearchResult[]> => {
   const queryStr = `${title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`;
-  console.log(`[TorBox Search] Searching TV Series: "${queryStr}"`);
+  console.log(`[TorBox Search] Searching TV Series: "${queryStr}" (IMDB: ${imdbId || 'N/A'})`);
   
   const headers = getAuthHeaders();
   
@@ -110,7 +110,8 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
       (async () => {
         if (!enableTorrent) return [];
         try {
-          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
+          const imdbParam = imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : '';
+          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}${imdbParam}`, { headers });
           const json = res.ok ? await res.json() : null;
           return (json?.success && json?.data) ? mapResults(json.data, 'torrent', title) : [];
         } catch (e) {
@@ -131,9 +132,9 @@ export const fetchStreamsForTvSeries = async (title: string, season: number, epi
   }
 };
 
-export const fetchStreamsForMovie = async (title: string, year?: string): Promise<TorBoxSearchResult[]> => {
+export const fetchStreamsForMovie = async (title: string, year?: string, imdbId?: string): Promise<TorBoxSearchResult[]> => {
   const queryStr = (year && year !== 'N/A') ? `${title} ${year}` : title;
-  console.log(`[TorBox Search] Searching Movie: "${queryStr}"`);
+  console.log(`[TorBox Search] Searching Movie: "${queryStr}" (IMDB: ${imdbId || 'N/A'})`);
   
   const headers = getAuthHeaders();
   
@@ -156,7 +157,8 @@ export const fetchStreamsForMovie = async (title: string, year?: string): Promis
       (async () => {
         if (!enableTorrent) return [];
         try {
-          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
+          const imdbParam = imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : '';
+          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}${imdbParam}`, { headers });
           const json = res.ok ? await res.json() : null;
           return (json?.success && json?.data) ? mapResults(json.data, 'torrent', title) : [];
         } catch (e) {

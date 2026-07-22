@@ -450,7 +450,8 @@ export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) =
         : (details.release_date ? `Released: ${details.release_date}` : 'N/A'),
       cast,
       genres: details.genres?.map((g: any) => g.name) || [],
-      tagline: details.tagline || ''
+      tagline: details.tagline || '',
+      imdbId: details.imdb_id || details.external_ids?.imdb_id || null
     };
   } catch (error) {
     console.error("[Frontend] Error fetching media credits and details:", error);

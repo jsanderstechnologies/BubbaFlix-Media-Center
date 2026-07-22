@@ -1885,56 +1885,90 @@ const durationCache = new Map<string, number>();
   }
 
   app.get("/api/torbox/torrents/search", async (req, res) => {
-    const { q } = req.query;
+    const { q, imdbId } = req.query;
     if (!q || typeof q !== 'string') {
       return res.status(400).json({ error: "Query 'q' parameter is required." });
     }
-    console.log(`[Torrent Proxy] Received search request for: "${q}"`);
+    console.log(`[Torrent Proxy] Received search request for: "${q}" (IMDB: ${imdbId || 'N/A'})`);
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ error: "Authorization key is required." });
     }
 
+    const TRACKERS = [
+      'udp://tracker.opentrackr.org:1337/announce',
+      'udp://open.tracker.cl:1337/announce',
+      'udp://tracker.openbittorrent.com:6969/announce',
+      'udp://9.rarbg.com:2810/announce',
+    ].map(t => `&tr=${encodeURIComponent(t)}`).join('');
+
+    const buildMagnet = (hash: string, name: string) =>
+      `magnet:?xt=urn:btih:${hash}&dn=${encodeURIComponent(name)}${TRACKERS}`;
+
+    const scrapeHTML = require('cheerio');
+
     try {
-      const [pbRes, ytsRes, solidRes] = await Promise.all([
+      const [pbRes, ytsRes, solidRes, limeRes, eztvRes] = await Promise.all([
+        // The Pirate Bay
         axios.get(`https://apibay.org/q.php?q=${encodeURIComponent(q)}`, { timeout: 7000 }).catch(() => null),
-        axios.get(`https://yts.mx/api/v2/list_movies.json?query_term=${encodeURIComponent(q)}`, { timeout: 7000 }).catch(() => null),
-        axios.get(`https://solidtorrents.to/api/v1/search?q=${encodeURIComponent(q)}`, { timeout: 7000 }).catch(() => null)
+        // YTS (best for movies)
+        axios.get(`https://yts.mx/api/v2/list_movies.json?query_term=${encodeURIComponent(q)}&limit=20`, { timeout: 7000 }).catch(() => null),
+        // SolidTorrents (aggregates 1337x, RARBG dumps, TorrentGalaxy & others)
+        axios.get(`https://solidtorrents.to/api/v1/search?q=${encodeURIComponent(q)}&limit=20`, { timeout: 7000 }).catch(() => null),
+        // LimeTorrents (HTML scrape — no Cloudflare, responds with 200)
+        axios.get(`https://www.limetorrents.lol/search/all/${encodeURIComponent(q.replace(/\s+/g, '-'))}/seeds/1/`, {
+          timeout: 10000,
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        }).catch(() => null),
+        // EZTV (works best for TV shows — needs numeric IMDB ID)
+        (imdbId && typeof imdbId === 'string')
+          ? axios.get(`https://eztvx.to/api/get-torrents?limit=30&imdb_id=${imdbId.replace(/^tt/, '')}`, { timeout: 7000 }).catch(() => null)
+          : Promise.resolve(null),
       ]);
 
       const mappedTorrents: any[] = [];
-      
-      if (pbRes && pbRes.data && Array.isArray(pbRes.data)) {
-        pbRes.data.filter((t: any) => t.id && t.info_hash && t.info_hash !== '0000000000000000000000000000000000000000').forEach((t: any) => {
-          const magnet = `magnet:?xt=urn:btih:${t.info_hash}&dn=${encodeURIComponent(t.name)}&tr=udp://tracker.opentrackr.org:1337/announce`;
-          mappedTorrents.push({
-            id: t.id,
+      const seenHashes = new Set<string>();
+
+      const addTorrent = (t: any) => {
+        const h = (t.hash || '').toLowerCase();
+        if (!h || seenHashes.has(h)) return;
+        seenHashes.add(h);
+        mappedTorrents.push(t);
+      };
+
+      // ── The Pirate Bay ──
+      if (pbRes?.data && Array.isArray(pbRes.data)) {
+        pbRes.data
+          .filter((t: any) => t.id && t.info_hash && t.info_hash !== '0000000000000000000000000000000000000000')
+          .forEach((t: any) => addTorrent({
+            id: `pb_${t.id}`,
             name: t.name,
-            hash: t.info_hash,
-            size: parseInt(t.size || "0", 10),
-            seeds: parseInt(t.seeders || "0", 10),
-            magnet: magnet,
-            link: magnet,
+            hash: t.info_hash.toLowerCase(),
+            size: parseInt(t.size || '0', 10),
+            seeds: parseInt(t.seeders || '0', 10),
+            peers: parseInt(t.leechers || '0', 10),
+            magnet: buildMagnet(t.info_hash, t.name),
+            link: buildMagnet(t.info_hash, t.name),
             cached: false,
             source: 'The Pirate Bay'
-          });
-        });
+          }));
       }
 
-      if (ytsRes && ytsRes.data && ytsRes.data.data && ytsRes.data.data.movies) {
+      // ── YTS (movies) ──
+      if (ytsRes?.data?.data?.movies) {
         ytsRes.data.data.movies.forEach((m: any) => {
           if (m.torrents) {
             m.torrents.forEach((t: any) => {
               const name = `${m.title} ${m.year || ''} ${t.quality} ${t.type} YTS`;
-              const magnet = `magnet:?xt=urn:btih:${t.hash}&dn=${encodeURIComponent(name)}&tr=udp://tracker.opentrackr.org:1337/announce`;
-              mappedTorrents.push({
+              addTorrent({
                 id: `yts_${t.hash}`,
-                name: name,
-                hash: t.hash,
+                name,
+                hash: t.hash.toLowerCase(),
                 size: t.size_bytes || 0,
                 seeds: t.seeds || 0,
-                magnet: magnet,
-                link: magnet,
+                peers: t.peers || 0,
+                magnet: buildMagnet(t.hash, name),
+                link: buildMagnet(t.hash, name),
                 cached: false,
                 source: 'YTS'
               });
@@ -1943,24 +1977,91 @@ const durationCache = new Map<string, number>();
         });
       }
 
-      if (solidRes && solidRes.data && Array.isArray(solidRes.data.results)) {
+      // ── SolidTorrents (indexes RARBG/1337x/TorrentGalaxy data) ──
+      if (solidRes?.data && Array.isArray(solidRes.data.results)) {
         solidRes.data.results.forEach((t: any) => {
           if (t.infohash && t.title) {
-            const magnet = `magnet:?xt=urn:btih:${t.infohash}&dn=${encodeURIComponent(t.title)}&tr=udp://tracker.opentrackr.org:1337/announce`;
-            mappedTorrents.push({
+            addTorrent({
               id: `st_${t.id || t.infohash}`,
               name: t.title,
               hash: t.infohash.toLowerCase(),
               size: t.size || 0,
               seeds: t.seeders || 0,
-              magnet: magnet,
-              link: magnet,
+              peers: t.leechers || 0,
+              magnet: buildMagnet(t.infohash, t.title),
+              link: buildMagnet(t.infohash, t.title),
               cached: false,
               source: 'SolidTorrents'
             });
           }
         });
       }
+
+      // ── LimeTorrents (HTML scrape) ──
+      if (limeRes?.data && typeof limeRes.data === 'string') {
+        try {
+          const $ = scrapeHTML.load(limeRes.data);
+          $('table.table2 tr').each((_i: number, el: any) => {
+            const titleAnchor = $(el).find('div.tt-name a').last();
+            const name = titleAnchor.text().trim();
+            const dlHref = $(el).find('a.csprite_dl14').attr('href') || '';
+            const size = $(el).find('td.tdnormal').eq(1).text().trim();
+            const seedsText = $(el).find('td.tdseed').text().trim();
+            const seeds = parseInt(seedsText, 10) || 0;
+
+            // LimeTorrents magnet or .torrent link — extract infohash from download URL
+            const hashMatch = dlHref.match(/([a-fA-F0-9]{40})/);
+            if (name && hashMatch) {
+              const hash = hashMatch[1].toLowerCase();
+              // Convert size string like "1.4 GB" to bytes
+              let sizeBytes = 0;
+              const sizeMatch = size.match(/([\d.]+)\s*(GB|MB|KB)/i);
+              if (sizeMatch) {
+                const val = parseFloat(sizeMatch[1]);
+                const unit = sizeMatch[2].toUpperCase();
+                sizeBytes = unit === 'GB' ? val * 1e9 : unit === 'MB' ? val * 1e6 : val * 1e3;
+              }
+              addTorrent({
+                id: `lime_${hash}`,
+                name,
+                hash,
+                size: sizeBytes,
+                seeds,
+                peers: 0,
+                magnet: buildMagnet(hash, name),
+                link: buildMagnet(hash, name),
+                cached: false,
+                source: 'LimeTorrents'
+              });
+            }
+          });
+        } catch (parseErr) {
+          console.warn('[Torrent Proxy] LimeTorrents parse error:', parseErr);
+        }
+      }
+
+      // ── EZTV (TV shows via IMDB ID) ──
+      if (eztvRes?.data?.torrents && Array.isArray(eztvRes.data.torrents)) {
+        eztvRes.data.torrents.forEach((t: any) => {
+          if (t.hash && t.title) {
+            addTorrent({
+              id: `eztv_${t.id}`,
+              name: t.title,
+              hash: t.hash.toLowerCase(),
+              size: parseInt(t.size_bytes || '0', 10),
+              seeds: t.seeds || 0,
+              peers: t.peers || 0,
+              magnet: t.magnet_url || buildMagnet(t.hash, t.title),
+              link: t.magnet_url || buildMagnet(t.hash, t.title),
+              cached: false,
+              source: 'EZTV'
+            });
+          }
+        });
+      }
+
+      // Sort by seeds descending before filtering
+      mappedTorrents.sort((a, b) => (b.seeds || 0) - (a.seeds || 0));
 
       const settings = readJson(SETTINGS_FILE);
       const filteredTorrents = await filterWithGemini(q as string, mappedTorrents, settings);

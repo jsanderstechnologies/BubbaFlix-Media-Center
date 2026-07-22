@@ -50,6 +50,7 @@ export default function MediaModal({
     cast: { id: number; name: string; character: string; profilePath: string | null }[];
     genres?: string[];
     tagline?: string;
+    imdbId?: string | null;
   } | null>(null);
   const [extraLoading, setExtraLoading] = useState(false);
   const [savedProgress, setSavedProgress] = useState<any>(null);
@@ -408,7 +409,7 @@ export default function MediaModal({
               setStreams(applyFiltersAndSort(initialData));
           }
 
-          fetchStreamsForMovie(movie.title || movie.name, movie.year).then(data => {
+          fetchStreamsForMovie(movie.title || movie.name, movie.year, extraDetails?.imdbId || undefined).then(data => {
               if (!isActive) return;
               
               const updatedData = [...initialData];
@@ -580,7 +581,7 @@ export default function MediaModal({
             setStreams(applyFiltersAndSort(initialData));
         }
 
-        fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode).then(data => {
+        fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode, extraDetails?.imdbId || undefined).then(data => {
             if (!isActive) return;
             
             const updatedData = [...initialData];
@@ -653,7 +654,7 @@ export default function MediaModal({
                 }).catch(err => console.error("Failed to check favorites for streamInfo update", err));
             }
         });
-      })();fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode).then(async data => {
+      })();fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode, extraDetails?.imdbId || undefined).then(async data => {
         if (!isActive) return;
         
         const apiKey = systemSettings.torboxApiKey;
