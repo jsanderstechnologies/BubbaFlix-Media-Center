@@ -992,8 +992,8 @@ export default function MediaModal({
                                             }
                                             return s;
                                           }));
-                                          const dlUrl = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${resData.data.usenet_id}&zip_link=false&redirect=true`;
-                                          triggerPlay(dlUrl);
+                                          setPollingActive(true);
+                                          if (!isFavorite) { toggleFavorite(); }
                                         } else {
                                           setStreams(prev => prev.map(s => {
                                             if (s.id === stream.id) {
@@ -1032,8 +1032,7 @@ export default function MediaModal({
                                             return s;
                                           }));
                                           setPollingActive(true);
-                                          const dlUrl = `https://api.torbox.app/v1/api/torrents/requestdl?token=${apiKey}&torrent_id=${resData.data.torrent_id}&zip_link=false&redirect=true&file_id=0`;
-                                          triggerPlay(dlUrl);
+                                          if (!isFavorite) { toggleFavorite(); }
                                         } else {
                                           alert("Failed to add Torrent: " + (resData.detail || "Unknown error"));
                                         }
