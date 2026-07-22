@@ -1865,7 +1865,6 @@ const durationCache = new Map<string, number>();
 
       const res = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${settings.geminiApiKey}`,
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${settings.geminiApiKey}`,
         { contents: [{ parts: [{ text: prompt }] }] },
         { timeout: 60000, headers: { 'Content-Type': 'application/json' } }
       );
