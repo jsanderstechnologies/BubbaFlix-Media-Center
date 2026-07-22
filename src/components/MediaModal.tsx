@@ -187,7 +187,7 @@ export default function MediaModal({
         const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
         let uRes = null;
         if (systemSettings.enableUsenetSearch !== false) {
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 500));
           uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
         }
 
@@ -196,15 +196,11 @@ export default function MediaModal({
 
         if (tRes && tRes.ok) {
           const tData = await tRes.json();
-          if (tData && tData.success && tData.data) {
-            activeTorrents = tData.data;
-          }
+          if (tData && tData.success && tData.data) activeTorrents = tData.data;
         }
         if (uRes && uRes.ok) {
           const uData = await uRes.json();
-          if (uData && uData.success && uData.data) {
-            activeUsenet = uData.data;
-          }
+          if (uData && uData.success && uData.data) activeUsenet = uData.data;
         }
 
         let playUrlToTrigger: string | null = null;
@@ -212,9 +208,11 @@ export default function MediaModal({
         setStreams(prevStreams => {
           return prevStreams.map(stream => {
             let updatedStream = { ...stream };
-            
+
+            // ── Torrent updates ──
             if (stream.type === 'torrent') {
               const match = activeTorrents.find(t => {
+                if (stream.id && t.id === stream.id) return true;
                 if (stream.torboxId && t.id === stream.torboxId) return true;
                 if (stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase()) return true;
                 return false;
@@ -222,51 +220,61 @@ export default function MediaModal({
 
               if (match) {
                 const progress = Math.round(match.progress * 100);
-                updatedStream.downloadProgress = progress;
                 const state = match.download_state || '';
-                updatedStream.downloadState = state;
-                updatedStream.isCached = match.progress >= 1 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === ''); 
-                updatedStream.downloadSpeed = match.download_speed || 0;
+                const isNowComplete = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || !state);
 
-                if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
-                  playUrlToTrigger = getTorrentRequestDlUrl(match, apiKey);
+                updatedStream.downloadProgress = progress;
+                updatedStream.downloadState = state;
+                updatedStream.downloadSpeed = match.download_speed || 0;
+                updatedStream.isCached = isNowComplete;
+                updatedStream.id = match.id;
+                updatedStream.torboxId = match.id;
+                updatedStream.isTorBox = true;
+
+                // Always keep url pointing to the real requestdl link (not magnet)
+                const dlUrl = getTorrentRequestDlUrl(match, apiKey);
+                updatedStream.url = dlUrl;
+
+                // Fire auto-play if this poll is the one that observed completion
+                if (isNowComplete && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
+                  playUrlToTrigger = dlUrl;
                 }
               }
             }
-            
+
+            // ── Usenet updates ──
             if (stream.type === 'usenet') {
               const match = activeUsenet.find(u => {
+                // Prefer ID match — most reliable
+                if (stream.id && u.id === stream.id) return true;
                 if (stream.torboxId && u.id === stream.torboxId) return true;
+                // Fall back to name comparison
                 if (!u.name || !stream.name) return false;
                 const sName = stream.name.toLowerCase().replace(/[^a-z0-9]/g, '');
                 const uName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                
-                if (uName.length < 10 || sName.length < 10) {
-                    if (uName !== sName) return false;
-                }
-                
-                const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
-                
-                let sizeMatch = true;
-                if (stream.sizeBytes && u.size) {
-                    sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
-                } else {
-                    if (uName !== sName) return false;
-                }
-                
-                return nameMatch && sizeMatch;
+                if (uName.length < 5 || sName.length < 5) return uName === sName;
+                return uName === sName || sName.includes(uName) || uName.includes(sName);
               });
 
               if (match) {
                 const progress = Math.round(match.progress * 100);
-                updatedStream.downloadProgress = progress;
                 const state = match.download_state || '';
-                updatedStream.downloadState = state;
-                updatedStream.isCached = match.progress >= 1 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === ''); 
-                updatedStream.downloadSpeed = match.download_speed || 0;
+                const isNowComplete = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
 
-                if (progress >= 100 && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
-                  playUrlToTrigger = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${match.id}&zip_link=false&redirect=true`;
+                updatedStream.downloadProgress = progress;
+                updatedStream.downloadState = state;
+                updatedStream.downloadSpeed = match.download_speed || 0;
+                updatedStream.isCached = isNowComplete;
+                updatedStream.id = match.id;
+                updatedStream.torboxId = match.id;
+                updatedStream.isTorBox = true;
+
+                // Always keep url pointing to the live requestdl link
+                const dlUrl = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${match.id}&zip_link=false&redirect=true`;
+                updatedStream.url = dlUrl;
+
+                if (isNowComplete && stream.downloadProgress !== undefined && stream.downloadProgress < 100) {
+                  playUrlToTrigger = dlUrl;
                 }
               }
             }
