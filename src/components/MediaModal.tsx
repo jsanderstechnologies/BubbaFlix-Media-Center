@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { fetchStreamsForMovie, fetchStreamsForTvSeries } from '../services/torboxSearchApi';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails } from '../services/tmdbApi';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
@@ -309,170 +309,157 @@ export default function MediaModal({
       } else {
         setLoading(true);
         setStreams([]);
-        fetchStreamsForMovie(movie.title || movie.name, movie.year).then(async data => {
-          if (!isActive) return;
+        (async () => {
+          const apiKey = systemSettings.torboxApiKey;
+          let activeTorrents = [];
+          let activeUsenet = [];
           
-        const apiKey = systemSettings.torboxApiKey;
-        let activeTorrents: any[] = [];
-        let activeUsenet: any[] = [];
-        
-        if (apiKey) {
-            try {
-                const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
-                let uRes = null;
-                if (systemSettings.enableUsenetSearch !== false) {
-                    await new Promise(r => setTimeout(r, 1000));
-                    uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
-                }
-                if (tRes && tRes.ok) {
-                    const tData = await tRes.json();
-                    if (tData && tData.success && tData.data) {
-                        activeTorrents = tData.data;
-                    }
-                }
-                if (uRes && uRes.ok) {
-                    const uData = await uRes.json();
-                    if (uData && uData.success && uData.data) {
-                        activeUsenet = uData.data;
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to fetch active torbox lists for cross-reference", err);
-            }
-        }
+          if (apiKey) {
+              try {
+                  const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+                  let uRes = null;
+                  if (systemSettings.enableUsenetSearch !== false) {
+                      await new Promise(r => setTimeout(r, 1000));
+                      uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+                  }
+                  if (tRes && tRes.ok) {
+                      const tData = await tRes.json();
+                      if (tData && tData.success && tData.data) {
+                          activeTorrents = tData.data;
+                      }
+                  }
+                  if (uRes && uRes.ok) {
+                      const uData = await uRes.json();
+                      if (uData && uData.success && uData.data) {
+                          activeUsenet = uData.data;
+                      }
+                  }
+              } catch (err) {
+                  console.error("Failed to fetch active torbox lists for cross-reference", err);
+              }
+          }
 
-        const matchedTorboxIds = new Set<number>();
-        const updatedData = data.map((stream: any) => {
-            const matchTorrent = activeTorrents.find(t => {
-                if (stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase()) return true;
-                return false;
-            });
-            const matchUsenet = activeUsenet.find(u => {
-                if (!u.name || !stream.name) return false;
-                const sName = stream.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                const uName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                
-                if (uName.length < 10 || sName.length < 10) {
-                    if (uName !== sName) return false;
-                }
-                
-                const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
-                
-                let sizeMatch = true;
-                if (stream.sizeBytes && u.size) {
-                    sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
-                } else {
-                    if (uName !== sName) return false;
-                }
-                
-                return nameMatch && sizeMatch;
-            });
+          if (!isActive) return;
 
-            let mappedStream = { ...stream };
+          const matchedTorboxIds = new Set();
+          const initialData = [];
+          const normalizedTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const year = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
+          
+          activeTorrents.forEach(t => {
+              const normalizedTorrentName = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              if (normalizedTorrentName.includes(normalizedTitle) && (!year || normalizedTorrentName.includes(year))) {
+                  const progress = Math.round(t.progress * 100);
+                  const state = t.download_state || '';
+                  const isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
+                  if (isCached) {
+                      matchedTorboxIds.add(t.id);
+                      initialData.push({
+                          name: t.name, title: t.name, fullDescription: t.name,
+                          quality: t.name.includes('4K') || t.name.includes('2160p') ? '4K' : (t.name.includes('1080p') ? '1080p' : '720p'),
+                          sizeBytes: t.size, sizeStr: (t.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+                          type: 'torrent', hash: t.hash, downloadState: state, isCached, downloadProgress: progress, downloadSpeed: t.download_speed || 0,
+                          url: getTorrentRequestDlUrl(t, apiKey), isTorBox: true, id: t.id, availability: 'Cached'
+                      });
+                  }
+              }
+          });
 
-            if (matchTorrent) {
-              matchedTorboxIds.add(matchTorrent.id);
-              const progress = Math.round(matchTorrent.progress * 100);
-              const state = matchTorrent.download_state || '';
-              mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === '');
-              mappedStream.downloadProgress = progress;
-              mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
-              mappedStream.id = matchTorrent.id;
-              mappedStream.isTorBox = true;
-              mappedStream.url = getTorrentRequestDlUrl(matchTorrent, apiKey);
-            } else if (matchUsenet) {
-              matchedTorboxIds.add(matchUsenet.id);
-              const progress = Math.round(matchUsenet.progress * 100);
-              const state = matchUsenet.download_state || '';
-              mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === '');
-              mappedStream.downloadProgress = progress;
-              mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
-              mappedStream.id = matchUsenet.id;
-              mappedStream.isTorBox = true;
-              mappedStream.url = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${matchUsenet.id}&zip_link=false&redirect=true`;
-            }
+          activeUsenet.forEach(u => {
+              const normalizedUsenetName = (u.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              if (normalizedUsenetName.includes(normalizedTitle) && (!year || normalizedUsenetName.includes(year))) {
+                  const progress = Math.round(u.progress * 100);
+                  const state = u.download_state || '';
+                  const isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
+                  if (isCached) {
+                      matchedTorboxIds.add(u.id);
+                      initialData.push({
+                          name: u.name, title: u.name, fullDescription: u.name,
+                          quality: u.name.includes('4K') || u.name.includes('2160p') ? '4K' : (u.name.includes('1080p') ? '1080p' : '720p'),
+                          sizeBytes: u.size, sizeStr: (u.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+                          type: 'usenet', downloadState: state, isCached, downloadProgress: progress, downloadSpeed: u.download_speed || 0,
+                          url: `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${u.id}&zip_link=false&redirect=true`, isTorBox: true, id: u.id, availability: 'Cached'
+                      });
+                  }
+              }
+          });
 
-            return mappedStream;
-        });
+          let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
+          const applyFiltersAndSort = (streams) => {
+              const filtered = streams.filter(s => {
+                  const desc = (s.name || '') + ' ' + (s.fullDescription || '');
+                  if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
+                  if (desc.includes('1080p')) return allowedRes.includes('1080p');
+                  if (desc.includes('720p')) return allowedRes.includes('720p');
+                  return true;
+              });
+              return filtered.sort((a, b) => {
+                  if (a.isCached && !b.isCached) return -1;
+                  if (!a.isCached && b.isCached) return 1;
+                  return 0;
+              });
+          };
 
-        const normalizedTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const year = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
-        
-        activeTorrents.forEach(t => {
-            if (!matchedTorboxIds.has(t.id)) {
-                const normalizedTorrentName = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (normalizedTorrentName.includes(normalizedTitle) && (!year || normalizedTorrentName.includes(year))) {
-                    const progress = Math.round(t.progress * 100);
-                    updatedData.push({
-                        name: t.name,
-                        title: t.name,
-                        fullDescription: t.name,
-                        quality: t.name.includes('4K') || t.name.includes('2160p') ? '4K' : (t.name.includes('1080p') ? '1080p' : '720p'),
-                        sizeBytes: t.size,
-                        sizeStr: (t.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
-                        type: 'torrent',
-                        hash: t.hash,
-                        downloadState: t.download_state || '',
-                        isCached: progress >= 100 && ((t.download_state || '') === 'completed' || (t.download_state || '') === 'cached' || (t.download_state || '') === 'downloaded' || !t.download_state),
-                        downloadProgress: progress,
-                        downloadSpeed: t.download_speed || 0,
-                        url: getTorrentRequestDlUrl(t, apiKey),
-                        isTorBox: true,
-                        id: t.id,
-                        availability: 'Cached'
-                    });
-                }
-            }
-        });
+          if (initialData.length > 0) {
+              setStreams(applyFiltersAndSort(initialData));
+          }
 
-        activeUsenet.forEach(u => {
-            if (!matchedTorboxIds.has(u.id)) {
-                const normalizedUsenetName = (u.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (normalizedUsenetName.includes(normalizedTitle) && (!year || normalizedUsenetName.includes(year))) {
-                    const progress = Math.round(u.progress * 100);
-                    updatedData.push({
-                        name: u.name,
-                        title: u.name,
-                        fullDescription: u.name,
-                        quality: u.name.includes('4K') || u.name.includes('2160p') ? '4K' : (u.name.includes('1080p') ? '1080p' : '720p'),
-                        sizeBytes: u.size,
-                        sizeStr: (u.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
-                        type: 'usenet',
-                        downloadState: u.download_state || '',
-                        isCached: progress >= 100 && ((u.download_state || '') === 'completed' || (u.download_state || '') === 'cached' || (u.download_state || '') === 'downloaded' || !u.download_state),
-                        downloadProgress: progress,
-                        downloadSpeed: u.download_speed || 0,
-                        url: `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${u.id}&zip_link=false&redirect=true`,
-                        isTorBox: true,
-                        id: u.id,
-                        availability: 'Cached'
-                    });
-                }
-            }
-        });
+          fetchStreamsForMovie(movie.title || movie.name, movie.year).then(data => {
+              if (!isActive) return;
+              
+              const updatedData = [...initialData];
+              
+              data.forEach((stream) => {
+                  const matchTorrent = activeTorrents.find(t => stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase());
+                  const matchUsenet = activeUsenet.find(u => {
+                      if (!u.name || !stream.name) return false;
+                      const sName = stream.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                      const uName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                      if (uName.length < 10 || sName.length < 10) if (uName !== sName) return false;
+                      const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
+                      let sizeMatch = true;
+                      if (stream.sizeBytes && u.size) sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
+                      else if (uName !== sName) return false;
+                      return nameMatch && sizeMatch;
+                  });
 
-        let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
-        let filteredData = updatedData.filter((s: any) => {
-            const desc = (s.name || '') + ' ' + (s.fullDescription || '');
-            if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
-            if (desc.includes('1080p')) return allowedRes.includes('1080p');
-            if (desc.includes('720p')) return allowedRes.includes('720p');
-            return true;
-        });
+                  let mappedStream = { ...stream };
+                  if (matchTorrent) {
+                      if (matchedTorboxIds.has(matchTorrent.id)) return;
+                      matchedTorboxIds.add(matchTorrent.id);
+                      const progress = Math.round(matchTorrent.progress * 100);
+                      const state = matchTorrent.download_state || '';
+                      mappedStream.downloadState = state;
+                      mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
+                      mappedStream.downloadProgress = progress;
+                      mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
+                      mappedStream.id = matchTorrent.id;
+                      mappedStream.isTorBox = true;
+                      mappedStream.url = getTorrentRequestDlUrl(matchTorrent, apiKey);
+                      updatedData.push(mappedStream);
+                  } else if (matchUsenet) {
+                      if (matchedTorboxIds.has(matchUsenet.id)) return;
+                      matchedTorboxIds.add(matchUsenet.id);
+                      const progress = Math.round(matchUsenet.progress * 100);
+                      const state = matchUsenet.download_state || '';
+                      mappedStream.downloadState = state;
+                      mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
+                      mappedStream.downloadProgress = progress;
+                      mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
+                      mappedStream.id = matchUsenet.id;
+                      mappedStream.isTorBox = true;
+                      mappedStream.url = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${matchUsenet.id}&zip_link=false&redirect=true`;
+                      updatedData.push(mappedStream);
+                  } else {
+                      updatedData.push(mappedStream);
+                  }
+              });
 
-        filteredData.sort((a: any, b: any) => {
-          if (a.isCached && !b.isCached) return -1;
-          if (!a.isCached && b.isCached) return 1;
-          return 0;
-        });
-
-        if (!isActive) return;
-        setStreams(filteredData);
-        setLoading(false);
-        setPollingActive(true);
-        });
+              setStreams(applyFiltersAndSort(updatedData));
+              setLoading(false);
+              setPollingActive(true);
+          });
+        })();
       }
     }
     return () => { isActive = false; };
@@ -493,17 +480,176 @@ export default function MediaModal({
         } else {
             setLoading(false);
         }
-      });
-    }
-    return () => { isActive = false; };
-  }, [isSeries, selectedSeason, movie]);
+      });(async () => {
+        const apiKey = systemSettings.torboxApiKey;
+        let activeTorrents = [];
+        let activeUsenet = [];
+        
+        if (apiKey) {
+            try {
+                const tRes = await fetch('/api/torbox/torrents', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+                let uRes = null;
+                if (systemSettings.enableUsenetSearch !== false) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    uRes = await fetch('/api/torbox/usenet/list', { headers: { Authorization: `Bearer ${apiKey}` } }).catch(() => null);
+                }
+                
+                if (tRes && tRes.ok) {
+                    const tData = await tRes.json();
+                    if (tData && tData.success && tData.data) {
+                        activeTorrents = tData.data;
+                    }
+                }
+                if (uRes && uRes.ok) {
+                    const uData = await uRes.json();
+                    if (uData && uData.success && uData.data) {
+                        activeUsenet = uData.data;
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch active lists for TV cross-reference", err);
+            }
+        }
 
-  useEffect(() => {
-    let isActive = true;
-    if (isSeries && selectedSeason !== null && selectedEpisode !== null && movie) {
-      setLoading(true);
-      setStreams([]);
-      fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode).then(async data => {
+        if (!isActive) return;
+
+        const matchedTorboxIds = new Set();
+        const initialData = [];
+        const normalizedTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const seasonEpisodeStr = `s${String(selectedSeason).padStart(2, '0')}e${String(selectedEpisode).padStart(2, '0')}`;
+        
+        activeTorrents.forEach(t => {
+            const normalizedTorrentName = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (normalizedTorrentName.includes(normalizedTitle) && normalizedTorrentName.includes(seasonEpisodeStr)) {
+                const progress = Math.round(t.progress * 100);
+                const state = t.download_state || '';
+                const isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
+                if (isCached) {
+                    matchedTorboxIds.add(t.id);
+                    initialData.push({
+                        name: t.name, title: t.name, fullDescription: t.name,
+                        quality: t.name.includes('4K') || t.name.includes('2160p') ? '4K' : (t.name.includes('1080p') ? '1080p' : '720p'),
+                        sizeBytes: t.size, sizeStr: (t.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+                        type: 'torrent', hash: t.hash, downloadState: state, isCached, downloadProgress: progress, downloadSpeed: t.download_speed || 0,
+                        url: getTorrentRequestDlUrl(t, apiKey), isTorBox: true, id: t.id, availability: 'Cached'
+                    });
+                }
+            }
+        });
+
+        activeUsenet.forEach(u => {
+            const normalizedUsenetName = (u.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (normalizedUsenetName.includes(normalizedTitle) && normalizedUsenetName.includes(seasonEpisodeStr)) {
+                const progress = Math.round(u.progress * 100);
+                const state = u.download_state || '';
+                const isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
+                if (isCached) {
+                    matchedTorboxIds.add(u.id);
+                    initialData.push({
+                        name: u.name, title: u.name, fullDescription: u.name,
+                        quality: u.name.includes('4K') || u.name.includes('2160p') ? '4K' : (u.name.includes('1080p') ? '1080p' : '720p'),
+                        sizeBytes: u.size, sizeStr: (u.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+                        type: 'usenet', downloadState: state, isCached, downloadProgress: progress, downloadSpeed: u.download_speed || 0,
+                        url: `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${u.id}&zip_link=false&redirect=true`, isTorBox: true, id: u.id, availability: 'Cached'
+                    });
+                }
+            }
+        });
+
+        let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
+        const applyFiltersAndSort = (streams) => {
+            const filtered = streams.filter(s => {
+                const desc = (s.name || '') + ' ' + (s.fullDescription || '');
+                if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
+                if (desc.includes('1080p')) return allowedRes.includes('1080p');
+                if (desc.includes('720p')) return allowedRes.includes('720p');
+                return true;
+            });
+            return filtered.sort((a, b) => {
+                if (a.isCached && !b.isCached) return -1;
+                if (!a.isCached && b.isCached) return 1;
+                return 0;
+            });
+        };
+
+        if (initialData.length > 0) {
+            setStreams(applyFiltersAndSort(initialData));
+        }
+
+        fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode).then(data => {
+            if (!isActive) return;
+            
+            const updatedData = [...initialData];
+            
+            data.forEach((stream) => {
+                const matchTorrent = activeTorrents.find(t => stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase());
+                const matchUsenet = activeUsenet.find(u => {
+                    if (!u.name || !stream.name) return false;
+                    const sName = stream.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const uName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (uName.length < 10 || sName.length < 10) if (uName !== sName) return false;
+                    const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
+                    let sizeMatch = true;
+                    if (stream.sizeBytes && u.size) sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
+                    else if (uName !== sName) return false;
+                    return nameMatch && sizeMatch;
+                });
+
+                let mappedStream = { ...stream };
+                if (matchTorrent) {
+                    if (matchedTorboxIds.has(matchTorrent.id)) return;
+                    matchedTorboxIds.add(matchTorrent.id);
+                    const progress = Math.round(matchTorrent.progress * 100);
+                    const state = matchTorrent.download_state || '';
+                    mappedStream.downloadState = state;
+                    mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
+                    mappedStream.downloadProgress = progress;
+                    mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
+                    mappedStream.id = matchTorrent.id;
+                    mappedStream.isTorBox = true;
+                    mappedStream.url = getTorrentRequestDlUrl(matchTorrent, apiKey);
+                    updatedData.push(mappedStream);
+                } else if (matchUsenet) {
+                    if (matchedTorboxIds.has(matchUsenet.id)) return;
+                    matchedTorboxIds.add(matchUsenet.id);
+                    const progress = Math.round(matchUsenet.progress * 100);
+                    const state = matchUsenet.download_state || '';
+                    mappedStream.downloadState = state;
+                    mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
+                    mappedStream.downloadProgress = progress;
+                    mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
+                    mappedStream.id = matchUsenet.id;
+                    mappedStream.isTorBox = true;
+                    mappedStream.url = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${matchUsenet.id}&zip_link=false&redirect=true`;
+                    updatedData.push(mappedStream);
+                } else {
+                    updatedData.push(mappedStream);
+                }
+            });
+
+            setStreams(applyFiltersAndSort(updatedData));
+            setLoading(false);
+            setPollingActive(true);
+
+            if (user && movie) {
+                const q = query(collection(db, 'favorites'), where('userId', '==', user.uid), where('tmdbId', '==', movie.id));
+                getDocs(q).then(snapshot => {
+                    if (snapshot.docs.length > 0) {
+                        const bestStream = updatedData.length > 0 ? updatedData[0] : null;
+                        if (bestStream) {
+                            updateDoc(doc(db, 'favorites', snapshot.docs[0].id), {
+                                streamInfo: {
+                                    name: bestStream.name,
+                                    url: bestStream.url,
+                                    quality: bestStream.quality
+                                }
+                            }).catch(err => console.error("Failed to update favorite streamInfo", err));
+                        }
+                    }
+                }).catch(err => console.error("Failed to check favorites for streamInfo update", err));
+            }
+        });
+      })();fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode).then(async data => {
         if (!isActive) return;
         
         const apiKey = systemSettings.torboxApiKey;
@@ -767,7 +913,7 @@ export default function MediaModal({
             {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-35" referrerPolicy="no-referrer" />}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/60 to-transparent"></div>
             <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer">
-                ✕
+                âœ•
             </button>
             <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
                 <div className="min-w-0 flex-1">
@@ -780,7 +926,7 @@ export default function MediaModal({
                         </span>
                       )}
                       <span className="flex items-center gap-1 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white font-mono bg-white/5">
-                          ★ <span className="font-mono">{movie.rating}</span>
+                          â˜… <span className="font-mono">{movie.rating}</span>
                       </span>
                   </div>
                 </div>
@@ -1242,12 +1388,12 @@ export default function MediaModal({
                                               <span className="text-[10px] text-white/60 font-mono">Size: {stream.size}</span>
                                               {stream.source && (
                                                 <span className="text-[10px] text-white/60 font-mono">
-                                                  • Source: {stream.source}
+                                                  â€¢ Source: {stream.source}
                                                 </span>
                                               )}
                                               {stream.downloadProgress !== undefined && stream.downloadProgress < 100 && stream.downloadSpeed !== undefined && (
                                                 <span className="text-[10px] text-indigo-400 font-mono font-semibold">
-                                                  • {(stream.downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s
+                                                  â€¢ {(stream.downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s
                                                 </span>
                                               )}
                                             </div>
