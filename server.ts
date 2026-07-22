@@ -99,20 +99,27 @@ const _dirname = _filename ? path.dirname(_filename) : '';
 // PHASE 1: NODE.JS BACKEND FUNCTIONS (For your Electron main.js)
 // ============================================================================
 
-let hasQSV: boolean | null = null;
+let bestH264Encoder: string | null = null;
 
-function checkQSVSupport(): boolean {
-  if (hasQSV !== null) return hasQSV;
+function detectBestH264Encoder(): string {
+  if (bestH264Encoder !== null) return bestH264Encoder;
   try {
-    const { execFileSync } = require('child_process');
-    const output = execFileSync(ffmpegPath, ['-encoders'], { encoding: 'utf-8' });
-    hasQSV = output.includes('h264_qsv');
-    console.log(`[FFmpeg-Proxy] Intel QSV hardware encoding support: ${hasQSV ? 'AVAILABLE' : 'UNAVAILABLE'}`);
+    const { execSync } = require('child_process');
+    const encoders = ['h264_nvenc', 'h264_qsv', 'h264_amf', 'h264_videotoolbox'];
+    for (const enc of encoders) {
+      try {
+        execSync(`"${ffmpegPath}" -f lavfi -i nullsrc=s=1280x720 -c:v ${enc} -t 1 -f null -`, {stdio: 'ignore'});
+        bestH264Encoder = enc;
+        console.log(`[FFmpeg-Proxy] Hardware encoding support found: ${enc}`);
+        return enc;
+      } catch (e) {}
+    }
   } catch (e) {
-    hasQSV = false;
-    console.log('[FFmpeg-Proxy] Failed to check for Intel QSV support.');
+    console.log('[FFmpeg-Proxy] Failed to check hardware encoding support.');
   }
-  return hasQSV;
+  bestH264Encoder = 'libx264';
+  console.log('[FFmpeg-Proxy] No hardware encoding support found. Falling back to libx264 (CPU).');
+  return 'libx264';
 }
 
 // Backend Logger Interception
@@ -1504,7 +1511,7 @@ const durationCache = new Map<string, number>();
     const audioTrack = req.query.audio;
     const startOffset = req.query.start as string;
     const bufsize = req.query.bufsize as string || '64M';
-    const intel = req.query.intel === 'true';
+    const hwAccel = req.query.intel === 'true';
 
     // Resolve TorBox redirects FIRST so we can pass the direct HTTP URL to FFmpeg
     let resolvedUrl = targetUrl;
@@ -1610,17 +1617,18 @@ const durationCache = new Map<string, number>();
     }
 
     if (isHevc) {
-      if (intel) {
-        if (checkQSVSupport()) {
-          console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 using Intel QSV hardware acceleration.');
+      if (hwAccel) {
+        const bestEncoder = detectBestH264Encoder();
+        if (bestEncoder !== 'libx264') {
+          console.log(`[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 using ${bestEncoder} hardware acceleration.`);
           args.push(
-            '-c:v', 'h264_qsv',
-            '-preset', 'veryfast',
+            '-c:v', bestEncoder,
+            '-preset', 'fast',
             '-b:v', '5M',
-            '-vf', 'scale_qsv=w=-2:h=1080'
+            '-vf', 'scale=-2:1080'
           );
         } else {
-          console.warn('[FFmpeg-Proxy] Intel QSV requested but NOT supported by this FFmpeg binary. Falling back to software encoding.');
+          console.warn('[FFmpeg-Proxy] Hardware acceleration requested but no hardware encoder found. Falling back to software encoding (libx264).');
           args.push(
             '-c:v', 'libx264', 
             '-preset', 'ultrafast', 
@@ -1629,7 +1637,7 @@ const durationCache = new Map<string, number>();
           );
         }
       } else {
-        console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 for browser compatibility.');
+        console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 for browser compatibility (Software).');
         args.push(
           '-c:v', 'libx264', 
           '-preset', 'ultrafast', 

@@ -874,8 +874,8 @@ export default function SettingsPanel() {
 
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-sm font-medium text-white block mb-1">Intel Hardware Transcoding</label>
-                <p className="text-xs text-white/80">Use Intel Quick Sync Video (QSV) for hardware acceleration.</p>
+                <label className="text-sm font-medium text-white block mb-1">Hardware Transcoding (GPU Acceleration)</label>
+                <p className="text-xs text-white/80">Automatically detects and uses NVENC, QSV, or AMF to reduce CPU load when playing HEVC streams.</p>
               </div>
               <button
                 onClick={() => setIntelTranscoding(!intelTranscoding)}
