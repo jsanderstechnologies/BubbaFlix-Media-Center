@@ -1089,6 +1089,13 @@ async function startServer() {
     }
     
     args.push(
+      '-reconnect', '1',
+      '-reconnect_at_eof', '1',
+      '-reconnect_streamed', '1',
+      '-reconnect_on_network_error', '1',
+      '-reconnect_on_http_error', '4xx,5xx',
+      '-reconnect_delay_max', '10',
+      '-multiple_requests', '1',
       '-headers', `Host: ${originalHost}\r\n`,
       '-v', 'error',
       '-print_format', 'json',
@@ -1221,6 +1228,13 @@ async function startServer() {
     }
 
     const args = [
+      '-reconnect', '1',
+      '-reconnect_at_eof', '1',
+      '-reconnect_streamed', '1',
+      '-reconnect_on_network_error', '1',
+      '-reconnect_on_http_error', '4xx,5xx',
+      '-reconnect_delay_max', '10',
+      '-multiple_requests', '1',
       '-user_agent', 'Mozilla/5.0',
       '-i', resolvedUrl,
       '-map', `0:${index}`,
@@ -1366,6 +1380,13 @@ app.get('/api/youtube/search', async (req, res) => {
     }
     
     args.push(
+      '-reconnect', '1',
+      '-reconnect_at_eof', '1',
+      '-reconnect_streamed', '1',
+      '-reconnect_on_network_error', '1',
+      '-reconnect_on_http_error', '4xx,5xx',
+      '-reconnect_delay_max', '10',
+      '-multiple_requests', '1',
       '-headers', `Host: ${originalHost}\r\n`,
       '-v', 'error',
       '-show_entries', 'format=duration',
@@ -1425,6 +1446,13 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     const args = [
+      '-reconnect', '1',
+      '-reconnect_at_eof', '1',
+      '-reconnect_streamed', '1',
+      '-reconnect_on_network_error', '1',
+      '-reconnect_on_http_error', '4xx,5xx',
+      '-reconnect_delay_max', '10',
+      '-multiple_requests', '1',
       '-v', 'error',
       '-user_agent', 'Mozilla/5.0',
       '-i', resolvedUrl,
@@ -1519,7 +1547,8 @@ app.get('/api/youtube/search', async (req, res) => {
       '-reconnect_streamed', '1',
       '-reconnect_on_network_error', '1',
       '-reconnect_on_http_error', '4xx,5xx',
-      '-reconnect_delay_max', '2',
+      '-reconnect_delay_max', '10',
+      '-multiple_requests', '1',
       '-headers', `Host: ${originalHost}\r\n`,
       '-i', ipUrl
     );
