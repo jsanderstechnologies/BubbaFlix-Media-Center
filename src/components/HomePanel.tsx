@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   getTrendingMovies, 
@@ -7,7 +8,7 @@ import {
   getTopRatedTvSeries 
 } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
-import { Play, Info, Flame, Trophy, Film, Tv, Star } from 'lucide-react';
+import { Play, Info, Flame, Trophy, Film, Tv, Star, Cpu } from 'lucide-react';
 
 interface HomePanelProps {
   onSelectMedia: (media: any) => void;
@@ -16,6 +17,15 @@ interface HomePanelProps {
 
 export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProps) {
   const { systemSettings } = useSettings();
+  const [encoder, setEncoder] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/system/encoder')
+      .then(res => res.json())
+      .then(data => setEncoder(data.encoder))
+      .catch(() => {});
+  }, []);
+
   // Fetch multiple sections in parallel
   const { data: trendingMovies, isLoading: loadingTrending } = useQuery({
     queryKey: ['home-trending-movies', systemSettings.tmdbKey],
@@ -100,11 +110,17 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
 
                {/* Title & Info */}
               <div className="flex-1 text-left space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[9px] bg-red-600/90 text-white font-bold tracking-widest px-2 py-0.5 rounded shadow-sm">
-                    TV SHOW SPOTLIGHT
-                  </span>
-                  <span className="text-xs text-white/90 font-mono">{tvHeroItem.year}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[9px] bg-red-600/90 text-white font-bold tracking-widest px-2 py-0.5 rounded shadow-sm">
+                      TV SHOW SPOTLIGHT
+                    </span>
+                    {encoder && (
+                      <span className="text-[9px] bg-slate-800 text-slate-300 font-bold tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1 border border-white/10" title="Active Transcoding Engine">
+                        <Cpu className="w-3 h-3" />
+                        HW: {encoder.toUpperCase()}
+                      </span>
+                    )}
+                    <span className="text-xs text-white/90 font-mono">{tvHeroItem.year}</span>
                   <span className="flex items-center gap-1 text-xs text-amber-400 font-semibold font-mono">
                     ★ {tvHeroItem.rating}
                   </span>
@@ -168,11 +184,17 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                 </div>
               )}               {/* Title & Info */}
               <div className="flex-1 text-left space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[9px] bg-red-600/90 text-white font-bold tracking-widest px-2 py-0.5 rounded shadow-sm">
-                    MOVIE SPOTLIGHT
-                  </span>
-                  <span className="text-xs text-white/90 font-mono">{movieHeroItem.year}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[9px] bg-red-600/90 text-white font-bold tracking-widest px-2 py-0.5 rounded shadow-sm">
+                      MOVIE SPOTLIGHT
+                    </span>
+                    {encoder && (
+                      <span className="text-[9px] bg-slate-800 text-slate-300 font-bold tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1 border border-white/10" title="Active Transcoding Engine">
+                        <Cpu className="w-3 h-3" />
+                        HW: {encoder.toUpperCase()}
+                      </span>
+                    )}
+                    <span className="text-xs text-white/90 font-mono">{movieHeroItem.year}</span>
                   <span className="flex items-center gap-1 text-xs text-amber-400 font-semibold font-mono">
                     ★ {movieHeroItem.rating}
                   </span>

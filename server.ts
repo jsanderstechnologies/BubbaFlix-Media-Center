@@ -533,6 +533,10 @@ async function startServer() {
   };
 
   // Check if first-time setup is required (zero users in db)
+  app.get('/api/system/encoder', (req, res) => {
+    res.json({ encoder: detectBestH264Encoder() });
+  });
+
   app.get('/api/auth/setup-status', (req, res) => {
     const users = readJson(USERS_FILE);
     const setupRequired = Object.keys(users).length === 0;
