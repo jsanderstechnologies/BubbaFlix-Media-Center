@@ -1166,7 +1166,7 @@ export default function MediaModal({
                                         <div className="flex flex-col min-w-0">
                                             <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
                                             <div className="flex items-center gap-2 mt-1">
-                                              <span className="text-[10px] text-white/60 font-mono">Size: {stream.size}</span>
+                                              <span className="text-[10px] text-white/60 font-mono">Size: {stream.size || stream.sizeStr || 'Unknown'}</span>
                                               {stream.source && (
                                                 <span className="text-[10px] text-white/60 font-mono flex items-center gap-1">
                                                   <Database className="w-3 h-3" /> Source: {stream.source}
