@@ -49,6 +49,11 @@ body {
   transform-origin: top left;
 }
 
+#root {
+  width: 100%;
+  height: 100%;
+}
+
 
 /* Spatial Navigation Focus Styles */
 *:focus-visible {
