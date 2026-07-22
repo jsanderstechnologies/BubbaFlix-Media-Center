@@ -1350,6 +1350,10 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     console.log(`[FFprobe-Proxy] Getting duration for: ${targetUrl}`);
+  if (durationCache.has(targetUrl)) {
+    console.log(`[FFprobe-Proxy] Using cached duration: ${durationCache.get(targetUrl)}`);
+    return res.json({ duration: durationCache.get(targetUrl) });
+  }
 
     let resolvedUrl = targetUrl;
     if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
@@ -1483,6 +1487,7 @@ app.get('/api/youtube/search', async (req, res) => {
   });
     
   const codecCache = new Map<string, boolean>();
+const durationCache = new Map<string, number>();
   
   app.get("/api/transcode/stream.mp4", async (req, res) => {
     const targetUrl = req.query.url;
@@ -1582,24 +1587,25 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     }
     
-    // Auto-detect HEVC and transcode via inline probe
-    let isHevc = false;
+    const hevcQuery = req.query.hevc;
+    let isHevc = hevcQuery === 'true' ? true : (hevcQuery === 'false' ? false : null);
 
-    if (codecCache.has(targetUrl)) {
-      isHevc = codecCache.get(targetUrl) as boolean;
-    } else if (!isLive) {
-      try {
-        // Pass resolvedUrl to save /api/media-info from doing an extra redirect
-        const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(resolvedUrl)}`;
-        const infoRes = await axios.get(infoUrl, { timeout: 15000 });
-        const mediaInfo = infoRes.data;
-        const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video' && s.codec_name !== 'mjpeg' && s.codec_name !== 'png' && s.codec_name !== 'bmp');
-        if (videoStream && (videoStream.codec_name !== 'h264' || (videoStream.pix_fmt && videoStream.pix_fmt.includes('10')) || (videoStream.width && videoStream.width > 2000))) {
-          isHevc = true;
+    if (isHevc === null) {
+      if (codecCache.has(targetUrl)) {
+        isHevc = codecCache.get(targetUrl) as boolean;
+      } else if (!isLive) {
+        try {
+          const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(resolvedUrl)}`;
+          const infoRes = await axios.get(infoUrl, { timeout: 15000 });
+          const mediaInfo = infoRes.data;
+          const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video' && s.codec_name !== 'mjpeg' && s.codec_name !== 'png' && s.codec_name !== 'bmp');
+          if (videoStream && (videoStream.codec_name !== 'h264' || (videoStream.pix_fmt && videoStream.pix_fmt.includes('10')) || (videoStream.width && videoStream.width > 2000))) {
+            isHevc = true;
+          }
+          codecCache.set(targetUrl, isHevc);
+        } catch (err: any) {
+          console.warn('[FFmpeg-Proxy] Codec auto-detection failed:', err.message);
         }
-        codecCache.set(targetUrl, isHevc);
-      } catch (err: any) {
-        console.warn('[FFmpeg-Proxy] Codec auto-detection failed:', err.message);
       }
     }
 

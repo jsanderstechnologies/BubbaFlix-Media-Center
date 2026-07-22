@@ -95,7 +95,8 @@ export default function MediaModal({
     if (savedProgress && savedProgress.currentTime > 0 && savedProgress.percentage < 95) {
       setResumePromptStream(dlUrl);
     } else {
-      const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode };
+      const isHevcMatch = typeof stream !== 'undefined' && stream.name ? /hevc|x265|h265/i.test(stream.name) : false;
+      const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode, isHevc: isHevcMatch };
       onPlay(dlUrl, undefined, 0, context);
     }
   };
@@ -1459,7 +1460,8 @@ export default function MediaModal({
             <div className="flex flex-col gap-3">
               <button 
                 onClick={() => {
-                  const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode };
+                  const isHevcMatch = typeof stream !== 'undefined' && stream.name ? /hevc|x265|h265/i.test(stream.name) : false;
+      const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode, isHevc: isHevcMatch };
                   onPlay(resumePromptStream, undefined, savedProgress.currentTime, context);
                   setResumePromptStream(null);
                 }}
@@ -1469,7 +1471,8 @@ export default function MediaModal({
               </button>
               <button 
                 onClick={() => {
-                  const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode };
+                  const isHevcMatch = typeof stream !== 'undefined' && stream.name ? /hevc|x265|h265/i.test(stream.name) : false;
+      const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode, isHevc: isHevcMatch };
                   onPlay(resumePromptStream, undefined, 0, context);
                   setResumePromptStream(null);
                 }}
