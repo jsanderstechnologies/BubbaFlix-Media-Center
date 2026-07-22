@@ -322,7 +322,7 @@ export default function AdminPanel() {
       {/* All Users Table */}
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-white/50 uppercase tracking-wider">All Users</h3>
-        <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+        <div className="bg-white/5 border border-white/10 rounded-xl overflow-x-auto custom-scrollbar">
           <table className="w-full text-left">
             <thead className="bg-black/40 border-b border-white/10 text-white/50 text-xs tracking-wider uppercase">
               <tr>

@@ -885,7 +885,7 @@ function MainApp() {
         </header>
 
         {/* Main View */}
-        <main className="flex-1 p-6 sm:p-10 overflow-y-auto flex flex-col gap-8 custom-scrollbar">
+        <main className="flex-1 min-h-0 p-6 sm:p-10 overflow-y-auto flex flex-col gap-8 custom-scrollbar">
           
           {activeTab === 'home' ? (
             <HomePanel onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} />
