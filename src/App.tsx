@@ -273,15 +273,13 @@ function MainApp() {
         // Debounce metadata probing to avoid 429 Too Many Requests from TorBox CDN
         // This gives ffmpeg time to establish the main video connection first.
         probeTimeout = setTimeout(() => {
-          if (!playingContext?.id) {
-            fetch(`/api/duration?url=${encodeURIComponent(playingUrl)}`, { signal: abortController.signal })
-              .then(res => res.json())
-              .then(data => {
-                if (data.duration) setTotalDuration(Number(data.duration));
-              }).catch(e => {
-                if (e.name !== 'AbortError') console.error("Duration fetch error:", e);
-              });
-          }
+          fetch(`/api/duration?url=${encodeURIComponent(playingUrl)}`, { signal: abortController.signal })
+            .then(res => res.json())
+            .then(data => {
+              if (data.duration) setTotalDuration(Number(data.duration));
+            }).catch(e => {
+              if (e.name !== 'AbortError') console.error("Duration fetch error:", e);
+            });
 
           fetch(`/api/media-info?url=${encodeURIComponent(playingUrl)}`, { signal: abortController.signal })
             .then(res => res.json())
