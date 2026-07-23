@@ -24,6 +24,7 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const { systemSettings } = useSettings();
   
+  const [selectedAlbumDetails, setSelectedAlbumDetails] = useState<any | null>(null);
   const [selectedRelease, setSelectedRelease] = useState<TorBoxSearchResult | null>(null);
   const [releaseStatus, setReleaseStatus] = useState<string>('');
   const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
@@ -261,6 +262,34 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
     enabled: !!debouncedQuery,
   });
 
+  const { data: albumTracks, isLoading: loadingAlbumTracks } = useQuery({
+    queryKey: ['album-tracks-lookup', selectedAlbumDetails?.id],
+    queryFn: async () => {
+      if (!selectedAlbumDetails?.id) return [];
+      try {
+        const res = await fetch(`https://itunes.apple.com/lookup?id=${selectedAlbumDetails.id}&entity=song`);
+        if (res.ok) {
+          const data = await res.json();
+          return (data.results || [])
+            .filter((item: any) => item.wrapperType === 'track')
+            .map((t: any) => ({
+              id: String(t.trackId),
+              name: t.trackName,
+              trackNumber: t.trackNumber,
+              duration: t.trackTimeMillis ? Math.round(t.trackTimeMillis / 1000) : 0,
+              url: t.previewUrl,
+              artist: t.artistName,
+              album: t.collectionName
+            }));
+        }
+      } catch (err) {
+        console.error('Error looking up album tracks:', err);
+      }
+      return [];
+    },
+    enabled: !!selectedAlbumDetails?.id,
+  });
+
   const { data: musicVideos, isLoading: loadingVideos } = useQuery({
     queryKey: ['torbox-youtube-videos', debouncedQuery],
     queryFn: async () => {
@@ -483,7 +512,107 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
         <button onClick={() => { setActiveTab('playlists'); setSelectedPlaylist(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'playlists' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>Playlists</button>
       </div>
 
-      {activeTab === 'search' && (
+      {activeTab === 'search' && selectedAlbumDetails ? (
+        <div className="space-y-6 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <button 
+              onClick={() => setSelectedAlbumDetails(null)}
+              className="flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to Albums & Search
+            </button>
+          </div>
+
+          {/* Album Info Header */}
+          <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 p-6 bg-gradient-to-br from-red-950/40 to-black/60 border border-red-500/20 rounded-2xl shadow-2xl">
+            <img 
+              src={selectedAlbumDetails.artwork} 
+              alt={selectedAlbumDetails.title} 
+              className="w-36 h-36 rounded-xl object-cover shadow-2xl border border-white/10"
+              referrerPolicy="no-referrer"
+            />
+            <div className="flex flex-col justify-center flex-1 text-center sm:text-left">
+              <span className="text-xs uppercase tracking-widest text-red-500 font-bold mb-1">Album</span>
+              <h2 className="text-3xl font-black text-white mb-1 leading-tight">{selectedAlbumDetails.title}</h2>
+              <p className="text-sm font-medium text-white/70">{selectedAlbumDetails.artist}</p>
+              <div className="flex items-center gap-3 text-xs text-white/40 mt-3 justify-center sm:justify-start font-mono">
+                <span>{selectedAlbumDetails.year}</span>
+                <span>•</span>
+                <span>{selectedAlbumDetails.genre}</span>
+                <span>•</span>
+                <span>{selectedAlbumDetails.trackCount} Tracks</span>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <button
+                onClick={() => setQuery(`${selectedAlbumDetails.artist} ${selectedAlbumDetails.title}`)}
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-red-600/25 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" /> Search Lossless FLAC Release
+              </button>
+            </div>
+          </div>
+
+          {/* Tracklist Section */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold tracking-wider uppercase text-white/40 pl-2">
+              Album Tracklist ({albumTracks?.length || 0})
+            </h3>
+            {loadingAlbumTracks ? (
+              <div className="flex items-center justify-center py-12 text-red-500">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            ) : albumTracks && albumTracks.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                {albumTracks.map((track: any) => {
+                  const isCurrent = playingTrack?.id === track.id;
+                  return (
+                    <div 
+                      key={track.id}
+                      onClick={() => playAudioFile(track)}
+                      className={`flex items-center gap-4 p-3.5 rounded-xl cursor-pointer transition-all ${
+                        isCurrent ? 'bg-red-500/15 border border-red-500/30' : 'bg-black/40 hover:bg-white/5 border border-white/5'
+                      }`}
+                    >
+                      <span className="w-6 text-center text-xs font-mono text-white/40 font-bold">
+                        {track.trackNumber}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm font-bold truncate block ${isCurrent ? 'text-red-400' : 'text-white'}`}>
+                          {track.name}
+                        </span>
+                        <span className="text-xs text-white/40 truncate block mt-0.5">
+                          {track.artist}
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono text-white/40 shrink-0">
+                        {formatTime(track.duration)}
+                      </span>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); playAudioFile(track); }}
+                        className="w-8 h-8 rounded-full bg-white/10 hover:bg-red-600 text-white flex items-center justify-center transition-all cursor-pointer shrink-0"
+                      >
+                        {isCurrent && isPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setShowPlaylistModalForTrack(track); }}
+                        className="text-white/30 hover:text-white p-1.5 rounded-full transition-colors shrink-0"
+                        title="Add to Playlist"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-6 text-center text-sm text-white/40">
+                No track details found for this album.
+              </div>
+            )}
+          </div>
+        </div>
+      ) : activeTab === 'search' && (
         <>
           {/* Search Bar */}
           <div className="bg-[#12121a] border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 shadow-lg max-w-3xl">
@@ -550,7 +679,7 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                 {musicAlbums.map((album: any) => (
                   <div 
                     key={album.id}
-                    onClick={() => setQuery(`${album.artist} ${album.title}`)}
+                    onClick={() => setSelectedAlbumDetails(album)}
                     className="bg-black/40 border border-white/5 hover:border-red-500/50 p-3 rounded-xl cursor-pointer transition-all group hover:scale-[1.03] flex flex-col gap-2"
                   >
                     <div className="aspect-square bg-slate-800 rounded-lg overflow-hidden relative shadow">
@@ -561,7 +690,7 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                         referrerPolicy="no-referrer"
                       />
                       <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2 text-center">
-                        <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Search Stream</span>
+                        <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider">View Tracklist</span>
                         <span className="text-[9px] text-white/70 mt-0.5">{album.trackCount} Tracks</span>
                       </div>
                       <div className="absolute top-1.5 right-1.5 bg-black/70 text-[8px] font-mono text-white/80 px-1.5 py-0.5 rounded border border-white/10">
