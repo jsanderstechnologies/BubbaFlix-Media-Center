@@ -441,13 +441,6 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
     const handleDurationChange = () => setDuration(audio.duration || 0);
     const handleEnded = () => {
       setIsPlaying(false);
-      // Try to play next track
-      if (playingTrack && audioFiles.length > 0) {
-        const idx = audioFiles.findIndex(f => f.id === playingTrack.id);
-        if (idx !== -1 && idx < audioFiles.length - 1) {
-          playAudioFile(audioFiles[idx + 1]);
-        }
-      }
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -460,7 +453,7 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
       audio.removeEventListener('durationchange', handleDurationChange);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [playingTrack, audioFiles]);
+  }, []);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -468,22 +461,59 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
     }
   }, [volume, isMuted]);
 
-  const playAudioFile = (file: AudioFile) => {
-    if (!audioRef.current) return;
-    if (playingTrack?.id === file.id) {
+  const playAudioFile = async (file: any) => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+    }
+    const audio = audioRef.current;
+
+    if (playingTrack && String(playingTrack.id) === String(file.id)) {
       if (isPlaying) {
-        audioRef.current.pause();
+        audio.pause();
         setIsPlaying(false);
       } else {
-        audioRef.current.play().catch(e => console.error(e));
-        setIsPlaying(true);
+        try {
+          await audio.play();
+          setIsPlaying(true);
+        } catch (e) {
+          console.error("Play error:", e);
+        }
       }
     } else {
-      setPlayingTrack(file);
+      let playUrl = file.url;
+      // If previewUrl or stream url is missing, search iTunes previewUrl on demand
+      if (!playUrl && (file.name || file.title)) {
+        try {
+          const trackTitle = file.name || file.title;
+          const artistName = file.artist || '';
+          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(artistName + ' ' + trackTitle)}&entity=song&limit=1`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.results?.[0]?.previewUrl) {
+              playUrl = data.results[0].previewUrl;
+            }
+          }
+        } catch (err) {
+          console.error("Error looking up preview url:", err);
+        }
+      }
+
+      if (!playUrl) {
+        alert("No playable audio stream available for this track.");
+        return;
+      }
+
+      const activeFile = { ...file, url: playUrl };
+      setPlayingTrack(activeFile);
       setIsPlaying(true);
-      audioRef.current.src = file.url;
-      audioRef.current.load();
-      audioRef.current.play().catch(e => console.error(e));
+
+      audio.src = playUrl;
+      audio.load();
+      try {
+        await audio.play();
+      } catch (e) {
+        console.error("Playback start error:", e);
+      }
     }
   };
 
