@@ -9,7 +9,7 @@ const getApiKey = () => {
 const BASE_URL = 'https://api.themoviedb.org/3';
 
 
-const applyFilters = (results: any[]) => {
+const applyFilters = (results: any[], isSearch: boolean = false) => {
   // Deduplicate results by ID to avoid React duplicate key warnings
   const seen = new Set();
   const uniqueResults = results.filter(m => {
@@ -27,7 +27,8 @@ const applyFilters = (results: any[]) => {
     if (filterAnime && m.original_language === 'ja' && (m.genre_ids?.includes(16) || m.genre_ids?.includes(10759))) {
       return false;
     }
-    if (preferredLanguage && preferredLanguage !== 'all' && m.original_language !== preferredLanguage) {
+    // Bypassed for explicit search queries so international productions (e.g. The Fifth Element, original_language: fr) are returned
+    if (!isSearch && preferredLanguage && preferredLanguage !== 'all' && m.original_language !== preferredLanguage) {
       return false;
     }
     return true;
@@ -98,8 +99,8 @@ export const searchMovies = async (query: string) => {
     ]);
     let movieResults = pages.flatMap(p => p.results || []);
 
-    // Apply filters
-    let combined = applyFilters(movieResults);
+    // Apply filters (pass isSearch = true so preferredLanguage filter does not hide title search matches)
+    let combined = applyFilters(movieResults, true);
 
     return combined.slice(0, 50).map((m: any) => ({
       id: m.id,
@@ -206,8 +207,8 @@ export const searchTvSeries = async (query: string) => {
     ]);
     let tvResults = pages.flatMap(p => p.results || []);
 
-    // Apply filters
-    let combined = applyFilters(tvResults);
+    // Apply filters (pass isSearch = true so preferredLanguage filter does not hide title search matches)
+    let combined = applyFilters(tvResults, true);
 
     return combined.slice(0, 50).map((m: any) => ({
       id: m.id,
