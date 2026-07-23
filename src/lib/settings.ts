@@ -21,6 +21,7 @@ export interface SystemSettings {
   enableTorrentSearch?: boolean;
   intelTranscoding?: boolean;
   disableLogin?: boolean;
+  filterAnime?: boolean;
 }
 
 export interface UserSettings {
