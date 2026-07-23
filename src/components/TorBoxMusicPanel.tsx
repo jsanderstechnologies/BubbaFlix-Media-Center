@@ -1137,20 +1137,11 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                   {savedArtists.map(artist => (
                     <div 
                       key={artist.id} 
-                      onClick={() => {
-                        setQuery(artist.artistName);
-                        setDebouncedQuery(artist.artistName);
-                        setSelectedAlbumDetails(null);
-                        setSelectedRelease(null);
-                        setActiveTab('search');
-                      }}
+                      onClick={() => setSelectedLibraryArtist(artist)}
                       className="group cursor-pointer flex flex-col items-center gap-3 text-center"
                     >
-                      <div className="w-32 h-32 rounded-full overflow-hidden shadow-lg border border-white/5 group-hover:border-red-500/50 transition-all group-hover:scale-105 relative">
+                      <div className="w-32 h-32 rounded-full overflow-hidden shadow-lg border border-white/5 group-hover:border-red-500/50 transition-all group-hover:scale-105">
                         <img src={artist.artwork} alt={artist.artistName} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Search className="w-6 h-6 text-white" />
-                        </div>
                       </div>
                       <span className="text-sm font-medium text-white group-hover:text-red-400 transition-colors">{artist.artistName}</span>
                     </div>
@@ -1180,9 +1171,9 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                         setSelectedRelease(null);
                         setActiveTab('search');
                       }}
-                      className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 font-medium"
+                      className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 font-medium cursor-pointer"
                     >
-                      <Search className="w-3.5 h-3.5" /> View Full Discography & Torrents
+                      <Search className="w-3.5 h-3.5" /> Search TorBox for More Albums
                     </button>
                   </div>
                 </div>
@@ -1192,13 +1183,14 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                       toggleSaveArtist(selectedLibraryArtist.artistName, selectedLibraryArtist.artwork);
                       setSelectedLibraryArtist(null);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-full transition-colors text-sm cursor-pointer"
-                    title="Remove from Library"
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-red-500/20 text-white hover:text-red-400 border border-white/10 hover:border-red-500/30 rounded-full transition-colors text-sm cursor-pointer"
+                    title="Unfollow artist"
                   >
-                    <UserCheck className="w-4 h-4" /> Saved in Library
+                    <UserCheck className="w-4 h-4" /> Following
                   </button>
                 </div>
               </div>
+
 
 
               <h2 className="text-lg font-bold text-white mb-4">Saved Albums</h2>
