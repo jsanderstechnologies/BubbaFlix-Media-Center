@@ -1294,27 +1294,47 @@ async function startServer() {
       return res.status(400).send("Query is required");
     }
 
-    const pythonProcess = spawn('python', ['-m', 'yt_dlp', '-g', '-f', 'bestaudio', `ytsearch1:${query}`]);
+    const pythonExecutable = process.platform === 'win32' ? 'py' : 'python3';
+    let pythonProcess;
+    try {
+      pythonProcess = spawn(pythonExecutable, ['-m', 'yt_dlp', '-g', '-f', 'bestaudio', `ytsearch1:${query}`]);
+    } catch (e) {
+      pythonProcess = spawn('python', ['-m', 'yt_dlp', '-g', '-f', 'bestaudio', `ytsearch1:${query}`]);
+    }
+
     let output = '';
+    let hasResponded = false;
+
+    const fallbackToItunes = () => {
+      if (hasResponded) return;
+      hasResponded = true;
+      fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.results?.[0]?.previewUrl) {
+            res.redirect(302, data.results[0].previewUrl);
+          } else {
+            res.status(404).send("Stream not found");
+          }
+        })
+        .catch(() => res.status(500).send("Stream failed"));
+    };
+
+    pythonProcess.on('error', (err) => {
+      console.error('[Music Stream Spawn Error]', err.message);
+      fallbackToItunes();
+    });
 
     pythonProcess.stdout.on('data', data => output += data.toString());
     pythonProcess.on('close', code => {
+      if (hasResponded) return;
       if (code === 0 && output.trim()) {
+        hasResponded = true;
         const urls = output.trim().split('\n');
         const directUrl = urls[urls.length - 1]; // Direct full track audio URL
         res.redirect(302, directUrl);
       } else {
-        // Fallback to iTunes preview if yt-dlp fails
-        fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`)
-          .then(r => r.json())
-          .then(data => {
-            if (data.results?.[0]?.previewUrl) {
-              res.redirect(302, data.results[0].previewUrl);
-            } else {
-              res.status(404).send("Stream not found");
-            }
-          })
-          .catch(() => res.status(500).send("Stream failed"));
+        fallbackToItunes();
       }
     });
   });
