@@ -308,14 +308,37 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
     enabled: !!debouncedQuery,
   });
 
-  const { data: searchResults, isLoading: isSearching } = useQuery<TorBoxSearchResult[]>({
-    queryKey: ['torbox-music-search', debouncedQuery],
+  const musicSearchQuery = useMemo(() => {
+    if (selectedAlbumDetails) {
+      return `${selectedAlbumDetails.artist} ${selectedAlbumDetails.title}`;
+    }
+    return debouncedQuery;
+  }, [selectedAlbumDetails, debouncedQuery]);
+
+  const { data: rawSearchResults, isLoading: isSearching } = useQuery<TorBoxSearchResult[]>({
+    queryKey: ['torbox-music-search', musicSearchQuery],
     queryFn: async () => {
-      if (!debouncedQuery) return [];
-      return await fetchStreamsForMusic(debouncedQuery);
+      if (!musicSearchQuery) return [];
+      return await fetchStreamsForMusic(musicSearchQuery);
     },
-    enabled: !!debouncedQuery,
+    enabled: !!musicSearchQuery,
   });
+
+  const searchResults = useMemo(() => {
+    if (!rawSearchResults) return [];
+    if (selectedAlbumDetails) {
+      const titleWords = selectedAlbumDetails.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(' ').filter(w => w.length > 2);
+      if (titleWords.length > 0) {
+        const albumMatches = rawSearchResults.filter(res => {
+          const cleanName = res.name.toLowerCase();
+          return titleWords.some(w => cleanName.includes(w));
+        });
+        if (albumMatches.length > 0) return albumMatches;
+      }
+    }
+    return rawSearchResults;
+  }, [selectedAlbumDetails, rawSearchResults]);
+
 
   const handleSelectRelease = async (release: TorBoxSearchResult) => {
     setSelectedRelease(release);
