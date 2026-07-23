@@ -372,6 +372,34 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
     return rawSearchResults;
   }, [selectedAlbumDetails, rawSearchResults]);
 
+  // Auto-check if selected album is already cached in Library or TorBox
+  useEffect(() => {
+    if (!selectedAlbumDetails) return;
+
+    // 1. Check if album is already saved in library with playable audio tracks
+    const existingInLibrary = savedAlbums.find(a => 
+      a.artistName?.toLowerCase() === selectedAlbumDetails.artist.toLowerCase() &&
+      a.albumName?.toLowerCase() === selectedAlbumDetails.title.toLowerCase()
+    );
+
+    if (existingInLibrary && existingInLibrary.audioFiles?.length > 0) {
+      console.log(`[Auto-Cache Check] Album "${selectedAlbumDetails.title}" found in library with ${existingInLibrary.audioFiles.length} tracks.`);
+      setAudioFiles(existingInLibrary.audioFiles);
+      setReleaseStatus('');
+      return;
+    }
+
+    // 2. Check if an instant cached torrent is returned in searchResults
+    if (searchResults && searchResults.length > 0) {
+      const instantCache = searchResults.find(r => r.cached === true);
+      if (instantCache && (!audioFiles || audioFiles.length === 0) && !releaseStatus) {
+        console.log(`[Auto-Cache Check] Instant TorBox cache hit for "${instantCache.name}". Auto-caching...`);
+        handleSelectRelease(instantCache);
+      }
+    }
+  }, [selectedAlbumDetails, searchResults, savedAlbums]);
+
+
 
 
   const handleSelectRelease = async (release: TorBoxSearchResult) => {
@@ -463,6 +491,53 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               audioFiles.sort((a: any, b: any) => a.name.localeCompare(b.name));
               setAudioFiles(audioFiles);
               
+              // Automatically save cached album and artist to Library under the artist
+              if (user && audioFiles.length > 0 && selectedAlbumDetails) {
+                try {
+                  const artistName = selectedAlbumDetails.artist;
+                  const albumName = selectedAlbumDetails.title;
+                  const artwork = selectedAlbumDetails.artwork || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=300&h=300';
+                  
+                  // 1. Ensure artist is saved in Library
+                  const existingArtist = savedArtists.find(a => a.artistName?.toLowerCase() === artistName.toLowerCase());
+                  if (!existingArtist) {
+                    await addDoc(collection(db, 'saved_artists'), {
+                      userId: user.uid,
+                      artistName: artistName,
+                      artwork: artwork,
+                      addedAt: serverTimestamp()
+                    });
+                  }
+
+                  // 2. Ensure album is saved under artist in Library
+                  const existingAlbum = savedAlbums.find(a => 
+                    a.artistName?.toLowerCase() === artistName.toLowerCase() && 
+                    a.albumName?.toLowerCase() === albumName.toLowerCase()
+                  );
+
+                  if (!existingAlbum) {
+                    await addDoc(collection(db, 'saved_albums'), {
+                      userId: user.uid,
+                      artistName: artistName,
+                      albumName: albumName,
+                      artwork: artwork,
+                      audioFiles: audioFiles,
+                      torboxId: torrentId || usenetId,
+                      torboxType: release.type,
+                      addedAt: serverTimestamp()
+                    });
+                    console.log(`[Library] Auto-saved "${albumName}" by ${artistName} to Music Library!`);
+                  } else {
+                    await updateDoc(doc(db, 'saved_albums', existingAlbum.id), {
+                      audioFiles: audioFiles,
+                      updatedAt: serverTimestamp()
+                    });
+                  }
+                } catch (err) {
+                  console.error("[Library Auto-Save Error]", err);
+                }
+              }
+
               if (files.length === 0) {
                  setReleaseStatus(`Download complete, but TorBox reported no files inside this ${release.type}.`);
               }
@@ -472,6 +547,7 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               clearInterval(pollInterval);
               setReleaseStatus(`Error: TorBox could not cache this ${release.type}. (State: ${match.download_state})`);
             }
+
 
           }
         } catch (e) {
