@@ -854,10 +854,10 @@ function MainApp() {
               <input 
                 type="text" 
                 placeholder="Search Catalog..." 
-                className="bg-transparent border-none outline-none text-sm text-white w-full pr-6 placeholder-white/30 cursor-pointer"
+                className="bg-transparent border-none outline-none text-sm text-white w-full pr-6 placeholder-white/30 cursor-text"
                 value={searchQuery}
+                onFocus={() => { setActiveTab('search'); setIsKeyboardOpen(true); }}
                 onChange={(e) => { setSearchQuery(e.target.value); setActiveTab('search'); }}
-                readOnly
               />
               {searchQuery && (
                 <button type="button" onClick={(e) => { e.stopPropagation(); setSearchQuery(''); }} className="absolute right-3 p-1 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer z-10"><X className="w-3.5 h-3.5" /></button>
@@ -885,7 +885,7 @@ function MainApp() {
         </header>
 
         {/* Main View */}
-        <main className="flex-1 min-h-0 p-6 sm:p-10 overflow-y-auto flex flex-col gap-8 custom-scrollbar">
+        <main className={`flex-1 min-h-0 p-6 sm:p-10 overflow-y-auto flex flex-col gap-8 custom-scrollbar ${isKeyboardOpen ? 'pb-80' : ''}`}>
           
           {activeTab === 'home' ? (
             <HomePanel onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} />
