@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
-  Play, Pause, Music, Search, Disc, Loader2, ArrowLeft, Download, Volume2, VolumeX, History, UserPlus, UserCheck, Video, X
+  Play, Pause, Music, Search, Disc, Loader2, ArrowLeft, Download, Volume2, VolumeX, History, UserPlus, UserCheck, Video, X, Plus, ListPlus
 } from 'lucide-react';
+
 import { fetchStreamsForMusic, TorBoxSearchResult } from '../services/torboxSearchApi';
 import { useSettings } from '../lib/settings';
 import { useAuth } from './Auth';
@@ -663,13 +664,23 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                           {formatBytes(file.size)} • {file.ext.toUpperCase()}
                         </span>
                       </div>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); playAudioFile(file); }}
-                        className="w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-lg shadow-red-600/30"
-                      >
-                        {isCurrent && isPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setShowPlaylistModalForTrack(file); }}
+                          className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center transition-all cursor-pointer shrink-0"
+                          title="Add to Playlist"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); playAudioFile(file); }}
+                          className="w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-lg shadow-red-600/30"
+                        >
+                          {isCurrent && isPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
+                        </button>
+                      </div>
                     </div>
+
                   );
                 })}
               </div>
@@ -1314,14 +1325,22 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
 
           {/* Controls */}
           <div className="flex flex-col items-center flex-1 max-w-md w-full">
-            <div className="flex items-center gap-6 mb-1.5">
+            <div className="flex items-center gap-4 mb-1.5">
               <button 
                 onClick={() => playingTrack && playAudioFile(playingTrack)}
-                className="w-10 h-10 flex items-center justify-center bg-white rounded-full hover:scale-105 transition-transform"
+                className="w-10 h-10 flex items-center justify-center bg-white rounded-full hover:scale-105 transition-transform cursor-pointer"
               >
                 {isPlaying ? <Pause className="w-5 h-5 text-black" fill="currentColor" /> : <Play className="w-5 h-5 text-black pl-1" fill="currentColor" />}
               </button>
+              <button 
+                onClick={() => playingTrack && setShowPlaylistModalForTrack(playingTrack)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                title="Add current track to playlist"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
+
             
             {/* Scrubber */}
             <div className="flex items-center gap-3 w-full text-xs text-white/40 font-mono">
