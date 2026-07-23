@@ -180,8 +180,12 @@ export const fetchStreamsForMovie = async (title: string, year?: string, imdbId?
 };
 
 export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchResult[]> => {
-  const queryStr = query;
-  console.log(`[TorBox Search] Searching Music: "${queryStr}"`);
+  // Append audio search terms if not already present to target albums
+  let searchTerms = query.trim();
+  if (!/(flac|mp3|320|lossless|cd|album|discography|aac|alac)/i.test(searchTerms)) {
+    searchTerms = `${searchTerms} FLAC MP3`;
+  }
+  console.log(`[TorBox Search] Searching Music: "${searchTerms}"`);
   
   const headers = getAuthHeaders();
   
@@ -193,10 +197,8 @@ export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchR
       (async () => {
         if (!enableUsenet) return [];
         try {
-          const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(queryStr)}`, { headers });
+          const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(searchTerms)}`, { headers });
           const json = res.ok ? await res.json() : null;
-          // For music, we might not want strict title filtering, so we don't pass `query` to mapResults, 
-          // or we just pass undefined to allow broader matches (e.g. "Daft Punk Discovery" -> "Daft Punk Discography")
           return (json?.success && json?.data) ? mapResults(json.data, 'usenet', undefined) : [];
         } catch (e) {
           console.error("[TorBox Search] Usenet query error:", e);
@@ -206,7 +208,7 @@ export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchR
       (async () => {
         if (!enableTorrent) return [];
         try {
-          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(queryStr)}`, { headers });
+          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(searchTerms)}`, { headers });
           const json = res.ok ? await res.json() : null;
           return (json?.success && json?.data) ? mapResults(json.data, 'torrent', undefined) : [];
         } catch (e) {
@@ -217,11 +219,11 @@ export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchR
     ]);
     const combined = [...usenetResults, ...torrentResults];
     
-    // Filter out obvious video/software releases so only music remains
-    const videoTerms = /(1080p|720p|2160p|4k|bluray|webrip|hdtv|x264|x265|hevc|xvid|divx|s\d\de\d\d|season \d|\.mkv|\.mp4|\.avi|\.wmv|camrip|ts|dvdrip|bdrip)/i;
+    // Filter out video/DVD/software releases so only music albums remain
+    const videoTerms = /(1080p|720p|2160p|4k|bluray|webrip|hdtv|x264|x265|hevc|xvid|divx|s\d\de\d\d|season \d|\.mkv|\.mp4|\.avi|\.wmv|camrip|ts|dvdrip|bdrip|dvd|dvdr|iso|vob|video_ts|video|movie|concert|live at|live in|pal|ntsc|bluray-rip)/i;
     
     return combined.filter(res => {
-      // If it has video terms, hide it from music search
+      // If it has video/DVD terms, hide it from music search
       if (videoTerms.test(res.name)) return false;
       return true;
     });
@@ -234,3 +236,4 @@ export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchR
     return [];
   }
 };
+
