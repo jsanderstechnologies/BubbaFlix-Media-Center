@@ -61,7 +61,8 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
 
     const qAlbums = firestoreQuery(collection(db, 'saved_albums'), where('userId', '==', user.uid));
     const unSubAlbums = onSnapshot(qAlbums, (snapshot) => {
-      setSavedAlbums(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      const fetched = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setSavedAlbums(fetched);
     }, (err) => console.error('Error fetching saved albums:', err));
 
     const qPlaylists = firestoreQuery(collection(db, 'music_playlists'), where('userId', '==', user.uid));
@@ -75,6 +76,26 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
       unSubPlaylists();
     };
   }, [user]);
+
+  // Deduplicate savedAlbums in state so each album only displays once in Library
+  const deduplicatedSavedAlbums = useMemo(() => {
+    const map = new Map<string, any>();
+    savedAlbums.forEach(album => {
+      const key = `${(album.artistName || '').toLowerCase().trim()}_${(album.albumName || '').toLowerCase().trim()}`;
+      if (!map.has(key)) {
+        map.set(key, album);
+      } else {
+        const existing = map.get(key);
+        if ((album.audioFiles?.length || 0) > (existing.audioFiles?.length || 0)) {
+          map.set(key, album);
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [savedAlbums]);
+
+  const savingAlbumsSetRef = useRef<Set<string>>(new Set());
+
 
   const toggleSaveArtist = async (artistName: string, artworkUrl: string) => {
     if (!user) {
@@ -493,50 +514,57 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               
               // Automatically save cached album and artist to Library under the artist
               if (user && audioFiles.length > 0 && selectedAlbumDetails) {
-                try {
-                  const artistName = selectedAlbumDetails.artist;
-                  const albumName = selectedAlbumDetails.title;
-                  const artwork = selectedAlbumDetails.artwork || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=300&h=300';
-                  
-                  // 1. Ensure artist is saved in Library
-                  const existingArtist = savedArtists.find(a => a.artistName?.toLowerCase() === artistName.toLowerCase());
-                  if (!existingArtist) {
-                    await addDoc(collection(db, 'saved_artists'), {
-                      userId: user.uid,
-                      artistName: artistName,
-                      artwork: artwork,
-                      addedAt: serverTimestamp()
-                    });
-                  }
+                const artistName = selectedAlbumDetails.artist;
+                const albumName = selectedAlbumDetails.title;
+                const albumKey = `${artistName.toLowerCase().trim()}_${albumName.toLowerCase().trim()}`;
+                
+                if (!savingAlbumsSetRef.current.has(albumKey)) {
+                  savingAlbumsSetRef.current.add(albumKey);
+                  try {
+                    const artwork = selectedAlbumDetails.artwork || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=300&h=300';
+                    
+                    // 1. Ensure artist is saved in Library
+                    const existingArtist = savedArtists.find(a => a.artistName?.toLowerCase().trim() === artistName.toLowerCase().trim());
+                    if (!existingArtist) {
+                      await addDoc(collection(db, 'saved_artists'), {
+                        userId: user.uid,
+                        artistName: artistName,
+                        artwork: artwork,
+                        addedAt: serverTimestamp()
+                      });
+                    }
 
-                  // 2. Ensure album is saved under artist in Library
-                  const existingAlbum = savedAlbums.find(a => 
-                    a.artistName?.toLowerCase() === artistName.toLowerCase() && 
-                    a.albumName?.toLowerCase() === albumName.toLowerCase()
-                  );
+                    // 2. Ensure album is saved under artist in Library
+                    const existingAlbum = savedAlbums.find(a => 
+                      a.artistName?.toLowerCase().trim() === artistName.toLowerCase().trim() && 
+                      a.albumName?.toLowerCase().trim() === albumName.toLowerCase().trim()
+                    );
 
-                  if (!existingAlbum) {
-                    await addDoc(collection(db, 'saved_albums'), {
-                      userId: user.uid,
-                      artistName: artistName,
-                      albumName: albumName,
-                      artwork: artwork,
-                      audioFiles: audioFiles,
-                      torboxId: torrentId || usenetId,
-                      torboxType: release.type,
-                      addedAt: serverTimestamp()
-                    });
-                    console.log(`[Library] Auto-saved "${albumName}" by ${artistName} to Music Library!`);
-                  } else {
-                    await updateDoc(doc(db, 'saved_albums', existingAlbum.id), {
-                      audioFiles: audioFiles,
-                      updatedAt: serverTimestamp()
-                    });
+                    if (!existingAlbum) {
+                      await addDoc(collection(db, 'saved_albums'), {
+                        userId: user.uid,
+                        artistName: artistName,
+                        albumName: albumName,
+                        artwork: artwork,
+                        audioFiles: audioFiles,
+                        torboxId: torrentId || usenetId,
+                        torboxType: release.type,
+                        addedAt: serverTimestamp()
+                      });
+                      console.log(`[Library] Auto-saved "${albumName}" by ${artistName} to Music Library!`);
+                    } else {
+                      await updateDoc(doc(db, 'saved_albums', existingAlbum.id), {
+                        audioFiles: audioFiles,
+                        updatedAt: serverTimestamp()
+                      });
+                    }
+                  } catch (err) {
+                    console.error("[Library Auto-Save Error]", err);
+                    savingAlbumsSetRef.current.delete(albumKey);
                   }
-                } catch (err) {
-                  console.error("[Library Auto-Save Error]", err);
                 }
               }
+
 
               if (files.length === 0) {
                  setReleaseStatus(`Download complete, but TorBox reported no files inside this ${release.type}.`);
@@ -1145,31 +1173,52 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               </div>
 
               <h2 className="text-lg font-bold text-white mb-4">Saved Albums</h2>
-              {savedAlbums.filter(a => a.artistName.toLowerCase() === selectedLibraryArtist.artistName.toLowerCase()).length === 0 ? (
+              {deduplicatedSavedAlbums.filter(a => a.artistName?.toLowerCase().trim() === selectedLibraryArtist.artistName?.toLowerCase().trim()).length === 0 ? (
                 <div className="text-center py-12 text-white/40 bg-black/40 border border-white/5 rounded-2xl">
                   No albums saved for this artist. Search TorBox and click "Save Album to Library".
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {savedAlbums
-                    .filter(a => a.artistName.toLowerCase() === selectedLibraryArtist.artistName.toLowerCase())
+                  {deduplicatedSavedAlbums
+                    .filter(a => a.artistName?.toLowerCase().trim() === selectedLibraryArtist.artistName?.toLowerCase().trim())
                     .map(album => (
                     <div 
                       key={album.id}
                       onClick={() => setSelectedLibraryAlbum(album)}
-                      className="bg-black/40 border border-white/5 hover:border-red-500/50 p-4 rounded-xl cursor-pointer transition-colors group flex items-center gap-4"
+                      className="bg-black/40 border border-white/5 hover:border-red-500/50 p-4 rounded-xl cursor-pointer transition-colors group flex items-center justify-between"
                     >
-                      <div className="w-12 h-12 bg-red-950 rounded flex items-center justify-center shrink-0 border border-red-900/30">
-                        <Disc className="w-6 h-6 text-red-500" />
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-12 h-12 bg-red-950 rounded flex items-center justify-center shrink-0 border border-red-900/30 overflow-hidden">
+                          {album.artwork ? (
+                            <img src={album.artwork} alt={album.albumName} className="w-full h-full object-cover" />
+                          ) : (
+                            <Disc className="w-6 h-6 text-red-500" />
+                          )}
+                        </div>
+                        <div className="flex flex-col overflow-hidden min-w-0">
+                          <span className="text-white font-medium truncate group-hover:text-red-400">{album.albumName}</span>
+                          <span className="text-xs text-white/40 mt-1 font-mono">{album.audioFiles?.length || 0} tracks</span>
+                        </div>
                       </div>
-                      <div className="flex flex-col overflow-hidden">
-                        <span className="text-white font-medium truncate group-hover:text-red-400">{album.albumName}</span>
-                        <span className="text-xs text-white/40 mt-1">{album.audioFiles?.length || 0} tracks</span>
-                      </div>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (user && album.id) {
+                            try {
+                              await deleteDoc(doc(db, 'saved_albums', album.id));
+                            } catch (err) {}
+                          }
+                        }}
+                        className="text-white/20 hover:text-red-400 p-2 rounded-lg transition-colors cursor-pointer shrink-0"
+                        title="Remove Album"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
               )}
+
             </div>
           ) : (
             <div className="space-y-6">
