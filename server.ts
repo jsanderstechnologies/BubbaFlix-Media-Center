@@ -1940,8 +1940,11 @@ const durationCache = new Map<string, number>();
       let langInstruction = '';
       if (settings.preferredLanguage && settings.preferredLanguage !== 'all') {
         const langMap: Record<string, string> = { en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', ja: 'Japanese', ko: 'Korean', zh: 'Chinese' };
-        const targetLang = langMap[settings.preferredLanguage] || settings.preferredLanguage;
         langInstruction = `\n\nCRITICAL LANGUAGE FILTERING: The preferred language is set to "${targetLang}". You MUST strictly filter out any media results that are dubbed or subbed in foreign languages other than ${targetLang} (e.g. look for tags indicating foreign languages or dubs like ITA, FRE, GER, SPANISH, RUS, HINDI, LATINO, KOREAN, CHINESE, etc. unless matching ${targetLang}).`;
+      } else {
+        langInstruction = `\n\nAdditionally, filter out any results that appear to be in a language other than English (e.g., look for tags indicating foreign languages or dubs like ITA, FRE, GER, SPANISH, RUS, HINDI, LATINO, etc).`;
+      }
+
       const isMusicQuery = /(flac|mp3|320|lossless|cd|album|discography|aac|alac|music|song|artist)/i.test(query);
 
       let prompt = '';
