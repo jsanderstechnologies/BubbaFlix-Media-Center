@@ -304,8 +304,19 @@ export async function playMediaStream(streamUrl: string) {
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5150;
-  
+
+  app.set('trust proxy', true);
   app.use(express.json());
+
+  // IP Logging Middleware
+  app.use((req, res, next) => {
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() 
+      || req.socket.remoteAddress 
+      || req.ip 
+      || 'unknown';
+    console.log(`[HTTP Request] ${new Date().toISOString()} - IP: ${clientIp} - ${req.method} ${req.originalUrl}`);
+    next();
+  });
 
   // --- AUTH & DB SYSTEM ---
   // In development, server is run from cwd. In production docker, we want data to reside in process.cwd()/data (/app/data)
