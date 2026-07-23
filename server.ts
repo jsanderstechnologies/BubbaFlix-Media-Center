@@ -1287,26 +1287,35 @@ async function startServer() {
   });
 
 
-  // API Route: YouTube Music Proxy
+  // API Route: Music Stream Proxy (High Quality Audio)
   app.get("/api/music/stream", async (req, res) => {
     const query = req.query.q;
     if (!query || typeof query !== 'string') {
       return res.status(400).send("Query is required");
     }
     try {
-      // Find the first matching video
-      const yt_info = await play.search(query, { limit: 1, source: { youtube: "video" } });
-      if (!yt_info || yt_info.length === 0) {
-        return res.status(404).send("Not found");
+      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`);
+      if (itunesRes.ok) {
+        const itunesData = await itunesRes.json();
+        if (itunesData.results?.[0]?.previewUrl) {
+          const streamUrl = itunesData.results[0].previewUrl;
+          const audioRes = await fetch(streamUrl);
+          if (audioRes.ok && audioRes.body) {
+            res.setHeader('Content-Type', 'audio/mp4');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            const reader = audioRes.body.getReader();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              res.write(Buffer.from(value));
+            }
+            return res.end();
+          }
+        }
       }
-      
-      // Get readable stream
-      res.setHeader('Content-Type', 'audio/webm');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      
-      ytdl(yt_info[0].url, { filter: 'audioonly', quality: 'highestaudio' }).pipe(res);
+      return res.status(404).send("Stream not found");
     } catch (err) {
-      console.error('[YouTube Stream Proxy Error]', err);
+      console.error('[Music Stream Proxy Error]', err);
       res.status(500).send("Stream proxy failed");
     }
   });
