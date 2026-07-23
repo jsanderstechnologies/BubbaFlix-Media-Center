@@ -1905,8 +1905,15 @@ const durationCache = new Map<string, number>();
     }
   });
 
-  async function filterWithGemini(query: string, items: any[], settings: any): Promise<any[]> {
+  async function filterWithGemini(query: string, items: any[], settings: any, isMusic: boolean = false): Promise<any[]> {
     if (items.length === 0) return items;
+
+    // For music searches, Pirate Bay cat=100 already returns pure music releases. Bypass AI filter to preserve all 100+ audio releases!
+    const isMusicQuery = isMusic || /(flac|mp3|320|lossless|cd|album|discography|aac|alac|music|song|artist)/i.test(query);
+    if (isMusicQuery) {
+      console.log(`[Music Stream] Bypassing Gemini filter for music search "${query}" - returning all ${items.length} audio releases.`);
+      return items;
+    }
     
     // 1. PRE-FILTER HEVC/x265/10-bit/HDR when hardware transcoding is disabled or unsupported
     const isHwDisabled = settings.intelTranscoding !== true || detectBestH264Encoder() === 'libx264';
@@ -2168,7 +2175,8 @@ const durationCache = new Map<string, number>();
       mappedTorrents.sort((a, b) => (b.seeds || 0) - (a.seeds || 0));
 
       const settings = readJson(SETTINGS_FILE);
-      const filteredTorrents = await filterWithGemini(q as string, mappedTorrents, settings);
+      const isMusic = req.query.category === 'music';
+      const filteredTorrents = await filterWithGemini(q as string, mappedTorrents, settings, isMusic);
 
       res.json({ success: true, data: filteredTorrents });
     } catch (err: any) {
