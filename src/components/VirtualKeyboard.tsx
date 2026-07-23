@@ -25,6 +25,17 @@ export function VirtualKeyboard({ value, onChange, onClose, isOpen }: VirtualKey
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // If typing directly into an input element (like the search bar), let the HTML input handle physical typing natively
+      const target = e.target as HTMLElement;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+
+      if (isInput) {
+        if (e.key === 'Escape') {
+          onClose();
+        }
+        return;
+      }
+
       // Prevent default browser scrolling with arrow keys inside the keyboard
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape'].includes(e.key)) {
         e.preventDefault();
@@ -66,14 +77,6 @@ export function VirtualKeyboard({ value, onChange, onClose, isOpen }: VirtualKey
         handleKeyPress(key);
       } else if (e.key === 'Backspace') {
         handleKeyPress('BACKSPACE');
-      } else if (e.key.length === 1) {
-        // Direct physical keyboard fallback typing
-        const typedChar = e.key;
-        if (typedChar === ' ') {
-          onChange(value + ' ');
-        } else {
-          onChange(value + typedChar);
-        }
       }
     };
 
@@ -154,7 +157,7 @@ export function VirtualKeyboard({ value, onChange, onClose, isOpen }: VirtualKey
           <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
             <span className="text-indigo-400 font-bold">🔍</span>
             <span className="truncate max-w-md">
-              {value ? <span className="text-white font-bold">"{value}"</span> : <span className="text-white/40 italic">Type to search live results...</span>}
+              {value ? <span className="text-white font-bold">{value}</span> : <span className="text-white/40 italic">Type to search live results...</span>}
             </span>
           </div>
           <div className="flex items-center gap-3">
