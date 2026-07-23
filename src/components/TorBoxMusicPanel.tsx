@@ -1137,7 +1137,13 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                   {savedArtists.map(artist => (
                     <div 
                       key={artist.id} 
-                      onClick={() => setSelectedLibraryArtist(artist)}
+                      onClick={() => {
+                        setQuery(artist.artistName);
+                        setDebouncedQuery(artist.artistName);
+                        setSelectedAlbumDetails(null);
+                        setSelectedRelease(null);
+                        setActiveTab('search');
+                      }}
                       className="group cursor-pointer flex flex-col items-center gap-3 text-center"
                     >
                       <div className="w-32 h-32 rounded-full overflow-hidden shadow-lg border border-white/5 group-hover:border-red-500/50 transition-all group-hover:scale-105">
@@ -1162,34 +1168,10 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                     >
                       <ArrowLeft className="w-4 h-4" /> Back to Artists
                     </button>
-                    <span className="text-white/20">•</span>
-                    <button 
-                      onClick={() => {
-                        setQuery(selectedLibraryArtist.artistName);
-                        setDebouncedQuery(selectedLibraryArtist.artistName);
-                        setSelectedAlbumDetails(null);
-                        setSelectedRelease(null);
-                        setActiveTab('search');
-                      }}
-                      className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 font-medium cursor-pointer"
-                    >
-                      <Search className="w-3.5 h-3.5" /> Search TorBox for More Albums
-                    </button>
                   </div>
                 </div>
-                <div className="flex items-center">
-                  <button 
-                    onClick={() => {
-                      toggleSaveArtist(selectedLibraryArtist.artistName, selectedLibraryArtist.artwork);
-                      setSelectedLibraryArtist(null);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-red-500/20 text-white hover:text-red-400 border border-white/10 hover:border-red-500/30 rounded-full transition-colors text-sm cursor-pointer"
-                    title="Unfollow artist"
-                  >
-                    <UserCheck className="w-4 h-4" /> Following
-                  </button>
-                </div>
               </div>
+
 
 
 
