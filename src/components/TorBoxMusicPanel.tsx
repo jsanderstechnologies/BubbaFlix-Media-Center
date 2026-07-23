@@ -1108,6 +1108,9 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               className="w-24 h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
             />
           </div>
+        </div>
+      </div>
+
       {/* YouTube Music Video Player Modal */}
       {selectedVideoModal && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
