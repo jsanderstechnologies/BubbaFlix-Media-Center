@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Play, Pause, Music, Search, Disc, Loader2, ArrowLeft, Download, Volume2, VolumeX, History, UserPlus, UserCheck, Video, X
