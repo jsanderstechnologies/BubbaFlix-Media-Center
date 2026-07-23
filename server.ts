@@ -1287,6 +1287,20 @@ async function startServer() {
   });
 
 
+function getPythonExecutable(): string {
+  const candidates = process.platform === 'win32' 
+    ? ['py', 'python', 'python3'] 
+    : ['python3', 'python', 'py'];
+  for (const cmd of candidates) {
+    try {
+      const { execSync } = require('child_process');
+      execSync(`${cmd} --version`, { stdio: 'ignore' });
+      return cmd;
+    } catch (e) {}
+  }
+  return candidates[0];
+}
+
   // API Route: Music Stream Proxy (Full Track High-Definition Audio via yt-dlp)
   app.get("/api/music/stream", (req, res) => {
     const query = req.query.q;
@@ -1294,13 +1308,8 @@ async function startServer() {
       return res.status(400).send("Query is required");
     }
 
-    const pythonExecutable = process.platform === 'win32' ? 'py' : 'python3';
-    let pythonProcess;
-    try {
-      pythonProcess = spawn(pythonExecutable, ['-m', 'yt_dlp', '-g', '-f', 'bestaudio', `ytsearch1:${query}`]);
-    } catch (e) {
-      pythonProcess = spawn('python', ['-m', 'yt_dlp', '-g', '-f', 'bestaudio', `ytsearch1:${query}`]);
-    }
+    const pyCmd = getPythonExecutable();
+    const pythonProcess = spawn(pyCmd, ['-m', 'yt_dlp', '-g', '-f', 'bestaudio', `ytsearch1:${query}`]);
 
     let output = '';
     let hasResponded = false;
@@ -1350,9 +1359,14 @@ app.get('/api/youtube/stream-url', (req, res) => {
   }
   const ytUrl = `https://www.youtube.com/watch?v=${vidId}`;
   
-  const pythonProcess = spawn('python', ['-m', 'yt_dlp', '-g', '-f', 'best', ytUrl]);
+  const pyCmd = getPythonExecutable();
+  const pythonProcess = spawn(pyCmd, ['-m', 'yt_dlp', '-g', '-f', 'best', ytUrl]);
   
   let output = '';
+  pythonProcess.on('error', (err) => {
+    console.error('[YouTube Stream-Url Error]', err.message);
+    if (!res.headersSent) res.status(500).json({ error: 'yt-dlp spawn error' });
+  });
   pythonProcess.stdout.on('data', data => output += data.toString());
   pythonProcess.on('close', code => {
     if (code === 0) {
@@ -1360,7 +1374,7 @@ app.get('/api/youtube/stream-url', (req, res) => {
       const directUrl = urls[urls.length - 1]; // last line is the url
       res.json({ url: directUrl });
     } else {
-      res.status(500).json({ error: 'yt-dlp failed' });
+      if (!res.headersSent) res.status(500).json({ error: 'yt-dlp failed' });
     }
   });
 });
