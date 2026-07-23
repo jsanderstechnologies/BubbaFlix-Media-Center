@@ -1996,12 +1996,11 @@ const durationCache = new Map<string, number>();
     const buildMagnet = (hash: string, name: string) =>
       `magnet:?xt=urn:btih:${hash}&dn=${encodeURIComponent(name)}${TRACKERS}`;
 
-    const scrapeHTML = require('cheerio');
-
+    try {
       const isMusicQuery = req.query.category === 'music' || /(flac|mp3|320|lossless|cd|album|discography|aac|alac|music|song|artist)/i.test(q as string);
       const pbUrl = isMusicQuery 
-        ? `https://apibay.org/q.php?q=${encodeURIComponent(q)}&cat=100`
-        : `https://apibay.org/q.php?q=${encodeURIComponent(q)}`;
+        ? `https://apibay.org/q.php?q=${encodeURIComponent(q as string)}&cat=100`
+        : `https://apibay.org/q.php?q=${encodeURIComponent(q as string)}`;
 
       const [pbRes, ytsRes, ytsLuRes, solidRes, limeRes, eztvRes] = await Promise.all([
         // The Pirate Bay (Music cat=100 if music query)
