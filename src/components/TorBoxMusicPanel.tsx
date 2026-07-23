@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
-  Play, Pause, Music, Search, Disc, Loader2, ArrowLeft, Download, Volume2, VolumeX, History, UserPlus, UserCheck
+  Play, Pause, Music, Search, Disc, Loader2, ArrowLeft, Download, Volume2, VolumeX, History, UserPlus, UserCheck, Video, X
 } from 'lucide-react';
 import { fetchStreamsForMusic, TorBoxSearchResult } from '../services/torboxSearchApi';
 import { useSettings } from '../lib/settings';
@@ -17,7 +17,9 @@ interface AudioFile {
 }
 
 export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?: string }) {
-  const [activeTab, setActiveTab] = useState<'search' | 'library' | 'playlists'>('search');
+  const [activeTab, setActiveTab] = useState<'search' | 'videos' | 'library' | 'playlists'>('search');
+  const [selectedVideoModal, setSelectedVideoModal] = useState<any | null>(null);
+
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const { systemSettings } = useSettings();
@@ -259,6 +261,24 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
     enabled: !!debouncedQuery,
   });
 
+  const { data: musicVideos, isLoading: loadingVideos } = useQuery({
+    queryKey: ['torbox-youtube-videos', debouncedQuery],
+    queryFn: async () => {
+      if (!debouncedQuery) return [];
+      try {
+        const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(debouncedQuery)}`);
+        if (res.ok) {
+          const data = await res.json();
+          return data.results || [];
+        }
+      } catch (err) {
+        console.error('Error fetching youtube videos:', err);
+      }
+      return [];
+    },
+    enabled: !!debouncedQuery,
+  });
+
   const { data: searchResults, isLoading: isSearching } = useQuery<TorBoxSearchResult[]>({
     queryKey: ['torbox-music-search', debouncedQuery],
     queryFn: async () => {
@@ -457,7 +477,8 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
     <div className="space-y-8 animate-fadeIn pb-32">
       {/* Tabs */}
       <div className="flex items-center gap-6 border-b border-white/10 pb-4">
-        <button onClick={() => { setActiveTab('search'); setSelectedRelease(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'search' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>Search</button>
+        <button onClick={() => { setActiveTab('search'); setSelectedRelease(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'search' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>TorBox & Audio</button>
+        <button onClick={() => { setActiveTab('videos'); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'videos' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>YouTube Music Videos</button>
         <button onClick={() => { setActiveTab('library'); setSelectedLibraryArtist(null); setSelectedLibraryAlbum(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'library' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>Library</button>
         <button onClick={() => { setActiveTab('playlists'); setSelectedPlaylist(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'playlists' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>Playlists</button>
       </div>
@@ -683,6 +704,65 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
         </div>
       )}
         </>
+      )}
+
+      {activeTab === 'videos' && (
+        <div className="space-y-6">
+          <div className="bg-[#12121a] border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 shadow-lg max-w-3xl">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <input 
+                type="text"
+                placeholder="Search YouTube for music videos..."
+                className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/5 focus:border-red-500 rounded-xl text-sm text-white placeholder-white/30 outline-none transition-colors"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {loadingVideos ? (
+            <div className="flex items-center justify-center py-16 text-red-500">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+          ) : musicVideos && musicVideos.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {musicVideos.map((vid: any) => (
+                <div 
+                  key={vid.id}
+                  onClick={() => setSelectedVideoModal(vid)}
+                  className="bg-black/40 border border-white/5 hover:border-red-500/50 rounded-2xl overflow-hidden cursor-pointer transition-all group hover:scale-[1.02] flex flex-col shadow-lg"
+                >
+                  <div className="aspect-video bg-slate-900 relative">
+                    <img 
+                      src={vid.artwork} 
+                      alt={vid.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-xl">
+                        <Play className="w-6 h-6 text-white fill-white ml-0.5" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 flex flex-col min-w-0 flex-1 justify-between gap-1">
+                    <span className="text-sm font-bold text-white line-clamp-2 leading-tight group-hover:text-red-400 transition-colors">
+                      {vid.title}
+                    </span>
+                    <span className="text-xs text-white/50 truncate">
+                      {vid.artist}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white/5 border border-white/5 rounded-2xl p-8 text-center text-sm text-white/40">
+              No music videos found. Try searching for an artist or song.
+            </div>
+          )}
+        </div>
       )}
 
       {activeTab === 'library' && (
@@ -1028,8 +1108,37 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               className="w-24 h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
             />
           </div>
+      {/* YouTube Music Video Player Modal */}
+      {selectedVideoModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="relative w-full max-w-4xl bg-[#0d0d14] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/40">
+              <div className="flex items-center gap-3 min-w-0 pr-4">
+                <Video className="w-5 h-5 text-red-500 shrink-0" />
+                <div className="truncate">
+                  <h3 className="text-base font-bold text-white truncate">{selectedVideoModal.title}</h3>
+                  <p className="text-xs text-white/50 truncate">{selectedVideoModal.artist}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedVideoModal(null)}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="aspect-video w-full bg-black">
+              <iframe 
+                src={`https://www.youtube.com/embed/${selectedVideoModal.videoId}?autoplay=1`}
+                title={selectedVideoModal.title}
+                className="w-full h-full border-none"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

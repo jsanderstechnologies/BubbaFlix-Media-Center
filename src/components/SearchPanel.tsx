@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { searchMovies, searchTvSeries, searchActors } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
-import { Play, Pause, Music, Info, Film, Tv, Users, Search, Sparkles, ExternalLink, Disc, Loader2, Volume2, SkipBack, SkipForward } from 'lucide-react';
+import { Play, Pause, Music, Info, Film, Tv, Users, Search, Sparkles, ExternalLink, Disc, Loader2, Volume2, SkipBack, SkipForward, Video, X } from 'lucide-react';
 
 interface SearchPanelProps {
   query: string;
@@ -328,6 +328,27 @@ export default function SearchPanel({
     enabled: !!query,
   });
 
+  const [selectedVideoModal, setSelectedVideoModal] = useState<any | null>(null);
+
+  // Fetch YouTube Music Videos
+  const { data: musicVideos, isLoading: loadingVideos } = useQuery({
+    queryKey: ['search-youtube-videos', query],
+    queryFn: async () => {
+      if (!query) return [];
+      try {
+        const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(query)}`);
+        if (res.ok) {
+          const data = await res.json();
+          return data.results || [];
+        }
+      } catch (err) {
+        console.error('Error fetching youtube videos:', err);
+      }
+      return [];
+    },
+    enabled: !!query,
+  });
+
   // Fetch Actors
   const { data: actors, isLoading: loadingActors } = useQuery({
     queryKey: ['search-actors', query, systemSettings.tmdbKey],
@@ -336,7 +357,7 @@ export default function SearchPanel({
   });
 
   const isSearching = !!query;
-  const isLoading = loadingMovies || loadingTv || loadingActors || loadingMusic || loadingAlbums || loadingArtists;
+  const isLoading = loadingMovies || loadingTv || loadingActors || loadingMusic || loadingAlbums || loadingArtists || loadingVideos;
 
   const popularSuggestions = [
     { label: 'Pedro Pascal', category: 'Actor' },
@@ -725,6 +746,65 @@ export default function SearchPanel({
             )}
           </div>
 
+          {/* YouTube Music Videos Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2.5 border-b border-white/5 pb-2">
+              <Video className="w-5 h-5 text-red-500" />
+              <h3 className="text-lg font-medium tracking-tight text-white">
+                YouTube Music Videos <span className="text-white/40 text-sm font-normal">({musicVideos?.length || 0})</span>
+              </h3>
+            </div>
+
+            {musicVideos && musicVideos.length > 0 ? (
+              <div className="relative">
+                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20 scroll-smooth px-1">
+                  {musicVideos.map((vid: any) => (
+                    <div 
+                      key={vid.id}
+                      onClick={() => setSelectedVideoModal(vid)}
+                      className="w-48 sm:w-56 shrink-0 group cursor-pointer animate-fadeIn focus:outline-none focus:ring-2 focus:ring-red-500 rounded-xl"
+                    >
+                      <div className="aspect-video bg-slate-900 rounded-xl overflow-hidden mb-2 relative border border-white/10 shadow-lg group-hover:scale-105 group-hover:border-red-500 transition-all duration-300">
+                        {vid.artwork ? (
+                          <img 
+                            src={vid.artwork} 
+                            alt={vid.title} 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer" 
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-black/80 text-white/40">
+                            <Video className="w-8 h-8" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-xl transform active:scale-95 transition-transform">
+                            <Play className="w-6 h-6 text-white fill-white ml-0.5" />
+                          </div>
+                        </div>
+                        <div className="absolute bottom-2 right-2 bg-black/80 text-[9px] font-mono text-white px-1.5 py-0.5 rounded font-bold">
+                          VIDEO
+                        </div>
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs sm:text-sm font-semibold leading-tight text-white truncate group-hover:text-red-400 transition-colors">
+                          {vid.title}
+                        </span>
+                        <span className="text-[10px] text-white/50 truncate mt-0.5">
+                          {vid.artist}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-6 text-center text-sm text-white/40">
+                No matching music videos found.
+              </div>
+            )}
+          </div>
+
           {/* Actors Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2.5 border-b border-white/5 pb-2">
@@ -898,7 +978,37 @@ export default function SearchPanel({
                 </div>
               </div>
             </div>
-          )}
+      {/* YouTube Music Video Player Modal */}
+      {selectedVideoModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="relative w-full max-w-4xl bg-[#0d0d14] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/40">
+              <div className="flex items-center gap-3 min-w-0 pr-4">
+                <Video className="w-5 h-5 text-red-500 shrink-0" />
+                <div className="truncate">
+                  <h3 className="text-base font-bold text-white truncate">{selectedVideoModal.title}</h3>
+                  <p className="text-xs text-white/50 truncate">{selectedVideoModal.artist}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedVideoModal(null)}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="aspect-video w-full bg-black">
+              <iframe 
+                src={`https://www.youtube.com/embed/${selectedVideoModal.videoId}?autoplay=1`}
+                title={selectedVideoModal.title}
+                className="w-full h-full border-none"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        </div>
+      )}
         </>
       )}
     </div>
