@@ -319,15 +319,16 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
 
   const handleSelectRelease = async (release: TorBoxSearchResult) => {
     setSelectedRelease(release);
-    setReleaseStatus('Adding to TorBox...');
+    setReleaseStatus('Adding album release to TorBox...');
     setAudioFiles([]);
     setPlayingTrack(null);
     setIsPlaying(false);
 
     try {
-      const apiKey = systemSettings.torboxApiKey;
+      const apiKey = localStorage.getItem('torboxApiKey') || systemSettings.torboxApiKey;
       if (!apiKey) {
         setReleaseStatus('Error: TorBox API Key is missing in Settings.');
+        alert('Please enter your TorBox API Key in Settings to cache music torrents.');
         return;
       }
 
@@ -345,8 +346,8 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
           body: JSON.stringify({ link: release.url })
         });
         const data = await res.json();
-        if (data.detail && !data.success) throw new Error(data.detail);
-        usenetId = data.data.usenet_id;
+        if (data.detail && !data.success) throw new Error(data.detail || 'Failed to add usenet release');
+        usenetId = data.data?.usenet_id || data.data?.id || data.data;
       } else {
         const res = await fetch('/api/torbox/torrents/create', {
           method: 'POST',
@@ -357,11 +358,12 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
           body: JSON.stringify({ magnet: release.url })
         });
         const data = await res.json();
-        if (data.detail && !data.success) throw new Error(data.detail);
-        torrentId = data.data.torrent_id;
+        if (data.detail && !data.success) throw new Error(data.detail || 'Failed to add torrent release');
+        torrentId = data.data?.torrent_id || data.data?.id || data.data;
       }
 
-      setReleaseStatus('Caching release (this may take a few seconds)...');
+      setReleaseStatus('Caching release on TorBox (fetching audio files)...');
+
 
       // Poll until ready
       const pollInterval = setInterval(async () => {
@@ -566,6 +568,14 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
             </div>
           </div>
 
+          {/* Release Caching Status Banner */}
+          {releaseStatus && (
+            <div className="p-4 bg-red-950/40 border border-red-500/30 rounded-xl text-xs font-bold text-red-400 animate-pulse flex items-center gap-3 shadow-lg">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-red-500" />
+              <span>{releaseStatus}</span>
+            </div>
+          )}
+
           {/* TorBox Audio Files Section (If cached torrent loaded) */}
           {audioFiles && audioFiles.length > 0 && (
             <div className="space-y-3 bg-red-950/20 border border-red-500/30 p-5 rounded-2xl">
@@ -644,7 +654,10 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                         )}
                       </div>
                     </div>
-                    <button className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-all shrink-0">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleSelectRelease(res); }}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer shadow-lg shadow-red-600/20"
+                    >
                       Cache to TorBox & Stream
                     </button>
                   </div>
@@ -656,6 +669,7 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               </div>
             )}
           </div>
+
         </div>
       ) : activeTab === 'search' && (
 
