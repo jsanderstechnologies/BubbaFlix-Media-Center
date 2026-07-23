@@ -310,7 +310,8 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
 
   const musicSearchQuery = useMemo(() => {
     if (selectedAlbumDetails) {
-      return `${selectedAlbumDetails.artist} ${selectedAlbumDetails.title}`;
+      const yearStr = selectedAlbumDetails.year && selectedAlbumDetails.year !== 'N/A' ? ` ${selectedAlbumDetails.year}` : '';
+      return `${selectedAlbumDetails.artist} ${selectedAlbumDetails.title}${yearStr}`;
     }
     return debouncedQuery;
   }, [selectedAlbumDetails, debouncedQuery]);
@@ -325,19 +326,51 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
   });
 
   const searchResults = useMemo(() => {
-    if (!rawSearchResults) return [];
+    if (!rawSearchResults || rawSearchResults.length === 0) return [];
+    
     if (selectedAlbumDetails) {
-      const titleWords = selectedAlbumDetails.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(' ').filter(w => w.length > 2);
-      if (titleWords.length > 0) {
-        const albumMatches = rawSearchResults.filter(res => {
-          const cleanName = res.name.toLowerCase();
-          return titleWords.some(w => cleanName.includes(w));
-        });
-        if (albumMatches.length > 0) return albumMatches;
-      }
+      const cleanTitle = selectedAlbumDetails.title.toLowerCase().trim();
+      const cleanArtist = selectedAlbumDetails.artist.toLowerCase().trim();
+      const year = selectedAlbumDetails.year;
+      const isSelfTitled = cleanTitle === cleanArtist;
+
+      const nonAlbumExclude = /(discography|box set|boxset|greatest hits|anthology|tribute|live at|live in|concert|bootleg|discografia)/i;
+
+      // Filter out general discographies, box sets, live concerts when viewing a specific album
+      const specificAlbumReleases = rawSearchResults.filter(res => {
+        if (!res || !res.name) return false;
+        const nameLower = res.name.toLowerCase();
+
+        // 1. Exclude discography and live concert collections
+        if (nonAlbumExclude.test(nameLower)) return false;
+
+        // 2. If it's a self-titled album (e.g. Van Halen by Van Halen):
+        if (isSelfTitled) {
+          if (year && year !== 'N/A') {
+            const hasYear = nameLower.includes(year);
+            const otherYears = nameLower.match(/\b(19\d\d|20\d\d)\b/g);
+            if (otherYears && !otherYears.includes(year) && !otherYears.some(y => ['2013', '2015', '2020', '2021', '2022', '2023', '2024', '2025', '2026'].includes(y))) {
+              return false;
+            }
+            if (hasYear) return true;
+          }
+          return true;
+        }
+
+        // 3. For non-self-titled albums, ensure title keywords are in release name
+        const titleWords = cleanTitle.replace(/[^a-z0-9\s]/g, '').split(' ').filter(w => w.length > 2);
+        if (titleWords.length > 0) {
+          return titleWords.some(w => nameLower.includes(w));
+        }
+        return true;
+      });
+
+      return specificAlbumReleases.length > 0 ? specificAlbumReleases : rawSearchResults;
     }
+
     return rawSearchResults;
   }, [selectedAlbumDetails, rawSearchResults]);
+
 
 
   const handleSelectRelease = async (release: TorBoxSearchResult) => {
