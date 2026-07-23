@@ -232,6 +232,33 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
     return () => clearTimeout(timer);
   }, [query]);
 
+  const { data: musicAlbums, isLoading: loadingAlbums } = useQuery({
+    queryKey: ['itunes-albums-search', debouncedQuery],
+    queryFn: async () => {
+      if (!debouncedQuery) return [];
+      try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(debouncedQuery)}&entity=album&limit=12`);
+        if (res.ok) {
+          const data = await res.json();
+          return (data.results || []).map((album: any) => ({
+            id: String(album.collectionId),
+            title: album.collectionName,
+            artist: album.artistName,
+            artwork: album.artworkUrl100 ? album.artworkUrl100.replace('100x100bb', '640x640bb') : 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=300&h=300',
+            genre: album.primaryGenreName,
+            year: album.releaseDate ? album.releaseDate.substring(0, 4) : 'N/A',
+            trackCount: album.trackCount,
+            url: album.collectionViewUrl,
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching albums:', err);
+      }
+      return [];
+    },
+    enabled: !!debouncedQuery,
+  });
+
   const { data: searchResults, isLoading: isSearching } = useQuery<TorBoxSearchResult[]>({
     queryKey: ['torbox-music-search', debouncedQuery],
     queryFn: async () => {
@@ -489,29 +516,82 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
             </div>
           )}
 
-          {!isSearching && searchResults && searchResults.length > 0 && (
-            <div className="flex flex-col gap-2">
-              {searchResults.map((res) => (
-                <div 
-                  key={res.id} 
-                  onClick={() => handleSelectRelease(res)}
-                  className="bg-black/40 border border-white/5 hover:border-red-500/50 p-4 rounded-xl cursor-pointer transition-colors group flex items-center justify-between"
-                >
-                  <div className="flex flex-col overflow-hidden pr-4">
-                    <span className="text-white font-medium truncate group-hover:text-red-400 transition-colors">
-                      {res.name}
-                    </span>
-                    <div className="flex items-center gap-3 text-xs text-white/40 mt-1">
-                      <span className="uppercase tracking-wider px-1.5 py-0.5 bg-white/10 rounded text-[10px]">{res.type}</span>
-                      <span>{res.size}</span>
-                      {res.isCached && <span className="text-emerald-400">Cached</span>}
+          {/* Albums Section */}
+          {!isSearching && musicAlbums && musicAlbums.length > 0 && (
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                <Disc className="w-5 h-5 text-red-500" />
+                <h3 className="text-base font-bold text-white tracking-wide">
+                  Albums <span className="text-white/40 text-xs font-normal">({musicAlbums.length})</span>
+                </h3>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {musicAlbums.map((album: any) => (
+                  <div 
+                    key={album.id}
+                    onClick={() => setQuery(`${album.artist} ${album.title}`)}
+                    className="bg-black/40 border border-white/5 hover:border-red-500/50 p-3 rounded-xl cursor-pointer transition-all group hover:scale-[1.03] flex flex-col gap-2"
+                  >
+                    <div className="aspect-square bg-slate-800 rounded-lg overflow-hidden relative shadow">
+                      <img 
+                        src={album.artwork} 
+                        alt={album.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2 text-center">
+                        <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Search Stream</span>
+                        <span className="text-[9px] text-white/70 mt-0.5">{album.trackCount} Tracks</span>
+                      </div>
+                      <div className="absolute top-1.5 right-1.5 bg-black/70 text-[8px] font-mono text-white/80 px-1.5 py-0.5 rounded border border-white/10">
+                        {album.year}
+                      </div>
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-bold text-white truncate group-hover:text-red-400 transition-colors">
+                        {album.title}
+                      </span>
+                      <span className="text-[10px] text-white/50 truncate">
+                        {album.artist}
+                      </span>
                     </div>
                   </div>
-                  <div className="shrink-0 text-white/20 group-hover:text-red-500">
-                    <Disc className="w-6 h-6" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!isSearching && searchResults && searchResults.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                <Music className="w-5 h-5 text-red-500" />
+                <h3 className="text-base font-bold text-white tracking-wide">
+                  Lossless Audio & FLAC Streams <span className="text-white/40 text-xs font-normal">({searchResults.length})</span>
+                </h3>
+              </div>
+              <div className="flex flex-col gap-2">
+                {searchResults.map((res) => (
+                  <div 
+                    key={res.id} 
+                    onClick={() => handleSelectRelease(res)}
+                    className="bg-black/40 border border-white/5 hover:border-red-500/50 p-4 rounded-xl cursor-pointer transition-colors group flex items-center justify-between"
+                  >
+                    <div className="flex flex-col overflow-hidden pr-4">
+                      <span className="text-white font-medium truncate group-hover:text-red-400 transition-colors">
+                        {res.name}
+                      </span>
+                      <div className="flex items-center gap-3 text-xs text-white/40 mt-1">
+                        <span className="uppercase tracking-wider px-1.5 py-0.5 bg-white/10 rounded text-[10px]">{res.type}</span>
+                        <span>{res.size}</span>
+                        {res.isCached && <span className="text-emerald-400">Cached</span>}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-white/20 group-hover:text-red-500">
+                      <Disc className="w-6 h-6" />
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
