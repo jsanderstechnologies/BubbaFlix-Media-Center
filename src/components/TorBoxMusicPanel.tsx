@@ -1137,13 +1137,7 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                   {savedArtists.map(artist => (
                     <div 
                       key={artist.id} 
-                      onClick={() => {
-                        setQuery(artist.artistName);
-                        setDebouncedQuery(artist.artistName);
-                        setSelectedAlbumDetails(null);
-                        setSelectedRelease(null);
-                        setActiveTab('search');
-                      }}
+                      onClick={() => setSelectedLibraryArtist(artist)}
                       className="group cursor-pointer flex flex-col items-center gap-3 text-center"
                     >
                       <div className="w-32 h-32 rounded-full overflow-hidden shadow-lg border border-white/5 group-hover:border-red-500/50 transition-all group-hover:scale-105">
@@ -1152,6 +1146,7 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                       <span className="text-sm font-medium text-white group-hover:text-red-400 transition-colors">{artist.artistName}</span>
                     </div>
                   ))}
+
                 </div>
               )}
             </div>
