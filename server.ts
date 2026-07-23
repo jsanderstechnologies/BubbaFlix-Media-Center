@@ -1287,37 +1287,36 @@ async function startServer() {
   });
 
 
-  // API Route: Music Stream Proxy (High Quality Audio)
-  app.get("/api/music/stream", async (req, res) => {
+  // API Route: Music Stream Proxy (Full Track High-Definition Audio via yt-dlp)
+  app.get("/api/music/stream", (req, res) => {
     const query = req.query.q;
     if (!query || typeof query !== 'string') {
       return res.status(400).send("Query is required");
     }
-    try {
-      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`);
-      if (itunesRes.ok) {
-        const itunesData = await itunesRes.json();
-        if (itunesData.results?.[0]?.previewUrl) {
-          const streamUrl = itunesData.results[0].previewUrl;
-          const audioRes = await fetch(streamUrl);
-          if (audioRes.ok && audioRes.body) {
-            res.setHeader('Content-Type', 'audio/mp4');
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            const reader = audioRes.body.getReader();
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              res.write(Buffer.from(value));
+
+    const pythonProcess = spawn('python', ['-m', 'yt_dlp', '-g', '-f', 'bestaudio', `ytsearch1:${query}`]);
+    let output = '';
+
+    pythonProcess.stdout.on('data', data => output += data.toString());
+    pythonProcess.on('close', code => {
+      if (code === 0 && output.trim()) {
+        const urls = output.trim().split('\n');
+        const directUrl = urls[urls.length - 1]; // Direct full track audio URL
+        res.redirect(302, directUrl);
+      } else {
+        // Fallback to iTunes preview if yt-dlp fails
+        fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.results?.[0]?.previewUrl) {
+              res.redirect(302, data.results[0].previewUrl);
+            } else {
+              res.status(404).send("Stream not found");
             }
-            return res.end();
-          }
-        }
+          })
+          .catch(() => res.status(500).send("Stream failed"));
       }
-      return res.status(404).send("Stream not found");
-    } catch (err) {
-      console.error('[Music Stream Proxy Error]', err);
-      res.status(500).send("Stream proxy failed");
-    }
+    });
   });
 
 
