@@ -155,11 +155,9 @@ export default function SearchPanel({
       }
     } else {
       let url = track.previewUrl;
-      if (!url) {
-        setIsLoadingPreview(track.id);
-        url = await getPlayableUrl(track.id, track.artist, track.title);
+      if (!url || url.includes('itunes-assets') || url.includes('apple.com')) {
+        url = `/api/music/stream?q=${encodeURIComponent((track.artist || '') + ' ' + (track.title || track.name || ''))}`;
         track.previewUrl = url;
-        setIsLoadingPreview(null);
       }
 
       audioRef.current.src = url;

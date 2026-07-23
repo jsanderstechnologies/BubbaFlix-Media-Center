@@ -481,26 +481,11 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
       }
     } else {
       let playUrl = file.url;
-      // If previewUrl or stream url is missing, search iTunes previewUrl on demand
-      if (!playUrl && (file.name || file.title)) {
-        try {
-          const trackTitle = file.name || file.title;
-          const artistName = file.artist || '';
-          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(artistName + ' ' + trackTitle)}&entity=song&limit=1`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.results?.[0]?.previewUrl) {
-              playUrl = data.results[0].previewUrl;
-            }
-          }
-        } catch (err) {
-          console.error("Error looking up preview url:", err);
-        }
-      }
-
-      if (!playUrl) {
-        alert("No playable audio stream available for this track.");
-        return;
+      // If playUrl is missing or is an iTunes 30s preview clip, stream full track!
+      if (!playUrl || playUrl.includes('itunes-assets') || playUrl.includes('apple.com')) {
+        const trackTitle = file.name || file.title || '';
+        const artistName = file.artist || '';
+        playUrl = `/api/music/stream?q=${encodeURIComponent(artistName + ' ' + trackTitle)}`;
       }
 
       const activeFile = { ...file, url: playUrl };
