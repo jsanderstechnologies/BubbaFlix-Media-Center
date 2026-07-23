@@ -1998,14 +1998,18 @@ const durationCache = new Map<string, number>();
 
     const scrapeHTML = require('cheerio');
 
-    try {
+      const isMusicQuery = req.query.category === 'music' || /(flac|mp3|320|lossless|cd|album|discography|aac|alac|music|song|artist)/i.test(q as string);
+      const pbUrl = isMusicQuery 
+        ? `https://apibay.org/q.php?q=${encodeURIComponent(q)}&cat=100`
+        : `https://apibay.org/q.php?q=${encodeURIComponent(q)}`;
+
       const [pbRes, ytsRes, ytsLuRes, solidRes, limeRes, eztvRes] = await Promise.all([
-        // The Pirate Bay
-        axios.get(`https://apibay.org/q.php?q=${encodeURIComponent(q)}`, { timeout: 7000 }).catch(() => null),
+        // The Pirate Bay (Music cat=100 if music query)
+        axios.get(pbUrl, { timeout: 7000 }).catch(() => null),
         // YTS.mx (best for movies)
-        axios.get(`https://yts.mx/api/v2/list_movies.json?query_term=${encodeURIComponent(q)}&limit=20`, { timeout: 7000 }).catch(() => null),
+        isMusicQuery ? Promise.resolve(null) : axios.get(`https://yts.mx/api/v2/list_movies.json?query_term=${encodeURIComponent(q)}&limit=20`, { timeout: 7000 }).catch(() => null),
         // YTS.lu (mirror with wider catalogue — same API format)
-        axios.get(`https://yts.lu/api/v2/list_movies.json?query_term=${encodeURIComponent(q)}&limit=20`, { timeout: 9000 }).catch(() => null),
+        isMusicQuery ? Promise.resolve(null) : axios.get(`https://yts.lu/api/v2/list_movies.json?query_term=${encodeURIComponent(q)}&limit=20`, { timeout: 9000 }).catch(() => null),
         // SolidTorrents (aggregates 1337x, RARBG dumps, TorrentGalaxy & others)
         axios.get(`https://solidtorrents.to/api/v1/search?q=${encodeURIComponent(q)}&limit=20`, { timeout: 7000 }).catch(() => null),
         // LimeTorrents (HTML scrape — no Cloudflare, responds with 200)
@@ -2014,7 +2018,7 @@ const durationCache = new Map<string, number>();
           headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
         }).catch(() => null),
         // EZTV (works best for TV shows — needs numeric IMDB ID)
-        (imdbId && typeof imdbId === 'string')
+        (imdbId && typeof imdbId === 'string' && !isMusicQuery)
           ? axios.get(`https://eztvx.to/api/get-torrents?limit=30&imdb_id=${imdbId.replace(/^tt/, '')}`, { timeout: 7000 }).catch(() => null)
           : Promise.resolve(null),
       ]);
@@ -2046,6 +2050,7 @@ const durationCache = new Map<string, number>();
             source: 'The Pirate Bay'
           }));
       }
+
 
       // ── YTS.mx (movies) ──
       const processYtsData = (ytsData: any, sourceLabel: string) => {
