@@ -1864,14 +1864,30 @@ const durationCache = new Map<string, number>();
   });
 
   async function filterWithGemini(query: string, items: any[], settings: any): Promise<any[]> {
-    if (!settings.geminiApiKey || items.length === 0) return items;
+    if (items.length === 0) return items;
+    
+    // 1. PRE-FILTER HEVC/x265/10-bit/HDR when hardware transcoding is disabled or unsupported
+    const isHwDisabled = settings.intelTranscoding !== true || detectBestH264Encoder() === 'libx264';
+    let candidateItems = items;
+    if (isHwDisabled) {
+      const hevcRegex = /(^|[^a-z0-9])(hevc|x265|h\.?265|265|10-?bit|10b|hdr|hdr10|hdr10\+|dv|dolby\s*vision|main10)([^a-z0-9]|$)/i;
+      candidateItems = items.filter(t => {
+        const name = (t.name || t.title || '').toLowerCase();
+        return !hevcRegex.test(name);
+      });
+      if (candidateItems.length < items.length) {
+        console.log(`[HEVC Pre-Filter] Excluded ${items.length - candidateItems.length} HEVC/x265/10-bit/HDR streams for "${query}"`);
+      }
+    }
+
+    if (!settings.geminiApiKey || candidateItems.length === 0) return candidateItems;
     
     try {
-      const list = items.map((t, i) => `${i}: ${t.name || t.title}`).join('\n');
+      const list = candidateItems.map((t, i) => `${i}: ${t.name || t.title}`).join('\n');
       
       let hwFilterInstruction = '';
-      if (settings.intelTranscoding !== true || detectBestH264Encoder() === 'libx264') {
-        hwFilterInstruction = '\n\nCRITICAL HARDWARE CONSTRAINT: This server does not support or has disabled hardware transcoding. You MUST strictly filter out and exclude any video files encoded with HEVC, x265, H.265, or 10-bit (10bit). Only allow standard H.264 / x264 video streams.';
+      if (isHwDisabled) {
+        hwFilterInstruction = '\n\nCRITICAL HARDWARE CONSTRAINT - STRICT NO HEVC/x265 POLICY: Hardware transcoding is NOT enabled or supported. You MUST strictly filter out and exclude ANY video stream that contains HEVC, x265, H.265, H265, 265, 10-bit, 10bit, 10b, Main10, HDR, HDR10, DV, or Dolby Vision anywhere in the title or release name. Inspect every character of each title carefully. Only allow standard 8-bit H.264 / x264 video streams.';
       }
 
       let animeFilterInstruction = '';
@@ -1901,13 +1917,13 @@ const durationCache = new Map<string, number>();
       const indices = JSON.parse(cleanText);
       
       if (Array.isArray(indices)) {
-        console.log(`[Gemini Filter] Filtered from ${items.length} to ${indices.length} items for "${query}"`);
-        return indices.map(i => items[i]).filter(Boolean);
+        console.log(`[Gemini Filter] Filtered from ${candidateItems.length} to ${indices.length} items for "${query}"`);
+        return indices.map(i => candidateItems[i]).filter(Boolean);
       }
-      return items;
+      return candidateItems;
     } catch (err: any) {
       console.error("[Gemini Filter Error]", err.message);
-      return items; // Fallback to unfiltered if Gemini fails
+      return candidateItems; // Fallback to HEVC-stripped candidate items if Gemini fails
     }
   }
 
