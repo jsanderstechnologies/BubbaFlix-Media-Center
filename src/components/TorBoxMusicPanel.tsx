@@ -1137,11 +1137,20 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                   {savedArtists.map(artist => (
                     <div 
                       key={artist.id} 
-                      onClick={() => setSelectedLibraryArtist(artist)}
+                      onClick={() => {
+                        setQuery(artist.artistName);
+                        setDebouncedQuery(artist.artistName);
+                        setSelectedAlbumDetails(null);
+                        setSelectedRelease(null);
+                        setActiveTab('search');
+                      }}
                       className="group cursor-pointer flex flex-col items-center gap-3 text-center"
                     >
-                      <div className="w-32 h-32 rounded-full overflow-hidden shadow-lg border border-white/5 group-hover:border-red-500/50 transition-all group-hover:scale-105">
+                      <div className="w-32 h-32 rounded-full overflow-hidden shadow-lg border border-white/5 group-hover:border-red-500/50 transition-all group-hover:scale-105 relative">
                         <img src={artist.artwork} alt={artist.artistName} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Search className="w-6 h-6 text-white" />
+                        </div>
                       </div>
                       <span className="text-sm font-medium text-white group-hover:text-red-400 transition-colors">{artist.artistName}</span>
                     </div>
@@ -1155,22 +1164,42 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                 <img src={selectedLibraryArtist.artwork} alt={selectedLibraryArtist.artistName} className="w-32 h-32 rounded-full object-cover shadow-2xl" />
                 <div className="flex flex-col justify-center flex-1 text-center sm:text-left">
                   <h3 className="text-3xl font-bold text-white mb-1">{selectedLibraryArtist.artistName}</h3>
-                  <button 
-                    onClick={() => setSelectedLibraryArtist(null)}
-                    className="mt-2 text-sm text-white/50 hover:text-white self-center sm:self-start flex items-center gap-2"
-                  >
-                    <ArrowLeft className="w-4 h-4" /> Back to Artists
-                  </button>
+                  <div className="flex items-center gap-3 mt-2 justify-center sm:justify-start">
+                    <button 
+                      onClick={() => setSelectedLibraryArtist(null)}
+                      className="text-sm text-white/50 hover:text-white flex items-center gap-2"
+                    >
+                      <ArrowLeft className="w-4 h-4" /> Back to Artists
+                    </button>
+                    <span className="text-white/20">•</span>
+                    <button 
+                      onClick={() => {
+                        setQuery(selectedLibraryArtist.artistName);
+                        setDebouncedQuery(selectedLibraryArtist.artistName);
+                        setSelectedAlbumDetails(null);
+                        setSelectedRelease(null);
+                        setActiveTab('search');
+                      }}
+                      className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 font-medium"
+                    >
+                      <Search className="w-3.5 h-3.5" /> View Full Discography & Torrents
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center">
                   <button 
-                    onClick={() => toggleSaveArtist(selectedLibraryArtist.artistName, selectedLibraryArtist.artwork)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors text-sm"
+                    onClick={() => {
+                      toggleSaveArtist(selectedLibraryArtist.artistName, selectedLibraryArtist.artwork);
+                      setSelectedLibraryArtist(null);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-full transition-colors text-sm cursor-pointer"
+                    title="Remove from Library"
                   >
-                    <UserCheck className="w-4 h-4" /> Remove
+                    <UserCheck className="w-4 h-4" /> Saved in Library
                   </button>
                 </div>
               </div>
+
 
               <h2 className="text-lg font-bold text-white mb-4">Saved Albums</h2>
               {deduplicatedSavedAlbums.filter(a => a.artistName?.toLowerCase().trim() === selectedLibraryArtist.artistName?.toLowerCase().trim()).length === 0 ? (
