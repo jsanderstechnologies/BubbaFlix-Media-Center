@@ -2106,18 +2106,31 @@ const durationCache = new Map<string, number>();
     }
   });
 
+  const torboxTorrentListCache = new Map<string, { timestamp: number; data: any }>();
+  const torboxUsenetListCache = new Map<string, { timestamp: number; data: any }>();
+
   app.get("/api/torbox/torrents", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ error: "Authorization key is required." });
+    }
+    const cached = torboxTorrentListCache.get(authHeader);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < 2000)) {
+      return res.json(cached.data);
     }
     try {
       const response = await axios.get("https://api.torbox.app/v1/api/torrents/mylist?bypass_cache=true", {
         timeout: 7000,
         headers: { Authorization: authHeader }
       });
+      torboxTorrentListCache.set(authHeader, { timestamp: now, data: response.data });
       res.json(response.data);
     } catch (err: any) {
+      if (cached && cached.data) {
+        console.warn("[TorBox Torrents Proxy] Serving cached list due to upstream error:", err.message);
+        return res.json(cached.data);
+      }
       res.status(err.response?.status || 500).json({ error: err.message });
     }
   });
@@ -2127,13 +2140,23 @@ const durationCache = new Map<string, number>();
     if (!authHeader) {
       return res.status(401).json({ error: "Authorization key is required." });
     }
+    const cached = torboxUsenetListCache.get(authHeader);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < 2000)) {
+      return res.json(cached.data);
+    }
     try {
       const response = await axios.get("https://api.torbox.app/v1/api/usenet/mylist?bypass_cache=true", {
         timeout: 7000,
         headers: { Authorization: authHeader }
       });
+      torboxUsenetListCache.set(authHeader, { timestamp: now, data: response.data });
       res.json(response.data);
     } catch (err: any) {
+      if (cached && cached.data) {
+        console.warn("[TorBox Usenet Proxy] Serving cached list due to upstream error:", err.message);
+        return res.json(cached.data);
+      }
       res.status(err.response?.status || 500).json({ error: err.message });
     }
   });

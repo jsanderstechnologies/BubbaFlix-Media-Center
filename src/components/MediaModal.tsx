@@ -212,8 +212,8 @@ export default function MediaModal({
             // ── Torrent updates ──
             if (stream.type === 'torrent') {
               const match = activeTorrents.find(t => {
-                if (stream.id && t.id === stream.id) return true;
-                if (stream.torboxId && t.id === stream.torboxId) return true;
+                if (stream.id !== undefined && String(t.id) === String(stream.id)) return true;
+                if (stream.torboxId !== undefined && String(t.id) === String(stream.torboxId)) return true;
                 if (stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase()) return true;
                 return false;
               });
@@ -245,9 +245,9 @@ export default function MediaModal({
             // ── Usenet updates ──
             if (stream.type === 'usenet') {
               const match = activeUsenet.find(u => {
-                // Prefer ID match — most reliable
-                if (stream.id && u.id === stream.id) return true;
-                if (stream.torboxId && u.id === stream.torboxId) return true;
+                // Prefer ID match — most reliable (String comparison for string vs number)
+                if (stream.id !== undefined && String(u.id) === String(stream.id)) return true;
+                if (stream.torboxId !== undefined && String(u.id) === String(stream.torboxId)) return true;
                 // Fall back to name comparison
                 if (!u.name || !stream.name) return false;
                 const sName = stream.name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -998,7 +998,8 @@ export default function MediaModal({
                                         if (resData.success && resData.data) {
                                           setStreams(prev => prev.map(s => {
                                             if (s.id === stream.id) {
-                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, torboxId: resData.data.usenet_id };
+                                              const uId = resData.data?.usenet_id || resData.data?.id;
+                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, id: uId || s.id, torboxId: uId };
                                             }
                                             return s;
                                           }));
@@ -1074,7 +1075,8 @@ export default function MediaModal({
                                         if (resData.success) {
                                           setStreams(prev => prev.map(s => {
                                             if (s.id === stream.id) {
-                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, torboxId: resData.data.usenet_id };
+                                              const uId = resData.data?.usenet_id || resData.data?.id;
+                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, id: uId || s.id, torboxId: uId };
                                             }
                                             return s;
                                           }));
