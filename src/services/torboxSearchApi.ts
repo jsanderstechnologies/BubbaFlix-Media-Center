@@ -180,11 +180,7 @@ export const fetchStreamsForMovie = async (title: string, year?: string, imdbId?
 };
 
 export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchResult[]> => {
-  // Append audio search terms if not already present to target albums
-  let searchTerms = query.trim();
-  if (!/(flac|mp3|320|lossless|cd|album|discography|aac|alac)/i.test(searchTerms)) {
-    searchTerms = `${searchTerms} FLAC MP3`;
-  }
+  const searchTerms = query.trim();
   console.log(`[TorBox Search] Searching Music: "${searchTerms}"`);
   
   const headers = getAuthHeaders();
@@ -197,7 +193,7 @@ export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchR
       (async () => {
         if (!enableUsenet) return [];
         try {
-          const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(searchTerms)}`, { headers });
+          const res = await fetch(`/api/torbox/search?q=${encodeURIComponent(searchTerms)}&category=music`, { headers });
           const json = res.ok ? await res.json() : null;
           return (json?.success && json?.data) ? mapResults(json.data, 'usenet', undefined) : [];
         } catch (e) {
@@ -208,7 +204,7 @@ export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchR
       (async () => {
         if (!enableTorrent) return [];
         try {
-          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(searchTerms)}`, { headers });
+          const res = await fetch(`/api/torbox/torrents/search?q=${encodeURIComponent(searchTerms)}&category=music`, { headers });
           const json = res.ok ? await res.json() : null;
           return (json?.success && json?.data) ? mapResults(json.data, 'torrent', undefined) : [];
         } catch (e) {
@@ -236,4 +232,5 @@ export const fetchStreamsForMusic = async (query: string): Promise<TorBoxSearchR
     return [];
   }
 };
+
 
