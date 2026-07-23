@@ -842,6 +842,7 @@ async function startServer() {
     if (req.body.enableTorrentSearch !== undefined) settings.enableTorrentSearch = req.body.enableTorrentSearch;
     if (req.body.intelTranscoding !== undefined) settings.intelTranscoding = req.body.intelTranscoding;
     if (req.body.filterAnime !== undefined) settings.filterAnime = req.body.filterAnime;
+    if (req.body.preferredLanguage !== undefined) settings.preferredLanguage = req.body.preferredLanguage;
     
     // Some general settings that any admin can save from SettingsPanel
     if (req.body.tmdbKey !== undefined) settings.tmdbKey = req.body.tmdbKey;
@@ -1878,7 +1879,16 @@ const durationCache = new Map<string, number>();
         animeFilterInstruction = '\n\nCRITICAL ANIME FILTERING: The admin setting "Filter Anime" is ENABLED. You MUST strictly filter out and exclude ANY anime series, anime movies, Japanese animation, or releases from anime encoding groups (such as SubsPlease, Erai-raws, HorribleSubs, Judas, ASW, Golumpa, MiniAni, Anime, etc.), REGARDLESS of whether the search query matches an anime title or not. Filter out all anime completely.';
       }
 
-      const prompt = `I am searching for the TV show or Movie "${query}". I have the following list of file result names. Please filter out any results that do not definitively belong to this show/movie, for example if they belong to a different show with a similar name.\n\nCRITICAL: Results may be Usenet archives (.rar, .par2, .nzb), video files (.mkv, .mp4), or contain scene release group names. These ARE VALID matches if the underlying title matches the query. Do not filter out results just because they are archives or split into parts.${animeFilterInstruction}\n\nAdditionally, filter out any results that appear to be in a language other than English (e.g., look for tags indicating foreign languages or dubs like ITA, FRE, GER, SPANISH, RUS, HINDI, LATINO, etc). You must also strictly filter out any music albums, audiobooks, soundtracks, or software/games that happen to share the same name.${hwFilterInstruction} Return ONLY a valid JSON array of indices (0-indexed) of the results that are CORRECT matches. Do not include any markdown formatting, backticks, or other text. Just the JSON array.\n\nList:\n${list}`;
+      let langInstruction = '';
+      if (settings.preferredLanguage && settings.preferredLanguage !== 'all') {
+        const langMap: Record<string, string> = { en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', ja: 'Japanese', ko: 'Korean', zh: 'Chinese' };
+        const targetLang = langMap[settings.preferredLanguage] || settings.preferredLanguage;
+        langInstruction = `\n\nCRITICAL LANGUAGE FILTERING: The preferred language is set to "${targetLang}". You MUST strictly filter out any media results that are dubbed or subbed in foreign languages other than ${targetLang} (e.g. look for tags indicating foreign languages or dubs like ITA, FRE, GER, SPANISH, RUS, HINDI, LATINO, KOREAN, CHINESE, etc. unless matching ${targetLang}).`;
+      } else {
+        langInstruction = `\n\nAdditionally, filter out any results that appear to be in a language other than English (e.g., look for tags indicating foreign languages or dubs like ITA, FRE, GER, SPANISH, RUS, HINDI, LATINO, etc).`;
+      }
+
+      const prompt = `I am searching for the TV show or Movie "${query}". I have the following list of file result names. Please filter out any results that do not definitively belong to this show/movie, for example if they belong to a different show with a similar name.\n\nCRITICAL: Results may be Usenet archives (.rar, .par2, .nzb), video files (.mkv, .mp4), or contain scene release group names. These ARE VALID matches if the underlying title matches the query. Do not filter out results just because they are archives or split into parts.${animeFilterInstruction}${langInstruction} You must also strictly filter out any music albums, audiobooks, soundtracks, or software/games that happen to share the same name.${hwFilterInstruction} Return ONLY a valid JSON array of indices (0-indexed) of the results that are CORRECT matches. Do not include any markdown formatting, backticks, or other text. Just the JSON array.\n\nList:\n${list}`;
 
       const res = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${settings.geminiApiKey}`,

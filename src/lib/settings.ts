@@ -22,6 +22,7 @@ export interface SystemSettings {
   intelTranscoding?: boolean;
   disableLogin?: boolean;
   filterAnime?: boolean;
+  preferredLanguage?: string;
 }
 
 export interface UserSettings {
@@ -63,8 +64,16 @@ function syncSystemSettingsToLocalStorage(data: SystemSettings) {
   if (data.geminiApiKey) localStorage.setItem('geminiApiKey', data.geminiApiKey);
   else localStorage.removeItem('geminiApiKey');
 
+  if (data.preferredLanguage) localStorage.setItem('preferredLanguage', data.preferredLanguage);
+  if (data.filterAnime !== undefined) localStorage.setItem('filterAnime', data.filterAnime ? 'true' : 'false');
+
   localStorage.setItem('enableUsenetSearch', data.enableUsenetSearch !== false ? 'true' : 'false');
   localStorage.setItem('enableTorrentSearch', data.enableTorrentSearch !== false ? 'true' : 'false');
+}
+
+function syncUserSettingsToLocalStorage(data: UserSettings) {
+  if (data.preferredLanguage) localStorage.setItem('preferredLanguage', data.preferredLanguage);
+  if (data.filterAnime !== undefined) localStorage.setItem('filterAnime', data.filterAnime ? 'true' : 'false');
 }
 
 type SystemSettingsListener = (settings: SystemSettings) => void;
@@ -100,6 +109,7 @@ export function fetchSettings() {
       .then(data => {
         if (data.settings) {
           globalUserSettings = { ...DEFAULT_USER_SETTINGS, ...data.settings };
+          syncUserSettingsToLocalStorage(globalUserSettings);
           userSettingsListeners.forEach(fn => fn(globalUserSettings));
         }
       })
@@ -124,6 +134,7 @@ export function updateSystemSettings(newSettings: SystemSettings) {
 
 export function updateUserSettings(newSettings: Partial<UserSettings>) {
   globalUserSettings = { ...globalUserSettings, ...newSettings };
+  syncUserSettingsToLocalStorage(globalUserSettings);
   userSettingsListeners.forEach(fn => fn(globalUserSettings));
 
   const token = localStorage.getItem('authToken');

@@ -75,7 +75,7 @@ export default function SettingsPanel() {
   const [playerPath, setPlayerPath] = useState(userSettings.playerPath || 'mpv');
   const [streamBufferSeconds, setStreamBufferSeconds] = useState(systemSettings.streamBufferSeconds || '60');
   const [filterAnime, setFilterAnime] = useState(systemSettings.filterAnime === true || userSettings.filterAnime === true);
-  const [preferredLanguage, setPreferredLanguage] = useState(userSettings.preferredLanguage || 'all');
+  const [preferredLanguage, setPreferredLanguage] = useState(systemSettings.preferredLanguage || userSettings.preferredLanguage || 'all');
 
   const [enableUsenetSearch, setEnableUsenetSearch] = useState(systemSettings.enableUsenetSearch !== false);
   const [enableTorrentSearch, setEnableTorrentSearch] = useState(systemSettings.enableTorrentSearch !== false);
@@ -277,6 +277,7 @@ export default function SettingsPanel() {
       intelTranscoding,
       disableLogin,
       filterAnime,
+      preferredLanguage,
       usenetHost,
       usenetPort,
       usenetUsername,
