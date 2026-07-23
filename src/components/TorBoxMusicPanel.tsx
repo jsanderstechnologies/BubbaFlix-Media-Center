@@ -481,11 +481,9 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
       }
     } else {
       let playUrl = file.url;
-      // If playUrl is missing or is an iTunes 30s preview clip, stream full track!
-      if (!playUrl || playUrl.includes('itunes-assets') || playUrl.includes('apple.com')) {
-        const trackTitle = file.name || file.title || '';
-        const artistName = file.artist || '';
-        playUrl = `/api/music/stream?q=${encodeURIComponent(artistName + ' ' + trackTitle)}`;
+      if (!playUrl) {
+        alert("TorBox stream URL is missing for this file. Please cache the torrent to TorBox first.");
+        return;
       }
 
       const activeFile = { ...file, url: playUrl };
@@ -563,71 +561,104 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                 onClick={() => setQuery(`${selectedAlbumDetails.artist} ${selectedAlbumDetails.title}`)}
                 className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-red-600/25 flex items-center gap-2"
               >
-                <Download className="w-4 h-4" /> Search Lossless FLAC Release
+                <Download className="w-4 h-4" /> Search TorBox Torrent
               </button>
             </div>
           </div>
 
-          {/* Tracklist Section */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold tracking-wider uppercase text-white/40 pl-2">
-              Album Tracklist ({albumTracks?.length || 0})
-            </h3>
-            {loadingAlbumTracks ? (
-              <div className="flex items-center justify-center py-12 text-red-500">
-                <Loader2 className="w-8 h-8 animate-spin" />
+          {/* TorBox Audio Files Section (If cached torrent loaded) */}
+          {audioFiles && audioFiles.length > 0 && (
+            <div className="space-y-3 bg-red-950/20 border border-red-500/30 p-5 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold tracking-wider uppercase text-red-400 flex items-center gap-2">
+                  <Music className="w-4 h-4" /> TorBox Full-Length Audio Tracks ({audioFiles.length})
+                </h3>
+                <span className="text-xs text-white/50 font-mono">Streamed directly from TorBox</span>
               </div>
-            ) : albumTracks && albumTracks.length > 0 ? (
               <div className="flex flex-col gap-1.5">
-                {albumTracks.map((track: any) => {
-                  const isCurrent = playingTrack?.id === track.id;
+                {audioFiles.map((file, idx) => {
+                  const isCurrent = playingTrack?.id === file.id;
                   return (
                     <div 
-                      key={track.id}
-                      onClick={() => playAudioFile(track)}
+                      key={file.id || idx}
+                      onClick={() => playAudioFile(file)}
                       className={`flex items-center gap-4 p-3.5 rounded-xl cursor-pointer transition-all ${
-                        isCurrent ? 'bg-red-500/15 border border-red-500/30' : 'bg-black/40 hover:bg-white/5 border border-white/5'
+                        isCurrent ? 'bg-red-500/20 border border-red-500/50' : 'bg-black/50 hover:bg-white/5 border border-white/5'
                       }`}
                     >
                       <span className="w-6 text-center text-xs font-mono text-white/40 font-bold">
-                        {track.trackNumber}
+                        {idx + 1}
                       </span>
                       <div className="flex-1 min-w-0">
                         <span className={`text-sm font-bold truncate block ${isCurrent ? 'text-red-400' : 'text-white'}`}>
-                          {track.name}
+                          {file.name}
                         </span>
-                        <span className="text-xs text-white/40 truncate block mt-0.5">
-                          {track.artist}
+                        <span className="text-xs text-white/40 truncate block mt-0.5 font-mono">
+                          {formatBytes(file.size)} • {file.ext.toUpperCase()}
                         </span>
                       </div>
-                      <span className="text-xs font-mono text-white/40 shrink-0">
-                        {formatTime(track.duration)}
-                      </span>
                       <button 
-                        onClick={(e) => { e.stopPropagation(); playAudioFile(track); }}
-                        className="w-8 h-8 rounded-full bg-white/10 hover:bg-red-600 text-white flex items-center justify-center transition-all cursor-pointer shrink-0"
+                        onClick={(e) => { e.stopPropagation(); playAudioFile(file); }}
+                        className="w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-lg shadow-red-600/30"
                       >
                         {isCurrent && isPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); setShowPlaylistModalForTrack(track); }}
-                        className="text-white/30 hover:text-white p-1.5 rounded-full transition-colors shrink-0"
-                        title="Add to Playlist"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                       </button>
                     </div>
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* TorBox Torrent & Usenet Releases for this Album */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold tracking-wider uppercase text-white/40 pl-2">
+              TorBox Torrent & Usenet Releases for {selectedAlbumDetails.title}
+            </h3>
+            {isSearching ? (
+              <div className="flex items-center justify-center py-8 text-red-500">
+                <Loader2 className="w-6 h-6 animate-spin mr-2" /> Searching TorBox indexers for album torrents...
+              </div>
+            ) : searchResults && searchResults.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {searchResults.map((res) => (
+                  <div 
+                    key={res.id} 
+                    onClick={() => handleSelectRelease(res)}
+                    className="bg-black/40 border border-white/5 hover:border-red-500/50 p-4 rounded-xl cursor-pointer transition-colors group flex items-center justify-between"
+                  >
+                    <div className="flex flex-col overflow-hidden pr-4">
+                      <span className="text-white font-medium truncate group-hover:text-red-400 transition-colors">
+                        {res.name}
+                      </span>
+                      <div className="flex items-center gap-3 text-xs text-white/40 mt-1">
+                        <span className="uppercase tracking-wider px-1.5 py-0.5 bg-white/10 rounded text-[10px]">{res.type}</span>
+                        <span>{res.size}</span>
+                        {res.seeders !== undefined && (
+                          <span className="text-emerald-400 font-mono">Seeders: {res.seeders}</span>
+                        )}
+                        {res.cached && (
+                          <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded">
+                            Instant TorBox Cache
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-all shrink-0">
+                      Cache to TorBox & Stream
+                    </button>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="bg-white/5 border border-white/5 rounded-2xl p-6 text-center text-sm text-white/40">
-                No track details found for this album.
+                No direct TorBox torrent results found yet. Click "Search TorBox Torrent" above to run a custom query.
               </div>
             )}
           </div>
         </div>
       ) : activeTab === 'search' && (
+
         <>
           {/* Search Bar */}
           <div className="bg-[#12121a] border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 shadow-lg max-w-3xl">
