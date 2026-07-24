@@ -2657,6 +2657,95 @@ http://example.com/stream2.m3u8`;
     }
   });
 
+  // API Route: Automatically scan Local & Network Shared Folders and format as Library items
+  app.get("/api/local-media/library", async (req, res) => {
+    const settings = readJson(SETTINGS_FILE);
+    const mediaFolders: any[] = settings.mediaFolders || [];
+    if (!Array.isArray(mediaFolders) || mediaFolders.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const items: any[] = [];
+
+    for (const folderObj of mediaFolders) {
+      const folderPath = folderObj.path;
+      const mediaType = folderObj.mediaType || 'movie'; // 'movie' or 'series'
+      if (!fs.existsSync(folderPath)) continue;
+
+      const files = scanDirectoryForMedia(folderPath, []);
+      for (const file of files) {
+        const filename = path.basename(file);
+        const ext = path.extname(filename);
+        const nameWithoutExt = path.basename(filename, ext);
+
+        // Clean filename for display title
+        let cleanTitle = nameWithoutExt
+          .replace(/\.(1080p|720p|4k|2160p|bluray|web-dl|webrip|x264|x265|hevc|h264|h265|aac|dvdrip|brrip|hdtv).*/gi, '')
+          .replace(/[\._\-\+]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        // Extract year if present (e.g. "The Creator 2023")
+        let yearMatch = cleanTitle.match(/\b(19\d\d|20\d\d)\b/);
+        let year = yearMatch ? yearMatch[1] : '';
+        if (yearMatch) {
+          cleanTitle = cleanTitle.replace(/\b(19\d\d|20\d\d)\b/, '').trim();
+        }
+
+        const fileId = `local_lib_${Buffer.from(file).toString('hex').substring(0, 16)}`;
+
+        items.push({
+          id: fileId,
+          tmdbId: fileId,
+          title: cleanTitle || nameWithoutExt,
+          name: cleanTitle || nameWithoutExt,
+          year: year || 'Local',
+          poster: '',
+          overview: `Local Network Share File: ${filename}`,
+          rating: 'SHARE',
+          type: mediaType,
+          isNetworkShare: true,
+          streamUrl: `/api/local-media/stream?path=${encodeURIComponent(file)}`,
+          filePath: file,
+          filename: filename
+        });
+      }
+    }
+
+    // Enrich top items with TMDB posters if possible
+    const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
+    if (apiKey && items.length > 0) {
+      const enrichPromises = items.slice(0, 50).map(async (item) => {
+        try {
+          const endpoint = item.type === 'series' ? 'tv' : 'movie';
+          const tmdbRes = await axios.get(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(item.title)}`, { timeout: 4000 }).catch(() => null);
+          if (tmdbRes?.data?.results?.[0]) {
+            const first = tmdbRes.data.results[0];
+            if (first.poster_path) {
+              item.poster = `https://image.tmdb.org/t/p/w500${first.poster_path}`;
+            }
+            if (first.vote_average) {
+              item.rating = first.vote_average.toFixed(1);
+            }
+            if (first.overview) {
+              item.overview = first.overview;
+            }
+            if (!item.year || item.year === 'Local') {
+              const releaseDate = first.release_date || first.first_air_date;
+              if (releaseDate) item.year = releaseDate.split('-')[0];
+            }
+            item.realTmdbId = first.id;
+          }
+        } catch (e) {}
+      });
+      await Promise.all(enrichPromises);
+    }
+
+    console.log(`[Local Media Library] Discovered ${items.length} network share items.`);
+    res.json({ success: true, data: items });
+  });
+
+
 
   // API Route: Test parsing EPG
   app.post("/api/epg", async (req, res) => {

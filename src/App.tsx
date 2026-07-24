@@ -981,7 +981,8 @@ function MainApp() {
             />
           ) : activeTab === 'library' ? (
             <>
-              <LibraryGrid onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} />
+              <LibraryGrid onSelectMedia={setSelectedMovie} onPlayMedia={handlePlayStream} onHoverMedia={setHoveredPoster} />
+
             </>
           ) : activeTab === 'music' ? (
             <TorBoxMusicPanel initialQuery={searchQuery} />

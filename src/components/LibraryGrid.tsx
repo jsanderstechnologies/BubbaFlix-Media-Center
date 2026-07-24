@@ -19,11 +19,32 @@ interface Track {
   year?: string;
 }
 
-export function LibraryGrid({ onSelectMedia, onHoverMedia }: { onSelectMedia: (media: any) => void, onHoverMedia?: (posterUrl: string) => void }) {
+export function LibraryGrid({ 
+  onSelectMedia, 
+  onPlayMedia, 
+  onHoverMedia 
+}: { 
+  onSelectMedia: (media: any) => void, 
+  onPlayMedia?: (url: string, logo?: string, resumeTime?: number, context?: any) => void,
+  onHoverMedia?: (posterUrl: string) => void 
+}) {
   const { user } = useAuth();
   const [favorites, setFavorites] = useState<any[]>([]);
+  const [networkShareItems, setNetworkShareItems] = useState<any[]>([]);
   const [savedArtists, setSavedArtists] = useState<any[]>([]);
   const [playlists, setPlaylists] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/local-media/library')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && Array.isArray(data.data)) {
+          setNetworkShareItems(data.data);
+        }
+      })
+      .catch(err => console.error("Error loading network share library:", err));
+  }, []);
+
   
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'movies' | 'series' | 'music'>('movies');
@@ -328,11 +349,10 @@ export function LibraryGrid({ onSelectMedia, onHoverMedia }: { onSelectMedia: (m
     return <div className="text-white text-sm mt-8">Please log in to view your library.</div>;
   }
 
-  const filteredFavorites = favorites.filter(item => {
-    if (activeTab === 'movies') return item.type === 'movie';
-    if (activeTab === 'series') return item.type === 'series';
-    return false;
-  });
+  const targetType = activeTab === 'movies' ? 'movie' : (activeTab === 'series' ? 'series' : '');
+  const userFavs = favorites.filter(item => item.type === targetType);
+  const shareMedia = networkShareItems.filter(item => item.type === targetType);
+  const filteredMedia = [...shareMedia, ...userFavs];
 
   return (
     <div className="mt-8 relative pb-24">
@@ -342,13 +362,13 @@ export function LibraryGrid({ onSelectMedia, onHoverMedia }: { onSelectMedia: (m
           onClick={() => { setActiveTab('movies'); setSelectedPlaylist(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'movies' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
-          Movies
+          Movies ({networkShareItems.filter(i => i.type === 'movie').length + favorites.filter(i => i.type === 'movie').length})
         </button>
         <button 
           onClick={() => { setActiveTab('series'); setSelectedPlaylist(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'series' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
-          TV Series
+          TV Series ({networkShareItems.filter(i => i.type === 'series').length + favorites.filter(i => i.type === 'series').length})
         </button>
         <button 
           onClick={() => { setActiveTab('music'); }}
@@ -361,15 +381,15 @@ export function LibraryGrid({ onSelectMedia, onHoverMedia }: { onSelectMedia: (m
       {/* Movies / Series content */}
       {activeTab !== 'music' && (
         <>
-          {filteredFavorites.length === 0 ? (
+          {filteredMedia.length === 0 ? (
             <div className="text-white/50 text-sm py-12 text-center bg-white/[0.02] border border-white/5 rounded-2xl max-w-md mx-auto">
-              Your {activeTab === 'movies' ? 'movies' : 'TV series'} library is empty.
+              Your {activeTab === 'movies' ? 'movies' : 'TV series'} library is empty. Add a network share folder in Settings or bookmark media!
             </div>
           ) : (
-            <section className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-4">
-              {filteredFavorites.map((item: any) => (
+            <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+              {filteredMedia.map((item: any) => (
                 <div 
-                  key={item.favoriteId} 
+                  key={item.id || item.favoriteId} 
                   className="group cursor-pointer focus:outline-none" 
                   onClick={() => onSelectMedia(item)}
                   onMouseEnter={() => onHoverMedia?.(item.poster)}
@@ -380,18 +400,44 @@ export function LibraryGrid({ onSelectMedia, onHoverMedia }: { onSelectMedia: (m
                   <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
                     {item.poster ? (
                       <img src={item.poster} alt={item.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : null}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60"></div>
-                    <div className="absolute bottom-3 left-3 flex flex-col">
-                      <span className="text-sm font-medium leading-tight text-white">{item.title}</span>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-gradient-to-br from-indigo-950/40 to-slate-900">
+                        <span className="text-xs font-bold text-white/80 line-clamp-3">{item.title}</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
+                    
+                    {/* Hover Play Button */}
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (item.streamUrl && onPlayMedia) {
+                            onPlayMedia(item.streamUrl, undefined, 0, item);
+                          } else {
+                            onSelectMedia(item);
+                          }
+                        }}
+                        className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all cursor-pointer"
+                        title="Play Shared File"
+                      >
+                        <Play className="w-6 h-6 ml-0.5 fill-white" />
+                      </button>
                     </div>
-                    <div className="absolute top-3 left-3 bg-red-600/80 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                      {item.type === 'movie' ? 'MOVIE' : 'TV'}
+
+                    <div className="absolute bottom-3 left-3 right-3 flex flex-col pointer-events-none">
+                      <span className="text-xs font-semibold leading-tight text-white drop-shadow truncate">{item.title}</span>
+                    </div>
+
+                    <div className="absolute top-2 left-2 flex gap-1 items-center">
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow tracking-wider uppercase border ${item.isNetworkShare ? 'bg-indigo-600/90 text-white border-indigo-400/40' : 'bg-red-600/90 text-white border-red-400/40'}`}>
+                        {item.isNetworkShare ? 'NETWORK SHARE' : (item.type === 'movie' ? 'MOVIE' : 'TV')}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between px-1">
                     <span className="text-xs text-white/90">{item.year || 'N/A'}</span>
-                    <span className="text-xs bg-black/40 text-white px-1.5 py-0.5 rounded border border-white/10">{item.rating || '0.0'}</span>
+                    <span className="text-xs bg-black/40 text-white px-1.5 py-0.5 rounded border border-white/10">{item.rating || 'LOCAL'}</span>
                   </div>
                 </div>
               ))}
@@ -399,6 +445,7 @@ export function LibraryGrid({ onSelectMedia, onHoverMedia }: { onSelectMedia: (m
           )}
         </>
       )}
+
 
       {/* Music Library Tab Content */}
       {activeTab === 'music' && !selectedPlaylist && (
