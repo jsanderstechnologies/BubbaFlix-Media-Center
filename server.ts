@@ -2316,8 +2316,148 @@ const durationCache = new Map<string, number>();
   });
 
 
+  // API Route: Search IPTV Provider for VOD Movie and TV Series Streams
+  app.get("/api/iptv/vod/search", async (req, res) => {
+    const { title, type, season, episode } = req.query;
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ success: false, data: [], error: "Title parameter is required." });
+    }
+
+    const settings = readJson(SETTINGS_FILE);
+    const iptvUrl = settings.iptvUrl || '';
+    const xtreamServer = settings.xtreamServer || '';
+    const xtreamUsername = settings.xtreamUsername || '';
+    const xtreamPassword = settings.xtreamPassword || '';
+
+    const results: any[] = [];
+    const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    try {
+      // 1. Xtream Codes API Search
+      if (xtreamServer && xtreamUsername && xtreamPassword) {
+        const serverUrl = xtreamServer.endsWith('/') ? xtreamServer.slice(0, -1) : xtreamServer;
+
+        if (type === 'series' && season !== undefined && episode !== undefined) {
+          const seriesRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_series`, { timeout: 7000 }).catch(() => null);
+          if (seriesRes?.data && Array.isArray(seriesRes.data)) {
+            const matchSeries = seriesRes.data.find((s: any) => {
+              const sName = (s.name || s.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              return sName.includes(normalizedTitle) || normalizedTitle.includes(sName);
+            });
+
+            if (matchSeries?.series_id) {
+              const infoRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_series_info&series_id=${matchSeries.series_id}`, { timeout: 7000 }).catch(() => null);
+              if (infoRes?.data?.episodes) {
+                const sKey = String(season);
+                const seasonEpisodes = infoRes.data.episodes[sKey] || infoRes.data.episodes[Number(season)];
+                if (Array.isArray(seasonEpisodes)) {
+                  const ep = seasonEpisodes.find((e: any) => String(e.episode_num || e.episode) === String(episode));
+                  if (ep && (ep.id || ep.stream_id)) {
+                    const epId = ep.id || ep.stream_id;
+                    const ext = ep.container_extension || ep.extension || 'mp4';
+                    results.push({
+                      id: `iptv_series_${epId}`,
+                      name: `IPTV Direct Stream - ${matchSeries.name || title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} ${ep.title ? '- ' + ep.title : ''}`,
+                      title: ep.title || title,
+                      quality: (ep.title || '').includes('4K') || (ep.title || '').includes('2160p') ? '4K' : '1080p',
+                      sizeStr: 'IPTV Stream',
+                      type: 'iptv',
+                      source: 'IPTV Provider',
+                      url: `${serverUrl}/series/${xtreamUsername}/${xtreamPassword}/${epId}.${ext}`,
+                      isCached: true,
+                      availability: 'IPTV Direct'
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          // Search VOD Movies
+          const vodRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_vod_streams`, { timeout: 7000 }).catch(() => null);
+          if (vodRes?.data && Array.isArray(vodRes.data)) {
+            vodRes.data.forEach((m: any) => {
+              const mName = (m.name || m.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              if (mName.includes(normalizedTitle) || normalizedTitle.includes(mName)) {
+                const ext = m.container_extension || 'mp4';
+                results.push({
+                  id: `iptv_movie_${m.stream_id}`,
+                  name: `IPTV Direct Stream - ${m.name || m.title}`,
+                  title: m.name || m.title,
+                  quality: (m.name || '').includes('4K') || (m.name || '').includes('2160p') ? '4K' : ((m.name || '').includes('1080p') ? '1080p' : '720p'),
+                  sizeStr: 'IPTV Stream',
+                  type: 'iptv',
+                  source: 'IPTV Provider',
+                  url: `${serverUrl}/movie/${xtreamUsername}/${xtreamPassword}/${m.stream_id}.${ext}`,
+                  isCached: true,
+                  availability: 'IPTV Direct'
+                });
+              }
+            });
+          }
+        }
+      }
+
+      // 2. M3U Playlist Search
+      if (iptvUrl && results.length === 0) {
+        const m3uRes = await axios.get(iptvUrl, { timeout: 10000 }).catch(() => null);
+        if (m3uRes?.data && typeof m3uRes.data === 'string') {
+          const lines = m3uRes.data.split('\n');
+          let currentExtInf = '';
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.startsWith('#EXTINF:')) {
+              currentExtInf = line;
+            } else if (line.startsWith('http://') || line.startsWith('https://')) {
+              const url = line;
+              const extNameMatch = currentExtInf.match(/,#EXTINF:.*?,(.*)$/) || currentExtInf.match(/,(.*)$/);
+              const channelName = extNameMatch ? extNameMatch[1].trim() : '';
+              const normalizedName = channelName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+              let isMatch = false;
+              if (type === 'series' && season !== undefined && episode !== undefined) {
+                const sPattern = `s${String(season).padStart(2, '0')}e${String(episode).padStart(2, '0')}`;
+                const sPattern2 = `${season}x${String(episode).padStart(2, '0')}`;
+                if (normalizedName.includes(normalizedTitle) && (normalizedName.includes(sPattern) || normalizedName.includes(sPattern2))) {
+                  isMatch = true;
+                }
+              } else {
+                if (normalizedName.length > 3 && normalizedTitle.length > 3 && (normalizedName.includes(normalizedTitle) || normalizedTitle.includes(normalizedName))) {
+                  isMatch = true;
+                }
+              }
+
+              if (isMatch) {
+                results.push({
+                  id: `iptv_m3u_${results.length}`,
+                  name: `IPTV Direct Stream - ${channelName || title}`,
+                  title: channelName || title,
+                  quality: channelName.includes('4K') ? '4K' : (channelName.includes('1080p') ? '1080p' : '720p'),
+                  sizeStr: 'IPTV Stream',
+                  type: 'iptv',
+                  source: 'IPTV Provider',
+                  url: url,
+                  isCached: true,
+                  availability: 'IPTV Direct'
+                });
+              }
+              currentExtInf = '';
+            }
+          }
+        }
+      }
+
+      console.log(`[IPTV VOD Search] Returned ${results.length} streams for "${title}" (${type || 'movie'})`);
+      res.json({ success: true, data: results });
+    } catch (err: any) {
+      console.error("[IPTV VOD Search Error]", err.message);
+      res.status(500).json({ success: false, data: [], error: err.message });
+    }
+  });
+
   // API Route: Test parsing M3U (we'll create a dummy file to test)
   app.post("/api/m3u", async (req, res) => {
+
     try {
       const { url } = req.body;
       if (url) {

@@ -417,12 +417,25 @@ export default function MediaModal({
               setStreams(applyFiltersAndSort(initialData));
           }
 
-          fetchStreamsForMovie(movie.title || movie.name, movie.year, extraDetails?.imdbId || undefined).then(data => {
+          const iptvPromise = fetch(`/api/iptv/vod/search?title=${encodeURIComponent(movie.title || movie.name)}&type=movie`)
+            .then(r => r.json())
+            .catch(() => null);
+
+          Promise.all([
+            fetchStreamsForMovie(movie.title || movie.name, movie.year, extraDetails?.imdbId || undefined),
+            iptvPromise
+          ]).then(([data, iptvRes]) => {
               if (!isActive) return;
               
               const updatedData = [...initialData];
+
+              if (iptvRes?.success && Array.isArray(iptvRes.data)) {
+                iptvRes.data.forEach((iptvStream: any) => {
+                  updatedData.unshift(iptvStream);
+                });
+              }
               
-              data.forEach((stream) => {
+              (data || []).forEach((stream) => {
                   const matchTorrent = activeTorrents.find(t => stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase());
                   const matchUsenet = activeUsenet.find(u => {
                       if (!u.name || !stream.name) return false;
@@ -473,6 +486,7 @@ export default function MediaModal({
               setPollingActive(true);
           });
         })();
+
       }
     }
     return () => { isActive = false; };
@@ -505,7 +519,14 @@ export default function MediaModal({
       setLoading(true);
       setStreams([]);
 
-      fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode, extraDetails?.imdbId || undefined).then(async data => {
+      const iptvPromise = fetch(`/api/iptv/vod/search?title=${encodeURIComponent(movie.title || movie.name)}&type=series&season=${selectedSeason}&episode=${selectedEpisode}`)
+        .then(r => r.json())
+        .catch(() => null);
+
+      Promise.all([
+        fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode, extraDetails?.imdbId || undefined),
+        iptvPromise
+      ]).then(async ([data, iptvRes]) => {
         if (!isActive) return;
         
         const apiKey = systemSettings.torboxApiKey;
@@ -539,7 +560,16 @@ export default function MediaModal({
         }
 
         const matchedTorboxIds = new Set<number>();
-        const updatedData = data.map((stream: any) => {
+        const updatedData: any[] = [];
+
+        if (iptvRes?.success && Array.isArray(iptvRes.data)) {
+          iptvRes.data.forEach((iptvStream: any) => {
+            updatedData.push(iptvStream);
+          });
+        }
+
+        (data || []).forEach((stream: any) => {
+
             const matchTorrent = activeTorrents.find(t => {
                 if (stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase()) return true;
                 return false;
@@ -591,8 +621,9 @@ export default function MediaModal({
               mappedStream.url = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${matchUsenet.id}&zip_link=false&redirect=true`;
             }
 
-            return mappedStream;
+            updatedData.push(mappedStream);
         });
+
 
         const normalizedTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const seasonEpisodeStr = `s${String(selectedSeason).padStart(2, '0')}e${String(selectedEpisode).padStart(2, '0')}`;
