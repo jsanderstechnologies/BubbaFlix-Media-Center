@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal, ChevronDown, ChevronUp, Users, PlayCircle, Search, Key } from 'lucide-react';
+import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal, ChevronDown, ChevronUp, Users, PlayCircle, Search, Key, Folder, Plus, Trash2, Film } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+
 import AdminPanel from './AdminPanel';
 import { useAuth } from './Auth';
 import { logger, LogEntry } from '../lib/logger';
@@ -77,6 +78,28 @@ export default function SettingsPanel() {
   const [filterAnime, setFilterAnime] = useState(systemSettings.filterAnime === true || userSettings.filterAnime === true);
   const [hideUnreleasedMedia, setHideUnreleasedMedia] = useState(() => localStorage.getItem('hideUnreleasedMedia') !== 'false');
   const [preferredLanguage, setPreferredLanguage] = useState(systemSettings.preferredLanguage || userSettings.preferredLanguage || 'all');
+
+  const [mediaFolders, setMediaFolders] = useState<Array<{ id: string; path: string; mediaType: 'movie' | 'series' }>>(() => {
+    return systemSettings.mediaFolders || [];
+  });
+  const [newFolderPath, setNewFolderPath] = useState('');
+  const [newFolderType, setNewFolderType] = useState<'movie' | 'series'>('movie');
+
+  const handleAddFolder = () => {
+    if (!newFolderPath.trim()) return;
+    const newEntry = {
+      id: Date.now().toString(),
+      path: newFolderPath.trim(),
+      mediaType: newFolderType
+    };
+    setMediaFolders(prev => [...prev, newEntry]);
+    setNewFolderPath('');
+  };
+
+  const handleRemoveFolder = (id: string) => {
+    setMediaFolders(prev => prev.filter(f => f.id !== id));
+  };
+
 
 
   const [enableUsenetSearch, setEnableUsenetSearch] = useState(systemSettings.enableUsenetSearch !== false);
@@ -282,7 +305,9 @@ export default function SettingsPanel() {
       disableLogin,
       filterAnime,
       preferredLanguage,
+      mediaFolders,
       usenetHost,
+
       usenetPort,
       usenetUsername,
       usenetPassword
@@ -413,6 +438,74 @@ export default function SettingsPanel() {
             </div>
           </div>
         )}
+
+        {/* Local & Network Shared Folders */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
+            <Folder className="w-5 h-5 text-indigo-400" />
+            <div>
+              <h2 className="text-lg font-medium text-white">Local & Network Shared Folders</h2>
+              <p className="text-xs text-white/50">Add Windows SMB shared folders or local disk paths containing movies or TV series.</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input 
+                type="text" 
+                value={newFolderPath}
+                onChange={(e) => setNewFolderPath(e.target.value)}
+                placeholder="e.g. \\192.168.1.100\Movies or C:\Media\TV Shows"
+                className="flex-1 bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-indigo-500/50 text-sm font-mono"
+              />
+              <select
+                value={newFolderType}
+                onChange={(e) => setNewFolderType(e.target.value as 'movie' | 'series')}
+                className="bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white text-sm outline-none cursor-pointer"
+              >
+                <option value="movie">Movies Folder</option>
+                <option value="series">TV Series Folder</option>
+              </select>
+              <button
+                type="button"
+                onClick={handleAddFolder}
+                className="flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium text-sm transition-all shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Add Path
+              </button>
+            </div>
+
+            {mediaFolders.length === 0 ? (
+              <div className="bg-black/20 border border-white/5 rounded-xl p-6 text-center text-xs text-white/40">
+                No local or network folders added yet. Add your Windows server share paths above!
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {mediaFolders.map((folder) => (
+                  <div key={folder.id} className="flex items-center justify-between p-3.5 bg-black/30 border border-white/5 rounded-xl text-sm gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Folder className="w-4 h-4 text-indigo-400 shrink-0" />
+                      <span className="font-mono text-white/90 text-xs truncate">{folder.path}</span>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${folder.mediaType === 'series' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-sky-500/10 text-sky-400 border-sky-500/20'}`}>
+                        {folder.mediaType === 'series' ? 'TV Series' : 'Movies'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFolder(folder.id)}
+                        className="text-white/40 hover:text-red-400 p-1 transition-colors cursor-pointer"
+                        title="Remove Folder Path"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* System Status */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">

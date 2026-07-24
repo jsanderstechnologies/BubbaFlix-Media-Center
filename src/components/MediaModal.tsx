@@ -421,19 +421,31 @@ export default function MediaModal({
             .then(r => r.json())
             .catch(() => null);
 
+          const localMediaPromise = fetch(`/api/local-media/search?title=${encodeURIComponent(movie.title || movie.name)}&type=movie`)
+            .then(r => r.json())
+            .catch(() => null);
+
           Promise.all([
             fetchStreamsForMovie(movie.title || movie.name, movie.year, extraDetails?.imdbId || undefined),
-            iptvPromise
-          ]).then(([data, iptvRes]) => {
+            iptvPromise,
+            localMediaPromise
+          ]).then(([data, iptvRes, localRes]) => {
               if (!isActive) return;
               
               const updatedData = [...initialData];
+
+              if (localRes?.success && Array.isArray(localRes.data)) {
+                localRes.data.forEach((localStream: any) => {
+                  updatedData.unshift(localStream);
+                });
+              }
 
               if (iptvRes?.success && Array.isArray(iptvRes.data)) {
                 iptvRes.data.forEach((iptvStream: any) => {
                   updatedData.unshift(iptvStream);
                 });
               }
+
               
               (data || []).forEach((stream) => {
                   const matchTorrent = activeTorrents.find(t => stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase());
@@ -523,10 +535,15 @@ export default function MediaModal({
         .then(r => r.json())
         .catch(() => null);
 
+      const localMediaPromise = fetch(`/api/local-media/search?title=${encodeURIComponent(movie.title || movie.name)}&type=series&season=${selectedSeason}&episode=${selectedEpisode}`)
+        .then(r => r.json())
+        .catch(() => null);
+
       Promise.all([
         fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode, extraDetails?.imdbId || undefined),
-        iptvPromise
-      ]).then(async ([data, iptvRes]) => {
+        iptvPromise,
+        localMediaPromise
+      ]).then(async ([data, iptvRes, localRes]) => {
         if (!isActive) return;
         
         const apiKey = systemSettings.torboxApiKey;
@@ -562,11 +579,18 @@ export default function MediaModal({
         const matchedTorboxIds = new Set<number>();
         const updatedData: any[] = [];
 
+        if (localRes?.success && Array.isArray(localRes.data)) {
+          localRes.data.forEach((localStream: any) => {
+            updatedData.push(localStream);
+          });
+        }
+
         if (iptvRes?.success && Array.isArray(iptvRes.data)) {
           iptvRes.data.forEach((iptvStream: any) => {
             updatedData.push(iptvStream);
           });
         }
+
 
         (data || []).forEach((stream: any) => {
 

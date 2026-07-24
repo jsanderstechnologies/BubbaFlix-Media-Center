@@ -2483,8 +2483,166 @@ http://example.com/stream2.m3u8`;
     }
   });
 
+  // Helper to scan a directory recursively for video files
+  const scanDirectoryForMedia = (dirPath: string, fileList: string[] = [], maxDepth = 4, currentDepth = 0) => {
+    if (currentDepth > maxDepth || !fs.existsSync(dirPath)) return fileList;
+    try {
+      const stats = fs.statSync(dirPath);
+      if (!stats.isDirectory()) return fileList;
+
+      const entries = fs.readdirSync(dirPath);
+      const videoExtensions = ['.mp4', '.mkv', '.avi', '.mov', '.m4v', '.ts', '.webm', '.flv'];
+
+      for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry);
+        try {
+          const entryStat = fs.statSync(fullPath);
+          if (entryStat.isDirectory()) {
+            scanDirectoryForMedia(fullPath, fileList, maxDepth, currentDepth + 1);
+          } else if (entryStat.isFile()) {
+            const ext = path.extname(entry).toLowerCase();
+            if (videoExtensions.includes(ext)) {
+              fileList.push(fullPath);
+            }
+          }
+        } catch (e) {
+          // Ignore unreadable or locked files/folders
+        }
+      }
+    } catch (e) {
+      console.warn(`[Local Media Scan] Error reading directory "${dirPath}":`, (e as any).message);
+    }
+    return fileList;
+  };
+
+  // API Route: Stream local/network media file with Range requests support
+  app.get("/api/local-media/stream", (req, res) => {
+    const filePath = req.query.path as string;
+    if (!filePath) {
+      return res.status(400).json({ error: "File path parameter is required." });
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "Local file not found." });
+    }
+
+    try {
+      const stat = fs.statSync(filePath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        '.mp4': 'video/mp4',
+        '.mkv': 'video/x-matroska',
+        '.avi': 'video/x-msvideo',
+        '.mov': 'video/quicktime',
+        '.webm': 'video/webm',
+        '.ts': 'video/mp2t',
+        '.m4v': 'video/mp4'
+      };
+      const contentType = mimeTypes[ext] || 'video/mp4';
+
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+        const file = fs.createReadStream(filePath, { start, end });
+        const head = {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': contentType,
+        };
+        res.writeHead(206, head);
+        file.pipe(res);
+      } else {
+        const head = {
+          'Content-Length': fileSize,
+          'Content-Type': contentType,
+        };
+        res.writeHead(200, head);
+        fs.createReadStream(filePath).pipe(res);
+      }
+    } catch (err: any) {
+      console.error("[Local Media Stream Error]", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API Route: Search Local / Network Folders for matching Movies or TV Series
+  app.get("/api/local-media/search", (req, res) => {
+    const { title, type, season, episode } = req.query;
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ success: false, data: [] });
+    }
+
+    const settings = readJson(SETTINGS_FILE);
+    const mediaFolders: any[] = settings.mediaFolders || [];
+    if (!Array.isArray(mediaFolders) || mediaFolders.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const results: any[] = [];
+    const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const isTargetSeries = type === 'series';
+
+    // Target folders based on configured mediaType ('movie' or 'series')
+    const targetFolders = mediaFolders.filter(f => f.path && (f.mediaType === type || f.mediaType === (isTargetSeries ? 'series' : 'movie')));
+
+    for (const folderObj of targetFolders) {
+      const folderPath = folderObj.path;
+      if (!fs.existsSync(folderPath)) continue;
+
+      const files = scanDirectoryForMedia(folderPath, []);
+      for (const file of files) {
+        const filename = path.basename(file);
+        const normalizedFilename = filename.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        let isMatch = false;
+
+        if (isTargetSeries && season !== undefined && episode !== undefined) {
+          const sPattern = `s${String(season).padStart(2, '0')}e${String(episode).padStart(2, '0')}`;
+          const sPattern2 = `${season}x${String(episode).padStart(2, '0')}`;
+          if (normalizedFilename.includes(normalizedTitle) && (normalizedFilename.includes(sPattern) || normalizedFilename.includes(sPattern2))) {
+            isMatch = true;
+          }
+        } else {
+          if (normalizedFilename.includes(normalizedTitle)) {
+            isMatch = true;
+          }
+        }
+
+        if (isMatch) {
+          try {
+            const stat = fs.statSync(file);
+            const sizeGB = (stat.size / 1024 / 1024 / 1024).toFixed(2);
+            results.push({
+              id: `local_${Buffer.from(file).toString('hex').substring(0, 16)}`,
+              name: `Local Network Share - ${filename}`,
+              title: filename,
+              quality: filename.includes('4K') || filename.includes('2160p') ? '4K' : (filename.includes('1080p') ? '1080p' : '720p'),
+              sizeBytes: stat.size,
+              sizeStr: `${sizeGB} GB`,
+              type: 'local',
+              source: 'Local Network Share',
+              url: `/api/local-media/stream?path=${encodeURIComponent(file)}`,
+              isCached: true,
+              availability: 'Local Network Share'
+            });
+          } catch (e) {}
+        }
+      }
+    }
+
+    console.log(`[Local Media Search] Found ${results.length} files for "${title}" in local shares`);
+    res.json({ success: true, data: results });
+  });
+
   // API Route: Test parsing EPG
   app.post("/api/epg", async (req, res) => {
+
     try {
       const { url } = req.body;
       if (!url) {
