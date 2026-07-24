@@ -3001,9 +3001,11 @@ http://example.com/stream2.m3u8`;
     for (const folderObj of foldersToScan) {
       const targetPath = folderObj.path;
       const type = folderObj.mediaType || 'movie';
+      const normTarget = normalizeNetworkPath(targetPath);
 
       console.log(`[Network Share Scan] Scanning path: "${normTarget}" (Type: ${type})...`);
       if (!safeExists(normTarget)) {
+
         const errStr = `Path "${targetPath}" is unreachable, offline, or access is denied. Check network connection and Windows SMB permissions.`;
         console.error(`[Network Share Error] ${errStr}`);
         errors.push(errStr);
