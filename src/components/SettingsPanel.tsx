@@ -75,7 +75,9 @@ export default function SettingsPanel() {
   const [playerPath, setPlayerPath] = useState(userSettings.playerPath || 'mpv');
   const [streamBufferSeconds, setStreamBufferSeconds] = useState(systemSettings.streamBufferSeconds || '60');
   const [filterAnime, setFilterAnime] = useState(systemSettings.filterAnime === true || userSettings.filterAnime === true);
+  const [hideUnreleasedMedia, setHideUnreleasedMedia] = useState(() => localStorage.getItem('hideUnreleasedMedia') !== 'false');
   const [preferredLanguage, setPreferredLanguage] = useState(systemSettings.preferredLanguage || userSettings.preferredLanguage || 'all');
+
 
   const [enableUsenetSearch, setEnableUsenetSearch] = useState(systemSettings.enableUsenetSearch !== false);
   const [enableTorrentSearch, setEnableTorrentSearch] = useState(systemSettings.enableTorrentSearch !== false);
@@ -257,7 +259,9 @@ export default function SettingsPanel() {
     
     localStorage.setItem('providerType', providerType);
     localStorage.setItem('enableDebugLog', enableDebugLog.toString());
+    localStorage.setItem('hideUnreleasedMedia', hideUnreleasedMedia.toString());
     logger.setEnabled(enableDebugLog);
+
 
     updateSystemSettings({
       tmdbKey,
@@ -785,6 +789,19 @@ export default function SettingsPanel() {
             
             <div className="flex items-center justify-between">
               <div>
+                <label className="text-sm font-medium text-white block mb-1">Hide Unreleased Media</label>
+                <p className="text-xs text-white/80">Hide movies and TV series that have not been released yet.</p>
+              </div>
+              <button
+                onClick={() => setHideUnreleasedMedia(!hideUnreleasedMedia)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hideUnreleasedMedia ? 'bg-indigo-600' : 'bg-slate-700'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hideUnreleasedMedia ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
                 <label className="text-sm font-medium text-white block mb-1">Filter Anime</label>
                 <p className="text-xs text-white/80">Hide Japanese animation from trending and search results.</p>
               </div>
@@ -797,6 +814,7 @@ export default function SettingsPanel() {
             </div>
           </div>
         </div>
+
 
 
 

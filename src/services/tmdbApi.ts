@@ -22,8 +22,20 @@ const applyFilters = (results: any[], isSearch: boolean = false) => {
   if (typeof window === 'undefined') return uniqueResults;
   const filterAnime = localStorage.getItem('filterAnime') === 'true';
   const preferredLanguage = localStorage.getItem('preferredLanguage') || '';
+  const hideUnreleasedMedia = localStorage.getItem('hideUnreleasedMedia') !== 'false';
   
+  const today = new Date().toISOString().split('T')[0];
+
   return uniqueResults.filter(m => {
+    if (hideUnreleasedMedia) {
+      const releaseDate = m.release_date || m.first_air_date;
+      if (releaseDate && releaseDate > today) {
+        return false;
+      }
+      if (m.status && ['Rumored', 'Planned', 'In Production', 'Post Production', 'Upcoming'].includes(m.status)) {
+        return false;
+      }
+    }
     if (filterAnime && m.original_language === 'ja' && (m.genre_ids?.includes(16) || m.genre_ids?.includes(10759))) {
       return false;
     }
@@ -37,6 +49,7 @@ const applyFilters = (results: any[], isSearch: boolean = false) => {
 
 export const getTrendingMovies = async (genreId: number = 0) => {
   const apiKey = getApiKey();
+  const today = new Date().toISOString().split('T')[0];
   if (!apiKey) {
     console.warn("[Frontend] No VITE_TMDB_API_KEY found, using fallback mock data for preview.");
     const mockMovies = [
@@ -55,7 +68,7 @@ export const getTrendingMovies = async (genreId: number = 0) => {
 
   try {
     const endpoint = genreId > 0 
-      ? `${BASE_URL}/discover/movie?api_key=${apiKey}&with_genres=${genreId}&sort_by=popularity.desc`
+      ? `${BASE_URL}/discover/movie?api_key=${apiKey}&with_genres=${genreId}&sort_by=popularity.desc&primary_release_date.lte=${today}`
       : `${BASE_URL}/trending/movie/week?api_key=${apiKey}`;
 
     const pages = await Promise.all([
@@ -147,6 +160,7 @@ export const getTvSeasonDetails = async (seriesId: number, seasonNumber: number)
 
 export const getTrendingTvSeries = async (genreId: number = 0) => {
   const apiKey = getApiKey();
+  const today = new Date().toISOString().split('T')[0];
   if (!apiKey) {
     const mockTv = [
       { id: 101, title: 'Shōgun', year: '2024', rating: '8.6', resolution: '4K HDR', poster: 'https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WNzG1Syj.jpg', overview: 'In Japan in the year 1600, at the dawn of a century-defining civil war, Lord Yoshii Toranaga is fighting for his life as his enemies on the Council of Regents unite against him.', genres: [18, 10768], type: 'series' },
@@ -164,7 +178,7 @@ export const getTrendingTvSeries = async (genreId: number = 0) => {
 
   try {
     const endpoint = genreId > 0
-      ? `${BASE_URL}/discover/tv?api_key=${apiKey}&with_genres=${genreId}&sort_by=popularity.desc`
+      ? `${BASE_URL}/discover/tv?api_key=${apiKey}&with_genres=${genreId}&sort_by=popularity.desc&first_air_date.lte=${today}`
       : `${BASE_URL}/trending/tv/week?api_key=${apiKey}`;
 
     const pages = await Promise.all([
