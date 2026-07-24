@@ -3226,4 +3226,15 @@ http://example.com/stream2.m3u8`;
   });
 }
 
+process.on('SIGTERM', () => {
+  console.log('[BubbaFlix Server] Received SIGTERM signal. Gracefully shutting down container...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('[BubbaFlix Server] Received SIGINT signal. Shutting down...');
+  process.exit(0);
+});
+
 startServer();
+

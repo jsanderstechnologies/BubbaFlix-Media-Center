@@ -44,5 +44,6 @@ VOLUME [ "/app/data" ]
 # Expose server listener port
 EXPOSE 5150
 
-# Run the bundled production server
-CMD ["npm", "run", "start"]
+# Run the bundled production server directly
+CMD ["node", "dist/server.cjs"]
+
