@@ -2495,7 +2495,8 @@ http://example.com/stream2.m3u8`;
   });
 
   // Helper to scan a directory recursively for video files
-  const scanDirectoryForMedia = (dirPath: string, fileList: string[] = [], maxDepth = 4, currentDepth = 0) => {
+  const scanDirectoryForMedia = (dirPath: string, fileList: string[] = [], maxDepth = 10, currentDepth = 0) => {
+
     if (currentDepth > maxDepth || !fs.existsSync(dirPath)) return fileList;
     try {
       const stats = fs.statSync(dirPath);
@@ -2792,41 +2793,73 @@ http://example.com/stream2.m3u8`;
         continue;
       }
 
+  const isGenericSubfolder = (name: string) => {
+    const n = name.toLowerCase().trim();
+    return /^season\s*\d+/i.test(n) ||
+           /^specials$/i.test(n) ||
+           /^(4k|2160p|1080p|720p|bluray|web-dl|dvdrip|remux)$/i.test(n) ||
+           /^(subs|subtitles|bonus|extra|extras|featurettes|sample|cd1|cd2)$/i.test(n);
+  };
+
+  const getMediaFolderAndTitle = (filePath: string, rootPath: string) => {
+    let currentDir = path.dirname(filePath);
+    let rawTitle = path.basename(currentDir);
+    let targetFolder = currentDir;
+
+    // Walk up directory tree until we find non-generic folder name or reach rootPath
+    while (currentDir !== rootPath && path.dirname(currentDir) !== currentDir && isGenericSubfolder(rawTitle)) {
+      currentDir = path.dirname(currentDir);
+      rawTitle = path.basename(currentDir);
+      targetFolder = currentDir;
+    }
+
+    if (currentDir === rootPath || isGenericSubfolder(rawTitle)) {
+      rawTitle = path.basename(filePath, path.extname(filePath));
+      targetFolder = filePath;
+    }
+
+    const { title, year } = parseMediaName(rawTitle);
+    return { title, year, folderPath: targetFolder };
+  };
+
+  // API Route: Automatically scan Local & Network Shared Folders and format as Library items
+  app.get("/api/local-media/library", async (req, res) => {
+    const settings = readJson(SETTINGS_FILE);
+    const mediaFolders: any[] = settings.mediaFolders || [];
+    if (!Array.isArray(mediaFolders) || mediaFolders.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const items: any[] = [];
+    const seenTitles = new Set<string>();
+
+    for (const folderObj of mediaFolders) {
+      if (!folderObj || !folderObj.path) continue;
+      const rootPath = path.normalize(folderObj.path);
+      const mediaType = folderObj.mediaType || 'movie'; // 'movie' or 'series'
+      if (!fs.existsSync(rootPath)) {
+        console.warn(`[Local Media Library] Share path does not exist or is offline: "${rootPath}"`);
+        continue;
+      }
+
       try {
-        // 1. Gather all video files inside rootPath up to 4 levels deep
-        const allVideoFiles = scanDirectoryForMedia(rootPath, [], 4);
+        // 1. Gather all video files inside rootPath up to 10 levels deep
+        const allVideoFiles = scanDirectoryForMedia(rootPath, [], 10);
         if (allVideoFiles.length === 0) continue;
 
         // Group files by media title
         const titleGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string }>();
 
         for (const file of allVideoFiles) {
-          const parentDir = path.dirname(file);
-          const parentName = path.basename(parentDir);
-          const grandParentDir = path.dirname(parentDir);
-          const grandParentName = path.basename(grandParentDir);
-
-          let rawMediaName = parentName;
-          let fileFolder = parentDir;
-
-          // If parent folder is a Season folder (e.g. "Season 01", "Season 1", "Specials"), use grandparent folder
-          if (/^season\s*\d+/i.test(parentName) || /^specials$/i.test(parentName)) {
-            rawMediaName = grandParentName;
-            fileFolder = grandParentDir;
-          } else if (fileFolder === rootPath || parentDir === rootPath) {
-            // Video file is directly inside rootPath
-            rawMediaName = path.basename(file, path.extname(file));
-            fileFolder = file;
-          }
-
-          const { title, year } = parseMediaName(rawMediaName);
+          const { title, year, folderPath } = getMediaFolderAndTitle(file, rootPath);
           const dedupeKey = `${mediaType}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
           if (!titleGroups.has(dedupeKey)) {
-            titleGroups.set(dedupeKey, { title, year, files: [], folderPath: fileFolder });
+            titleGroups.set(dedupeKey, { title, year, files: [], folderPath });
           }
           titleGroups.get(dedupeKey)!.files.push(file);
         }
+
 
         for (const [dedupeKey, group] of titleGroups.entries()) {
           if (seenTitles.has(dedupeKey)) continue;
@@ -2937,38 +2970,27 @@ http://example.com/stream2.m3u8`;
       }
 
       try {
-        const videoFiles = scanDirectoryForMedia(targetPath, []);
-        const entries = fs.readdirSync(targetPath);
-        let folderCount = 0;
+        const videoFiles = scanDirectoryForMedia(targetPath, [], 10);
+        const discoveredTitles = new Set<string>();
 
-        for (const entry of entries) {
-          const entryPath = path.join(targetPath, entry);
-          try {
-            const stat = fs.statSync(entryPath);
-            if (stat.isDirectory()) {
-              const insideVideos = scanDirectoryForMedia(entryPath, []);
-              if (insideVideos.length > 0) {
-                folderCount++;
-                if (type === 'series') seriesCount++;
-                else moviesCount++;
-              }
-            } else if (stat.isFile()) {
-              const ext = path.extname(entry).toLowerCase();
-              if (['.mp4', '.mkv', '.avi', '.mov', '.m4v', '.ts', '.webm', '.flv'].includes(ext)) {
-                folderCount++;
-                if (type === 'series') seriesCount++;
-                else moviesCount++;
-              }
-            }
-          } catch (e) {}
+        for (const file of videoFiles) {
+          const { title } = getMediaFolderAndTitle(file, targetPath);
+          const dedupeKey = `${type}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+          if (!discoveredTitles.has(dedupeKey)) {
+            discoveredTitles.add(dedupeKey);
+            if (type === 'series') seriesCount++;
+            else moviesCount++;
+          }
         }
 
-        totalDiscovered += folderCount;
-        scannedDetails.push({ path: targetPath, type, itemsFound: folderCount, totalVideoFiles: videoFiles.length });
+        const itemsFound = discoveredTitles.size;
+        totalDiscovered += itemsFound;
+        scannedDetails.push({ path: targetPath, type, itemsFound, totalVideoFiles: videoFiles.length });
       } catch (e: any) {
         errors.push(`Error scanning "${targetPath}": ${e.message}`);
       }
     }
+
 
     console.log(`[Local Media Manual Scan] Completed scanning ${foldersToScan.length} folders. Found ${totalDiscovered} items.`);
     res.json({
