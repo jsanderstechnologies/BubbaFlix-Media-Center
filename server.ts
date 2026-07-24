@@ -2534,13 +2534,132 @@ http://example.com/stream2.m3u8`;
     }
   };
 
-  // Helper to scan a directory recursively for video files
+  const parseUncPath = (uncPath: string) => {
+    let clean = uncPath.replace(/[\/\\]+/g, '/').replace(/^\//, '');
+    const parts = clean.split('/');
+    if (parts.length < 2) return null;
+    const host = parts[0];
+    const share = parts[1];
+    const subpath = parts.slice(2).join('\\');
+    return { host, share, subpath };
+  };
+
+  const resolveNetworkShareEntries = async (targetPath: string): Promise<string[]> => {
+    if (!targetPath) return [];
+
+    let clean = targetPath.trim();
+    const isUnc = /^[\/\\]{2}/.test(clean);
+
+    const candidates: string[] = [];
+    candidates.push(normalizeNetworkPath(clean));
+
+    if (isUnc) {
+      // Replace single drive letter pattern like \e\ with administrative share \e$\
+      const adminSharePath = clean.replace(/([\\\/])([a-zA-Z])([\\\/])/, '$1$2$$3');
+      if (adminSharePath !== clean) {
+        candidates.push(normalizeNetworkPath(adminSharePath));
+      }
+    }
+
+    // 1. Try standard fs.readdirSync on candidates
+    for (const cand of candidates) {
+      try {
+        if (fs.existsSync(cand)) {
+          const entries = fs.readdirSync(cand);
+          if (Array.isArray(entries) && entries.length >= 0) {
+            return entries.map(e => path.join(cand, e));
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Try SMB2 native client for unmounted SMB shares (especially in Docker/Linux environments)
+    if (isUnc) {
+      try {
+        const SMB2 = require('smb2');
+        for (const cand of candidates) {
+          const parsed = parseUncPath(cand);
+          if (!parsed) continue;
+
+          try {
+            const smb = new SMB2({
+              share: `\\\\${parsed.host}\\${parsed.share}`,
+              domain: 'WORKGROUP',
+              username: 'guest',
+              password: '',
+              autoCloseTimeout: 3000
+            });
+
+            const files = await new Promise<string[]>((res) => {
+              smb.readdir(parsed.subpath, (err: any, list: any[]) => {
+                if (err || !Array.isArray(list)) res([]);
+                else res(list.map(f => `\\\\${parsed.host}\\${parsed.share}\\${parsed.subpath ? parsed.subpath + '\\' : ''}${f}`));
+              });
+            });
+
+            if (files.length > 0) {
+              console.log(`[SMB2 Native Client] Successfully read ${files.length} items from "\\\\${parsed.host}\\${parsed.share}\\${parsed.subpath}"`);
+              return files;
+            }
+          } catch (e: any) {
+            console.warn(`[SMB2 Client Warning] Failed for "\\\\${parsed.host}\\${parsed.share}": ${e.message}`);
+          }
+        }
+      } catch (e: any) {
+        console.warn(`[SMB2 Load Warning] smb2 package error:`, e.message);
+      }
+    }
+
+    return [];
+  };
+
+  const scanDirectoryForMediaAsync = async (dirPath: string, fileList: string[] = [], maxDepth = 10, currentDepth = 0): Promise<string[]> => {
+    if (currentDepth > maxDepth) return fileList;
+
+    const videoExtensions = [
+      '.mp4', '.mkv', '.avi', '.mov', '.m4v', '.ts', '.webm', '.flv',
+      '.wmv', '.m2ts', '.mts', '.iso', '.vob', '.mpg', '.mpeg', '.strm',
+      '.divx', '.3gp', '.ogv'
+    ];
+
+    try {
+      const entries = await resolveNetworkShareEntries(dirPath);
+      if (entries.length === 0 && currentDepth === 0) {
+        console.warn(`[Network Share Scan] No accessible video files or subfolders found at path "${dirPath}". If using Windows drive share, try "\\\\IP\\e$\\Emby\\Emby\\Movies" or share the folder directly.`);
+      }
+
+      for (const fullPath of entries) {
+        try {
+          const stat = fs.existsSync(fullPath) ? fs.statSync(fullPath) : null;
+          if (stat && stat.isDirectory()) {
+            await scanDirectoryForMediaAsync(fullPath, fileList, maxDepth, currentDepth + 1);
+          } else {
+            const ext = path.extname(fullPath).toLowerCase();
+            if (videoExtensions.includes(ext)) {
+              fileList.push(fullPath);
+            } else if (!ext || ext.length === 0) {
+              await scanDirectoryForMediaAsync(fullPath, fileList, maxDepth, currentDepth + 1);
+            }
+          }
+        } catch (e: any) {
+          const ext = path.extname(fullPath).toLowerCase();
+          if (videoExtensions.includes(ext)) {
+            fileList.push(fullPath);
+          }
+        }
+      }
+    } catch (e: any) {
+      console.error(`[Network Share Error] Failed scanning "${dirPath}": ${e.message}`);
+    }
+
+    return fileList;
+  };
+
   const scanDirectoryForMedia = (dirPath: string, fileList: string[] = [], maxDepth = 10, currentDepth = 0) => {
     const normDir = normalizeNetworkPath(dirPath);
     if (currentDepth > maxDepth) return fileList;
 
     if (!safeExists(normDir)) {
-      console.warn(`[Network Share Scan] Directory unreachable or skipped at depth ${currentDepth}: "${normDir}"`);
       return fileList;
     }
 
@@ -2568,16 +2687,15 @@ http://example.com/stream2.m3u8`;
           const ext = path.extname(entry).toLowerCase();
           if (videoExtensions.includes(ext)) {
             fileList.push(fullPath);
-          } else {
-            console.warn(`[Network Share Scan Warning] Error checking file/folder "${fullPath}": ${e.message}`);
           }
         }
       }
     } catch (e: any) {
-      console.error(`[Network Share Error] Error reading directory "${normDir}": ${e.message} (Code: ${e.code || 'ERR'})`);
+      console.error(`[Network Share Error] Error reading directory "${normDir}": ${e.message}`);
     }
     return fileList;
   };
+
 
 
 
@@ -2881,9 +2999,10 @@ http://example.com/stream2.m3u8`;
 
 
       try {
-        // 1. Gather all video files inside rootPath up to 10 levels deep
-        const allVideoFiles = scanDirectoryForMedia(rootPath, [], 10);
+        // 1. Gather all video files inside rootPath up to 10 levels deep (using SMB2 fallback if needed)
+        const allVideoFiles = await scanDirectoryForMediaAsync(rootPath, [], 10);
         if (allVideoFiles.length === 0) continue;
+
 
         // Group files by media title
         const titleGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string }>();
@@ -3013,8 +3132,9 @@ http://example.com/stream2.m3u8`;
       }
 
       try {
-        const videoFiles = scanDirectoryForMedia(normTarget, [], 10);
+        const videoFiles = await scanDirectoryForMediaAsync(normTarget, [], 10);
         const discoveredTitles = new Set<string>();
+
 
         for (const file of videoFiles) {
           const { title } = getMediaFolderAndTitle(file, targetPath);

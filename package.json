@@ -36,6 +36,7 @@
     "react-dom": "^19.0.1",
     "react-player": "^3.4.0",
     "react-router-dom": "^7.18.1",
+    "smb2": "^0.2.11",
     "spatial-navigation-js": "^1.0.0",
     "torrent-search-api": "^2.1.4",
     "vite": "^6.2.3"
