@@ -2976,12 +2976,14 @@ http://example.com/stream2.m3u8`;
     return { title, year, folderPath: targetFolder };
   };
 
-  // API Route: Automatically scan Local & Network Shared Folders and format as Library items
-  app.get("/api/local-media/library", async (req, res) => {
+  const SCANNED_LIBRARY_FILE = path.join(DATA_DIR, 'scanned_library.json');
+
+  const buildAndSaveLibraryCatalog = async (): Promise<any[]> => {
     const settings = readJson(SETTINGS_FILE);
     const mediaFolders: any[] = settings.mediaFolders || [];
     if (!Array.isArray(mediaFolders) || mediaFolders.length === 0) {
-      return res.json({ success: true, data: [] });
+      writeJson(SCANNED_LIBRARY_FILE, []);
+      return [];
     }
 
     const items: any[] = [];
@@ -2990,21 +2992,12 @@ http://example.com/stream2.m3u8`;
     for (const folderObj of mediaFolders) {
       if (!folderObj || !folderObj.path) continue;
       const rootPath = normalizeNetworkPath(folderObj.path);
-      const mediaType = folderObj.mediaType || 'movie'; // 'movie' or 'series'
-      if (!safeExists(rootPath)) {
-        console.warn(`[Local Media Library] Share path does not exist or is offline: "${rootPath}"`);
-        continue;
-      }
-
-
+      const mediaType = folderObj.mediaType || 'movie';
 
       try {
-        // 1. Gather all video files inside rootPath up to 10 levels deep (using SMB2 fallback if needed)
         const allVideoFiles = await scanDirectoryForMediaAsync(rootPath, [], 10);
         if (allVideoFiles.length === 0) continue;
 
-
-        // Group files by media title
         const titleGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string }>();
 
         for (const file of allVideoFiles) {
@@ -3017,12 +3010,10 @@ http://example.com/stream2.m3u8`;
           titleGroups.get(dedupeKey)!.files.push(file);
         }
 
-
         for (const [dedupeKey, group] of titleGroups.entries()) {
           if (seenTitles.has(dedupeKey)) continue;
           seenTitles.add(dedupeKey);
 
-          // Pick the largest file as the primary file
           group.files.sort((a, b) => {
             try {
               return fs.statSync(b).size - fs.statSync(a).size;
@@ -3033,8 +3024,6 @@ http://example.com/stream2.m3u8`;
 
           const primaryFile = group.files[0];
           const fileId = `local_lib_${Buffer.from(primaryFile).toString('hex').substring(0, 16)}`;
-
-          // Read Emby / Jellyfin local artwork and NFO metadata if present
           const { localPoster, localOverview, localRating, localYear, localTitle } = getEmbyJellyfinMetadata(group.folderPath, primaryFile);
 
           items.push({
@@ -3044,25 +3033,26 @@ http://example.com/stream2.m3u8`;
             name: localTitle || group.title,
             year: group.year || localYear || 'Local',
             poster: localPoster || '',
-            overview: localOverview || `Local Network Share (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
+            overview: localOverview || `Local Shared Folder (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
             rating: localRating || 'SHARE',
             type: mediaType,
             isNetworkShare: true,
             streamUrl: `/api/local-media/stream?path=${encodeURIComponent(primaryFile)}`,
             filePath: primaryFile,
             folderPath: group.folderPath,
-            filename: path.basename(primaryFile)
+            filename: path.basename(primaryFile),
+            addedAt: new Date().toISOString()
           });
         }
       } catch (e: any) {
-        console.warn(`[Local Media Library] Error scanning share "${rootPath}":`, e.message);
+        console.warn(`[Library Catalog Scan] Error scanning "${rootPath}":`, e.message);
       }
     }
 
-    // Enrich top items with TMDB posters and metadata (safe Promise.allSettled)
+    // Enrich top items with TMDB posters and metadata
     const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
     if (apiKey && items.length > 0) {
-      const enrichPromises = items.slice(0, 50).map(async (item) => {
+      const enrichPromises = items.map(async (item) => {
         try {
           const endpoint = item.type === 'series' ? 'tv' : 'movie';
           const tmdbRes = await axios.get(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(item.title)}`, { timeout: 3500 }).catch(() => null);
@@ -3071,10 +3061,10 @@ http://example.com/stream2.m3u8`;
             if (!item.poster && first.poster_path) {
               item.poster = `https://image.tmdb.org/t/p/w500${first.poster_path}`;
             }
-            if (item.rating === 'SHARE' && first.vote_average) {
+            if ((item.rating === 'SHARE' || !item.rating) && first.vote_average) {
               item.rating = first.vote_average.toFixed(1);
             }
-            if (item.overview.startsWith('Local Network Share') && first.overview) {
+            if ((item.overview.startsWith('Local Shared Folder') || !item.overview) && first.overview) {
               item.overview = first.overview;
             }
             if (!item.year || item.year === 'Local') {
@@ -3088,30 +3078,32 @@ http://example.com/stream2.m3u8`;
       await Promise.allSettled(enrichPromises);
     }
 
-    console.log(`[Local Media Library] Discovered ${items.length} media items from share folders.`);
-    res.json({ success: true, data: items });
+    writeJson(SCANNED_LIBRARY_FILE, items);
+    console.log(`[Persistent Library] Saved ${items.length} media items to disk at "${SCANNED_LIBRARY_FILE}".`);
+    return items;
+  };
+
+  // API Route: Automatically scan Local & Network Shared Folders and format as Library items
+  app.get("/api/local-media/library", async (req, res) => {
+    let savedItems = readJson(SCANNED_LIBRARY_FILE);
+    if (!Array.isArray(savedItems)) savedItems = [];
+
+    if (savedItems.length > 0) {
+      res.json({ success: true, data: savedItems });
+      // Trigger silent background update
+      buildAndSaveLibraryCatalog().catch(() => {});
+      return;
+    }
+
+    const freshItems = await buildAndSaveLibraryCatalog();
+    res.json({ success: true, data: freshItems });
   });
-
-
 
   // API Route: Manually trigger a search/scan of local & network share folders
   app.post("/api/local-media/scan", async (req, res) => {
     const { folderPath, mediaType } = req.body || {};
     const settings = readJson(SETTINGS_FILE);
 
-    let foldersToScan: Array<{ path: string; mediaType: 'movie' | 'series' }> = [];
-
-    if (folderPath && typeof folderPath === 'string') {
-      foldersToScan.push({ path: folderPath, mediaType: mediaType || 'movie' });
-    } else {
-      foldersToScan = settings.mediaFolders || [];
-    }
-
-    if (foldersToScan.length === 0) {
-      return res.status(400).json({ success: false, error: "No shared folder path specified or configured." });
-    }
-
-    // Auto-save mediaFolders to settings.json so GET /api/local-media/library can read them immediately
     if (folderPath && typeof folderPath === 'string') {
       const existing: any[] = settings.mediaFolders || [];
       const normPath = normalizeNetworkPath(folderPath);
@@ -3125,66 +3117,22 @@ http://example.com/stream2.m3u8`;
       writeJson(SETTINGS_FILE, settings);
     }
 
+    console.log(`[Local Media Scan] Re-building persistent library catalog...`);
+    const freshItems = await buildAndSaveLibraryCatalog();
 
-    let totalDiscovered = 0;
-    let moviesCount = 0;
-    let seriesCount = 0;
-    const scannedDetails: any[] = [];
-    const errors: string[] = [];
+    const moviesCount = freshItems.filter(i => i.type === 'movie').length;
+    const seriesCount = freshItems.filter(i => i.type === 'series').length;
 
-    for (const folderObj of foldersToScan) {
-      const targetPath = folderObj.path;
-      const type = folderObj.mediaType || 'movie';
-      const normTarget = normalizeNetworkPath(targetPath);
-
-      console.log(`[Network Share Scan] Scanning path: "${normTarget}" (Type: ${type})...`);
-      if (!safeExists(normTarget)) {
-
-        const errStr = `Path "${targetPath}" is unreachable, offline, or access is denied. Check network connection and Windows SMB permissions.`;
-        console.error(`[Network Share Error] ${errStr}`);
-        errors.push(errStr);
-        continue;
-      }
-
-      try {
-        const videoFiles = await scanDirectoryForMediaAsync(normTarget, [], 10);
-        const discoveredTitles = new Set<string>();
-
-
-        for (const file of videoFiles) {
-          const { title } = getMediaFolderAndTitle(file, targetPath);
-          const dedupeKey = `${type}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-          if (!discoveredTitles.has(dedupeKey)) {
-            discoveredTitles.add(dedupeKey);
-            if (type === 'series') seriesCount++;
-            else moviesCount++;
-          }
-        }
-
-        const itemsFound = discoveredTitles.size;
-        totalDiscovered += itemsFound;
-        console.log(`[Network Share Scan] Completed "${normTarget}": Found ${itemsFound} media titles (${videoFiles.length} raw video files).`);
-        scannedDetails.push({ path: targetPath, type, itemsFound, totalVideoFiles: videoFiles.length });
-      } catch (e: any) {
-        const errStr = `Error scanning "${targetPath}": ${e.message}`;
-        console.error(`[Network Share Error] ${errStr}`);
-        errors.push(errStr);
-      }
-    }
-
-
-
-    console.log(`[Local Media Manual Scan] Completed scanning ${foldersToScan.length} folders. Found ${totalDiscovered} items.`);
     res.json({
       success: true,
-      totalDiscovered,
+      totalDiscovered: freshItems.length,
       moviesCount,
       seriesCount,
-      scannedDetails,
-      errors,
-      message: `Successfully scanned folders! Discovered ${moviesCount} Movies and ${seriesCount} TV Series.`
+      items: freshItems,
+      message: `Successfully scanned shared folders! Discovered ${moviesCount} Movies and ${seriesCount} TV Series.`
     });
   });
+
 
   // API Route: Test parsing EPG
 
