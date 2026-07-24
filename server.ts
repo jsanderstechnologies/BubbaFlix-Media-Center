@@ -322,9 +322,11 @@ async function startServer() {
   // In development, server is run from cwd. In production docker, we want data to reside in process.cwd()/data (/app/data)
   // because that is where the volume mount is mapped. Using __dirname resolves to /app/dist/data, which is inside the ephemeral container folder.
   const baseDir = process.cwd();
-  const USERS_FILE = path.join(baseDir, 'data', 'users.json');
-  const DB_FILE = path.join(baseDir, 'data', 'db.json');
-  const SETTINGS_FILE = path.join(baseDir, 'data', 'settings.json');
+  const DATA_DIR = path.join(baseDir, 'data');
+  const USERS_FILE = path.join(DATA_DIR, 'users.json');
+  const DB_FILE = path.join(DATA_DIR, 'db.json');
+  const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+
 
 
   const readJson = (file) => {
