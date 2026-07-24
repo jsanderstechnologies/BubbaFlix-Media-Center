@@ -2695,98 +2695,95 @@ http://example.com/stream2.m3u8`;
     const seenTitles = new Set<string>();
 
     for (const folderObj of mediaFolders) {
-      const rootPath = folderObj.path;
+      if (!folderObj || !folderObj.path) continue;
+      const rootPath = path.normalize(folderObj.path);
       const mediaType = folderObj.mediaType || 'movie'; // 'movie' or 'series'
-      if (!fs.existsSync(rootPath)) continue;
+      if (!fs.existsSync(rootPath)) {
+        console.warn(`[Local Media Library] Share path does not exist or is offline: "${rootPath}"`);
+        continue;
+      }
 
       try {
-        const entries = fs.readdirSync(rootPath);
-        for (const entry of entries) {
-          const entryPath = path.join(rootPath, entry);
-          try {
-            const stat = fs.statSync(entryPath);
+        // 1. Gather all video files inside rootPath up to 4 levels deep
+        const allVideoFiles = scanDirectoryForMedia(rootPath, [], 4);
+        if (allVideoFiles.length === 0) continue;
 
-            if (stat.isDirectory()) {
-              // Folder named after media title! e.g. "The Creator (2023)" or "Shogun"
-              const { title, year } = parseMediaName(entry);
-              const dedupeKey = `${mediaType}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-              if (seenTitles.has(dedupeKey)) continue;
-              seenTitles.add(dedupeKey);
+        // Group files by media title
+        const titleGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string }>();
 
-              const videoFiles = scanDirectoryForMedia(entryPath, []);
-              if (videoFiles.length === 0) continue;
+        for (const file of allVideoFiles) {
+          const parentDir = path.dirname(file);
+          const parentName = path.basename(parentDir);
+          const grandParentDir = path.dirname(parentDir);
+          const grandParentName = path.basename(grandParentDir);
 
-              // Pick the largest file as the primary video file
-              videoFiles.sort((a, b) => {
-                try {
-                  return fs.statSync(b).size - fs.statSync(a).size;
-                } catch (e) {
-                  return 0;
-                }
-              });
+          let rawMediaName = parentName;
+          let fileFolder = parentDir;
 
-              const primaryFile = videoFiles[0];
-              const fileId = `local_lib_${Buffer.from(entryPath).toString('hex').substring(0, 16)}`;
+          // If parent folder is a Season folder (e.g. "Season 01", "Season 1", "Specials"), use grandparent folder
+          if (/^season\s*\d+/i.test(parentName) || /^specials$/i.test(parentName)) {
+            rawMediaName = grandParentName;
+            fileFolder = grandParentDir;
+          } else if (fileFolder === rootPath || parentDir === rootPath) {
+            // Video file is directly inside rootPath
+            rawMediaName = path.basename(file, path.extname(file));
+            fileFolder = file;
+          }
 
-              items.push({
-                id: fileId,
-                tmdbId: fileId,
-                title: title,
-                name: title,
-                year: year || 'Local',
-                poster: '',
-                overview: `Local Network Share Folder: ${entry}`,
-                rating: 'SHARE',
-                type: mediaType,
-                isNetworkShare: true,
-                streamUrl: `/api/local-media/stream?path=${encodeURIComponent(primaryFile)}`,
-                filePath: primaryFile,
-                folderPath: entryPath,
-                filename: path.basename(primaryFile)
-              });
-            } else if (stat.isFile()) {
-              // Direct video file in root share folder
-              const ext = path.extname(entry).toLowerCase();
-              const videoExtensions = ['.mp4', '.mkv', '.avi', '.mov', '.m4v', '.ts', '.webm', '.flv'];
-              if (!videoExtensions.includes(ext)) continue;
+          const { title, year } = parseMediaName(rawMediaName);
+          const dedupeKey = `${mediaType}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
-              const { title, year } = parseMediaName(path.basename(entry, ext));
-              const dedupeKey = `${mediaType}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-              if (seenTitles.has(dedupeKey)) continue;
-              seenTitles.add(dedupeKey);
-
-              const fileId = `local_lib_${Buffer.from(entryPath).toString('hex').substring(0, 16)}`;
-
-              items.push({
-                id: fileId,
-                tmdbId: fileId,
-                title: title,
-                name: title,
-                year: year || 'Local',
-                poster: '',
-                overview: `Local Network Share File: ${entry}`,
-                rating: 'SHARE',
-                type: mediaType,
-                isNetworkShare: true,
-                streamUrl: `/api/local-media/stream?path=${encodeURIComponent(entryPath)}`,
-                filePath: entryPath,
-                filename: entry
-              });
-            }
-          } catch (e) {}
+          if (!titleGroups.has(dedupeKey)) {
+            titleGroups.set(dedupeKey, { title, year, files: [], folderPath: fileFolder });
+          }
+          titleGroups.get(dedupeKey)!.files.push(file);
         }
-      } catch (e) {
-        console.warn(`[Local Media Library] Error reading root share "${rootPath}":`, (e as any).message);
+
+        for (const [dedupeKey, group] of titleGroups.entries()) {
+          if (seenTitles.has(dedupeKey)) continue;
+          seenTitles.add(dedupeKey);
+
+          // Pick the largest file as the primary file
+          group.files.sort((a, b) => {
+            try {
+              return fs.statSync(b).size - fs.statSync(a).size;
+            } catch (e) {
+              return 0;
+            }
+          });
+
+          const primaryFile = group.files[0];
+          const fileId = `local_lib_${Buffer.from(primaryFile).toString('hex').substring(0, 16)}`;
+
+          items.push({
+            id: fileId,
+            tmdbId: fileId,
+            title: group.title,
+            name: group.title,
+            year: group.year || 'Local',
+            poster: '',
+            overview: `Local Network Share (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
+            rating: 'SHARE',
+            type: mediaType,
+            isNetworkShare: true,
+            streamUrl: `/api/local-media/stream?path=${encodeURIComponent(primaryFile)}`,
+            filePath: primaryFile,
+            folderPath: group.folderPath,
+            filename: path.basename(primaryFile)
+          });
+        }
+      } catch (e: any) {
+        console.warn(`[Local Media Library] Error scanning share "${rootPath}":`, e.message);
       }
     }
 
-    // Enrich top items with TMDB posters and metadata
+    // Enrich top items with TMDB posters and metadata (safe Promise.allSettled)
     const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
     if (apiKey && items.length > 0) {
       const enrichPromises = items.slice(0, 50).map(async (item) => {
         try {
           const endpoint = item.type === 'series' ? 'tv' : 'movie';
-          const tmdbRes = await axios.get(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(item.title)}`, { timeout: 4000 }).catch(() => null);
+          const tmdbRes = await axios.get(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(item.title)}`, { timeout: 3500 }).catch(() => null);
           if (tmdbRes?.data?.results?.[0]) {
             const first = tmdbRes.data.results[0];
             if (first.poster_path) {
@@ -2806,12 +2803,13 @@ http://example.com/stream2.m3u8`;
           }
         } catch (e) {}
       });
-      await Promise.all(enrichPromises);
+      await Promise.allSettled(enrichPromises);
     }
 
     console.log(`[Local Media Library] Discovered ${items.length} media items from share folders.`);
     res.json({ success: true, data: items });
   });
+
 
   // API Route: Manually trigger a search/scan of local & network share folders
   app.post("/api/local-media/scan", async (req, res) => {

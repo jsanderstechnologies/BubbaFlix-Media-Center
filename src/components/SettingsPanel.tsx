@@ -122,7 +122,9 @@ export default function SettingsPanel() {
           type: 'success',
           message: data.message || `Scanned! Discovered ${data.moviesCount} Movies and ${data.seriesCount} TV Series.`
         });
+        window.dispatchEvent(new CustomEvent('refresh-local-library'));
       } else {
+
         setScanFeedback({
           type: 'error',
           message: data.error || 'Failed to scan share folders.'

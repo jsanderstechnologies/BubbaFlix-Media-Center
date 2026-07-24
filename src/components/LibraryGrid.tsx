@@ -34,7 +34,7 @@ export function LibraryGrid({
   const [savedArtists, setSavedArtists] = useState<any[]>([]);
   const [playlists, setPlaylists] = useState<any[]>([]);
 
-  useEffect(() => {
+  const loadNetworkShareItems = () => {
     fetch('/api/local-media/library')
       .then(res => res.json())
       .then(data => {
@@ -43,11 +43,22 @@ export function LibraryGrid({
         }
       })
       .catch(err => console.error("Error loading network share library:", err));
+  };
+
+  useEffect(() => {
+    loadNetworkShareItems();
+    const handleRefresh = () => loadNetworkShareItems();
+    window.addEventListener('refresh-local-library', handleRefresh);
+    return () => window.removeEventListener('refresh-local-library', handleRefresh);
   }, []);
 
-  
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'movies' | 'series' | 'music'>('movies');
+
+  useEffect(() => {
+    loadNetworkShareItems();
+  }, [activeTab]);
+
   const [musicSubTab, setMusicSubTab] = useState<'artists' | 'playlists'>('artists');
   
   const [selectedPlaylist, setSelectedPlaylist] = useState<any | null>(null);
