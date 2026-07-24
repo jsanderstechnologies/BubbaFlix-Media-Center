@@ -2447,13 +2447,19 @@ const durationCache = new Map<string, number>();
         }
       }
 
-      console.log(`[IPTV VOD Search] Returned ${results.length} streams for "${title}" (${type || 'movie'})`);
-      res.json({ success: true, data: results });
+      const queryTitle = (type === 'series' && season !== undefined && episode !== undefined)
+        ? `${title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
+        : (title as string);
+
+      const filteredResults = await filterWithGemini(queryTitle, results, settings, false);
+      console.log(`[IPTV VOD Search] Filtered with Gemini from ${results.length} to ${filteredResults.length} streams for "${queryTitle}"`);
+      res.json({ success: true, data: filteredResults });
     } catch (err: any) {
       console.error("[IPTV VOD Search Error]", err.message);
       res.status(500).json({ success: false, data: [], error: err.message });
     }
   });
+
 
   // API Route: Test parsing M3U (we'll create a dummy file to test)
   app.post("/api/m3u", async (req, res) => {
@@ -2636,9 +2642,20 @@ http://example.com/stream2.m3u8`;
       }
     }
 
-    console.log(`[Local Media Search] Found ${results.length} files for "${title}" in local shares`);
-    res.json({ success: true, data: results });
+    const queryTitle = (isTargetSeries && season !== undefined && episode !== undefined)
+      ? `${title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
+      : (title as string);
+
+    try {
+      const filteredResults = await filterWithGemini(queryTitle, results, settings, false);
+      console.log(`[Local Media Search] Filtered with Gemini from ${results.length} to ${filteredResults.length} files for "${queryTitle}"`);
+      res.json({ success: true, data: filteredResults });
+    } catch (e: any) {
+      console.error("[Local Media Search Error]", e.message);
+      res.json({ success: true, data: results });
+    }
   });
+
 
   // API Route: Test parsing EPG
   app.post("/api/epg", async (req, res) => {
