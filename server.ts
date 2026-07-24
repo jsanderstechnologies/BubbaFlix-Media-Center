@@ -2568,11 +2568,6 @@ http://example.com/stream2.m3u8`;
           'Content-Length': fileSize,
           'Content-Type': contentType,
         };
-        res.writeHead(200, head);
-        fs.createReadStream(filePath).pipe(res);
-      }
-    } catch (err: any) {
-      console.error("[Local Media Stream Error]", err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -2606,17 +2601,20 @@ http://example.com/stream2.m3u8`;
       for (const file of files) {
         const filename = path.basename(file);
         const normalizedFilename = filename.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalizedFullPath = file.toLowerCase().replace(/[^a-z0-9]/g, '');
 
         let isMatch = false;
 
         if (isTargetSeries && season !== undefined && episode !== undefined) {
           const sPattern = `s${String(season).padStart(2, '0')}e${String(episode).padStart(2, '0')}`;
           const sPattern2 = `${season}x${String(episode).padStart(2, '0')}`;
-          if (normalizedFilename.includes(normalizedTitle) && (normalizedFilename.includes(sPattern) || normalizedFilename.includes(sPattern2))) {
+          const titleMatch = normalizedFilename.includes(normalizedTitle) || normalizedFullPath.includes(normalizedTitle);
+          const epMatch = normalizedFilename.includes(sPattern) || normalizedFilename.includes(sPattern2) || normalizedFullPath.includes(sPattern) || normalizedFullPath.includes(sPattern2);
+          if (titleMatch && epMatch) {
             isMatch = true;
           }
         } else {
-          if (normalizedFilename.includes(normalizedTitle)) {
+          if (normalizedFilename.includes(normalizedTitle) || normalizedFullPath.includes(normalizedTitle)) {
             isMatch = true;
           }
         }
@@ -2657,6 +2655,23 @@ http://example.com/stream2.m3u8`;
     }
   });
 
+  // Helper to extract clean title and year from a folder or file name
+  const parseMediaName = (rawName: string) => {
+    let clean = rawName
+      .replace(/\.(1080p|720p|4k|2160p|bluray|web-dl|webrip|x264|x265|hevc|h264|h265|aac|dvdrip|brrip|hdtv).*/gi, '')
+      .replace(/[\._\-\+]/g, ' ')
+      .replace(/[\(\)\[\]]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    let yearMatch = clean.match(/\b(19\d\d|20\d\d)\b/);
+    let year = yearMatch ? yearMatch[1] : '';
+    if (yearMatch) {
+      clean = clean.replace(/\b(19\d\d|20\d\d)\b/, '').trim();
+    }
+    return { title: clean || rawName, year };
+  };
+
   // API Route: Automatically scan Local & Network Shared Folders and format as Library items
   app.get("/api/local-media/library", async (req, res) => {
     const settings = readJson(SETTINGS_FILE);
@@ -2666,53 +2681,95 @@ http://example.com/stream2.m3u8`;
     }
 
     const items: any[] = [];
+    const seenTitles = new Set<string>();
 
     for (const folderObj of mediaFolders) {
-      const folderPath = folderObj.path;
+      const rootPath = folderObj.path;
       const mediaType = folderObj.mediaType || 'movie'; // 'movie' or 'series'
-      if (!fs.existsSync(folderPath)) continue;
+      if (!fs.existsSync(rootPath)) continue;
 
-      const files = scanDirectoryForMedia(folderPath, []);
-      for (const file of files) {
-        const filename = path.basename(file);
-        const ext = path.extname(filename);
-        const nameWithoutExt = path.basename(filename, ext);
+      try {
+        const entries = fs.readdirSync(rootPath);
+        for (const entry of entries) {
+          const entryPath = path.join(rootPath, entry);
+          try {
+            const stat = fs.statSync(entryPath);
 
-        // Clean filename for display title
-        let cleanTitle = nameWithoutExt
-          .replace(/\.(1080p|720p|4k|2160p|bluray|web-dl|webrip|x264|x265|hevc|h264|h265|aac|dvdrip|brrip|hdtv).*/gi, '')
-          .replace(/[\._\-\+]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
+            if (stat.isDirectory()) {
+              // Folder named after media title! e.g. "The Creator (2023)" or "Shogun"
+              const { title, year } = parseMediaName(entry);
+              const dedupeKey = `${mediaType}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+              if (seenTitles.has(dedupeKey)) continue;
+              seenTitles.add(dedupeKey);
 
-        // Extract year if present (e.g. "The Creator 2023")
-        let yearMatch = cleanTitle.match(/\b(19\d\d|20\d\d)\b/);
-        let year = yearMatch ? yearMatch[1] : '';
-        if (yearMatch) {
-          cleanTitle = cleanTitle.replace(/\b(19\d\d|20\d\d)\b/, '').trim();
+              const videoFiles = scanDirectoryForMedia(entryPath, []);
+              if (videoFiles.length === 0) continue;
+
+              // Pick the largest file as the primary video file
+              videoFiles.sort((a, b) => {
+                try {
+                  return fs.statSync(b).size - fs.statSync(a).size;
+                } catch (e) {
+                  return 0;
+                }
+              });
+
+              const primaryFile = videoFiles[0];
+              const fileId = `local_lib_${Buffer.from(entryPath).toString('hex').substring(0, 16)}`;
+
+              items.push({
+                id: fileId,
+                tmdbId: fileId,
+                title: title,
+                name: title,
+                year: year || 'Local',
+                poster: '',
+                overview: `Local Network Share Folder: ${entry}`,
+                rating: 'SHARE',
+                type: mediaType,
+                isNetworkShare: true,
+                streamUrl: `/api/local-media/stream?path=${encodeURIComponent(primaryFile)}`,
+                filePath: primaryFile,
+                folderPath: entryPath,
+                filename: path.basename(primaryFile)
+              });
+            } else if (stat.isFile()) {
+              // Direct video file in root share folder
+              const ext = path.extname(entry).toLowerCase();
+              const videoExtensions = ['.mp4', '.mkv', '.avi', '.mov', '.m4v', '.ts', '.webm', '.flv'];
+              if (!videoExtensions.includes(ext)) continue;
+
+              const { title, year } = parseMediaName(path.basename(entry, ext));
+              const dedupeKey = `${mediaType}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+              if (seenTitles.has(dedupeKey)) continue;
+              seenTitles.add(dedupeKey);
+
+              const fileId = `local_lib_${Buffer.from(entryPath).toString('hex').substring(0, 16)}`;
+
+              items.push({
+                id: fileId,
+                tmdbId: fileId,
+                title: title,
+                name: title,
+                year: year || 'Local',
+                poster: '',
+                overview: `Local Network Share File: ${entry}`,
+                rating: 'SHARE',
+                type: mediaType,
+                isNetworkShare: true,
+                streamUrl: `/api/local-media/stream?path=${encodeURIComponent(entryPath)}`,
+                filePath: entryPath,
+                filename: entry
+              });
+            }
+          } catch (e) {}
         }
-
-        const fileId = `local_lib_${Buffer.from(file).toString('hex').substring(0, 16)}`;
-
-        items.push({
-          id: fileId,
-          tmdbId: fileId,
-          title: cleanTitle || nameWithoutExt,
-          name: cleanTitle || nameWithoutExt,
-          year: year || 'Local',
-          poster: '',
-          overview: `Local Network Share File: ${filename}`,
-          rating: 'SHARE',
-          type: mediaType,
-          isNetworkShare: true,
-          streamUrl: `/api/local-media/stream?path=${encodeURIComponent(file)}`,
-          filePath: file,
-          filename: filename
-        });
+      } catch (e) {
+        console.warn(`[Local Media Library] Error reading root share "${rootPath}":`, (e as any).message);
       }
     }
 
-    // Enrich top items with TMDB posters if possible
+    // Enrich top items with TMDB posters and metadata
     const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
     if (apiKey && items.length > 0) {
       const enrichPromises = items.slice(0, 50).map(async (item) => {
@@ -2741,11 +2798,9 @@ http://example.com/stream2.m3u8`;
       await Promise.all(enrichPromises);
     }
 
-    console.log(`[Local Media Library] Discovered ${items.length} network share items.`);
+    console.log(`[Local Media Library] Discovered ${items.length} media items from share folders.`);
     res.json({ success: true, data: items });
   });
-
-
 
   // API Route: Test parsing EPG
   app.post("/api/epg", async (req, res) => {
