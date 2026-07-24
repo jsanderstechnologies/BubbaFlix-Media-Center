@@ -2550,9 +2550,15 @@ http://example.com/stream2.m3u8`;
         '.mov': 'video/quicktime',
         '.webm': 'video/webm',
         '.ts': 'video/mp2t',
-        '.m4v': 'video/mp4'
+        '.m4v': 'video/mp4',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.webp': 'image/webp',
+        '.gif': 'image/gif'
       };
-      const contentType = mimeTypes[ext] || 'video/mp4';
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+
 
       if (range) {
         const parts = range.replace(/bytes=/, "").split("-");
@@ -2683,6 +2689,89 @@ http://example.com/stream2.m3u8`;
     return { title: clean || rawName, year };
   };
 
+  // Helper to find Emby / Jellyfin / Kodi local poster image and metadata .nfo inside media folder
+  const getEmbyJellyfinMetadata = (folderPath: string, primaryFile: string) => {
+    let localPoster = '';
+    let localOverview = '';
+    let localRating = '';
+    let localYear = '';
+    let localTitle = '';
+
+    const possibleDirs = [folderPath, path.dirname(primaryFile)];
+    const imageNames = [
+      'poster.jpg', 'poster.png', 'poster.jpeg', 'poster.webp',
+      'folder.jpg', 'folder.png', 'folder.jpeg', 'folder.webp',
+      'cover.jpg', 'cover.png', 'cover.jpeg', 'cover.webp',
+      'landscape.jpg', 'fanart.jpg'
+    ];
+
+    // 1. Search for Emby / Jellyfin poster image file
+    for (const dir of possibleDirs) {
+      if (!dir || !fs.existsSync(dir)) continue;
+      try {
+        const stat = fs.statSync(dir);
+        const actualDir = stat.isDirectory() ? dir : path.dirname(dir);
+        
+        for (const imgName of imageNames) {
+          const imgPath = path.join(actualDir, imgName);
+          if (fs.existsSync(imgPath)) {
+            localPoster = `/api/local-media/stream?path=${encodeURIComponent(imgPath)}`;
+            break;
+          }
+        }
+
+        // Also check if image has same basename as video file (e.g. "Inception (2010)-poster.jpg" or "Inception (2010).jpg")
+        if (!localPoster && primaryFile) {
+          const fileBase = path.basename(primaryFile, path.extname(primaryFile));
+          const customImgNames = [`${fileBase}-poster.jpg`, `${fileBase}-poster.png`, `${fileBase}.jpg`, `${fileBase}.png` ];
+          for (const imgName of customImgNames) {
+            const imgPath = path.join(actualDir, imgName);
+            if (fs.existsSync(imgPath)) {
+              localPoster = `/api/local-media/stream?path=${encodeURIComponent(imgPath)}`;
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+
+      if (localPoster) break;
+    }
+
+    // 2. Search for Emby / Jellyfin NFO metadata file
+    for (const dir of possibleDirs) {
+      if (!dir || !fs.existsSync(dir)) continue;
+      try {
+        const stat = fs.statSync(dir);
+        const actualDir = stat.isDirectory() ? dir : path.dirname(dir);
+        const files = fs.readdirSync(actualDir);
+        const nfoFile = files.find(f => f.toLowerCase().endsWith('.nfo'));
+        if (nfoFile) {
+          const nfoContent = fs.readFileSync(path.join(actualDir, nfoFile), 'utf-8');
+          
+          const plotMatch = nfoContent.match(/<plot>([\s\S]*?)<\/plot>/i) || nfoContent.match(/<outline>([\s\S]*?)<\/outline>/i);
+          if (plotMatch) localOverview = plotMatch[1].replace(/<!\[CDATA\[/g, '').replace(/\]\]>/g, '').trim();
+
+          const ratingMatch = nfoContent.match(/<rating>([\s\S]*?)<\/rating>/i);
+          if (ratingMatch) {
+            const rawRat = ratingMatch[1].trim();
+            const parsedRat = parseFloat(rawRat);
+            if (!isNaN(parsedRat)) localRating = parsedRat.toFixed(1);
+          }
+
+          const yearMatch = nfoContent.match(/<year>(\d{4})<\/year>/i) || nfoContent.match(/<premiered>(\d{4})/i);
+          if (yearMatch) localYear = yearMatch[1];
+
+          const titleMatch = nfoContent.match(/<title>([\s\S]*?)<\/title>/i);
+          if (titleMatch) localTitle = titleMatch[1].replace(/<!\[CDATA\[/g, '').replace(/\]\]>/g, '').trim();
+        }
+      } catch (e) {}
+
+      if (localOverview || localRating || localYear) break;
+    }
+
+    return { localPoster, localOverview, localRating, localYear, localTitle };
+  };
+
   // API Route: Automatically scan Local & Network Shared Folders and format as Library items
   app.get("/api/local-media/library", async (req, res) => {
     const settings = readJson(SETTINGS_FILE);
@@ -2755,15 +2844,18 @@ http://example.com/stream2.m3u8`;
           const primaryFile = group.files[0];
           const fileId = `local_lib_${Buffer.from(primaryFile).toString('hex').substring(0, 16)}`;
 
+          // Read Emby / Jellyfin local artwork and NFO metadata if present
+          const { localPoster, localOverview, localRating, localYear, localTitle } = getEmbyJellyfinMetadata(group.folderPath, primaryFile);
+
           items.push({
             id: fileId,
             tmdbId: fileId,
-            title: group.title,
-            name: group.title,
-            year: group.year || 'Local',
-            poster: '',
-            overview: `Local Network Share (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
-            rating: 'SHARE',
+            title: localTitle || group.title,
+            name: localTitle || group.title,
+            year: group.year || localYear || 'Local',
+            poster: localPoster || '',
+            overview: localOverview || `Local Network Share (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
+            rating: localRating || 'SHARE',
             type: mediaType,
             isNetworkShare: true,
             streamUrl: `/api/local-media/stream?path=${encodeURIComponent(primaryFile)}`,
@@ -2786,13 +2878,13 @@ http://example.com/stream2.m3u8`;
           const tmdbRes = await axios.get(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(item.title)}`, { timeout: 3500 }).catch(() => null);
           if (tmdbRes?.data?.results?.[0]) {
             const first = tmdbRes.data.results[0];
-            if (first.poster_path) {
+            if (!item.poster && first.poster_path) {
               item.poster = `https://image.tmdb.org/t/p/w500${first.poster_path}`;
             }
-            if (first.vote_average) {
+            if (item.rating === 'SHARE' && first.vote_average) {
               item.rating = first.vote_average.toFixed(1);
             }
-            if (first.overview) {
+            if (item.overview.startsWith('Local Network Share') && first.overview) {
               item.overview = first.overview;
             }
             if (!item.year || item.year === 'Local') {
@@ -2809,6 +2901,7 @@ http://example.com/stream2.m3u8`;
     console.log(`[Local Media Library] Discovered ${items.length} media items from share folders.`);
     res.json({ success: true, data: items });
   });
+
 
 
   // API Route: Manually trigger a search/scan of local & network share folders
