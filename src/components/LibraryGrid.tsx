@@ -362,7 +362,11 @@ export function LibraryGrid({
 
   const targetType = activeTab === 'movies' ? 'movie' : (activeTab === 'series' ? 'series' : '');
   const userFavs = favorites.filter(item => item.type === targetType);
-  const shareMedia = networkShareItems.filter(item => item.type === targetType);
+  const shareMedia = networkShareItems.filter(item => {
+    if (targetType === 'movie') return item.type === 'movie' || item.type === 'movies';
+    if (targetType === 'series') return item.type === 'series' || item.type === 'tv' || item.type === 'show';
+    return false;
+  });
   const filteredMedia = [...shareMedia, ...userFavs];
 
   return (
@@ -373,14 +377,15 @@ export function LibraryGrid({
           onClick={() => { setActiveTab('movies'); setSelectedPlaylist(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'movies' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
-          Movies ({networkShareItems.filter(i => i.type === 'movie').length + favorites.filter(i => i.type === 'movie').length})
+          Movies ({networkShareItems.filter(i => i.type === 'movie' || i.type === 'movies').length + favorites.filter(i => i.type === 'movie').length})
         </button>
         <button 
           onClick={() => { setActiveTab('series'); setSelectedPlaylist(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'series' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
-          TV Series ({networkShareItems.filter(i => i.type === 'series').length + favorites.filter(i => i.type === 'series').length})
+          TV Series ({networkShareItems.filter(i => i.type === 'series' || i.type === 'tv' || i.type === 'show').length + favorites.filter(i => i.type === 'series').length})
         </button>
+
         <button 
           onClick={() => { setActiveTab('music'); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'music' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
@@ -409,9 +414,20 @@ export function LibraryGrid({
                   onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia(item); }}
                 >
                   <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
-                    {item.poster ? (
-                      <img src={item.poster} alt={item.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    {item.poster || item.backupPoster ? (
+                      <img 
+                        src={item.poster || item.backupPoster} 
+                        alt={item.title} 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          if (item.backupPoster && e.currentTarget.src !== item.backupPoster) {
+                            e.currentTarget.src = item.backupPoster;
+                          }
+                        }}
+                      />
                     ) : (
+
                       <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-gradient-to-br from-indigo-950/40 to-slate-900">
                         <span className="text-xs font-bold text-white/80 line-clamp-3">{item.title}</span>
                       </div>
