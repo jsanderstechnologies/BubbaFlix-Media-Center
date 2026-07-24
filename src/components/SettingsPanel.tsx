@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal, ChevronDown, ChevronUp, Users, PlayCircle, Search, Key, Folder, Plus, Trash2, Film } from 'lucide-react';
+import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal, ChevronDown, ChevronUp, Users, PlayCircle, Search, Key, Folder, Plus, Trash2, Film, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+
 
 import AdminPanel from './AdminPanel';
 import { useAuth } from './Auth';
@@ -99,6 +100,45 @@ export default function SettingsPanel() {
   const handleRemoveFolder = (id: string) => {
     setMediaFolders(prev => prev.filter(f => f.id !== id));
   };
+
+  const [isScanningFolders, setIsScanningFolders] = useState(false);
+  const [scanningFolderId, setScanningFolderId] = useState<string | null>(null);
+  const [scanFeedback, setScanFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleScanFolders = async (folderObj?: { id: string; path: string; mediaType: 'movie' | 'series' }) => {
+    if (folderObj) setScanningFolderId(folderObj.id);
+    else setIsScanningFolders(true);
+    setScanFeedback(null);
+
+    try {
+      const res = await fetch('/api/local-media/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(folderObj ? { folderPath: folderObj.path, mediaType: folderObj.mediaType } : {})
+      });
+      const data = await res.json();
+      if (data.success) {
+        setScanFeedback({
+          type: 'success',
+          message: data.message || `Scanned! Discovered ${data.moviesCount} Movies and ${data.seriesCount} TV Series.`
+        });
+      } else {
+        setScanFeedback({
+          type: 'error',
+          message: data.error || 'Failed to scan share folders.'
+        });
+      }
+    } catch (e: any) {
+      setScanFeedback({
+        type: 'error',
+        message: e.message || 'Server error while scanning folders.'
+      });
+    } finally {
+      setIsScanningFolders(false);
+      setScanningFolderId(null);
+    }
+  };
+
 
 
 
@@ -441,15 +481,36 @@ export default function SettingsPanel() {
 
         {/* Local & Network Shared Folders */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
-            <Folder className="w-5 h-5 text-indigo-400" />
-            <div>
-              <h2 className="text-lg font-medium text-white">Local & Network Shared Folders</h2>
-              <p className="text-xs text-white/50">Add Windows SMB shared folders or local disk paths containing movies or TV series.</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <Folder className="w-5 h-5 text-indigo-400" />
+              <div>
+                <h2 className="text-lg font-medium text-white">Local & Network Shared Folders</h2>
+                <p className="text-xs text-white/50">Add Windows SMB shared folders or local disk paths containing movies or TV series.</p>
+              </div>
             </div>
+
+            {mediaFolders.length > 0 && (
+              <button
+                type="button"
+                onClick={() => handleScanFolders()}
+                disabled={isScanningFolders}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow shrink-0"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isScanningFolders ? 'animate-spin' : ''}`} />
+                {isScanningFolders ? 'Scanning Shared Folders...' : 'Scan & Add To Library'}
+              </button>
+            )}
           </div>
 
           <div className="space-y-6">
+            {scanFeedback && (
+              <div className={`p-4 rounded-xl text-xs flex items-center gap-3 border ${scanFeedback.type === 'success' ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/30' : 'bg-red-950/40 text-red-300 border-red-500/30'}`}>
+                {scanFeedback.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />}
+                <span className="font-medium">{scanFeedback.message}</span>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-3">
               <input 
                 type="text" 
@@ -487,14 +548,24 @@ export default function SettingsPanel() {
                       <Folder className="w-4 h-4 text-indigo-400 shrink-0" />
                       <span className="font-mono text-white/90 text-xs truncate">{folder.path}</span>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${folder.mediaType === 'series' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-sky-500/10 text-sky-400 border-sky-500/20'}`}>
                         {folder.mediaType === 'series' ? 'TV Series' : 'Movies'}
                       </span>
                       <button
                         type="button"
+                        onClick={() => handleScanFolders(folder)}
+                        disabled={scanningFolderId === folder.id}
+                        className="text-white/60 hover:text-indigo-400 p-1.5 rounded-lg bg-white/5 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer flex items-center gap-1 text-xs"
+                        title="Scan this folder now"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${scanningFolderId === folder.id ? 'animate-spin text-indigo-400' : ''}`} />
+                        <span className="hidden sm:inline text-[10px]">Scan Folder</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleRemoveFolder(folder.id)}
-                        className="text-white/40 hover:text-red-400 p-1 transition-colors cursor-pointer"
+                        className="text-white/40 hover:text-red-400 p-1.5 transition-colors cursor-pointer"
                         title="Remove Folder Path"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -506,6 +577,7 @@ export default function SettingsPanel() {
             )}
           </div>
         </div>
+
 
         {/* System Status */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">

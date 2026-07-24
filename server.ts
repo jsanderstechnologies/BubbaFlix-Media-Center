@@ -2808,7 +2808,86 @@ http://example.com/stream2.m3u8`;
     res.json({ success: true, data: items });
   });
 
+  // API Route: Manually trigger a search/scan of local & network share folders
+  app.post("/api/local-media/scan", async (req, res) => {
+    const { folderPath, mediaType } = req.body || {};
+    const settings = readJson(SETTINGS_FILE);
+
+    let foldersToScan: Array<{ path: string; mediaType: 'movie' | 'series' }> = [];
+
+    if (folderPath && typeof folderPath === 'string') {
+      foldersToScan.push({ path: folderPath, mediaType: mediaType || 'movie' });
+    } else {
+      foldersToScan = settings.mediaFolders || [];
+    }
+
+    if (foldersToScan.length === 0) {
+      return res.status(400).json({ success: false, error: "No shared folder path specified or configured." });
+    }
+
+    let totalDiscovered = 0;
+    let moviesCount = 0;
+    let seriesCount = 0;
+    const scannedDetails: any[] = [];
+    const errors: string[] = [];
+
+    for (const folderObj of foldersToScan) {
+      const targetPath = folderObj.path;
+      const type = folderObj.mediaType || 'movie';
+
+      if (!fs.existsSync(targetPath)) {
+        errors.push(`Folder "${targetPath}" is unreachable or does not exist.`);
+        continue;
+      }
+
+      try {
+        const videoFiles = scanDirectoryForMedia(targetPath, []);
+        const entries = fs.readdirSync(targetPath);
+        let folderCount = 0;
+
+        for (const entry of entries) {
+          const entryPath = path.join(targetPath, entry);
+          try {
+            const stat = fs.statSync(entryPath);
+            if (stat.isDirectory()) {
+              const insideVideos = scanDirectoryForMedia(entryPath, []);
+              if (insideVideos.length > 0) {
+                folderCount++;
+                if (type === 'series') seriesCount++;
+                else moviesCount++;
+              }
+            } else if (stat.isFile()) {
+              const ext = path.extname(entry).toLowerCase();
+              if (['.mp4', '.mkv', '.avi', '.mov', '.m4v', '.ts', '.webm', '.flv'].includes(ext)) {
+                folderCount++;
+                if (type === 'series') seriesCount++;
+                else moviesCount++;
+              }
+            }
+          } catch (e) {}
+        }
+
+        totalDiscovered += folderCount;
+        scannedDetails.push({ path: targetPath, type, itemsFound: folderCount, totalVideoFiles: videoFiles.length });
+      } catch (e: any) {
+        errors.push(`Error scanning "${targetPath}": ${e.message}`);
+      }
+    }
+
+    console.log(`[Local Media Manual Scan] Completed scanning ${foldersToScan.length} folders. Found ${totalDiscovered} items.`);
+    res.json({
+      success: true,
+      totalDiscovered,
+      moviesCount,
+      seriesCount,
+      scannedDetails,
+      errors,
+      message: `Successfully scanned folders! Discovered ${moviesCount} Movies and ${seriesCount} TV Series.`
+    });
+  });
+
   // API Route: Test parsing EPG
+
   app.post("/api/epg", async (req, res) => {
 
     try {
