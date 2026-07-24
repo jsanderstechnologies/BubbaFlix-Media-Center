@@ -2773,26 +2773,6 @@ http://example.com/stream2.m3u8`;
     return { localPoster, localOverview, localRating, localYear, localTitle };
   };
 
-  // API Route: Automatically scan Local & Network Shared Folders and format as Library items
-  app.get("/api/local-media/library", async (req, res) => {
-    const settings = readJson(SETTINGS_FILE);
-    const mediaFolders: any[] = settings.mediaFolders || [];
-    if (!Array.isArray(mediaFolders) || mediaFolders.length === 0) {
-      return res.json({ success: true, data: [] });
-    }
-
-    const items: any[] = [];
-    const seenTitles = new Set<string>();
-
-    for (const folderObj of mediaFolders) {
-      if (!folderObj || !folderObj.path) continue;
-      const rootPath = path.normalize(folderObj.path);
-      const mediaType = folderObj.mediaType || 'movie'; // 'movie' or 'series'
-      if (!fs.existsSync(rootPath)) {
-        console.warn(`[Local Media Library] Share path does not exist or is offline: "${rootPath}"`);
-        continue;
-      }
-
   const isGenericSubfolder = (name: string) => {
     const n = name.toLowerCase().trim();
     return /^season\s*\d+/i.test(n) ||
@@ -2841,6 +2821,7 @@ http://example.com/stream2.m3u8`;
         console.warn(`[Local Media Library] Share path does not exist or is offline: "${rootPath}"`);
         continue;
       }
+
 
       try {
         // 1. Gather all video files inside rootPath up to 10 levels deep
