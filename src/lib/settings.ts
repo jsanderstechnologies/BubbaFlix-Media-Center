@@ -23,9 +23,11 @@ export interface SystemSettings {
   disableLogin?: boolean;
   filterAnime?: boolean;
   preferredLanguage?: string;
+  mediaFolders?: Array<{ id: string; path: string; mediaType: 'movie' | 'series' }>;
 }
 
 export interface UserSettings {
+
   resolutions?: string[];
   audioLanguage?: string;
   ccLanguage?: string;
@@ -69,7 +71,9 @@ function syncSystemSettingsToLocalStorage(data: SystemSettings) {
 
   localStorage.setItem('enableUsenetSearch', data.enableUsenetSearch !== false ? 'true' : 'false');
   localStorage.setItem('enableTorrentSearch', data.enableTorrentSearch !== false ? 'true' : 'false');
+  if (data.mediaFolders) localStorage.setItem('mediaFolders', JSON.stringify(data.mediaFolders));
 }
+
 
 function syncUserSettingsToLocalStorage(data: UserSettings) {
   if (data.preferredLanguage) localStorage.setItem('preferredLanguage', data.preferredLanguage);

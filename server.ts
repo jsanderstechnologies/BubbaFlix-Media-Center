@@ -630,9 +630,11 @@ async function startServer() {
       enableUsenetSearch: settings.enableUsenetSearch !== false,
       enableTorrentSearch: settings.enableTorrentSearch !== false,
       intelTranscoding: settings.intelTranscoding === true,
-      disableLogin: settings.disableLogin === true
+      disableLogin: settings.disableLogin === true,
+      mediaFolders: settings.mediaFolders || []
     });
   });
+
 
   // /api/auth/register  — no password required; admin will approve and email credentials
 
@@ -807,7 +809,8 @@ async function startServer() {
       usenetUsername: settings.usenetUsername || '',
       usenetPassword: settings.usenetPassword || '',
       geminiApiKey: settings.geminiApiKey || '',
-      disableLogin: settings.disableLogin === true
+      disableLogin: settings.disableLogin === true,
+      mediaFolders: settings.mediaFolders || []
     });
   });
 
@@ -843,7 +846,8 @@ async function startServer() {
     if (req.body.intelTranscoding !== undefined) settings.intelTranscoding = req.body.intelTranscoding;
     if (req.body.filterAnime !== undefined) settings.filterAnime = req.body.filterAnime;
     if (req.body.preferredLanguage !== undefined) settings.preferredLanguage = req.body.preferredLanguage;
-    
+    if (req.body.mediaFolders !== undefined) settings.mediaFolders = req.body.mediaFolders;
+
     // Some general settings that any admin can save from SettingsPanel
     if (req.body.tmdbKey !== undefined) settings.tmdbKey = req.body.tmdbKey;
     if (req.body.torboxApiKey !== undefined) settings.torboxApiKey = req.body.torboxApiKey;
@@ -860,6 +864,7 @@ async function startServer() {
     writeJson(SETTINGS_FILE, settings);
     res.json({ success: true });
   });
+
 
   // /api/admin/test-email POST
   app.post('/api/admin/test-email', requireAdmin, async (req, res) => {
