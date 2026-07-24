@@ -397,8 +397,15 @@ export default function MediaModal({
               }
           });
 
+          const getStreamPriorityRank = (s: any): number => {
+            if (s.type === 'local') return 1; // 1. Network Share
+            if (s.type === 'iptv') return 2;  // 2. IPTV Provider
+            if (s.isCached) return 3;         // 3. TorBox Cached Files
+            return 4;                         // 4. TorBox Usenet / Torrent Search
+          };
+
           let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
-          const applyFiltersAndSort = (streams) => {
+          const applyFiltersAndSort = (streams: any[]) => {
               const filtered = streams.filter(s => {
                   const desc = (s.name || '') + ' ' + (s.fullDescription || '');
                   if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
@@ -407,11 +414,13 @@ export default function MediaModal({
                   return true;
               });
               return filtered.sort((a, b) => {
-                  if (a.isCached && !b.isCached) return -1;
-                  if (!a.isCached && b.isCached) return 1;
-                  return 0;
+                  const rankA = getStreamPriorityRank(a);
+                  const rankB = getStreamPriorityRank(b);
+                  if (rankA !== rankB) return rankA - rankB;
+                  return (b.seeds || 0) - (a.seeds || 0);
               });
           };
+
 
           if (initialData.length > 0) {
               setStreams(applyFiltersAndSort(initialData));
@@ -705,6 +714,13 @@ export default function MediaModal({
             }
         });
 
+        const getStreamPriorityRank = (s: any): number => {
+          if (s.type === 'local') return 1; // 1. Network Share
+          if (s.type === 'iptv') return 2;  // 2. IPTV Provider
+          if (s.isCached) return 3;         // 3. TorBox Cached Files
+          return 4;                         // 4. TorBox Usenet / Torrent Search
+        };
+
         let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
         let filteredData = updatedData.filter((s: any) => {
             const desc = (s.name || '') + ' ' + (s.fullDescription || '');
@@ -715,13 +731,15 @@ export default function MediaModal({
         });
 
         filteredData.sort((a: any, b: any) => {
-          if (a.isCached && !b.isCached) return -1;
-          if (!a.isCached && b.isCached) return 1;
-          return 0;
+          const rankA = getStreamPriorityRank(a);
+          const rankB = getStreamPriorityRank(b);
+          if (rankA !== rankB) return rankA - rankB;
+          return (b.seeds || 0) - (a.seeds || 0);
         });
 
         if (!isActive) return;
         setStreams(filteredData);
+
         setLoading(false);
         setPollingActive(true);
 
