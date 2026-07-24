@@ -2494,19 +2494,59 @@ http://example.com/stream2.m3u8`;
     }
   });
 
+  const normalizeNetworkPath = (rawPath: string): string => {
+    if (!rawPath) return '';
+    let p = rawPath.trim();
+    const isUnc = /^[\/\\]{2}/.test(p);
+    
+    if (process.platform === 'win32') {
+      p = p.replace(/\//g, '\\');
+      if (isUnc) {
+        p = '\\\\' + p.replace(/^[\/\\]+/, '');
+      }
+      if (p.length > 3 && p.endsWith('\\')) {
+        p = p.replace(/\\+$/, '');
+      }
+    } else {
+      p = p.replace(/\\/g, '/');
+      if (p.length > 1 && p.endsWith('/')) {
+        p = p.replace(/\/+$/, '');
+      }
+    }
+    return p;
+  };
+
+  const safeExists = (p: string): boolean => {
+    if (!p) return false;
+    const norm = normalizeNetworkPath(p);
+    try {
+      if (fs.existsSync(norm)) return true;
+      const stat = fs.statSync(norm);
+      return stat.isDirectory() || stat.isFile();
+    } catch (e) {
+      try {
+        const entries = fs.readdirSync(norm);
+        return Array.isArray(entries);
+      } catch (err) {
+        return false;
+      }
+    }
+  };
+
   // Helper to scan a directory recursively for video files
   const scanDirectoryForMedia = (dirPath: string, fileList: string[] = [], maxDepth = 10, currentDepth = 0) => {
-
-    if (currentDepth > maxDepth || !fs.existsSync(dirPath)) return fileList;
+    const normDir = normalizeNetworkPath(dirPath);
+    if (currentDepth > maxDepth || !safeExists(normDir)) return fileList;
     try {
-      const stats = fs.statSync(dirPath);
-      if (!stats.isDirectory()) return fileList;
-
-      const entries = fs.readdirSync(dirPath);
-      const videoExtensions = ['.mp4', '.mkv', '.avi', '.mov', '.m4v', '.ts', '.webm', '.flv'];
+      const entries = fs.readdirSync(normDir);
+      const videoExtensions = [
+        '.mp4', '.mkv', '.avi', '.mov', '.m4v', '.ts', '.webm', '.flv',
+        '.wmv', '.m2ts', '.mts', '.iso', '.vob', '.mpg', '.mpeg', '.strm',
+        '.divx', '.3gp', '.ogv'
+      ];
 
       for (const entry of entries) {
-        const fullPath = path.join(dirPath, entry);
+        const fullPath = path.join(normDir, entry);
         try {
           const entryStat = fs.statSync(fullPath);
           if (entryStat.isDirectory()) {
@@ -2518,14 +2558,18 @@ http://example.com/stream2.m3u8`;
             }
           }
         } catch (e) {
-          // Ignore unreadable or locked files/folders
+          const ext = path.extname(entry).toLowerCase();
+          if (videoExtensions.includes(ext)) {
+            fileList.push(fullPath);
+          }
         }
       }
     } catch (e) {
-      console.warn(`[Local Media Scan] Error reading directory "${dirPath}":`, (e as any).message);
+      console.warn(`[Local Media Scan] Error reading directory "${normDir}":`, (e as any).message);
     }
     return fileList;
   };
+
 
   // API Route: Stream local/network media file with Range requests support
   app.get("/api/local-media/stream", (req, res) => {
@@ -2778,8 +2822,10 @@ http://example.com/stream2.m3u8`;
     return /^season\s*\d+/i.test(n) ||
            /^specials$/i.test(n) ||
            /^(4k|2160p|1080p|720p|bluray|web-dl|dvdrip|remux)$/i.test(n) ||
-           /^(subs|subtitles|bonus|extra|extras|featurettes|sample|cd1|cd2)$/i.test(n);
+           /^(subs|subtitles|bonus|extra|extras|featurettes|sample|cd1|cd2)$/i.test(n) ||
+           /^(movies|tv|tv shows|tvseries|videos|media|library|emby|collections|films)$/i.test(n);
   };
+
 
   const getMediaFolderAndTitle = (filePath: string, rootPath: string) => {
     let currentDir = path.dirname(filePath);
@@ -2815,12 +2861,13 @@ http://example.com/stream2.m3u8`;
 
     for (const folderObj of mediaFolders) {
       if (!folderObj || !folderObj.path) continue;
-      const rootPath = path.normalize(folderObj.path);
+      const rootPath = normalizeNetworkPath(folderObj.path);
       const mediaType = folderObj.mediaType || 'movie'; // 'movie' or 'series'
-      if (!fs.existsSync(rootPath)) {
+      if (!safeExists(rootPath)) {
         console.warn(`[Local Media Library] Share path does not exist or is offline: "${rootPath}"`);
         continue;
       }
+
 
 
       try {
@@ -2945,13 +2992,15 @@ http://example.com/stream2.m3u8`;
       const targetPath = folderObj.path;
       const type = folderObj.mediaType || 'movie';
 
-      if (!fs.existsSync(targetPath)) {
+      const normTarget = normalizeNetworkPath(targetPath);
+      if (!safeExists(normTarget)) {
         errors.push(`Folder "${targetPath}" is unreachable or does not exist.`);
         continue;
       }
 
       try {
-        const videoFiles = scanDirectoryForMedia(targetPath, [], 10);
+        const videoFiles = scanDirectoryForMedia(normTarget, [], 10);
+
         const discoveredTitles = new Set<string>();
 
         for (const file of videoFiles) {
