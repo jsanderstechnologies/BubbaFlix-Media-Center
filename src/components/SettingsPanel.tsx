@@ -86,8 +86,8 @@ export default function SettingsPanel() {
   const [newFolderPath, setNewFolderPath] = useState('');
   const [newFolderType, setNewFolderType] = useState<'movie' | 'series'>('movie');
 
-  const handleAddFolder = () => {
   const handleAddFolder = async () => {
+
     if (!newFolderPath.trim()) return;
     const newEntry = {
       id: Date.now().toString(),
