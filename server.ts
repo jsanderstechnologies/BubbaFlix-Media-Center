@@ -2568,9 +2568,15 @@ http://example.com/stream2.m3u8`;
           'Content-Length': fileSize,
           'Content-Type': contentType,
         };
+        res.writeHead(200, head);
+        fs.createReadStream(filePath).pipe(res);
+      }
+    } catch (err: any) {
+      console.error("[Local Media Stream Error]", err.message);
       res.status(500).json({ error: err.message });
     }
   });
+
 
   // API Route: Search Local / Network Folders for matching Movies or TV Series
   app.get("/api/local-media/search", async (req, res) => {
