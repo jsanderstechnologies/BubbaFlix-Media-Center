@@ -2523,11 +2523,12 @@ http://example.com/stream2.m3u8`;
       if (fs.existsSync(norm)) return true;
       const stat = fs.statSync(norm);
       return stat.isDirectory() || stat.isFile();
-    } catch (e) {
+    } catch (e: any) {
       try {
         const entries = fs.readdirSync(norm);
         return Array.isArray(entries);
-      } catch (err) {
+      } catch (err: any) {
+        console.error(`[Network Share Error] Path "${norm}" is unreachable or access denied: ${err.message} (Code: ${err.code || 'UNKNOWN'})`);
         return false;
       }
     }
@@ -2536,7 +2537,13 @@ http://example.com/stream2.m3u8`;
   // Helper to scan a directory recursively for video files
   const scanDirectoryForMedia = (dirPath: string, fileList: string[] = [], maxDepth = 10, currentDepth = 0) => {
     const normDir = normalizeNetworkPath(dirPath);
-    if (currentDepth > maxDepth || !safeExists(normDir)) return fileList;
+    if (currentDepth > maxDepth) return fileList;
+
+    if (!safeExists(normDir)) {
+      console.warn(`[Network Share Scan] Directory unreachable or skipped at depth ${currentDepth}: "${normDir}"`);
+      return fileList;
+    }
+
     try {
       const entries = fs.readdirSync(normDir);
       const videoExtensions = [
@@ -2557,18 +2564,21 @@ http://example.com/stream2.m3u8`;
               fileList.push(fullPath);
             }
           }
-        } catch (e) {
+        } catch (e: any) {
           const ext = path.extname(entry).toLowerCase();
           if (videoExtensions.includes(ext)) {
             fileList.push(fullPath);
+          } else {
+            console.warn(`[Network Share Scan Warning] Error checking file/folder "${fullPath}": ${e.message}`);
           }
         }
       }
-    } catch (e) {
-      console.warn(`[Local Media Scan] Error reading directory "${normDir}":`, (e as any).message);
+    } catch (e: any) {
+      console.error(`[Network Share Error] Error reading directory "${normDir}": ${e.message} (Code: ${e.code || 'ERR'})`);
     }
     return fileList;
   };
+
 
 
   // API Route: Stream local/network media file with Range requests support
@@ -2992,15 +3002,16 @@ http://example.com/stream2.m3u8`;
       const targetPath = folderObj.path;
       const type = folderObj.mediaType || 'movie';
 
-      const normTarget = normalizeNetworkPath(targetPath);
+      console.log(`[Network Share Scan] Scanning path: "${normTarget}" (Type: ${type})...`);
       if (!safeExists(normTarget)) {
-        errors.push(`Folder "${targetPath}" is unreachable or does not exist.`);
+        const errStr = `Path "${targetPath}" is unreachable, offline, or access is denied. Check network connection and Windows SMB permissions.`;
+        console.error(`[Network Share Error] ${errStr}`);
+        errors.push(errStr);
         continue;
       }
 
       try {
         const videoFiles = scanDirectoryForMedia(normTarget, [], 10);
-
         const discoveredTitles = new Set<string>();
 
         for (const file of videoFiles) {
@@ -3015,11 +3026,15 @@ http://example.com/stream2.m3u8`;
 
         const itemsFound = discoveredTitles.size;
         totalDiscovered += itemsFound;
+        console.log(`[Network Share Scan] Completed "${normTarget}": Found ${itemsFound} media titles (${videoFiles.length} raw video files).`);
         scannedDetails.push({ path: targetPath, type, itemsFound, totalVideoFiles: videoFiles.length });
       } catch (e: any) {
-        errors.push(`Error scanning "${targetPath}": ${e.message}`);
+        const errStr = `Error scanning "${targetPath}": ${e.message}`;
+        console.error(`[Network Share Error] ${errStr}`);
+        errors.push(errStr);
       }
     }
+
 
 
     console.log(`[Local Media Manual Scan] Completed scanning ${foldersToScan.length} folders. Found ${totalDiscovered} items.`);
