@@ -2578,7 +2578,8 @@ http://example.com/stream2.m3u8`;
   });
 
   // API Route: Search Local / Network Folders for matching Movies or TV Series
-  app.get("/api/local-media/search", (req, res) => {
+  app.get("/api/local-media/search", async (req, res) => {
+
     const { title, type, season, episode } = req.query;
     if (!title || typeof title !== 'string') {
       return res.status(400).json({ success: false, data: [] });
