@@ -3111,6 +3111,21 @@ http://example.com/stream2.m3u8`;
       return res.status(400).json({ success: false, error: "No shared folder path specified or configured." });
     }
 
+    // Auto-save mediaFolders to settings.json so GET /api/local-media/library can read them immediately
+    if (folderPath && typeof folderPath === 'string') {
+      const existing: any[] = settings.mediaFolders || [];
+      const normPath = normalizeNetworkPath(folderPath);
+      const idx = existing.findIndex((f: any) => normalizeNetworkPath(f.path) === normPath);
+      if (idx >= 0) {
+        existing[idx].mediaType = mediaType || 'movie';
+      } else {
+        existing.push({ id: Date.now().toString(), path: folderPath, mediaType: mediaType || 'movie' });
+      }
+      settings.mediaFolders = existing;
+      writeJson(SETTINGS_FILE, settings);
+    }
+
+
     let totalDiscovered = 0;
     let moviesCount = 0;
     let seriesCount = 0;

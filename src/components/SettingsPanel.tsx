@@ -87,18 +87,44 @@ export default function SettingsPanel() {
   const [newFolderType, setNewFolderType] = useState<'movie' | 'series'>('movie');
 
   const handleAddFolder = () => {
+  const handleAddFolder = async () => {
     if (!newFolderPath.trim()) return;
     const newEntry = {
       id: Date.now().toString(),
       path: newFolderPath.trim(),
       mediaType: newFolderType
     };
-    setMediaFolders(prev => [...prev, newEntry]);
+    const updatedFolders = [...mediaFolders, newEntry];
+    setMediaFolders(updatedFolders);
     setNewFolderPath('');
+
+    // Persist immediately to backend settings
+    const token = localStorage.getItem('authToken');
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mediaFolders: updatedFolders })
+      });
+    } catch (e) {}
+
+    // Automatically trigger scan for the newly added folder
+    handleScanFolders(newEntry);
   };
 
-  const handleRemoveFolder = (id: string) => {
-    setMediaFolders(prev => prev.filter(f => f.id !== id));
+  const handleRemoveFolder = async (id: string) => {
+    const updatedFolders = mediaFolders.filter(f => f.id !== id);
+    setMediaFolders(updatedFolders);
+
+    const token = localStorage.getItem('authToken');
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mediaFolders: updatedFolders })
+      });
+    } catch (e) {}
+    window.dispatchEvent(new CustomEvent('refresh-local-library'));
   };
 
   const [isScanningFolders, setIsScanningFolders] = useState(false);
@@ -109,6 +135,16 @@ export default function SettingsPanel() {
     if (folderObj) setScanningFolderId(folderObj.id);
     else setIsScanningFolders(true);
     setScanFeedback(null);
+
+    // Save current mediaFolders before scanning
+    const token = localStorage.getItem('authToken');
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mediaFolders })
+      });
+    } catch (e) {}
 
     try {
       const res = await fetch('/api/local-media/scan', {
@@ -124,7 +160,6 @@ export default function SettingsPanel() {
         });
         window.dispatchEvent(new CustomEvent('refresh-local-library'));
       } else {
-
         setScanFeedback({
           type: 'error',
           message: data.error || 'Failed to scan share folders.'
@@ -140,6 +175,7 @@ export default function SettingsPanel() {
       setScanningFolderId(null);
     }
   };
+
 
 
 
