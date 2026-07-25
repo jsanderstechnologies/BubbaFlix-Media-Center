@@ -418,6 +418,8 @@ export function LibraryGrid({
                       <img 
                         src={item.poster || item.backupPoster} 
                         alt={item.title} 
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover" 
                         referrerPolicy="no-referrer"
                         onError={(e) => {
@@ -427,6 +429,7 @@ export function LibraryGrid({
                         }}
                       />
                     ) : (
+
 
                       <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-gradient-to-br from-indigo-950/40 to-slate-900">
                         <span className="text-xs font-bold text-white/80 line-clamp-3">{item.title}</span>

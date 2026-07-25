@@ -3053,42 +3053,49 @@ http://example.com/stream2.m3u8`;
       }
     }
 
-    // Direct TMDB Poster & Metadata Fetching
+    // 1. Instantly save catalog to disk so the response returns in < 0.1s!
+    writeJson(SCANNED_LIBRARY_FILE, items);
+    console.log(`[Persistent Library] Instantly saved ${items.length} media items to disk at "${SCANNED_LIBRARY_FILE}".`);
+
+    // 2. Perform background TMDB poster & metadata enrichment asynchronously
     const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
     if (apiKey && items.length > 0) {
-      const batchSize = 25;
-      const targetCount = Math.min(items.length, 300);
-      for (let i = 0; i < targetCount; i += batchSize) {
-        const chunk = items.slice(i, i + batchSize);
-        const promises = chunk.map(async (item) => {
-          try {
-            const endpoint = item.type === 'series' ? 'tv' : 'movie';
-            const tmdbRes = await axios.get(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(item.title)}`, { timeout: 3000 }).catch(() => null);
-            if (tmdbRes?.data?.results?.[0]) {
-              const first = tmdbRes.data.results[0];
-              if (first.poster_path) {
-                item.poster = `https://image.tmdb.org/t/p/w500${first.poster_path}`;
+      setTimeout(async () => {
+        const batchSize = 25;
+        const targetCount = Math.min(items.length, 300);
+        for (let i = 0; i < targetCount; i += batchSize) {
+          const chunk = items.slice(i, i + batchSize);
+          const promises = chunk.map(async (item) => {
+            try {
+              const endpoint = item.type === 'series' ? 'tv' : 'movie';
+              const tmdbRes = await axios.get(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(item.title)}`, { timeout: 3000 }).catch(() => null);
+              if (tmdbRes?.data?.results?.[0]) {
+                const first = tmdbRes.data.results[0];
+                if (first.poster_path) {
+                  item.poster = `https://image.tmdb.org/t/p/w500${first.poster_path}`;
+                }
+                if (first.vote_average) {
+                  item.rating = first.vote_average.toFixed(1);
+                }
+                if (first.overview) {
+                  item.overview = first.overview;
+                }
+                const releaseDate = first.release_date || first.first_air_date;
+                if (releaseDate) item.year = releaseDate.split('-')[0];
+                item.realTmdbId = first.id;
               }
-              if (first.vote_average) {
-                item.rating = first.vote_average.toFixed(1);
-              }
-              if (first.overview) {
-                item.overview = first.overview;
-              }
-              const releaseDate = first.release_date || first.first_air_date;
-              if (releaseDate) item.year = releaseDate.split('-')[0];
-              item.realTmdbId = first.id;
-            }
-          } catch (e) {}
-        });
-        await Promise.allSettled(promises);
-      }
+            } catch (e) {}
+          });
+          await Promise.allSettled(promises);
+        }
+        writeJson(SCANNED_LIBRARY_FILE, items);
+        console.log(`[Persistent Library Background Enrich] Updated TMDB posters/metadata for ${targetCount} items.`);
+      }, 10);
     }
 
-    writeJson(SCANNED_LIBRARY_FILE, items);
-    console.log(`[Persistent Library] Saved ${items.length} media items to disk at "${SCANNED_LIBRARY_FILE}".`);
     return items;
   };
+
 
 
 
