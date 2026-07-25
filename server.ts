@@ -327,6 +327,8 @@ async function startServer() {
   const USERS_FILE = path.join(DATA_DIR, 'users.json');
   const DB_FILE = path.join(DATA_DIR, 'db.json');
   const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+  const SCANNED_LIBRARY_FILE = path.join(DATA_DIR, 'scanned_library.json');
+
 
 
 
