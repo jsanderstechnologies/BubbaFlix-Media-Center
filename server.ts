@@ -831,6 +831,8 @@ async function startServer() {
       usenetPassword: settings.usenetPassword || '',
       geminiApiKey: settings.geminiApiKey || '',
       disableLogin: settings.disableLogin === true,
+      preferHEVC: settings.preferHEVC !== false,
+      hevcMode: settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer'),
       mediaFolders: settings.mediaFolders || []
     });
   });
@@ -865,9 +867,12 @@ async function startServer() {
     if (req.body.enableUsenetSearch !== undefined) settings.enableUsenetSearch = req.body.enableUsenetSearch;
     if (req.body.enableTorrentSearch !== undefined) settings.enableTorrentSearch = req.body.enableTorrentSearch;
     if (req.body.intelTranscoding !== undefined) settings.intelTranscoding = req.body.intelTranscoding;
+    if (req.body.preferHEVC !== undefined) settings.preferHEVC = req.body.preferHEVC;
+    if (req.body.hevcMode !== undefined) settings.hevcMode = req.body.hevcMode;
     if (req.body.filterAnime !== undefined) settings.filterAnime = req.body.filterAnime;
     if (req.body.preferredLanguage !== undefined) settings.preferredLanguage = req.body.preferredLanguage;
     if (req.body.mediaFolders !== undefined) settings.mediaFolders = req.body.mediaFolders;
+
 
     // Some general settings that any admin can save from SettingsPanel
     if (req.body.tmdbKey !== undefined) settings.tmdbKey = req.body.tmdbKey;
@@ -1941,18 +1946,31 @@ const durationCache = new Map<string, number>();
       return items;
     }
     
-    // 1. PRE-FILTER HEVC/x265/10-bit/HDR when hardware transcoding is disabled or unsupported
-    const isHwDisabled = settings.intelTranscoding !== true || detectBestH264Encoder() === 'libx264';
-    let candidateItems = items;
-    if (isHwDisabled) {
-      const hevcRegex = /(^|[^a-z0-9])(hevc|x265|h\.?265|265|10-?bit|10b|hdr|hdr10|hdr10\+|dv|dolby\s*vision|main10)([^a-z0-9]|$)/i;
+    // 1. HEVC STREAM FILTERING MODE ('prefer', 'allow', 'exclude')
+    const hevcMode = settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer');
+    const hevcRegex = /(^|[^a-z0-9])(hevc|x265|h\.?265|265|10-?bit|10b|hdr|hdr10|hdr10\+|dv|dolby\s*vision|main10)([^a-z0-9]|$)/i;
+
+    let candidateItems = [...items];
+
+    if (hevcMode === 'exclude') {
+      // Exclude all HEVC/x265/10-bit releases
       candidateItems = items.filter(t => {
         const name = (t.name || t.title || '').toLowerCase();
         return !hevcRegex.test(name);
       });
       if (candidateItems.length < items.length) {
-        console.log(`[HEVC Pre-Filter] Excluded ${items.length - candidateItems.length} HEVC/x265/10-bit/HDR streams for "${query}"`);
+        console.log(`[HEVC Filter: Exclude] Excluded ${items.length - candidateItems.length} HEVC/x265 streams for "${query}"`);
       }
+    } else if (hevcMode === 'prefer') {
+      // Sort HEVC/x265 streams to top of search results
+      candidateItems.sort((a, b) => {
+        const aIsHevc = hevcRegex.test((a.name || a.title || '').toLowerCase());
+        const bIsHevc = hevcRegex.test((b.name || b.title || '').toLowerCase());
+        if (aIsHevc && !bIsHevc) return -1;
+        if (!aIsHevc && bIsHevc) return 1;
+        return 0;
+      });
+      console.log(`[HEVC Filter: Prefer] Prioritized HEVC/x265 streams to top for "${query}"`);
     }
 
     if (!settings.geminiApiKey || candidateItems.length === 0) return candidateItems;
@@ -1961,9 +1979,10 @@ const durationCache = new Map<string, number>();
       const list = candidateItems.map((t, i) => `${i}: ${t.name || t.title}`).join('\n');
       
       let hwFilterInstruction = '';
-      if (isHwDisabled) {
-        hwFilterInstruction = '\n\nCRITICAL HARDWARE CONSTRAINT - STRICT NO HEVC/x265 POLICY: Hardware transcoding is NOT enabled or supported. You MUST strictly filter out and exclude ANY video stream that contains HEVC, x265, H.265, H265, 265, 10-bit, 10bit, 10b, Main10, HDR, HDR10, DV, or Dolby Vision anywhere in the title or release name. Inspect every character of each title carefully. Only allow standard 8-bit H.264 / x264 video streams.';
+      if (hevcMode === 'exclude') {
+        hwFilterInstruction = '\n\nCRITICAL HARDWARE CONSTRAINT - STRICT NO HEVC/x265 POLICY: Admin setting is set to EXCLUDE HEVC. You MUST strictly filter out and exclude ANY video stream that contains HEVC, x265, H.265, H265, 265, 10-bit, 10bit, 10b, Main10, HDR, HDR10, DV, or Dolby Vision anywhere in the title or release name. Only allow standard 8-bit H.264 / x264 video streams.';
       }
+
 
       let animeFilterInstruction = '';
       if (settings.filterAnime === true) {

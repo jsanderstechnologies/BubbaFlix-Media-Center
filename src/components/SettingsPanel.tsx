@@ -63,8 +63,13 @@ export default function SettingsPanel() {
   const [tmdbKey, setTmdbKey] = useState(systemSettings.tmdbKey || '');
   const [torboxApiKey, setTorboxApiKey] = useState(systemSettings.torboxApiKey || '');
   const [geminiApiKey, setGeminiApiKey] = useState(systemSettings.geminiApiKey || '');
-  const [preferHEVC, setPreferHEVC] = useState(systemSettings.preferHEVC === true);
+  const [preferHEVC, setPreferHEVC] = useState(systemSettings.preferHEVC !== false);
+  const [hevcMode, setHevcMode] = useState<'prefer' | 'allow' | 'exclude'>(() => {
+    if (systemSettings.hevcMode) return systemSettings.hevcMode;
+    return systemSettings.preferHEVC === false ? 'exclude' : 'prefer';
+  });
   const [maxResults, setMaxResults] = useState(systemSettings.maxResults || '20');
+
   const [providerType, setProviderType] = useState(() => localStorage.getItem('providerType') || 'm3u');
   const [iptvUrl, setIptvUrl] = useState(systemSettings.iptvUrl || '');
   const [epgUrl, setEpgUrl] = useState(systemSettings.epgUrl || '');
@@ -368,7 +373,9 @@ export default function SettingsPanel() {
       tmdbKey,
       torboxApiKey,
       geminiApiKey,
-      preferHEVC,
+      preferHEVC: hevcMode !== 'exclude',
+      hevcMode,
+
       maxResults,
       iptvUrl: finalIptvUrl,
       epgUrl: finalEpgUrl,
@@ -768,17 +775,36 @@ export default function SettingsPanel() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-white block">Prefer HEVC / H.265</label>
+              <label className="text-sm font-medium text-white block mb-2">HEVC (H.265) Codec & Stream Filtering</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
                 <button
-                  onClick={() => setPreferHEVC(!preferHEVC)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${preferHEVC ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                  type="button"
+                  onClick={() => { setHevcMode('prefer'); setPreferHEVC(true); }}
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${hevcMode === 'prefer' ? 'bg-indigo-600/20 border-indigo-500 text-white' : 'bg-black/20 border-white/10 text-white/60 hover:text-white'}`}
                 >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${preferHEVC ? 'translate-x-6' : 'translate-x-1'}`} />
+                  <span className="font-bold text-xs">🌟 Prioritize HEVC</span>
+                  <span className="text-[10px] opacity-70 mt-1">Sort high-efficiency 4K/HEVC streams to top of results.</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setHevcMode('allow'); setPreferHEVC(true); }}
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${hevcMode === 'allow' ? 'bg-indigo-600/20 border-indigo-500 text-white' : 'bg-black/20 border-white/10 text-white/60 hover:text-white'}`}
+                >
+                  <span className="font-bold text-xs">⚡ Allow All Codecs</span>
+                  <span className="text-[10px] opacity-70 mt-1">Include H.264 & HEVC streams equally.</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setHevcMode('exclude'); setPreferHEVC(false); }}
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${hevcMode === 'exclude' ? 'bg-red-600/20 border-red-500 text-white' : 'bg-black/20 border-white/10 text-white/60 hover:text-white'}`}
+                >
+                  <span className="font-bold text-xs">🚫 Exclude HEVC</span>
+                  <span className="text-[10px] opacity-70 mt-1">Strictly force H.264 only (for older devices).</span>
                 </button>
               </div>
-              <p className="text-xs text-white/80">If enabled, HEVC encoded streams will be prioritized over H.264.</p>
+              <p className="text-xs text-white/80">Configure how TorBox and Usenet stream searches handle HEVC / H.265 video releases.</p>
             </div>
+
 
             <div>
               <label className="block text-sm font-medium text-white mb-2">Max TorBox Stream Results</label>
