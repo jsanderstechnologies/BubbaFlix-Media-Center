@@ -867,7 +867,7 @@ export default function MediaModal({
 
                                   if (stream.isCached) {
                                     if (stream.id !== 0 || (stream.type === 'usenet' && stream.isCached)) {
-                                      triggerPlay(stream.url);
+                                      triggerPlay(stream.url, stream);
                                       return;
                                     }
 
@@ -904,10 +904,11 @@ export default function MediaModal({
                                           const dlUrl = stream.type === 'torrent' 
                                             ? getTorrentRequestDlUrl(existing, apiKey)
                                             : `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${existing.id}&zip_link=false&redirect=true`;
-                                          triggerPlay(dlUrl);
+                                          triggerPlay(dlUrl, stream);
                                           return;
                                         }
                                       }
+
                                     } catch (err) {
                                       console.error("Failed to check active downloads", err);
                                     }
