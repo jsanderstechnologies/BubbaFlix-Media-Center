@@ -97,11 +97,12 @@ export default function MediaModal({
     if (savedProgress && savedProgress.currentTime > 0 && savedProgress.percentage < 95) {
       setResumePromptStream(dlUrl);
     } else {
-      const isHevcMatch = targetStream?.name ? /hevc|x265|h265/i.test(targetStream.name) : false;
+      const isHevcMatch = /hevc|x265|h265|10bit|2160p|4k|hdr|remux/i.test(targetStream?.name || movie?.filePath || movie?.title || movie?.name || '');
       const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode, isHevc: isHevcMatch };
       onPlay(dlUrl, posterOrLogo, 0, context);
     }
   };
+
 
 
   const isSeries = movie?.type === 'series' || !!movie?.first_air_date;

@@ -1806,7 +1806,16 @@ const durationCache = new Map<string, number>();
     const decodedResolvedUrl = decodeURIComponent(resolvedUrl).toLowerCase();
     const isHevcByUrl = /hevc|x265|h265|2160p|4k|10bit|hdr|remux/i.test(decodedTargetUrl) || /hevc|x265|h265|2160p|4k|10bit|hdr|remux/i.test(decodedResolvedUrl);
     const hevcQuery = req.query.hevc;
-    let isHevc = hevcQuery === 'true' ? true : (hevcQuery === 'false' ? false : (isHevcByUrl ? true : null));
+    
+    let isHevc: boolean | null = null;
+    if (isHevcByUrl) {
+      isHevc = true;
+    } else if (hevcQuery === 'true') {
+      isHevc = true;
+    } else if (hevcQuery === 'false') {
+      isHevc = false;
+    }
+
 
     if (isHevc === null) {
       if (codecCache.has(targetUrl)) {
