@@ -101,15 +101,28 @@ const _dirname = _filename ? path.dirname(_filename) : '';
 
 let bestH264Encoder: string | null = null;
 
+function getVaapiDevice(): string | null {
+  if (process.platform === 'win32') return null;
+  if (fs.existsSync('/dev/dri/renderD128')) return '/dev/dri/renderD128';
+  if (fs.existsSync('/dev/dri/card0')) return '/dev/dri/card0';
+  return null;
+}
+
 function detectBestH264Encoder(): string {
   if (bestH264Encoder !== null) return bestH264Encoder;
   try {
     const { execSync } = require('child_process');
-    const encoders = ['h264_qsv', 'h264_vaapi', 'h264_nvenc', 'h264_amf', 'h264_videotoolbox'];
+    const vaapiDev = getVaapiDevice();
+    const encoders = ['h264_vaapi', 'h264_qsv', 'h264_nvenc', 'h264_amf', 'h264_videotoolbox'];
 
     for (const enc of encoders) {
       try {
-        execSync(`"${ffmpegPath}" -f lavfi -i nullsrc=s=1280x720 -c:v ${enc} -t 1 -f null -`, {stdio: 'ignore'});
+        if (enc === 'h264_vaapi') {
+          if (!vaapiDev) continue;
+          execSync(`"${ffmpegPath}" -vaapi_device ${vaapiDev} -f lavfi -i nullsrc=s=1280x720 -vf "format=nv12,hwupload" -c:v h264_vaapi -t 1 -f null -`, { stdio: 'ignore' });
+        } else {
+          execSync(`"${ffmpegPath}" -f lavfi -i nullsrc=s=1280x720 -c:v ${enc} -t 1 -f null -`, { stdio: 'ignore' });
+        }
         bestH264Encoder = enc;
         console.log(`[FFmpeg-Proxy] Hardware encoding support found: ${enc}`);
         return enc;
@@ -122,6 +135,7 @@ function detectBestH264Encoder(): string {
   console.log('[FFmpeg-Proxy] No hardware encoding support found. Falling back to libx264 (CPU).');
   return 'libx264';
 }
+
 
 // Backend Logger Interception
 interface BackendLogEntry {
@@ -1739,7 +1753,15 @@ const durationCache = new Map<string, number>();
 
     const isLive = req.query.live === 'true';
 
+    const bestEncoder = (hwAccel || systemSettings.intelTranscoding) ? detectBestH264Encoder() : 'libx264';
+    const vaapiDev = getVaapiDevice();
+    const useVaapi = (bestEncoder === 'h264_vaapi') && !!vaapiDev;
+
     const args = [];
+    if (useVaapi) {
+      args.push('-vaapi_device', vaapiDev);
+    }
+
     if (!isLive && startOffset && !isNaN(parseFloat(startOffset))) {
       args.push('-noaccurate_seek', '-ss', startOffset);
     }
@@ -1778,11 +1800,8 @@ const durationCache = new Map<string, number>();
       args.push('-map', '0:V:0');
       if (audioTrack && audioTrack !== '0') {
         if (isNaN(parseInt(audioTrack as string, 10))) {
-          // It is a language code like 'eng'
-          // We restrict the map to audio streams (0:a:m:language) to avoid accidentally mapping subtitle tracks which would crash the mp4 muxer
           args.push('-map', `0:a:m:language:${audioTrack}?`, '-map', '0:a:0?');
         } else {
-          // It is a specific numeric index like '1' (meaning 0:a:1)
           args.push('-map', `0:a:${audioTrack}?`);
         }
       } else {
@@ -1790,8 +1809,10 @@ const durationCache = new Map<string, number>();
       }
     }
     
+    const decodedUrl = decodeURIComponent(targetUrl).toLowerCase();
+    const isHevcByUrl = /hevc|x265|h265|2160p|4k|10bit|hdr|remux/i.test(decodedUrl);
     const hevcQuery = req.query.hevc;
-    let isHevc = hevcQuery === 'true' ? true : (hevcQuery === 'false' ? false : null);
+    let isHevc = hevcQuery === 'true' ? true : (hevcQuery === 'false' ? false : (isHevcByUrl ? true : null));
 
     if (isHevc === null) {
       if (codecCache.has(targetUrl)) {
@@ -1799,7 +1820,7 @@ const durationCache = new Map<string, number>();
       } else if (!isLive) {
         try {
           const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(resolvedUrl)}`;
-          const infoRes = await axios.get(infoUrl, { timeout: 15000 });
+          const infoRes = await axios.get(infoUrl, { timeout: 8000 });
           const mediaInfo = infoRes.data;
           const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video' && s.codec_name !== 'mjpeg' && s.codec_name !== 'png' && s.codec_name !== 'bmp');
           if (videoStream && (videoStream.codec_name !== 'h264' || (videoStream.pix_fmt && videoStream.pix_fmt.includes('10')) || (videoStream.width && videoStream.width > 2000))) {
@@ -1813,27 +1834,25 @@ const durationCache = new Map<string, number>();
     }
 
     if (isHevc) {
-      if (hwAccel) {
-        const bestEncoder = detectBestH264Encoder();
-        if (bestEncoder !== 'libx264') {
-          console.log(`[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 using ${bestEncoder} hardware acceleration.`);
-          args.push(
-            '-c:v', bestEncoder,
-            '-preset', 'fast',
-            '-b:v', '5M',
-            '-vf', 'scale=-2:1080'
-          );
-        } else {
-          console.warn('[FFmpeg-Proxy] Hardware acceleration requested but no hardware encoder found. Falling back to software encoding (libx264).');
-          args.push(
-            '-c:v', 'libx264', 
-            '-preset', 'ultrafast', 
-            '-crf', '28', 
-            '-vf', 'scale=-2:1080'
-          );
-        }
+      if (useVaapi) {
+        console.log(`[FFmpeg-Proxy] HEVC/x265 stream detected. Transcoding using Intel VAAPI hardware acceleration (${vaapiDev}).`);
+        args.push(
+          '-vf', 'format=nv12,hwupload,scale_vaapi=w=-2:h=1080',
+          '-c:v', 'h264_vaapi',
+          '-b:v', '5M',
+          '-maxrate', '8M',
+          '-bufsize', '10M'
+        );
+      } else if (bestEncoder !== 'libx264') {
+        console.log(`[FFmpeg-Proxy] HEVC/x265 stream detected. Transcoding to 1080p H.264 using ${bestEncoder} hardware acceleration.`);
+        args.push(
+          '-c:v', bestEncoder,
+          '-preset', 'fast',
+          '-b:v', '5M',
+          '-vf', 'scale=-2:1080'
+        );
       } else {
-        console.log('[FFmpeg-Proxy] Detected HEVC/Dolby Vision. Transcoding to 1080p H.264 for browser compatibility (Software).');
+        console.log('[FFmpeg-Proxy] HEVC/x265 stream detected. Transcoding to 1080p H.264 for browser compatibility (Software).');
         args.push(
           '-c:v', 'libx264', 
           '-preset', 'ultrafast', 
@@ -1844,6 +1863,7 @@ const durationCache = new Map<string, number>();
     } else {
       args.push('-c:v', 'copy');
     }
+
 
     const audioLeveling = req.query.audioLeveling === 'true';
     if (audioLeveling && !isLive) {
