@@ -291,20 +291,27 @@ export default function MediaModal({
           triggerPlay(playUrlToTrigger);
         }
 
+        // Automatically stop polling if no downloads are currently in progress
+        const hasInProgress = streams.some(s => s.isAdding || (s.downloadProgress !== undefined && s.downloadProgress < 100));
+        if (!hasInProgress) {
+          setPollingActive(false);
+        }
       } catch (err) {
         console.error("Error polling TorBox downloads:", err);
       }
     }
 
+
     if (pollingActive && apiKey) {
-      intervalId = setInterval(pollDownloads, 4000);
+      intervalId = setInterval(pollDownloads, 12000);
       pollDownloads(); 
     }
 
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [pollingActive]);
+  }, [pollingActive, streams]);
+
 
   useEffect(() => {
     let isActive = true;
@@ -522,11 +529,13 @@ export default function MediaModal({
                   }
               });
 
+              const hasActive = updatedData.some((s: any) => s.isAdding || (s.downloadProgress !== undefined && s.downloadProgress < 100));
               setStreams(applyFiltersAndSort(updatedData));
               setLoading(false);
-              setPollingActive(true);
+              setPollingActive(hasActive);
           });
         })();
+
 
       }
     }
@@ -760,8 +769,10 @@ export default function MediaModal({
         if (!isActive) return;
         setStreams(filteredData);
 
+        const hasActive = filteredData.some((s: any) => s.isAdding || (s.downloadProgress !== undefined && s.downloadProgress < 100));
         setLoading(false);
-        setPollingActive(true);
+        setPollingActive(hasActive);
+
 
         if (user && movie) {
             const q = query(collection(db, 'favorites'), where('userId', '==', user.uid), where('tmdbId', '==', movie.id));
