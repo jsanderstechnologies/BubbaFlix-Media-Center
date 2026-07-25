@@ -1212,24 +1212,42 @@ async function startServer() {
   // OpenSubtitles Stremio Addon Integration
   app.get("/api/opensubtitles/search", async (req, res) => {
     const tmdbId = req.query.tmdb_id;
-    const type = req.query.type; // 'movie' or 'tv'
+    const type = (req.query.type as string) || 'movie'; // 'movie' or 'tv'
     const season = req.query.season;
     const episode = req.query.episode;
+    const titleQuery = req.query.title as string;
 
-    if (!tmdbId || !type) {
-      return res.status(400).json({ error: "tmdb_id and type are required" });
+    if (!tmdbId && !titleQuery) {
+      return res.status(400).json({ error: "tmdb_id or title is required" });
     }
 
     try {
       const settings = readJson(SETTINGS_FILE);
-      if (!settings.tmdbKey) {
-        return res.status(400).json({ error: "TMDB API key not configured" });
+      const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
+
+      let resolvedTmdbId = tmdbId;
+
+      // If tmdb_id is local or non-numeric, resolve real TMDB ID by searching title
+      if (typeof tmdbId === 'string' && (tmdbId.startsWith('local_') || isNaN(Number(tmdbId)))) {
+        resolvedTmdbId = null;
+        const qTitle = titleQuery || tmdbId.replace(/^local_lib_/, '');
+        if (qTitle) {
+          const cleanTitle = qTitle.replace(/\(.*?\)/g, '').replace(/[\._]/g, ' ').trim();
+          const searchRes = await axios.get(`https://api.themoviedb.org/3/search/${type}?api_key=${apiKey}&query=${encodeURIComponent(cleanTitle)}`, { timeout: 4000 }).catch(() => null);
+          if (searchRes?.data?.results?.[0]?.id) {
+            resolvedTmdbId = searchRes.data.results[0].id;
+          }
+        }
+      }
+
+      if (!resolvedTmdbId) {
+        return res.json({ subtitles: [] });
       }
 
       // Step 1: Resolve TMDB ID to IMDB ID
-      const tmdbUrl = `https://api.themoviedb.org/3/${type}/${tmdbId}/external_ids?api_key=${settings.tmdbKey}`;
-      const tmdbRes = await axios.get(tmdbUrl);
-      const imdbId = tmdbRes.data?.imdb_id;
+      const tmdbUrl = `https://api.themoviedb.org/3/${type}/${resolvedTmdbId}/external_ids?api_key=${apiKey}`;
+      const tmdbRes = await axios.get(tmdbUrl, { timeout: 4000 }).catch(() => null);
+      const imdbId = tmdbRes?.data?.imdb_id;
 
       if (!imdbId) {
         return res.json({ subtitles: [] });
@@ -1241,15 +1259,16 @@ async function startServer() {
         stremioUrl = `https://opensubtitles-v3.strem.io/subtitles/series/${imdbId}:${season}:${episode}.json`;
       }
 
-      const osRes = await axios.get(stremioUrl);
-      const subtitles = osRes.data?.subtitles || [];
+      const osRes = await axios.get(stremioUrl, { timeout: 5000 }).catch(() => null);
+      const subtitles = osRes?.data?.subtitles || [];
       
       res.json({ subtitles });
     } catch (err: any) {
       console.error('[OpenSubtitles Search Error]', err.message);
-      res.status(500).json({ error: "Failed to search subtitles" });
+      res.json({ subtitles: [] });
     }
   });
+
 
   app.get("/api/opensubtitles/download", async (req, res) => {
     const targetUrl = req.query.url;

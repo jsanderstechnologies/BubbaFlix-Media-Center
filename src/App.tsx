@@ -318,6 +318,9 @@ function MainApp() {
           
         if (playingContext?.id) {
           let osUrl = `/api/opensubtitles/search?tmdb_id=${playingContext.id}&type=${playingContext.type}`;
+          if (selectedMovie?.title || selectedMovie?.name) {
+            osUrl += `&title=${encodeURIComponent(selectedMovie.title || selectedMovie.name)}`;
+          }
           if (playingContext.type === 'tv') {
             osUrl += `&season=${playingContext.season}&episode=${playingContext.episode}`;
           }
@@ -329,6 +332,7 @@ function MainApp() {
               if (e.name !== 'AbortError') console.error("OpenSubtitles fetch error:", e);
             });
         }
+
       }
 
       return () => {
