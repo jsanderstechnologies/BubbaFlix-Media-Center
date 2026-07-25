@@ -1627,17 +1627,11 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     }
 
+    const start = req.query.start ? parseFloat(req.query.start as string) : 0;
+    const delay = req.query.delay ? parseFloat(req.query.delay as string) : 0;
+
     const args: string[] = [];
-    if (isLocalFile) {
-      args.push(
-        '-v', 'error',
-        '-i', localFilePath,
-        '-map', `0:s:${track}`,
-        '-c:s', 'webvtt',
-        '-f', 'webvtt',
-        'pipe:1'
-      );
-    } else {
+    if (!isLocalFile) {
       args.push(
         '-reconnect', '1',
         '-reconnect_at_eof', '1',
@@ -1646,15 +1640,27 @@ app.get('/api/youtube/search', async (req, res) => {
         '-reconnect_on_http_error', '4xx,5xx',
         '-reconnect_delay_max', '60',
         '-multiple_requests', '1',
-        '-v', 'error',
-        '-user_agent', 'Mozilla/5.0',
-        '-i', resolvedUrl,
-        '-map', `0:s:${track}`,
-        '-c:s', 'webvtt',
-        '-f', 'webvtt',
-        'pipe:1'
+        '-user_agent', 'Mozilla/5.0'
       );
     }
+    
+    args.push('-v', 'error');
+
+    if (start > 0) {
+      args.push('-ss', start.toString());
+    }
+    if (delay !== 0) {
+      args.push('-itsoffset', delay.toString());
+    }
+
+    args.push(
+      '-i', isLocalFile ? localFilePath : resolvedUrl,
+      '-map', `0:s:${track}`,
+      '-c:s', 'webvtt',
+      '-f', 'webvtt',
+      'pipe:1'
+    );
+
     
     const ffmpegProcess = spawn(ffmpegPath, args, { env: getFfmpegEnv() });
     ffmpegProcess.stdout.pipe(res);

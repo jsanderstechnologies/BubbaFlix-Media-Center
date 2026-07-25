@@ -54,7 +54,9 @@ function MainApp() {
   const [selectedAudioTrack, setSelectedAudioTrack] = useState<number>(0);
   const [selectedSubtitleTrack, setSelectedSubtitleTrack] = useState<string | number | null>(null);
   const [selectedSubtitleIsOS, setSelectedSubtitleIsOS] = useState<boolean>(false);
+  const [subtitleOffset, setSubtitleOffset] = useState<number>(0);
   const [showMediaInfo, setShowMediaInfo] = useState(false);
+
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [totalDuration, setTotalDuration] = useState<number>(0);
@@ -508,7 +510,7 @@ function MainApp() {
             <>
               {selectedSubtitleTrack !== null ? (
                 <video 
-                  key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}`}
+                  key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}-${selectedSubtitleTrack}-${subtitleOffset}`}
                   ref={videoRef}
                   src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&hevc=${playingContext?.isHevc === true}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}&live=${playingContext?.isLive ? 'true' : 'false'}`}
                   autoPlay
@@ -546,11 +548,12 @@ function MainApp() {
                 >
                   <track 
                     kind="subtitles" 
-                    src={selectedSubtitleIsOS ? `/api/opensubtitles/download?url=${encodeURIComponent(selectedSubtitleTrack as string)}` : `/api/transcode/subtitle.vtt?url=${encodeURIComponent(playingUrl)}&track=${selectedSubtitleTrack}`} 
+                    src={selectedSubtitleIsOS ? `/api/opensubtitles/download?url=${encodeURIComponent(selectedSubtitleTrack as string)}&start=${streamOffset}&delay=${subtitleOffset}` : `/api/transcode/subtitle.vtt?url=${encodeURIComponent(playingUrl)}&track=${selectedSubtitleTrack}&start=${streamOffset}&delay=${subtitleOffset}`} 
                     srcLang="en" 
                     default 
                   />
                 </video>
+
               ) : (
                 <video 
                   key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}`}
@@ -736,8 +739,31 @@ function MainApp() {
                                   ))}
                                 </>
                               )}
+
+                              {/* Subtitle Sync Offset Controls */}
+                              {selectedSubtitleTrack !== null && (
+                                <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-white/20">
+                                  <div className="flex justify-between items-center text-xs text-white/60 font-medium">
+                                    <span>Sync Offset</span>
+                                    <span className="font-mono text-red-400 font-bold">{subtitleOffset > 0 ? `+${subtitleOffset}s` : `${subtitleOffset}s`}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    {[-3, -2, -1, 0, 1, 2, 3].map((sec) => (
+                                      <button
+                                        key={sec}
+                                        tabIndex={0}
+                                        onClick={() => setSubtitleOffset(sec)}
+                                        className={`focusable flex-1 py-1 text-[11px] rounded font-semibold transition-all ${subtitleOffset === sec ? 'bg-red-600 text-white shadow-md' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
+                                      >
+                                        {sec > 0 ? `+${sec}` : sec}s
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </>
                           )}
+
 
                       </div>
                     )}
