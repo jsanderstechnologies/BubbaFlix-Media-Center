@@ -483,6 +483,7 @@ function MainApp() {
                     <button onClick={() => setShowMediaInfo(false)} className="focusable text-white/40 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"><X className="w-5 h-5"/></button>
                   </div>
                   <div className="flex flex-col gap-3 text-sm">
+                    <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Transcoder</span> <span className="text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-xs font-bold">{mediaInfo.activeTranscoder || (playingContext?.isHevc ? (systemSettings.intelTranscoding ? 'Intel VAAPI (GPU)' : 'FFmpeg (CPU)') : 'Direct Stream Pass-through')}</span></div>
                     <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Container</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{(mediaInfo.format?.format_name || '').split(',')[0].toUpperCase()}</span></div>
                     <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Bitrate</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{Math.round((mediaInfo.format?.bit_rate || 0)/1000)} kbps</span></div>
                     {mediaInfo.streams?.filter((s: any) => s.codec_type === 'video')[0] && (
@@ -491,6 +492,7 @@ function MainApp() {
                         <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Resolution</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.find((s: any) => s.codec_type === 'video').width}x{mediaInfo.streams.find((s: any) => s.codec_type === 'video').height}</span></div>
                       </>
                     )}
+
                     {mediaInfo.streams?.filter((s: any) => s.codec_type === 'audio').length > 0 && (
                       <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Audio Tracks</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.filter((s: any) => s.codec_type === 'audio').length}</span></div>
                     )}

@@ -1213,7 +1213,23 @@ async function startServer() {
     ffprobeProcess.on('close', (code) => {
       if (code === 0 && output.trim()) {
         try {
-          res.json(JSON.parse(output.trim()));
+          const parsed = JSON.parse(output.trim());
+          const settings = readJson(SETTINGS_FILE);
+          const bestEncoder = (settings.intelTranscoding || settings.intelTranscoding === undefined) ? detectBestH264Encoder() : 'libx264';
+          const videoStream = parsed.streams?.find((s: any) => s.codec_type === 'video' && s.codec_name !== 'mjpeg' && s.codec_name !== 'png');
+          const isHevcOr4K = videoStream && (videoStream.codec_name === 'hevc' || videoStream.codec_name === 'h265' || (videoStream.width && videoStream.width > 2000) || (videoStream.pix_fmt && videoStream.pix_fmt.includes('10')));
+          
+          let transcoderName = 'Direct Stream (Native Pass-through)';
+          if (isHevcOr4K) {
+            if (bestEncoder === 'h264_vaapi') transcoderName = 'Intel VAAPI (h264_vaapi - GPU)';
+            else if (bestEncoder === 'h264_qsv') transcoderName = 'Intel QuickSync (h264_qsv - GPU)';
+            else if (bestEncoder === 'h264_nvenc') transcoderName = 'NVIDIA NVENC (h264_nvenc - GPU)';
+            else if (bestEncoder === 'h264_amf') transcoderName = 'AMD AMF (h264_amf - GPU)';
+            else if (bestEncoder === 'h264_videotoolbox') transcoderName = 'Apple VideoToolbox (GPU)';
+            else transcoderName = 'FFmpeg Software (libx264 - CPU)';
+          }
+          parsed.activeTranscoder = transcoderName;
+          res.json(parsed);
         } catch (e) {
           res.status(500).json({ error: "Failed to parse info" });
         }
@@ -1222,6 +1238,7 @@ async function startServer() {
       }
     });
   });
+
 
   // OpenSubtitles Stremio Addon Integration
   app.get("/api/opensubtitles/search", async (req, res) => {
