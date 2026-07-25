@@ -2902,89 +2902,6 @@ http://example.com/stream2.m3u8`;
     return { title: clean || rawName, year };
   };
 
-  // Helper to find Emby / Jellyfin / Kodi local poster image and metadata .nfo inside media folder
-  const getEmbyJellyfinMetadata = (folderPath: string, primaryFile: string) => {
-    let localPoster = '';
-    let localOverview = '';
-    let localRating = '';
-    let localYear = '';
-    let localTitle = '';
-
-    const possibleDirs = [folderPath, path.dirname(primaryFile)];
-    const imageNames = [
-      'poster.jpg', 'poster.png', 'poster.jpeg', 'poster.webp',
-      'folder.jpg', 'folder.png', 'folder.jpeg', 'folder.webp',
-      'cover.jpg', 'cover.png', 'cover.jpeg', 'cover.webp',
-      'landscape.jpg', 'fanart.jpg'
-    ];
-
-    // 1. Search for Emby / Jellyfin poster image file
-    for (const dir of possibleDirs) {
-      if (!dir || !fs.existsSync(dir)) continue;
-      try {
-        const stat = fs.statSync(dir);
-        const actualDir = stat.isDirectory() ? dir : path.dirname(dir);
-        
-        for (const imgName of imageNames) {
-          const imgPath = path.join(actualDir, imgName);
-          if (fs.existsSync(imgPath)) {
-            localPoster = `/api/local-media/stream?path=${encodeURIComponent(imgPath)}`;
-            break;
-          }
-        }
-
-        // Also check if image has same basename as video file (e.g. "Inception (2010)-poster.jpg" or "Inception (2010).jpg")
-        if (!localPoster && primaryFile) {
-          const fileBase = path.basename(primaryFile, path.extname(primaryFile));
-          const customImgNames = [`${fileBase}-poster.jpg`, `${fileBase}-poster.png`, `${fileBase}.jpg`, `${fileBase}.png` ];
-          for (const imgName of customImgNames) {
-            const imgPath = path.join(actualDir, imgName);
-            if (fs.existsSync(imgPath)) {
-              localPoster = `/api/local-media/stream?path=${encodeURIComponent(imgPath)}`;
-              break;
-            }
-          }
-        }
-      } catch (e) {}
-
-      if (localPoster) break;
-    }
-
-    // 2. Search for Emby / Jellyfin NFO metadata file
-    for (const dir of possibleDirs) {
-      if (!dir || !fs.existsSync(dir)) continue;
-      try {
-        const stat = fs.statSync(dir);
-        const actualDir = stat.isDirectory() ? dir : path.dirname(dir);
-        const files = fs.readdirSync(actualDir);
-        const nfoFile = files.find(f => f.toLowerCase().endsWith('.nfo'));
-        if (nfoFile) {
-          const nfoContent = fs.readFileSync(path.join(actualDir, nfoFile), 'utf-8');
-          
-          const plotMatch = nfoContent.match(/<plot>([\s\S]*?)<\/plot>/i) || nfoContent.match(/<outline>([\s\S]*?)<\/outline>/i);
-          if (plotMatch) localOverview = plotMatch[1].replace(/<!\[CDATA\[/g, '').replace(/\]\]>/g, '').trim();
-
-          const ratingMatch = nfoContent.match(/<rating>([\s\S]*?)<\/rating>/i);
-          if (ratingMatch) {
-            const rawRat = ratingMatch[1].trim();
-            const parsedRat = parseFloat(rawRat);
-            if (!isNaN(parsedRat)) localRating = parsedRat.toFixed(1);
-          }
-
-          const yearMatch = nfoContent.match(/<year>(\d{4})<\/year>/i) || nfoContent.match(/<premiered>(\d{4})/i);
-          if (yearMatch) localYear = yearMatch[1];
-
-          const titleMatch = nfoContent.match(/<title>([\s\S]*?)<\/title>/i);
-          if (titleMatch) localTitle = titleMatch[1].replace(/<!\[CDATA\[/g, '').replace(/\]\]>/g, '').trim();
-        }
-      } catch (e) {}
-
-      if (localOverview || localRating || localYear) break;
-    }
-
-    return { localPoster, localOverview, localRating, localYear, localTitle };
-  };
-
   const isGenericSubfolder = (name: string) => {
     const n = name.toLowerCase().trim();
     return /^season\s*\d+/i.test(n) ||
@@ -3072,18 +2989,16 @@ http://example.com/stream2.m3u8`;
 
           const primaryFile = group.files[0];
           const fileId = `local_lib_${Buffer.from(primaryFile).toString('hex').substring(0, 16)}`;
-          const { localPoster, localOverview, localRating, localYear, localTitle } = getEmbyJellyfinMetadata(group.folderPath, primaryFile);
 
           items.push({
             id: fileId,
             tmdbId: fileId,
-            title: localTitle || group.title,
-            name: localTitle || group.title,
-            year: group.year || localYear || 'Local',
-            poster: '', // Priority TMDB poster URL will populate below
-            backupPoster: localPoster || '',
-            overview: localOverview || `Local Shared Folder (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
-            rating: localRating || 'SHARE',
+            title: group.title,
+            name: group.title,
+            year: group.year || 'Local',
+            poster: '',
+            overview: `Local Shared Folder (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
+            rating: 'SHARE',
             type: group.mediaType,
             isNetworkShare: true,
             streamUrl: `/api/local-media/stream?path=${encodeURIComponent(primaryFile)}`,
@@ -3098,7 +3013,7 @@ http://example.com/stream2.m3u8`;
       }
     }
 
-    // Fast TMDB Poster & Metadata Enrichment (TMDB First, Backup Local Poster)
+    // Direct TMDB Poster & Metadata Fetching
     const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
     if (apiKey && items.length > 0) {
       const batchSize = 25;
@@ -3114,16 +3029,14 @@ http://example.com/stream2.m3u8`;
               if (first.poster_path) {
                 item.poster = `https://image.tmdb.org/t/p/w500${first.poster_path}`;
               }
-              if ((item.rating === 'SHARE' || !item.rating) && first.vote_average) {
+              if (first.vote_average) {
                 item.rating = first.vote_average.toFixed(1);
               }
-              if ((item.overview.startsWith('Local Shared Folder') || !item.overview) && first.overview) {
+              if (first.overview) {
                 item.overview = first.overview;
               }
-              if (!item.year || item.year === 'Local') {
-                const releaseDate = first.release_date || first.first_air_date;
-                if (releaseDate) item.year = releaseDate.split('-')[0];
-              }
+              const releaseDate = first.release_date || first.first_air_date;
+              if (releaseDate) item.year = releaseDate.split('-')[0];
               item.realTmdbId = first.id;
             }
           } catch (e) {}
@@ -3132,17 +3045,11 @@ http://example.com/stream2.m3u8`;
       }
     }
 
-    // Fill poster with backupPoster if TMDB returned no poster
-    for (const item of items) {
-      if (!item.poster) {
-        item.poster = item.backupPoster || '';
-      }
-    }
-
     writeJson(SCANNED_LIBRARY_FILE, items);
     console.log(`[Persistent Library] Saved ${items.length} media items to disk at "${SCANNED_LIBRARY_FILE}".`);
     return items;
   };
+
 
 
 
