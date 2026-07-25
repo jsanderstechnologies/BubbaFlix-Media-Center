@@ -448,10 +448,25 @@ function MainApp() {
                 <ArrowLeft className="w-6 h-6" />
               </button>
               {logoUrl ? (
-                <img src={logoUrl} alt="Logo" className="h-28 object-contain filter drop-shadow-2xl" />
+                <img 
+                  src={logoUrl} 
+                  alt="Logo" 
+                  className="h-28 object-contain filter drop-shadow-2xl" 
+                  onError={() => {
+                    if (selectedMovie?.poster && logoUrl !== selectedMovie.poster) {
+                      setLogoUrl(selectedMovie.poster);
+                    } else {
+                      setLogoUrl('');
+                    }
+                  }}
+                />
               ) : selectedMovie ? (
-                <h1 className="text-white text-xl font-bold tracking-wide drop-shadow-md">{selectedMovie.title || selectedMovie.name}</h1>
+                <div className="flex flex-col">
+                  <h1 className="text-white text-2xl font-black tracking-wide drop-shadow-md">{selectedMovie.title || selectedMovie.name}</h1>
+                  {selectedMovie.year && <span className="text-xs text-white/70 font-semibold">{selectedMovie.year} • Local Media File</span>}
+                </div>
               ) : null}
+
             </div>
               {showMediaInfo && mediaInfo && (
                 <div className="absolute top-24 right-10 bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl p-6 min-w-72 shadow-2xl z-[120] pointer-events-auto transform transition-all animate-in fade-in zoom-in-95 duration-200">

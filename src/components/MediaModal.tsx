@@ -89,18 +89,20 @@ export default function MediaModal({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const triggerPlay = (dlUrl: string) => {
+  const triggerPlay = (dlUrl: string, targetStream?: any) => {
     if (!isFavorite) {
       toggleFavorite();
     }
+    const posterOrLogo = movie?.poster || movie?.backupPoster || undefined;
     if (savedProgress && savedProgress.currentTime > 0 && savedProgress.percentage < 95) {
       setResumePromptStream(dlUrl);
     } else {
-      const isHevcMatch = typeof stream !== 'undefined' && stream.name ? /hevc|x265|h265/i.test(stream.name) : false;
+      const isHevcMatch = targetStream?.name ? /hevc|x265|h265/i.test(targetStream.name) : false;
       const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode, isHevc: isHevcMatch };
-      onPlay(dlUrl, undefined, 0, context);
+      onPlay(dlUrl, posterOrLogo, 0, context);
     }
   };
+
 
   const isSeries = movie?.type === 'series' || !!movie?.first_air_date;
 
