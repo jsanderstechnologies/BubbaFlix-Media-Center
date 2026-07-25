@@ -1110,9 +1110,23 @@ async function startServer() {
 
     console.log(`[FFprobe-Proxy] Probing media info for: ${targetUrl}`);
 
-    // Resolve TorBox requestdl redirects before probing
     let probeUrl = targetUrl;
-    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+    let isLocalFile = false;
+    let localFilePath = '';
+
+    if (targetUrl.startsWith('/') || targetUrl.includes('/api/local-media/stream')) {
+      try {
+        const u = new URL(targetUrl, 'http://127.0.0.1:5150');
+        const pParam = u.searchParams.get('path');
+        if (pParam && fs.existsSync(pParam)) {
+          localFilePath = pParam;
+          isLocalFile = true;
+        }
+      } catch (e) {}
+    }
+
+    // Resolve TorBox requestdl redirects before probing
+    if (!isLocalFile && targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
       try {
         const redirectRes = await axios({
           method: 'get', url: targetUrl, maxRedirects: 0,
@@ -1131,37 +1145,43 @@ async function startServer() {
       }
     }
 
-    const originalHost = new URL(probeUrl).hostname;
-    const ipUrl = probeUrl;
-
-    const args = [
-      '-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
-      '-user_agent', 'Mozilla/5.0'
-    ];
-    
-    if (ipUrl.startsWith('https')) {
-      args.push('-tls_verify', '0');
+    const args: string[] = [];
+    if (isLocalFile) {
+      args.push(
+        '-v', 'error',
+        '-print_format', 'json',
+        '-show_streams',
+        '-show_format',
+        '-i', localFilePath
+      );
+    } else {
+      const originalHost = new URL(probeUrl, 'http://127.0.0.1:5150').hostname;
+      args.push(
+        '-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
+        '-user_agent', 'Mozilla/5.0'
+      );
+      if (probeUrl.startsWith('https')) {
+        args.push('-tls_verify', '0');
+      }
+      args.push(
+        '-reconnect', '1',
+        '-reconnect_at_eof', '1',
+        '-reconnect_streamed', '1',
+        '-reconnect_on_network_error', '1',
+        '-reconnect_on_http_error', '4xx,5xx',
+        '-reconnect_delay_max', '60',
+        '-multiple_requests', '1',
+        '-headers', `Host: ${originalHost}\r\n`,
+        '-v', 'error',
+        '-print_format', 'json',
+        '-show_streams',
+        '-show_format',
+        '-analyzeduration', '5000000',
+        '-probesize', '5000000',
+        '-i', probeUrl
+      );
     }
-    
-    args.push(
-      '-reconnect', '1',
-      '-reconnect_at_eof', '1',
-      '-reconnect_streamed', '1',
-      '-reconnect_on_network_error', '1',
-      '-reconnect_on_http_error', '4xx,5xx',
 
-
-      '-reconnect_delay_max', '60',
-      '-multiple_requests', '1',
-      '-headers', `Host: ${originalHost}\r\n`,
-      '-v', 'error',
-      '-print_format', 'json',
-      '-show_streams',
-      '-show_format',
-      '-analyzeduration', '5000000',
-      '-probesize', '5000000',
-      '-i', ipUrl
-    );
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args, { env: getFfmpegEnv() });
     let output = '';
@@ -1447,13 +1467,28 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     console.log(`[FFprobe-Proxy] Getting duration for: ${targetUrl}`);
-  if (durationCache.has(targetUrl)) {
-    console.log(`[FFprobe-Proxy] Using cached duration: ${durationCache.get(targetUrl)}`);
-    return res.json({ duration: durationCache.get(targetUrl) });
-  }
+    if (durationCache.has(targetUrl)) {
+      console.log(`[FFprobe-Proxy] Using cached duration: ${durationCache.get(targetUrl)}`);
+      return res.json({ duration: durationCache.get(targetUrl) });
+    }
 
     let resolvedUrl = targetUrl;
-    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+    let isLocalFile = false;
+    let localFilePath = '';
+
+    if (targetUrl.startsWith('/') || targetUrl.includes('/api/local-media/stream')) {
+      try {
+        const u = new URL(targetUrl, 'http://127.0.0.1:5150');
+        const pParam = u.searchParams.get('path');
+        if (pParam && fs.existsSync(pParam)) {
+          localFilePath = pParam;
+          isLocalFile = true;
+        }
+      } catch (e) {}
+    }
+
+    // Resolve TorBox requestdl redirects before probing
+    if (!isLocalFile && targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
       try {
         const redirectRes = await axios({
           method: 'get', url: targetUrl, maxRedirects: 0,
@@ -1472,36 +1507,41 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     }
 
-    const originalHost = new URL(resolvedUrl).hostname;
-    const ipUrl = resolvedUrl;
-
-    const args = [
-      '-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
-      '-user_agent', 'Mozilla/5.0'
-    ];
-    
-    if (ipUrl.startsWith('https')) {
-      args.push('-tls_verify', '0');
+    const args: string[] = [];
+    if (isLocalFile) {
+      args.push(
+        '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        '-i', localFilePath
+      );
+    } else {
+      const originalHost = new URL(resolvedUrl, 'http://127.0.0.1:5150').hostname;
+      args.push(
+        '-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
+        '-user_agent', 'Mozilla/5.0'
+      );
+      if (resolvedUrl.startsWith('https')) {
+        args.push('-tls_verify', '0');
+      }
+      args.push(
+        '-reconnect', '1',
+        '-reconnect_at_eof', '1',
+        '-reconnect_streamed', '1',
+        '-reconnect_on_network_error', '1',
+        '-reconnect_on_http_error', '4xx,5xx',
+        '-reconnect_delay_max', '60',
+        '-multiple_requests', '1',
+        '-headers', `Host: ${originalHost}\r\n`,
+        '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        '-analyzeduration', '5000000',
+        '-probesize', '5000000',
+        '-i', resolvedUrl
+      );
     }
-    
-    args.push(
-      '-reconnect', '1',
-      '-reconnect_at_eof', '1',
-      '-reconnect_streamed', '1',
-      '-reconnect_on_network_error', '1',
-      '-reconnect_on_http_error', '4xx,5xx',
 
-
-      '-reconnect_delay_max', '60',
-      '-multiple_requests', '1',
-      '-headers', `Host: ${originalHost}\r\n`,
-      '-v', 'error',
-      '-show_entries', 'format=duration',
-      '-of', 'default=noprint_wrappers=1:nokey=1',
-      '-analyzeduration', '5000000',
-      '-probesize', '5000000',
-      '-i', ipUrl
-    );
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args, { env: getFfmpegEnv() });
     let output = '';
