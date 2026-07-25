@@ -66,8 +66,17 @@ export default function SettingsPanel() {
   const [preferHEVC, setPreferHEVC] = useState(systemSettings.preferHEVC !== false);
   const [hevcMode, setHevcMode] = useState<'prefer' | 'allow' | 'exclude'>(() => {
     if (systemSettings.hevcMode) return systemSettings.hevcMode;
+    const local = localStorage.getItem('hevcMode') as any;
+    if (local) return local;
     return systemSettings.preferHEVC === false ? 'exclude' : 'prefer';
   });
+
+  useEffect(() => {
+    if (systemSettings.hevcMode) {
+      setHevcMode(systemSettings.hevcMode);
+    }
+  }, [systemSettings.hevcMode]);
+
   const [maxResults, setMaxResults] = useState(systemSettings.maxResults || '20');
 
   const [providerType, setProviderType] = useState(() => localStorage.getItem('providerType') || 'm3u');

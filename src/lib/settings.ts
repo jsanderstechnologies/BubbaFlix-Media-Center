@@ -5,6 +5,7 @@ export interface SystemSettings {
   torboxApiKey?: string;
   geminiApiKey?: string;
   preferHEVC?: boolean;
+  hevcMode?: 'prefer' | 'allow' | 'exclude';
   maxResults?: string;
   streamBufferSeconds?: string;
   iptvUrl?: string;
@@ -66,6 +67,7 @@ function syncSystemSettingsToLocalStorage(data: SystemSettings) {
   if (data.geminiApiKey) localStorage.setItem('geminiApiKey', data.geminiApiKey);
   else localStorage.removeItem('geminiApiKey');
 
+  if (data.hevcMode) localStorage.setItem('hevcMode', data.hevcMode);
   if (data.preferredLanguage) localStorage.setItem('preferredLanguage', data.preferredLanguage);
   if (data.filterAnime !== undefined) localStorage.setItem('filterAnime', data.filterAnime ? 'true' : 'false');
 
@@ -73,6 +75,7 @@ function syncSystemSettingsToLocalStorage(data: SystemSettings) {
   localStorage.setItem('enableTorrentSearch', data.enableTorrentSearch !== false ? 'true' : 'false');
   if (data.mediaFolders) localStorage.setItem('mediaFolders', JSON.stringify(data.mediaFolders));
 }
+
 
 
 function syncUserSettingsToLocalStorage(data: UserSettings) {

@@ -635,7 +635,8 @@ async function startServer() {
       tmdbKey: settings.tmdbKey || '',
       torboxApiKey: settings.torboxApiKey || '',
       geminiApiKey: settings.geminiApiKey || '',
-      preferHEVC: settings.preferHEVC ?? null,
+      preferHEVC: settings.preferHEVC !== false,
+      hevcMode: settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer'),
       maxResults: settings.maxResults || null,
       streamBufferSeconds: settings.streamBufferSeconds || null,
       iptvUrl: settings.iptvUrl || '',
@@ -655,6 +656,7 @@ async function startServer() {
       mediaFolders: settings.mediaFolders || []
     });
   });
+
 
 
   // /api/auth/register  — no password required; admin will approve and email credentials
