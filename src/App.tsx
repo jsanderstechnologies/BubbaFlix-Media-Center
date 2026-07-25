@@ -74,26 +74,37 @@ function MainApp() {
     SpatialNavigation.makeFocusable();
     SpatialNavigation.focus();
     
+    let isUsingKeyboard = false;
+    const handleKeyDown = () => { isUsingKeyboard = true; };
+    const handleMouseDown = () => { isUsingKeyboard = false; };
+
     const handleGlobalFocus = (e: FocusEvent) => {
+      // Only scroll into view if navigation is coming from keyboard/remote D-pad!
+      // Prevent screen jumping and missed clicks when clicking with mouse/pointer!
+      if (!isUsingKeyboard) return;
+
       const target = e.target as HTMLElement;
-      // Skip if it's not a valid element or if it's the main app container
       if (target && target.scrollIntoView && target.tagName !== 'VIDEO' && target.id !== 'root') {
         try {
-          target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+          target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
         } catch (err) {
-          // Fallback for older TV browsers (like Silk) that don't support the options object
           target.scrollIntoView();
         }
       }
     };
     
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('mousedown', handleMouseDown, true);
     window.addEventListener('focus', handleGlobalFocus, true);
 
     return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('mousedown', handleMouseDown, true);
       window.removeEventListener('focus', handleGlobalFocus, true);
       SpatialNavigation.uninit();
     };
   }, []);
+
   const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
   const videoRef = useRef<HTMLVideoElement>(null);
 
