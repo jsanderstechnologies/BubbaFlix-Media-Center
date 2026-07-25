@@ -168,23 +168,47 @@ function MainApp() {
   }, [isPlaying]);
 
   useEffect(() => {
-    if (isPlaying && selectedMovie?.id) {
+    if (isPlaying && selectedMovie) {
       const type = (selectedMovie.type === 'series' || !!selectedMovie.first_air_date) ? 'tv' : 'movie';
-      const url = `https://api.themoviedb.org/3/${type}/${selectedMovie.id}/images?api_key=b4d4dfa06829b83e3a8b08fc89372a9d&include_image_language=en,null`;
-      fetch(url)
-        .then(res => res.json())
-        .then(data => {
-          const logo = data.logos?.find((l: any) => l.iso_639_1 === 'en') || data.logos?.[0];
-          if (logo) {
-            setLogoUrl(`https://image.tmdb.org/t/p/w500${logo.file_path}`);
-          } else {
-            setLogoUrl('');
-          }
-        }).catch((e) => { console.error('Logo fetch error:', e); setLogoUrl(''); });
-    } else if (!isPlaying || activeTab !== 'tv') {
+      const realId = selectedMovie.realTmdbId || (typeof selectedMovie.id === 'number' || (!isNaN(Number(selectedMovie.id)) && !String(selectedMovie.id).startsWith('local_')) ? selectedMovie.id : null);
+
+      const fetchLogoForId = (tmdbId: any) => {
+        const url = `https://api.themoviedb.org/3/${type}/${tmdbId}/images?api_key=b4d4dfa06829b83e3a8b08fc89372a9d&include_image_language=en,null`;
+        fetch(url)
+          .then(res => res.json())
+          .then(data => {
+            const logo = data.logos?.find((l: any) => l.iso_639_1 === 'en') || data.logos?.[0];
+            if (logo) {
+              setLogoUrl(`https://image.tmdb.org/t/p/w500${logo.file_path}`);
+            } else {
+              setLogoUrl(selectedMovie.poster || selectedMovie.backupPoster || '');
+            }
+          }).catch(() => { setLogoUrl(selectedMovie.poster || selectedMovie.backupPoster || ''); });
+      };
+
+      if (realId) {
+        fetchLogoForId(realId);
+      } else if (selectedMovie.title || selectedMovie.name) {
+        // Resolve numeric TMDB ID by searching title for local items
+        const cleanTitle = (selectedMovie.title || selectedMovie.name).replace(/\(.*?\)/g, '').trim();
+        fetch(`https://api.themoviedb.org/3/search/${type}?api_key=b4d4dfa06829b83e3a8b08fc89372a9d&query=${encodeURIComponent(cleanTitle)}`)
+          .then(res => res.json())
+          .then(data => {
+            const tmdbMatch = data.results?.[0];
+            if (tmdbMatch?.id) {
+              fetchLogoForId(tmdbMatch.id);
+            } else {
+              setLogoUrl(selectedMovie.poster || selectedMovie.backupPoster || '');
+            }
+          }).catch(() => setLogoUrl(selectedMovie.poster || selectedMovie.backupPoster || ''));
+      } else {
+        setLogoUrl(selectedMovie.poster || selectedMovie.backupPoster || '');
+      }
+    } else {
       setLogoUrl('');
     }
-  }, [isPlaying, selectedMovie, activeTab]);
+  }, [isPlaying, selectedMovie]);
+
 
   
   const applySeek = (newTime: number) => {

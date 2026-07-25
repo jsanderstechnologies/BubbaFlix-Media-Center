@@ -1573,7 +1573,21 @@ app.get('/api/youtube/search', async (req, res) => {
     res.setHeader('Content-Type', 'text/vtt');
     
     let resolvedUrl = targetUrl;
-    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+    let isLocalFile = false;
+    let localFilePath = '';
+
+    if (targetUrl.startsWith('/') || targetUrl.includes('/api/local-media/stream')) {
+      try {
+        const u = new URL(targetUrl, 'http://127.0.0.1:5150');
+        const pParam = u.searchParams.get('path');
+        if (pParam && fs.existsSync(pParam)) {
+          localFilePath = pParam;
+          isLocalFile = true;
+        }
+      } catch (e) {}
+    }
+
+    if (!isLocalFile && targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
       try {
         const redirectRes = await axios({
           method: 'get', url: targetUrl, maxRedirects: 0,
@@ -1592,24 +1606,34 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     }
 
-    const args = [
-      '-reconnect', '1',
-      '-reconnect_at_eof', '1',
-      '-reconnect_streamed', '1',
-      '-reconnect_on_network_error', '1',
-      '-reconnect_on_http_error', '4xx,5xx',
-
-
-      '-reconnect_delay_max', '60',
-      '-multiple_requests', '1',
-      '-v', 'error',
-      '-user_agent', 'Mozilla/5.0',
-      '-i', resolvedUrl,
-      '-map', `0:s:${track}`,
-      '-c:s', 'webvtt',
-      '-f', 'webvtt',
-      'pipe:1'
-    ];
+    const args: string[] = [];
+    if (isLocalFile) {
+      args.push(
+        '-v', 'error',
+        '-i', localFilePath,
+        '-map', `0:s:${track}`,
+        '-c:s', 'webvtt',
+        '-f', 'webvtt',
+        'pipe:1'
+      );
+    } else {
+      args.push(
+        '-reconnect', '1',
+        '-reconnect_at_eof', '1',
+        '-reconnect_streamed', '1',
+        '-reconnect_on_network_error', '1',
+        '-reconnect_on_http_error', '4xx,5xx',
+        '-reconnect_delay_max', '60',
+        '-multiple_requests', '1',
+        '-v', 'error',
+        '-user_agent', 'Mozilla/5.0',
+        '-i', resolvedUrl,
+        '-map', `0:s:${track}`,
+        '-c:s', 'webvtt',
+        '-f', 'webvtt',
+        'pipe:1'
+      );
+    }
     
     const ffmpegProcess = spawn(ffmpegPath, args, { env: getFfmpegEnv() });
     ffmpegProcess.stdout.pipe(res);
@@ -1643,9 +1667,23 @@ const durationCache = new Map<string, number>();
     const bufsize = req.query.bufsize as string || '64M';
     const hwAccel = req.query.intel === 'true';
 
-    // Resolve TorBox redirects FIRST so we can pass the direct HTTP URL to FFmpeg
     let resolvedUrl = targetUrl;
-    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
+    let isLocalFile = false;
+    let localFilePath = '';
+
+    if (targetUrl.startsWith('/') || targetUrl.includes('/api/local-media/stream')) {
+      try {
+        const u = new URL(targetUrl, 'http://127.0.0.1:5150');
+        const pParam = u.searchParams.get('path');
+        if (pParam && fs.existsSync(pParam)) {
+          localFilePath = pParam;
+          isLocalFile = true;
+        }
+      } catch (e) {}
+    }
+
+    // Resolve TorBox redirects FIRST so we can pass the direct HTTP URL to FFmpeg
+    if (!isLocalFile && targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
       try {
         console.log('[FFmpeg-Proxy] TorBox requestdl URL detected - resolving redirect...');
         const redirectRes = await axios({
@@ -1672,9 +1710,6 @@ const durationCache = new Map<string, number>();
       }
     }
 
-    const originalHost = new URL(resolvedUrl).hostname;
-    const ipUrl = resolvedUrl;
-
     const isLive = req.query.live === 'true';
 
     const args = [];
@@ -1686,24 +1721,28 @@ const durationCache = new Map<string, number>();
       args.push('-fflags', '+genpts+igndts');
     }
     
-    args.push('-user_agent', 'Mozilla/5.0');
-    args.push('-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`);
-    if (ipUrl.startsWith('https')) {
-      args.push('-tls_verify', '0');
+    if (isLocalFile) {
+      args.push('-i', localFilePath);
+    } else {
+      const originalHost = new URL(resolvedUrl, 'http://127.0.0.1:5150').hostname;
+      args.push('-user_agent', 'Mozilla/5.0');
+      args.push('-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`);
+      if (resolvedUrl.startsWith('https')) {
+        args.push('-tls_verify', '0');
+      }
+      args.push(
+        '-reconnect', '1',
+        '-reconnect_at_eof', '1',
+        '-reconnect_streamed', '1',
+        '-reconnect_on_network_error', '1',
+        '-reconnect_on_http_error', '4xx,5xx',
+        '-reconnect_delay_max', '60',
+        '-multiple_requests', '1',
+        '-headers', `Host: ${originalHost}\r\n`,
+        '-i', resolvedUrl
+      );
     }
-    args.push(
-      '-reconnect', '1',
-      '-reconnect_at_eof', '1',
-      '-reconnect_streamed', '1',
-      '-reconnect_on_network_error', '1',
-      '-reconnect_on_http_error', '4xx,5xx',
 
-
-      '-reconnect_delay_max', '60',
-      '-multiple_requests', '1',
-      '-headers', `Host: ${originalHost}\r\n`,
-      '-i', ipUrl
-    );
 
     if (isLive) {
       // Allow FFmpeg to auto-map video and audio streams for IPTV playlists
