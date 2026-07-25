@@ -329,17 +329,33 @@ async function startServer() {
 
 
 
-  const readJson = (file) => {
-    try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
-    catch { return {}; }
+  const readJson = (file: string, fallback: any = {}) => {
+    try {
+      if (!fs.existsSync(file)) return fallback;
+      const content = fs.readFileSync(file, 'utf8').trim();
+      if (!content) return fallback;
+      return JSON.parse(content);
+    } catch (e: any) {
+      console.error(`[JSON Read Error] Failed parsing "${file}": ${e.message}`);
+      return fallback;
+    }
   };
-  const writeJson = (file, data) => {
+
+  const writeJson = (file: string, data: any) => {
     const dir = path.dirname(file);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+    const tempFile = `${file}.tmp.${Date.now()}`;
+    try {
+      fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf8');
+      fs.renameSync(tempFile, file);
+    } catch (e: any) {
+      console.error(`[JSON Write Error] Failed writing "${file}": ${e.message}`);
+      try { if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile); } catch (err) {}
+    }
   };
+
 
   // Sync Docker Compose Env Configuration Keys directly to settings on boot
   const settings = readJson(SETTINGS_FILE);
@@ -3110,19 +3126,24 @@ http://example.com/stream2.m3u8`;
 
   // API Route: Automatically scan Local & Network Shared Folders and format as Library items
   app.get("/api/local-media/library", async (req, res) => {
-    let savedItems = readJson(SCANNED_LIBRARY_FILE);
-    if (!Array.isArray(savedItems)) savedItems = [];
+    try {
+      let savedItems = readJson(SCANNED_LIBRARY_FILE, []);
+      if (!Array.isArray(savedItems)) savedItems = [];
 
-    if (savedItems.length > 0) {
-      res.json({ success: true, data: savedItems });
-      // Trigger silent background update
-      buildAndSaveLibraryCatalog().catch(() => {});
-      return;
+      if (savedItems.length > 0) {
+        return res.json({ success: true, data: savedItems });
+      }
+
+      // If library catalog file is empty or missing, generate it on first request
+      console.log("[Local Media Library] Catalog empty or missing. Auto-scanning library now...");
+      const freshItems = await buildAndSaveLibraryCatalog();
+      res.json({ success: true, data: freshItems });
+    } catch (e: any) {
+      console.error("[Local Media Library Error]", e.message);
+      res.json({ success: false, data: [], error: e.message });
     }
-
-    const freshItems = await buildAndSaveLibraryCatalog();
-    res.json({ success: true, data: freshItems });
   });
+
 
   // API Route: Manually trigger a search/scan of local & network share folders
   app.post("/api/local-media/scan", async (req, res) => {
