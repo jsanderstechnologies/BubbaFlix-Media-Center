@@ -392,7 +392,13 @@ export default function MediaModal({
                           sizeBytes: u.size, sizeStr: (u.size / 1024 / 1024 / 1024).toFixed(2) + ' GB',
                           type: 'usenet', downloadState: state, isCached, downloadProgress: progress, downloadSpeed: u.download_speed || 0,
                           url: `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${u.id}&zip_link=false&redirect=true`, isTorBox: true, id: u.id, availability: 'Cached'
+                      });
+                  }
+              }
+          });
+
           if (movie.isNetworkShare || movie.streamUrl || movie.filePath) {
+
             const locUrl = movie.streamUrl || `/api/local-media/stream?path=${encodeURIComponent(movie.filePath)}`;
             initialData.unshift({
               name: `⚡ Local Network Share: ${movie.title || movie.name}`,
