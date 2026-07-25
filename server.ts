@@ -97,9 +97,25 @@ const _dirname = _filename ? path.dirname(_filename) : '';
 
 // ============================================================================
 // PHASE 1: NODE.JS BACKEND FUNCTIONS (For your Electron main.js)
-// ============================================================================
-
 let bestH264Encoder: string | null = null;
+
+function getFFmpegNetworkArgs(url: string): string[] {
+  const args: string[] = ['-user_agent', 'Mozilla/5.0'];
+  if (url.startsWith('https')) {
+    args.push('-tls_verify', '0');
+  }
+  args.push(
+    '-reconnect', '1',
+    '-reconnect_at_eof', '1',
+    '-reconnect_streamed', '1',
+    '-reconnect_on_network_error', '1',
+    '-reconnect_on_http_error', '4xx,5xx',
+    '-reconnect_delay_max', '60',
+    '-multiple_requests', '1'
+  );
+  return args;
+}
+
 
 function getVaapiDevice(): string | null {
   if (process.platform === 'win32') return null;
@@ -1171,23 +1187,8 @@ async function startServer() {
         '-i', localFilePath
       );
     } else {
-      const originalHost = new URL(probeUrl, 'http://127.0.0.1:5150').hostname;
       args.push(
-        '-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
-        '-user_agent', 'Mozilla/5.0'
-      );
-      if (probeUrl.startsWith('https')) {
-        args.push('-tls_verify', '0');
-      }
-      args.push(
-        '-reconnect', '1',
-        '-reconnect_at_eof', '1',
-        '-reconnect_streamed', '1',
-        '-reconnect_on_network_error', '1',
-        '-reconnect_on_http_error', '4xx,5xx',
-        '-reconnect_delay_max', '60',
-        '-multiple_requests', '1',
-        '-headers', `Host: ${originalHost}\r\n`,
+        ...getFFmpegNetworkArgs(probeUrl),
         '-v', 'error',
         '-print_format', 'json',
         '-show_streams',
@@ -1197,6 +1198,7 @@ async function startServer() {
         '-i', probeUrl
       );
     }
+
 
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args, { env: getFfmpegEnv() });
@@ -1568,23 +1570,8 @@ app.get('/api/youtube/search', async (req, res) => {
         '-i', localFilePath
       );
     } else {
-      const originalHost = new URL(resolvedUrl, 'http://127.0.0.1:5150').hostname;
       args.push(
-        '-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`,
-        '-user_agent', 'Mozilla/5.0'
-      );
-      if (resolvedUrl.startsWith('https')) {
-        args.push('-tls_verify', '0');
-      }
-      args.push(
-        '-reconnect', '1',
-        '-reconnect_at_eof', '1',
-        '-reconnect_streamed', '1',
-        '-reconnect_on_network_error', '1',
-        '-reconnect_on_http_error', '4xx,5xx',
-        '-reconnect_delay_max', '60',
-        '-multiple_requests', '1',
-        '-headers', `Host: ${originalHost}\r\n`,
+        ...getFFmpegNetworkArgs(resolvedUrl),
         '-v', 'error',
         '-show_entries', 'format=duration',
         '-of', 'default=noprint_wrappers=1:nokey=1',
@@ -1593,6 +1580,7 @@ app.get('/api/youtube/search', async (req, res) => {
         '-i', resolvedUrl
       );
     }
+
 
 
     const ffprobeProcess = spawn(ffprobeStatic.path, args, { env: getFfmpegEnv() });
@@ -1790,24 +1778,12 @@ const durationCache = new Map<string, number>();
     if (isLocalFile) {
       args.push('-i', localFilePath);
     } else {
-      const originalHost = new URL(resolvedUrl, 'http://127.0.0.1:5150').hostname;
-      args.push('-user_agent', 'Mozilla/5.0');
-      args.push('-http_proxy', `http://127.0.0.1:${FFMPEG_PROXY_PORT}`);
-      if (resolvedUrl.startsWith('https')) {
-        args.push('-tls_verify', '0');
-      }
       args.push(
-        '-reconnect', '1',
-        '-reconnect_at_eof', '1',
-        '-reconnect_streamed', '1',
-        '-reconnect_on_network_error', '1',
-        '-reconnect_on_http_error', '4xx,5xx',
-        '-reconnect_delay_max', '60',
-        '-multiple_requests', '1',
-        '-headers', `Host: ${originalHost}\r\n`,
+        ...getFFmpegNetworkArgs(resolvedUrl),
         '-i', resolvedUrl
       );
     }
+
 
 
     if (isLive) {
