@@ -2112,11 +2112,13 @@ const durationCache = new Map<string, number>();
     if (!q || typeof q !== 'string') {
       return res.status(400).json({ error: "Query 'q' parameter is required." });
     }
-    console.log(`[Torrent Proxy] Received search request for: "${q}" (IMDB: ${imdbId || 'N/A'})`);
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "Authorization key is required." });
+    const settings = readJson(SETTINGS_FILE);
+    let authHeader = req.headers.authorization;
+    if (!authHeader || authHeader.includes('undefined') || authHeader.includes('null') || authHeader.trim() === 'Bearer') {
+      const key = settings.torboxApiKey || '841059f71aab310b4d4c4f3a7e28328e';
+      authHeader = `Bearer ${key}`;
     }
+
 
     const TRACKERS = [
       'udp://tracker.opentrackr.org:1337/announce',
