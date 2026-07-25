@@ -294,15 +294,16 @@ function MainApp() {
       if (playingContext?.isLive) {
         setTotalDuration(0); // Live streams don't have a fixed duration
       } else {
-        // Debounce metadata probing to avoid 429 Too Many Requests from TorBox CDN
-        // This gives ffmpeg time to establish the main video connection first.
+        const isLocalMedia = playingUrl.startsWith('/') || playingUrl.includes('/api/local-media/stream');
+        const probeDelay = isLocalMedia ? 50 : 3000;
+
         probeTimeout = setTimeout(() => {
           fetch(`/api/duration?url=${encodeURIComponent(playingUrl)}`, { signal: abortController.signal })
             .then(res => res.json())
             .then(data => {
               if (data.duration) setTotalDuration(Number(data.duration));
               
-              // Only fetch media info AFTER duration is complete!
+              // Fetch media info immediately after duration
               return fetch(`/api/media-info?url=${encodeURIComponent(playingUrl)}`, { signal: abortController.signal });
             })
             .then(res => res ? res.json() : null)
@@ -312,7 +313,8 @@ function MainApp() {
             .catch(e => {
               if (e.name !== 'AbortError') console.error("Metadata fetch error:", e);
             });
-        }, 5000);
+        }, probeDelay);
+
           
         if (playingContext?.id) {
           let osUrl = `/api/opensubtitles/search?tmdb_id=${playingContext.id}&type=${playingContext.type}`;
@@ -687,9 +689,37 @@ function MainApp() {
                                   None (Off)
                                 </button>
 
+                              {/* Embedded Video Subtitles */}
+                              {mediaInfo?.streams?.filter((s: any) => s.codec_type === 'subtitle').length > 0 && (
+                                <>
+                                  <h4 className="text-white/40 font-semibold text-[10px] uppercase tracking-wider mt-3 mb-1">Embedded File Tracks</h4>
+                                  {mediaInfo.streams.filter((s: any) => s.codec_type === 'subtitle').map((stream: any, subIdx: number) => {
+                                    const lang = stream.tags?.language ? stream.tags.language.toUpperCase() : `Track ${subIdx + 1}`;
+                                    const title = stream.tags?.title ? `(${stream.tags.title})` : '';
+                                    const codec = stream.codec_name ? stream.codec_name.toUpperCase() : '';
+                                    const isSelected = selectedSubtitleTrack === subIdx && !selectedSubtitleIsOS;
+                                    return (
+                                      <button 
+                                        key={`emb-${subIdx}`}
+                                        tabIndex={0}
+                                        onClick={() => { 
+                                          setSelectedSubtitleTrack(subIdx); 
+                                          setSelectedSubtitleIsOS(false); 
+                                          setShowSubtitleMenu(false); 
+                                        }}
+                                        className={`focusable text-left text-sm px-3 py-2 rounded transition-colors ${isSelected ? 'bg-red-600 text-white font-medium shadow-lg' : 'text-white/80 hover:bg-white/10 hover:text-white'} focus:outline-none focus:ring-2 focus:ring-red-500`}
+                                      >
+                                        {lang} {title} - {codec}
+                                      </button>
+                                    );
+                                  })}
+                                </>
+                              )}
+
+                              {/* OpenSubtitles Community */}
                               {openSubtitles?.length > 0 && (
                                 <>
-                                  <h3 className="text-white/50 font-bold text-xs uppercase tracking-wider border-b border-white/20 pb-2 mb-2 mt-4">OpenSubtitles</h3>
+                                  <h4 className="text-white/40 font-semibold text-[10px] uppercase tracking-wider mt-3 mb-1">OpenSubtitles</h4>
                                   {openSubtitles.map((sub, idx) => (
                                     <button 
                                       key={`os-${idx}`}
@@ -704,6 +734,7 @@ function MainApp() {
                               )}
                             </>
                           )}
+
                       </div>
                     )}
                   </div>
