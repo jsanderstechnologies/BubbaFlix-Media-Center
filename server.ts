@@ -3147,50 +3147,149 @@ http://example.com/stream2.m3u8`;
     }
 
     // 1. Instantly save catalog to disk so the response returns in < 0.1s!
-    writeJson(SCANNED_LIBRARY_FILE, items);
-    console.log(`[Persistent Library] Instantly saved ${items.length} media items to disk at "${SCANNED_LIBRARY_FILE}".`);
+  const enrichItemWithTmdb = async (item: any, apiKey: string): Promise<boolean> => {
+    if (item.poster) return true;
+    try {
+      const primaryEndpoint = item.type === 'series' ? 'tv' : 'movie';
+      const secondaryEndpoint = item.type === 'series' ? 'movie' : 'tv';
+      
+      const searchQueries = [
+        item.title,
+        item.filename ? item.filename.replace(/\.[^/.]+$/, '').replace(/[\._\-\+]/g, ' ') : null,
+        item.folderPath ? path.basename(item.folderPath).replace(/[\._\-\+]/g, ' ') : null
+      ].filter(Boolean) as string[];
 
-    // 2. Perform background TMDB poster & metadata enrichment asynchronously
+      for (const qStr of searchQueries) {
+        if (!qStr || qStr.length < 2) continue;
+
+        let searchUrl = `https://api.themoviedb.org/3/search/${primaryEndpoint}?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
+        if (item.year && item.year !== 'Local' && item.year.length === 4) {
+          searchUrl += item.type === 'series' ? `&first_air_date_year=${item.year}` : `&year=${item.year}`;
+        }
+        let tmdbRes = await axios.get(searchUrl, { timeout: 3000 }).catch(() => null);
+        let match = tmdbRes?.data?.results?.find((r: any) => r.poster_path);
+
+        if (!match) {
+          const fallbackUrl = `https://api.themoviedb.org/3/search/${primaryEndpoint}?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
+          tmdbRes = await axios.get(fallbackUrl, { timeout: 3000 }).catch(() => null);
+          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path);
+        }
+
+        if (!match) {
+          const secUrl = `https://api.themoviedb.org/3/search/${secondaryEndpoint}?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
+          tmdbRes = await axios.get(secUrl, { timeout: 3000 }).catch(() => null);
+          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path);
+        }
+
+        if (!match) {
+          const multiUrl = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
+          tmdbRes = await axios.get(multiUrl, { timeout: 3000 }).catch(() => null);
+          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path);
+        }
+
+        if (match && match.poster_path) {
+          item.poster = `https://image.tmdb.org/t/p/w500${match.poster_path}`;
+          if (match.vote_average) item.rating = match.vote_average.toFixed(1);
+          if (match.overview) item.overview = match.overview;
+          const releaseDate = match.release_date || match.first_air_date;
+          if (releaseDate) item.year = releaseDate.split('-')[0];
+          item.realTmdbId = match.id;
+          return true;
+        }
+      }
+    } catch (e) {}
+    return false;
+  };
+
+  const buildAndSaveLibraryCatalog = async (): Promise<any[]> => {
+    const settings = readJson(SETTINGS_FILE);
+    const mediaFolders: any[] = settings.mediaFolders || [];
+    if (!Array.isArray(mediaFolders) || mediaFolders.length === 0) {
+      writeJson(SCANNED_LIBRARY_FILE, []);
+      return [];
+    }
+
+    const items: any[] = [];
+    const seenTitles = new Set<string>();
+
+    for (const folderObj of mediaFolders) {
+      if (!folderObj || !folderObj.path) continue;
+      const rootPath = normalizeNetworkPath(folderObj.path);
+      const configuredType = folderObj.mediaType || 'movie';
+
+      try {
+        const allVideoFiles = await scanDirectoryForMediaAsync(rootPath, [], 10);
+        if (allVideoFiles.length === 0) continue;
+
+        const titleGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string; mediaType: 'movie' | 'series' }>();
+
+        for (const file of allVideoFiles) {
+          const { title, year, folderPath } = getMediaFolderAndTitle(file, rootPath);
+          const mediaType = isTvSeriesItem(file, folderPath, configuredType) ? 'series' : 'movie';
+          const dedupeKey = `${mediaType}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+
+          if (!titleGroups.has(dedupeKey)) {
+            titleGroups.set(dedupeKey, { title, year, files: [], folderPath, mediaType });
+          }
+          titleGroups.get(dedupeKey)!.files.push(file);
+        }
+
+        for (const [dedupeKey, group] of titleGroups.entries()) {
+          if (seenTitles.has(dedupeKey)) continue;
+          seenTitles.add(dedupeKey);
+
+          group.files.sort((a, b) => {
+            try {
+              return fs.statSync(b).size - fs.statSync(a).size;
+            } catch (e) {
+              return 0;
+            }
+          });
+
+          const primaryFile = group.files[0];
+          const fileId = `local_lib_${Buffer.from(primaryFile).toString('hex').substring(0, 16)}`;
+
+          items.push({
+            id: fileId,
+            tmdbId: fileId,
+            title: group.title,
+            name: group.title,
+            year: group.year || 'Local',
+            poster: '',
+            overview: `Local Shared Folder (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
+            rating: 'SHARE',
+            type: group.mediaType,
+            isNetworkShare: true,
+            streamUrl: `/api/local-media/stream?path=${encodeURIComponent(primaryFile)}`,
+            filePath: primaryFile,
+            folderPath: group.folderPath,
+            filename: path.basename(primaryFile),
+            addedAt: new Date().toISOString()
+          });
+        }
+      } catch (e: any) {
+        console.warn(`[Library Catalog Scan] Error scanning "${rootPath}":`, e.message);
+      }
+    }
+
+    writeJson(SCANNED_LIBRARY_FILE, items);
+    console.log(`[Persistent Library] Saved ${items.length} media items to disk.`);
+
     const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
     if (apiKey && items.length > 0) {
       setTimeout(async () => {
-        const batchSize = 25;
-        const targetCount = Math.min(items.length, 300);
-        for (let i = 0; i < targetCount; i += batchSize) {
+        const batchSize = 10;
+        for (let i = 0; i < items.length; i += batchSize) {
           const chunk = items.slice(i, i + batchSize);
-          const promises = chunk.map(async (item) => {
-            try {
-              const endpoint = item.type === 'series' ? 'tv' : 'movie';
-              const tmdbRes = await axios.get(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(item.title)}`, { timeout: 3000 }).catch(() => null);
-              if (tmdbRes?.data?.results?.[0]) {
-                const first = tmdbRes.data.results[0];
-                if (first.poster_path) {
-                  item.poster = `https://image.tmdb.org/t/p/w500${first.poster_path}`;
-                }
-                if (first.vote_average) {
-                  item.rating = first.vote_average.toFixed(1);
-                }
-                if (first.overview) {
-                  item.overview = first.overview;
-                }
-                const releaseDate = first.release_date || first.first_air_date;
-                if (releaseDate) item.year = releaseDate.split('-')[0];
-                item.realTmdbId = first.id;
-              }
-            } catch (e) {}
-          });
-          await Promise.allSettled(promises);
+          await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
         }
         writeJson(SCANNED_LIBRARY_FILE, items);
-        console.log(`[Persistent Library Background Enrich] Updated TMDB posters/metadata for ${targetCount} items.`);
+        console.log(`[Persistent Library Background Enrich] TMDB poster enrichment complete for ${items.length} items.`);
       }, 10);
     }
 
     return items;
   };
-
-
-
 
 
   // API Route: Automatically scan Local & Network Shared Folders and format as Library items
@@ -3199,19 +3298,40 @@ http://example.com/stream2.m3u8`;
       let savedItems = readJson(SCANNED_LIBRARY_FILE, []);
       if (!Array.isArray(savedItems)) savedItems = [];
 
-      if (savedItems.length > 0) {
-        return res.json({ success: true, data: savedItems });
+      if (savedItems.length === 0) {
+        console.log("[Local Media Library] Catalog empty or missing. Auto-scanning library now...");
+        savedItems = await buildAndSaveLibraryCatalog();
+      } else {
+        // Self-healing background poster fetch for items missing posters
+        const unposterized = savedItems.filter((i: any) => !i.poster);
+        if (unposterized.length > 0) {
+          const settings = readJson(SETTINGS_FILE);
+          const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
+          if (apiKey) {
+            setTimeout(async () => {
+              let newlyFound = 0;
+              const batchSize = 10;
+              for (let i = 0; i < unposterized.length; i += batchSize) {
+                const chunk = unposterized.slice(i, i + batchSize);
+                const results = await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
+                newlyFound += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+              }
+              if (newlyFound > 0) {
+                writeJson(SCANNED_LIBRARY_FILE, savedItems);
+                console.log(`[Local Media Self-Healing] Successfully found and saved ${newlyFound} missing posters to disk!`);
+              }
+            }, 50);
+          }
+        }
       }
 
-      // If library catalog file is empty or missing, generate it on first request
-      console.log("[Local Media Library] Catalog empty or missing. Auto-scanning library now...");
-      const freshItems = await buildAndSaveLibraryCatalog();
-      res.json({ success: true, data: freshItems });
+      res.json({ success: true, data: savedItems });
     } catch (e: any) {
       console.error("[Local Media Library Error]", e.message);
       res.json({ success: false, data: [], error: e.message });
     }
   });
+
 
 
   // API Route: Manually trigger a search/scan of local & network share folders

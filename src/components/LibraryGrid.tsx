@@ -429,12 +429,18 @@ export function LibraryGrid({
                         }}
                       />
                     ) : (
-
-
-                      <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-gradient-to-br from-indigo-950/40 to-slate-900">
-                        <span className="text-xs font-bold text-white/80 line-clamp-3">{item.title}</span>
+                      <div className="w-full h-full flex flex-col items-center justify-between p-4 text-center bg-gradient-to-b from-indigo-950 via-slate-900 to-black relative overflow-hidden border border-white/10">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mt-6 shadow-inner">
+                          <Disc className="w-6 h-6 text-indigo-400 animate-pulse" />
+                        </div>
+                        <div className="space-y-1 my-auto">
+                          <span className="text-xs font-black text-white tracking-wide uppercase line-clamp-3 drop-shadow">{item.title}</span>
+                          {item.year && <span className="text-[10px] text-indigo-300/80 font-bold block">{item.year}</span>}
+                        </div>
+                        <span className="text-[8px] font-black px-2 py-0.5 rounded bg-white/10 text-white/60 uppercase tracking-widest border border-white/5 mb-2">LOCAL MEDIA</span>
                       </div>
                     )}
+
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
                     
                     {/* Hover Play Button */}
