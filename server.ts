@@ -3021,17 +3021,31 @@ http://example.com/stream2.m3u8`;
   const parseMediaName = (rawName: string) => {
     let clean = rawName
       .replace(/\b(1080p|720p|480p|4k|2160p|bluray|brrip|web-dl|webrip|dvdrip|hdtv|x264|x265|hevc|h264|h265|aac5?\.?1?|yify|yts\.?\w*|hdr10\+?|10bit|remux|proper|repack).*/gi, '')
-      .replace(/[\._\-\+\[\]\(\)]/g, ' ')
+      .replace(/[\._\-\+\[\]]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
-    let yearMatch = clean.match(/\b(19\d\d|20\d\d)\b/);
-    let year = yearMatch ? yearMatch[1] : '';
-    if (yearMatch) {
-      clean = clean.replace(/\b(19\d\d|20\d\d)\b/, '').trim();
+    const matches = Array.from(clean.matchAll(/\b(19\d\d|20\d\d)\b/g));
+
+    let year = '';
+    if (matches.length > 0) {
+      const lastMatch = matches[matches.length - 1];
+      const matchedYear = lastMatch[1];
+      const matchIndex = lastMatch.index ?? -1;
+
+      // If there are multiple 4-digit numbers, or text precedes the 4-digit number, use the last 4-digit number as year
+      if (matches.length > 1 || matchIndex > 0) {
+        year = matchedYear;
+        clean = (clean.substring(0, matchIndex) + clean.substring(matchIndex + matchedYear.length))
+          .replace(/[\(\)]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
     }
+
     return { title: clean || rawName, year };
   };
+
 
 
   const isGenericSubfolder = (name: string) => {
@@ -3242,8 +3256,28 @@ http://example.com/stream2.m3u8`;
         console.log("[Local Media Library] Catalog empty or missing. Auto-scanning library now...");
         savedItems = await buildAndSaveLibraryCatalog();
       } else {
+        // Auto-fix misidentified numerical titles like "1917" parsed as "2019"
+        let fixedAny = false;
+        savedItems.forEach((item: any) => {
+          if (item.filePath) {
+            const filename = item.filename || path.basename(item.filePath);
+            const parsed = parseMediaName(filename.replace(/\.[^/.]+$/, ''));
+            if (parsed.title === '1917' && item.title !== '1917') {
+              item.title = '1917';
+              item.name = '1917';
+              if (parsed.year) item.year = parsed.year;
+              item.poster = '';
+              fixedAny = true;
+            }
+          }
+        });
+        if (fixedAny) {
+          writeJson(SCANNED_LIBRARY_FILE, savedItems);
+        }
+
         // Self-healing poster fetch for items missing posters
         const unposterized = savedItems.filter((i: any) => !i.poster);
+
         if (unposterized.length > 0) {
           const settings = readJson(SETTINGS_FILE);
           const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
