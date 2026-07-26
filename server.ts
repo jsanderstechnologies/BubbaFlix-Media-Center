@@ -3069,13 +3069,12 @@ http://example.com/stream2.m3u8`;
     const p = (folderPath || '').toLowerCase();
     const f = (filePath || '').toLowerCase();
     if (configuredType === 'series' || configuredType === 'tv' || configuredType === 'shows') return true;
-    if (p.includes('/series') || p.includes('\\series') || p.includes('/tv') || p.includes('\\tv') || p.includes('tv shows') || p.includes('tvseries')) return true;
     if (/\b(s\d{1,2}e\d{1,2}|\d{1,2}x\d{1,2}|season\s*\d+|specials)\b/i.test(f) || /\b(s\d{1,2}e\d{1,2}|\d{1,2}x\d{1,2}|season\s*\d+|specials)\b/i.test(p)) return true;
     return false;
   };
 
   const enrichItemWithTmdb = async (item: any, apiKey: string): Promise<boolean> => {
-    if (item.poster) return true;
+
     try {
       const primaryEndpoint = item.type === 'series' ? 'tv' : 'movie';
       const secondaryEndpoint = item.type === 'series' ? 'movie' : 'tv';
@@ -3084,12 +3083,17 @@ http://example.com/stream2.m3u8`;
       const cleanFilename = item.filename ? parseMediaName(item.filename.replace(/\.[^/.]+$/, '')).title : null;
       const cleanFolder = item.folderPath ? parseMediaName(path.basename(item.folderPath)).title : null;
 
-      const searchQueries = Array.from(new Set([
-        cleanTitle,
-        cleanFilename,
-        cleanFolder,
-        item.title
-      ])).filter(Boolean) as string[];
+      const queriesSet = new Set<string>();
+      [cleanTitle, cleanFilename, cleanFolder, item.title].forEach(q => {
+        if (!q || q.length < 2) return;
+        queriesSet.add(q);
+        queriesSet.add(q.replace(/\band\b/gi, '&'));
+        queriesSet.add(q.replace(/&/g, 'and'));
+        queriesSet.add(q.replace(/[:,\-']/g, ' ').replace(/\s+/g, ' ').trim());
+        queriesSet.add(q.replace(/\b(part|volume|vol|chapter)\s*\d+/gi, '').trim());
+      });
+
+      const searchQueries = Array.from(queriesSet).filter(q => q && q.length >= 2);
 
       for (const qStr of searchQueries) {
         if (!qStr || qStr.length < 2) continue;
@@ -3099,28 +3103,29 @@ http://example.com/stream2.m3u8`;
           searchUrl += item.type === 'series' ? `&first_air_date_year=${item.year}` : `&year=${item.year}`;
         }
         let tmdbRes = await axios.get(searchUrl, { timeout: 3000 }).catch(() => null);
-        let match = tmdbRes?.data?.results?.find((r: any) => r.poster_path);
+        let match = tmdbRes?.data?.results?.find((r: any) => r.poster_path || r.backdrop_path);
 
         if (!match) {
           const fallbackUrl = `https://api.themoviedb.org/3/search/${primaryEndpoint}?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
           tmdbRes = await axios.get(fallbackUrl, { timeout: 3000 }).catch(() => null);
-          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path);
+          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path || r.backdrop_path);
         }
 
         if (!match) {
           const secUrl = `https://api.themoviedb.org/3/search/${secondaryEndpoint}?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
           tmdbRes = await axios.get(secUrl, { timeout: 3000 }).catch(() => null);
-          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path);
+          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path || r.backdrop_path);
         }
 
         if (!match) {
           const multiUrl = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
           tmdbRes = await axios.get(multiUrl, { timeout: 3000 }).catch(() => null);
-          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path);
+          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path || r.backdrop_path);
         }
 
-        if (match && match.poster_path) {
-          item.poster = `https://image.tmdb.org/t/p/w500${match.poster_path}`;
+        if (match && (match.poster_path || match.backdrop_path)) {
+          const imgPath = match.poster_path || match.backdrop_path;
+          item.poster = `https://image.tmdb.org/t/p/w500${imgPath}`;
           if (match.vote_average) item.rating = match.vote_average.toFixed(1);
           if (match.overview) item.overview = match.overview;
           const releaseDate = match.release_date || match.first_air_date;
@@ -3138,9 +3143,7 @@ http://example.com/stream2.m3u8`;
     return false;
   };
 
-
   const buildAndSaveLibraryCatalog = async (): Promise<any[]> => {
-
     const settings = readJson(SETTINGS_FILE);
     const mediaFolders: any[] = settings.mediaFolders || [];
     if (!Array.isArray(mediaFolders) || mediaFolders.length === 0) {
@@ -3216,15 +3219,13 @@ http://example.com/stream2.m3u8`;
 
     const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
     if (apiKey && items.length > 0) {
-      setTimeout(async () => {
-        const batchSize = 10;
-        for (let i = 0; i < items.length; i += batchSize) {
-          const chunk = items.slice(i, i + batchSize);
-          await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
-        }
-        writeJson(SCANNED_LIBRARY_FILE, items);
-        console.log(`[Persistent Library Background Enrich] TMDB poster enrichment complete for ${items.length} items.`);
-      }, 10);
+      const batchSize = 10;
+      for (let i = 0; i < items.length; i += batchSize) {
+        const chunk = items.slice(i, i + batchSize);
+        await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
+      }
+      writeJson(SCANNED_LIBRARY_FILE, items);
+      console.log(`[Persistent Library Background Enrich] TMDB poster enrichment complete for ${items.length} items.`);
     }
 
     return items;
@@ -3241,25 +3242,35 @@ http://example.com/stream2.m3u8`;
         console.log("[Local Media Library] Catalog empty or missing. Auto-scanning library now...");
         savedItems = await buildAndSaveLibraryCatalog();
       } else {
-        // Self-healing background poster fetch for items missing posters
+        // Self-healing poster fetch for items missing posters
         const unposterized = savedItems.filter((i: any) => !i.poster);
         if (unposterized.length > 0) {
           const settings = readJson(SETTINGS_FILE);
           const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
           if (apiKey) {
-            setTimeout(async () => {
-              let newlyFound = 0;
-              const batchSize = 10;
-              for (let i = 0; i < unposterized.length; i += batchSize) {
-                const chunk = unposterized.slice(i, i + batchSize);
-                const results = await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
-                newlyFound += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-              }
-              if (newlyFound > 0) {
+            // Immediately enrich up to 15 items synchronously so response has posters on first render!
+            const syncChunk = unposterized.slice(0, 15);
+            let newlyFound = 0;
+            const results = await Promise.allSettled(syncChunk.map(item => enrichItemWithTmdb(item, apiKey)));
+            newlyFound += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+
+            if (unposterized.length > 15) {
+              setTimeout(async () => {
+                const remaining = unposterized.slice(15);
+                const batchSize = 10;
+                for (let i = 0; i < remaining.length; i += batchSize) {
+                  const chunk = remaining.slice(i, i + batchSize);
+                  await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
+                }
                 writeJson(SCANNED_LIBRARY_FILE, savedItems);
-                console.log(`[Local Media Self-Healing] Successfully found and saved ${newlyFound} missing posters to disk!`);
-              }
-            }, 50);
+                console.log(`[Local Media Background Enrich] Processed all ${unposterized.length} missing posters.`);
+              }, 10);
+            }
+
+            if (newlyFound > 0) {
+              writeJson(SCANNED_LIBRARY_FILE, savedItems);
+              console.log(`[Local Media Sync Enrich] Found ${newlyFound} missing posters before returning library.`);
+            }
           }
         }
       }
@@ -3268,6 +3279,9 @@ http://example.com/stream2.m3u8`;
     } catch (e: any) {
       console.error("[Local Media Library Error]", e.message);
       res.json({ success: false, data: [], error: e.message });
+    }
+  });
+.json({ success: false, data: [], error: e.message });
     }
   });
 

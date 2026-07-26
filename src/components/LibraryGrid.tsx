@@ -40,10 +40,22 @@ export function LibraryGrid({
       .then(data => {
         if (data && data.success && Array.isArray(data.data)) {
           setNetworkShareItems(data.data);
+          if (data.data.some((i: any) => !i.poster)) {
+            setTimeout(() => {
+              fetch('/api/local-media/library')
+                .then(r => r.json())
+                .then(d2 => {
+                  if (d2?.success && Array.isArray(d2.data)) {
+                    setNetworkShareItems(d2.data);
+                  }
+                }).catch(() => null);
+            }, 3000);
+          }
         }
       })
       .catch(err => console.error("Error loading network share library:", err));
   };
+
 
   useEffect(() => {
     loadNetworkShareItems();
