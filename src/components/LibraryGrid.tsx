@@ -360,14 +360,31 @@ export function LibraryGrid({
     return <div className="text-white text-sm mt-8">Please log in to view your library.</div>;
   }
 
-  const targetType = activeTab === 'movies' ? 'movie' : (activeTab === 'series' ? 'series' : '');
-  const userFavs = favorites.filter(item => item.type === targetType);
+  const isMatchMovie = (type?: string) => {
+    const t = (type || '').toLowerCase();
+    return t === 'movie' || t === 'movies' || (!t && true);
+  };
+
+  const isMatchSeries = (type?: string) => {
+    const t = (type || '').toLowerCase();
+    return t === 'series' || t === 'tv' || t === 'show' || t === 'tvseries' || t === 'shows';
+  };
+
+  const userFavs = favorites.filter(item => {
+    if (activeTab === 'movies') return isMatchMovie(item.type);
+    if (activeTab === 'series') return isMatchSeries(item.type);
+    return false;
+  });
+
   const shareMedia = networkShareItems.filter(item => {
-    if (targetType === 'movie') return item.type === 'movie' || item.type === 'movies';
-    if (targetType === 'series') return item.type === 'series' || item.type === 'tv' || item.type === 'show';
+    if (activeTab === 'movies') return isMatchMovie(item.type);
+    if (activeTab === 'series') return isMatchSeries(item.type);
     return false;
   });
   const filteredMedia = [...shareMedia, ...userFavs];
+
+  const movieCount = networkShareItems.filter(i => isMatchMovie(i.type)).length + favorites.filter(i => isMatchMovie(i.type)).length;
+  const seriesCount = networkShareItems.filter(i => isMatchSeries(i.type)).length + favorites.filter(i => isMatchSeries(i.type)).length;
 
   return (
     <div className="mt-8 relative pb-24">
@@ -377,14 +394,15 @@ export function LibraryGrid({
           onClick={() => { setActiveTab('movies'); setSelectedPlaylist(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'movies' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
-          Movies ({networkShareItems.filter(i => i.type === 'movie' || i.type === 'movies').length + favorites.filter(i => i.type === 'movie').length})
+          Movies ({movieCount})
         </button>
         <button 
           onClick={() => { setActiveTab('series'); setSelectedPlaylist(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'series' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
-          TV Series ({networkShareItems.filter(i => i.type === 'series' || i.type === 'tv' || i.type === 'show').length + favorites.filter(i => i.type === 'series').length})
+          TV Series ({seriesCount})
         </button>
+
 
         <button 
           onClick={() => { setActiveTab('music'); }}

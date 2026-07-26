@@ -3018,12 +3018,10 @@ http://example.com/stream2.m3u8`;
     }
   });
 
-  // Helper to extract clean title and year from a folder or file name
   const parseMediaName = (rawName: string) => {
     let clean = rawName
-      .replace(/\.(1080p|720p|4k|2160p|bluray|web-dl|webrip|x264|x265|hevc|h264|h265|aac|dvdrip|brrip|hdtv).*/gi, '')
-      .replace(/[\._\-\+]/g, ' ')
-      .replace(/[\(\)\[\]]/g, ' ')
+      .replace(/\b(1080p|720p|480p|4k|2160p|bluray|brrip|web-dl|webrip|dvdrip|hdtv|x264|x265|hevc|h264|h265|aac5?\.?1?|yify|yts\.?\w*|hdr10\+?|10bit|remux|proper|repack).*/gi, '')
+      .replace(/[\._\-\+\[\]\(\)]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -3034,6 +3032,7 @@ http://example.com/stream2.m3u8`;
     }
     return { title: clean || rawName, year };
   };
+
 
   const isGenericSubfolder = (name: string) => {
     const n = name.toLowerCase().trim();
@@ -3081,11 +3080,16 @@ http://example.com/stream2.m3u8`;
       const primaryEndpoint = item.type === 'series' ? 'tv' : 'movie';
       const secondaryEndpoint = item.type === 'series' ? 'movie' : 'tv';
       
-      const searchQueries = [
-        item.title,
-        item.filename ? item.filename.replace(/\.[^/.]+$/, '').replace(/[\._\-\+]/g, ' ') : null,
-        item.folderPath ? path.basename(item.folderPath).replace(/[\._\-\+]/g, ' ') : null
-      ].filter(Boolean) as string[];
+      const cleanTitle = parseMediaName(item.title).title;
+      const cleanFilename = item.filename ? parseMediaName(item.filename.replace(/\.[^/.]+$/, '')).title : null;
+      const cleanFolder = item.folderPath ? parseMediaName(path.basename(item.folderPath)).title : null;
+
+      const searchQueries = Array.from(new Set([
+        cleanTitle,
+        cleanFilename,
+        cleanFolder,
+        item.title
+      ])).filter(Boolean) as string[];
 
       for (const qStr of searchQueries) {
         if (!qStr || qStr.length < 2) continue;
@@ -3122,12 +3126,18 @@ http://example.com/stream2.m3u8`;
           const releaseDate = match.release_date || match.first_air_date;
           if (releaseDate) item.year = releaseDate.split('-')[0];
           item.realTmdbId = match.id;
+          if (match.media_type === 'tv' || match.first_air_date || (match.name && !match.title)) {
+            item.type = 'series';
+          } else if (match.media_type === 'movie' || match.release_date || match.title) {
+            item.type = 'movie';
+          }
           return true;
         }
       }
     } catch (e) {}
     return false;
   };
+
 
   const buildAndSaveLibraryCatalog = async (): Promise<any[]> => {
 
