@@ -3021,9 +3021,9 @@ http://example.com/stream2.m3u8`;
   const parseMediaName = (rawName: string) => {
     let clean = rawName
       .replace(/\b(1080p|720p|480p|4k|2160p|bluray|brrip|web-dl|webrip|dvdrip|hdtv|x264|x265|hevc|h264|h265|aac5?\.?1?|yify|yts\.?\w*|hdr10\+?|10bit|remux|proper|repack).*/gi, '')
-      .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical)\b.*/gi, '')
+      .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical|se|ce|dc|ee|ue)\b.*/gi, '')
       .replace(/[\._\-\+\[\]]/g, ' ')
-      .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical)\b/gi, '')
+      .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical|se|ce|dc|ee|ue)\b/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -3040,7 +3040,7 @@ http://example.com/stream2.m3u8`;
         year = matchedYear;
         clean = (clean.substring(0, matchIndex) + clean.substring(matchIndex + matchedYear.length))
           .replace(/[\(\)]/g, '')
-          .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary)\b/gi, '')
+          .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|se|ce|dc|ee|ue)\b/gi, '')
           .replace(/\s+/g, ' ')
           .trim();
       }
@@ -3048,6 +3048,7 @@ http://example.com/stream2.m3u8`;
 
     return { title: clean || rawName, year };
   };
+
 
 
 
