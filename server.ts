@@ -3321,7 +3321,50 @@ http://example.com/stream2.m3u8`;
 
 
 
+  // API Route: Manually fix metadata/poster for a local library item
+  app.post("/api/local-media/fix-match", express.json(), async (req, res) => {
+    try {
+      const { id, filePath, title, year, poster, overview, rating, type, realTmdbId } = req.body || {};
+      if (!title) {
+        return res.status(400).json({ success: false, error: 'Missing title parameter' });
+      }
+
+      let savedItems = readJson(SCANNED_LIBRARY_FILE, []);
+      if (!Array.isArray(savedItems)) savedItems = [];
+
+      let updatedItem: any = null;
+      savedItems = savedItems.map((item: any) => {
+        const isMatch = (id && item.id === id) || (filePath && item.filePath === filePath) || (item.title && item.title.toLowerCase() === String(title).toLowerCase());
+        if (isMatch) {
+          item.title = title;
+          item.name = title;
+          if (year) item.year = String(year);
+          if (poster) item.poster = poster;
+          if (overview) item.overview = overview;
+          if (rating) item.rating = String(rating);
+          if (type) item.type = type === 'tv' ? 'series' : type;
+          if (realTmdbId) item.realTmdbId = realTmdbId;
+          updatedItem = item;
+        }
+        return item;
+      });
+
+      if (updatedItem) {
+        writeJson(SCANNED_LIBRARY_FILE, savedItems);
+        console.log(`[Local Media Fix Match] Updated match for "${title}" (${year}) on disk.`);
+        return res.json({ success: true, item: updatedItem });
+      } else {
+        return res.json({ success: false, error: 'Item not found in scanned library' });
+      }
+    } catch (e: any) {
+      console.error("[Local Media Fix Match Error]", e.message);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+
   // API Route: Manually trigger a search/scan of local & network share folders
+
   app.post("/api/local-media/scan", async (req, res) => {
     const { folderPath, mediaType } = req.body || {};
     const settings = readJson(SETTINGS_FILE);

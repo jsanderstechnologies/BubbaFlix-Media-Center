@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { fetchStreamsForMovie, fetchStreamsForTvSeries } from '../services/torboxSearchApi';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck, X, Star, Database, Download } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw } from 'lucide-react';
+
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from '../lib/localDb';
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
@@ -179,6 +180,97 @@ export default function MediaModal({
   }
   const [seriesDetailsLoading, setSeriesDetailsLoading] = useState(false);
   const [pollingActive, setPollingActive] = useState(false);
+
+  // Fix Match Modal State
+  const [showFixMatchModal, setShowFixMatchModal] = useState(false);
+  const [fixMatchQuery, setFixMatchQuery] = useState('');
+  const [fixMatchResults, setFixMatchResults] = useState<any[]>([]);
+  const [fixMatchSearching, setFixMatchSearching] = useState(false);
+  const [fixMatchSaving, setFixMatchSaving] = useState<string | null>(null);
+
+  const handleOpenFixMatch = () => {
+    setShowFixMatchModal(true);
+    const initialQ = movie?.title || movie?.name || '';
+    setFixMatchQuery(initialQ);
+    if (initialQ) {
+      executeFixMatchSearch(initialQ);
+    }
+  };
+
+  const executeFixMatchSearch = async (queryStr: string) => {
+    if (!queryStr || queryStr.trim().length < 2) return;
+    setFixMatchSearching(true);
+    try {
+      const apiKey = systemSettings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
+      const searchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(queryStr.trim())}`;
+      const res = await fetch(searchUrl);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results && Array.isArray(data.results)) {
+          const formatted = data.results.map((r: any) => {
+            const relDate = r.release_date || r.first_air_date || '';
+            const yr = relDate ? relDate.split('-')[0] : '';
+            const isTv = r.media_type === 'tv' || r.first_air_date || (r.name && !r.title);
+            const titleStr = r.title || r.name || 'Untitled';
+            const imgPath = r.poster_path || r.backdrop_path;
+            const posterUrl = imgPath ? `https://image.tmdb.org/t/p/w500${imgPath}` : '';
+            return {
+              tmdbId: r.id,
+              title: titleStr,
+              year: yr,
+              poster: posterUrl,
+              overview: r.overview || '',
+              rating: r.vote_average ? r.vote_average.toFixed(1) : 'NR',
+              type: isTv ? 'series' : 'movie'
+            };
+          });
+          setFixMatchResults(formatted);
+        }
+      }
+    } catch (err) {
+      console.error("Fix match search error:", err);
+    } finally {
+      setFixMatchSearching(false);
+    }
+  };
+
+  const selectFixMatchCandidate = async (candidate: any) => {
+    setFixMatchSaving(candidate.tmdbId);
+    try {
+      await fetch('/api/local-media/fix-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: movie.id,
+          filePath: movie.filePath,
+          title: candidate.title,
+          year: candidate.year,
+          poster: candidate.poster,
+          overview: candidate.overview,
+          rating: candidate.rating,
+          type: candidate.type,
+          realTmdbId: candidate.tmdbId
+        })
+      }).catch(() => null);
+
+      movie.title = candidate.title;
+      movie.name = candidate.title;
+      if (candidate.year) movie.year = candidate.year;
+      if (candidate.poster) movie.poster = candidate.poster;
+      if (candidate.overview) movie.overview = candidate.overview;
+      if (candidate.rating) movie.rating = candidate.rating;
+      if (candidate.type) movie.type = candidate.type;
+      movie.realTmdbId = candidate.tmdbId;
+
+      window.dispatchEvent(new Event('refresh-local-library'));
+      setShowFixMatchModal(false);
+    } catch (err: any) {
+      alert("Failed to save match: " + err.message);
+    } finally {
+      setFixMatchSaving(null);
+    }
+  };
+
 
   useEffect(() => {
     let intervalId: any;
@@ -1209,21 +1301,32 @@ export default function MediaModal({
                       </span>
                   </div>
                 </div>
-                {user && (
+                <div className="flex items-center gap-2 shrink-0">
                   <button 
-                    onClick={toggleFavorite}
-                    disabled={favoriteLoading}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0
-                      ${isFavorite 
-                        ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30' 
-                        : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'}`}
+                    onClick={handleOpenFixMatch}
+                    className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors bg-white/5 text-white/90 border border-white/10 hover:bg-white/10 hover:text-white"
+                    title="Correct title, poster and TMDB match"
                   >
-                    {isFavorite ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-                    {isFavorite ? 'In Library' : 'Add To Library'}
+                    <Sparkles className="w-4 h-4 text-red-500" />
+                    Fix Match
                   </button>
-                )}
+                  {user && (
+                    <button 
+                      onClick={toggleFavorite}
+                      disabled={favoriteLoading}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0
+                        ${isFavorite 
+                          ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30' 
+                          : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'}`}
+                    >
+                      {isFavorite ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                      {isFavorite ? 'In Library' : 'Add To Library'}
+                    </button>
+                  )}
+                </div>
             </div>
         </div>
+
 
         <div className="p-6 overflow-y-auto md:overflow-hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-6 h-full md:overflow-y-auto custom-scrollbar md:pr-4 pb-4">
@@ -1469,6 +1572,128 @@ export default function MediaModal({
           </div>
         </div>
       )}
+
+      {/* Fix Match Modal Dialog */}
+      {showFixMatchModal && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-slate-950/80">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-red-600/20 text-red-500 border border-red-500/30">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white tracking-wide uppercase">Fix TMDB Match</h3>
+                  <p className="text-[11px] text-white/50">Search TMDB database to select the exact title and poster</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowFixMatchModal(false)}
+                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-4 border-b border-white/5 bg-slate-900/50">
+              <form 
+                onSubmit={(e) => { e.preventDefault(); executeFixMatchSearch(fixMatchQuery); }}
+                className="flex gap-2"
+              >
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input 
+                    type="text"
+                    value={fixMatchQuery}
+                    onChange={(e) => setFixMatchQuery(e.target.value)}
+                    placeholder="Type movie or series title..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-red-500 transition-colors"
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  disabled={fixMatchSearching}
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all"
+                >
+                  {fixMatchSearching ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                  Search
+                </button>
+              </form>
+            </div>
+
+            {/* Candidate List */}
+            <div className="p-4 overflow-y-auto flex-1 space-y-3 custom-scrollbar">
+              {fixMatchSearching ? (
+                <div className="py-12 flex flex-col items-center justify-center space-y-2 text-white/50 text-xs">
+                  <RefreshCw className="w-6 h-6 animate-spin text-red-500" />
+                  <span>Searching TMDB catalog...</span>
+                </div>
+              ) : fixMatchResults.length === 0 ? (
+                <div className="py-12 text-center text-white/40 text-xs">
+                  No TMDB matches found. Try searching with a different title.
+                </div>
+              ) : (
+                fixMatchResults.map((item) => (
+                  <div 
+                    key={item.tmdbId}
+                    onClick={() => selectFixMatchCandidate(item)}
+                    className="group flex gap-4 p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 hover:border-red-500/40 cursor-pointer transition-all duration-200"
+                  >
+                    {/* Poster Preview */}
+                    <div className="w-14 h-20 rounded-lg bg-slate-800 overflow-hidden shrink-0 relative border border-white/10 shadow-md">
+                      {item.poster ? (
+                        <img src={item.poster} alt={item.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[10px] text-white/40 text-center p-1">
+                          No Poster
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content Info */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-bold text-white truncate group-hover:text-red-400 transition-colors">{item.title}</span>
+                          {item.year && <span className="text-[10px] font-mono text-white/60 bg-white/10 px-1.5 py-0.2 rounded">{item.year}</span>}
+                          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                            {item.type === 'series' ? 'TV SHOW' : 'MOVIE'}
+                          </span>
+                        </div>
+                        {item.overview && (
+                          <p className="text-[11px] text-white/60 line-clamp-2 leading-relaxed">
+                            {item.overview}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-2 pt-1 border-t border-white/5">
+                        <span className="text-[10px] font-mono text-amber-400 font-semibold flex items-center gap-1">
+                          ★ {item.rating}
+                        </span>
+                        <button 
+                          disabled={fixMatchSaving === item.tmdbId}
+                          className="px-3.5 py-1 bg-red-600/80 group-hover:bg-red-600 text-white text-[10px] font-bold rounded-lg flex items-center gap-1 shadow transition-all"
+                        >
+                          {fixMatchSaving === item.tmdbId ? (
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Check className="w-3 h-3" />
+                          )}
+                          Select Match
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }
