@@ -433,7 +433,16 @@ export default function MediaModal({
 
           let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
           const applyFiltersAndSort = (streams: any[]) => {
-              const filtered = streams.filter(s => {
+              const seenUrls = new Set<string>();
+              const uniqueStreams = streams.filter(s => {
+                if (!s || !s.url) return false;
+                const normUrl = decodeURIComponent(s.url).toLowerCase().trim();
+                if (seenUrls.has(normUrl)) return false;
+                seenUrls.add(normUrl);
+                return true;
+              });
+
+              const filtered = uniqueStreams.filter(s => {
                   const desc = (s.name || '') + ' ' + (s.fullDescription || '');
                   if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
                   if (desc.includes('1080p')) return allowedRes.includes('1080p');
@@ -447,6 +456,7 @@ export default function MediaModal({
                   return (b.seeds || 0) - (a.seeds || 0);
               });
           };
+
 
 
           if (initialData.length > 0) {
@@ -751,7 +761,16 @@ export default function MediaModal({
         };
 
         let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
-        let filteredData = updatedData.filter((s: any) => {
+        const seenUrls = new Set<string>();
+        const uniqueData = updatedData.filter((s: any) => {
+          if (!s || !s.url) return false;
+          const normUrl = decodeURIComponent(s.url).toLowerCase().trim();
+          if (seenUrls.has(normUrl)) return false;
+          seenUrls.add(normUrl);
+          return true;
+        });
+
+        let filteredData = uniqueData.filter((s: any) => {
             const desc = (s.name || '') + ' ' + (s.fullDescription || '');
             if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
             if (desc.includes('1080p')) return allowedRes.includes('1080p');
@@ -765,6 +784,7 @@ export default function MediaModal({
           if (rankA !== rankB) return rankA - rankB;
           return (b.seeds || 0) - (a.seeds || 0);
         });
+
 
         if (!isActive) return;
         setStreams(filteredData);
