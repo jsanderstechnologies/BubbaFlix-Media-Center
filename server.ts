@@ -1807,40 +1807,39 @@ const durationCache = new Map<string, number>();
     const isHevcByUrl = /hevc|x265|h265|2160p|4k|10bit|hdr|remux/i.test(decodedTargetUrl) || /hevc|x265|h265|2160p|4k|10bit|hdr|remux/i.test(decodedResolvedUrl);
     const hevcQuery = req.query.hevc;
     
-    let isHevc: boolean | null = null;
-    if (isHevcByUrl) {
-      isHevc = true;
-    } else if (hevcQuery === 'true') {
-      isHevc = true;
-    } else if (hevcQuery === 'false') {
-      isHevc = false;
-    }
+    let isHevc = false;
 
-
-    if (isHevc === null) {
+    if (isHevcByUrl || hevcQuery === 'true') {
+      isHevc = true;
+    } else {
+      // Check cached or probe stream directly to prevent copying unplayable HEVC/10-bit video!
       if (codecCache.has(targetUrl)) {
         isHevc = codecCache.get(targetUrl) as boolean;
       } else if (!isLive) {
         try {
           const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(resolvedUrl)}`;
-          const infoRes = await axios.get(infoUrl, { timeout: 4000 });
+          const infoRes = await axios.get(infoUrl, { timeout: 3500 });
           const mediaInfo = infoRes.data;
           const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video' && s.codec_name !== 'mjpeg' && s.codec_name !== 'png' && s.codec_name !== 'bmp');
-          if (videoStream && (videoStream.codec_name !== 'h264' || (videoStream.pix_fmt && videoStream.pix_fmt.includes('10')) || (videoStream.width && videoStream.width > 2000))) {
-            isHevc = true;
+          if (videoStream) {
+            const codec = (videoStream.codec_name || '').toLowerCase();
+            const pixFmt = (videoStream.pix_fmt || '').toLowerCase();
+            if (codec !== 'h264' || pixFmt.includes('10') || (videoStream.width && videoStream.width > 2000)) {
+              isHevc = true;
+            }
           }
           codecCache.set(targetUrl, isHevc);
         } catch (err: any) {
-          console.warn('[FFmpeg-Proxy] Codec auto-detection failed, defaulting to HEVC transcode for TorBox stream:', err.message);
+          // If probing times out or fails, default to HEVC transcode for non-standard files to ensure video renders!
+          console.warn('[FFmpeg-Proxy] Probe failed, defaulting to HEVC/H.264 transcode for compatibility:', err.message);
           isHevc = true;
         }
       }
     }
 
-
     if (isHevc) {
       if (useVaapi) {
-        console.log(`[FFmpeg-Proxy] HEVC/x265 stream detected. Transcoding using Intel VAAPI hardware acceleration (${vaapiDev}).`);
+        console.log(`[FFmpeg-Proxy] HEVC/10-bit stream detected. Transcoding using Intel VAAPI hardware acceleration (${vaapiDev}).`);
         args.push(
           '-vf', 'format=nv12,hwupload,scale_vaapi=w=-2:h=1080',
           '-c:v', 'h264_vaapi',
@@ -1849,25 +1848,27 @@ const durationCache = new Map<string, number>();
           '-bufsize', '10M'
         );
       } else if (bestEncoder !== 'libx264') {
-        console.log(`[FFmpeg-Proxy] HEVC/x265 stream detected. Transcoding to 1080p H.264 using ${bestEncoder} hardware acceleration.`);
+        console.log(`[FFmpeg-Proxy] HEVC/10-bit stream detected. Transcoding to 1080p H.264 using ${bestEncoder} hardware acceleration.`);
         args.push(
           '-c:v', bestEncoder,
           '-preset', 'fast',
           '-b:v', '5M',
-          '-vf', 'scale=-2:1080'
+          '-vf', 'scale=-2:1080,format=yuv420p'
         );
       } else {
-        console.log('[FFmpeg-Proxy] HEVC/x265 stream detected. Transcoding to 1080p H.264 for browser compatibility (Software).');
+        console.log('[FFmpeg-Proxy] HEVC/10-bit stream detected. Transcoding to 1080p H.264 for browser compatibility (Software).');
         args.push(
           '-c:v', 'libx264', 
           '-preset', 'ultrafast', 
-          '-crf', '28', 
+          '-crf', '26', 
+          '-pix_fmt', 'yuv420p',
           '-vf', 'scale=-2:1080'
         );
       }
     } else {
       args.push('-c:v', 'copy');
     }
+
 
 
     const audioLeveling = req.query.audioLeveling === 'true';
