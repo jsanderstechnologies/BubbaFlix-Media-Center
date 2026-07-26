@@ -3256,17 +3256,18 @@ http://example.com/stream2.m3u8`;
         console.log("[Local Media Library] Catalog empty or missing. Auto-scanning library now...");
         savedItems = await buildAndSaveLibraryCatalog();
       } else {
-        // Auto-fix misidentified numerical titles like "1917" parsed as "2019"
+        // Auto-fix misidentified titles by re-evaluating filename & folderPath with latest parseMediaName
         let fixedAny = false;
         savedItems.forEach((item: any) => {
           if (item.filePath) {
-            const filename = item.filename || path.basename(item.filePath);
-            const parsed = parseMediaName(filename.replace(/\.[^/.]+$/, ''));
-            if (parsed.title === '1917' && item.title !== '1917') {
-              item.title = '1917';
-              item.name = '1917';
-              if (parsed.year) item.year = parsed.year;
-              item.poster = '';
+            const rootPath = path.dirname(item.folderPath || item.filePath);
+            const { title, year } = getMediaFolderAndTitle(item.filePath, rootPath);
+            if (title && title !== item.title) {
+              console.log(`[Library Auto-Fix] Corrected title from "${item.title}" to "${title}" (Year: ${year || item.year})`);
+              item.title = title;
+              item.name = title;
+              if (year) item.year = year;
+              item.poster = ''; // Force poster refetch with corrected title
               fixedAny = true;
             }
           }
@@ -3274,6 +3275,7 @@ http://example.com/stream2.m3u8`;
         if (fixedAny) {
           writeJson(SCANNED_LIBRARY_FILE, savedItems);
         }
+
 
         // Self-healing poster fetch for items missing posters
         const unposterized = savedItems.filter((i: any) => !i.poster);
