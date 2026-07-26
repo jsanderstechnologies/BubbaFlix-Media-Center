@@ -100,7 +100,7 @@ const _dirname = _filename ? path.dirname(_filename) : '';
 let bestH264Encoder: string | null = null;
 
 function getFFmpegNetworkArgs(url: string): string[] {
-  const args: string[] = ['-user_agent', 'Mozilla/5.0'];
+  const args: string[] = ['-user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'];
   if (url.startsWith('https')) {
     args.push('-tls_verify', '0');
   }
@@ -109,12 +109,12 @@ function getFFmpegNetworkArgs(url: string): string[] {
     '-reconnect_at_eof', '1',
     '-reconnect_streamed', '1',
     '-reconnect_on_network_error', '1',
-    '-reconnect_on_http_error', '4xx,5xx',
-    '-reconnect_delay_max', '60',
-    '-multiple_requests', '1'
+    '-reconnect_on_http_error', '5xx',
+    '-reconnect_delay_max', '3'
   );
   return args;
 }
+
 
 
 function getVaapiDevice(): string | null {
@@ -1600,17 +1600,32 @@ app.get('/api/youtube/search', async (req, res) => {
   });
 
   
+  const subtitleCache = new Map<string, string>();
+  const codecCache = new Map<string, boolean>();
+  const durationCache = new Map<string, number>();
+
   app.get("/api/transcode/subtitle.vtt", async (req, res) => {
     const targetUrl = req.query.url;
     const track = req.query.track || '0';
+    const start = req.query.start ? parseFloat(req.query.start as string) : 0;
+    const delay = req.query.delay ? parseFloat(req.query.delay as string) : 0;
     
     if (!targetUrl || typeof targetUrl !== 'string') {
       return res.status(400).send("URL is required");
     }
 
+    const subCacheKey = `${targetUrl}_tr${track}_s${start}_d${delay}`;
+    if (subtitleCache.has(subCacheKey)) {
+      console.log(`[FFmpeg Subtitle Cache] Serving cached VTT subtitle for track ${track}`);
+      res.setHeader('Content-Type', 'text/vtt');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.send(subtitleCache.get(subCacheKey));
+    }
+
     console.log(`[FFmpeg-Proxy] Pulling subtitle track ${track} for: ${targetUrl}`);
 
     res.setHeader('Content-Type', 'text/vtt');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     
     let resolvedUrl = targetUrl;
     let isLocalFile = false;
@@ -1646,20 +1661,18 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     }
 
-    const start = req.query.start ? parseFloat(req.query.start as string) : 0;
-    const delay = req.query.delay ? parseFloat(req.query.delay as string) : 0;
-
     const args: string[] = [];
     if (!isLocalFile) {
       args.push(
+        '-probesize', '2M',
+        '-analyzeduration', '2M',
         '-reconnect', '1',
         '-reconnect_at_eof', '1',
         '-reconnect_streamed', '1',
         '-reconnect_on_network_error', '1',
-        '-reconnect_on_http_error', '4xx,5xx',
-        '-reconnect_delay_max', '60',
-        '-multiple_requests', '1',
-        '-user_agent', 'Mozilla/5.0'
+        '-reconnect_on_http_error', '5xx',
+        '-reconnect_delay_max', '2',
+        '-user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
       );
     }
     
@@ -1680,21 +1693,39 @@ app.get('/api/youtube/search', async (req, res) => {
       'pipe:1'
     );
 
-    
     const ffmpegProcess = spawn(ffmpegPath, args, { env: getFfmpegEnv() });
-    ffmpegProcess.stdout.pipe(res);
+    let vttOutput = '';
     
+    ffmpegProcess.stdout.on('data', (chunk) => {
+      const str = chunk.toString();
+      vttOutput += str;
+      if (!res.headersSent) {
+        res.write(chunk);
+      } else {
+        res.write(chunk);
+      }
+    });
+
     ffmpegProcess.on('error', (err) => {
       console.error('[FFmpeg Subtitle] Error:', err);
     });
-    
+
+    ffmpegProcess.on('close', (code) => {
+      if (code === 0 && vttOutput.length > 0) {
+        subtitleCache.set(subCacheKey, vttOutput);
+        if (subtitleCache.size > 200) {
+          const oldestKey = subtitleCache.keys().next().value;
+          if (oldestKey) subtitleCache.delete(oldestKey);
+        }
+      }
+      res.end();
+    });
+
     req.on('close', () => {
       ffmpegProcess.kill('SIGKILL');
     });
   });
-    
-  const codecCache = new Map<string, boolean>();
-const durationCache = new Map<string, number>();
+
   
   app.get("/api/transcode/stream.mp4", async (req, res) => {
     const targetUrl = req.query.url;
