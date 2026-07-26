@@ -243,6 +243,7 @@ export default function MediaModal({
         body: JSON.stringify({
           id: movie.id,
           filePath: movie.filePath,
+          streamUrl: movie.streamUrl,
           title: candidate.title,
           year: candidate.year,
           poster: candidate.poster,
@@ -252,6 +253,7 @@ export default function MediaModal({
           realTmdbId: candidate.tmdbId
         })
       }).catch(() => null);
+
 
       movie.title = candidate.title;
       movie.name = candidate.title;

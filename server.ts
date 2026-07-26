@@ -3021,9 +3021,9 @@ http://example.com/stream2.m3u8`;
   const parseMediaName = (rawName: string) => {
     let clean = rawName
       .replace(/\b(1080p|720p|480p|4k|2160p|bluray|brrip|web-dl|webrip|dvdrip|hdtv|x264|x265|hevc|h264|h265|aac5?\.?1?|yify|yts\.?\w*|hdr10\+?|10bit|remux|proper|repack).*/gi, '')
-      .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical|se|ce|dc|ee|ue)\b.*/gi, '')
+      .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical|se|ce|dc|ee|ue|dubbed|dub|subbed|sub|dual|multi|japanese|english|spanish|french|german|italian|russian|korean|chinese|hindi|hdcam|telesync|workprint|hc)\b.*/gi, '')
       .replace(/[\._\-\+\[\]]/g, ' ')
-      .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical|se|ce|dc|ee|ue)\b/gi, '')
+      .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical|se|ce|dc|ee|ue|dubbed|dub|subbed|sub|dual|multi|japanese|english|spanish|french|german|italian|russian|korean|chinese|hindi|hdcam|telesync|workprint|hc)\b/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -3040,7 +3040,7 @@ http://example.com/stream2.m3u8`;
         year = matchedYear;
         clean = (clean.substring(0, matchIndex) + clean.substring(matchIndex + matchedYear.length))
           .replace(/[\(\)]/g, '')
-          .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|se|ce|dc|ee|ue)\b/gi, '')
+          .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|se|ce|dc|ee|ue|dubbed|dub|subbed|sub|dual|multi)\b/gi, '')
           .replace(/\s+/g, ' ')
           .trim();
       }
@@ -3048,6 +3048,7 @@ http://example.com/stream2.m3u8`;
 
     return { title: clean || rawName, year };
   };
+
 
 
 
@@ -3264,7 +3265,7 @@ http://example.com/stream2.m3u8`;
         // Auto-fix misidentified titles by re-evaluating filename & folderPath with latest parseMediaName
         let fixedAny = false;
         savedItems.forEach((item: any) => {
-          if (item.filePath) {
+          if (item.filePath && !item.isCustomMatch) {
             const rootPath = path.dirname(item.folderPath || item.filePath);
             const { title, year } = getMediaFolderAndTitle(item.filePath, rootPath);
             if (title && title !== item.title) {
@@ -3329,7 +3330,7 @@ http://example.com/stream2.m3u8`;
   // API Route: Manually fix metadata/poster for a local library item
   app.post("/api/local-media/fix-match", express.json(), async (req, res) => {
     try {
-      const { id, filePath, title, year, poster, overview, rating, type, realTmdbId } = req.body || {};
+      const { id, filePath, streamUrl, title, year, poster, overview, rating, type, realTmdbId } = req.body || {};
       if (!title) {
         return res.status(400).json({ success: false, error: 'Missing title parameter' });
       }
@@ -3339,7 +3340,9 @@ http://example.com/stream2.m3u8`;
 
       let updatedItem: any = null;
       savedItems = savedItems.map((item: any) => {
-        const isMatch = (id && item.id === id) || (filePath && item.filePath === filePath) || (item.title && item.title.toLowerCase() === String(title).toLowerCase());
+        const isMatch = (id && String(item.id) === String(id)) || 
+                        (filePath && String(item.filePath).toLowerCase() === String(filePath).toLowerCase()) ||
+                        (streamUrl && String(item.streamUrl).toLowerCase() === String(streamUrl).toLowerCase());
         if (isMatch) {
           item.title = title;
           item.name = title;
@@ -3349,6 +3352,7 @@ http://example.com/stream2.m3u8`;
           if (rating) item.rating = String(rating);
           if (type) item.type = type === 'tv' ? 'series' : type;
           if (realTmdbId) item.realTmdbId = realTmdbId;
+          item.isCustomMatch = true;
           updatedItem = item;
         }
         return item;
@@ -3362,6 +3366,7 @@ http://example.com/stream2.m3u8`;
         return res.json({ success: false, error: 'Item not found in scanned library' });
       }
     } catch (e: any) {
+
       console.error("[Local Media Fix Match Error]", e.message);
       res.status(500).json({ success: false, error: e.message });
     }
