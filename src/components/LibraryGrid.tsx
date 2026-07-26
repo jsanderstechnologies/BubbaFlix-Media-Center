@@ -402,7 +402,8 @@ export function LibraryGrid({
               Your {activeTab === 'movies' ? 'movies' : 'TV series'} library is empty. Add a network share folder in Settings or bookmark media!
             </div>
           ) : (
-            <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+            <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-6">
+
               {filteredMedia.map((item: any) => (
                 <div 
                   key={item.id || item.favoriteId} 
