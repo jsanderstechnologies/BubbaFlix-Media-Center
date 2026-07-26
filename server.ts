@@ -1833,23 +1833,24 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     }
     
-    const decodedTargetUrl = decodeURIComponent(targetUrl).toLowerCase();
-    const decodedResolvedUrl = decodeURIComponent(resolvedUrl).toLowerCase();
-    const isHevcByUrl = /hevc|x265|h265|2160p|4k|10bit|hdr|remux/i.test(decodedTargetUrl) || /hevc|x265|h265|2160p|4k|10bit|hdr|remux/i.test(decodedResolvedUrl);
-    const hevcQuery = req.query.hevc;
-    
-    let isHevc = false;
+    const checkStr = (
+      String(targetUrl) + ' ' + 
+      String(resolvedUrl) + ' ' + 
+      String(localFilePath) + ' ' + 
+      decodeURIComponent(String(targetUrl)) + ' ' + 
+      decodeURIComponent(String(resolvedUrl)) + ' ' +
+      (localFilePath ? decodeURIComponent(String(localFilePath)) : '')
+    ).toLowerCase();
 
-    if (isHevcByUrl || hevcQuery === 'true') {
+    const isHevcDetected = /hevc|x265|h\.?265|2160p|4k|10-?bit|10b|hdr|dv|dolby|remux|mkv|strm|ts|m2ts|yts|yify/i.test(checkStr);
+
+    let isHevc = false;
+    if (isHevcDetected || req.query.hevc === 'true') {
       isHevc = true;
     } else if (codecCache.has(targetUrl)) {
       isHevc = codecCache.get(targetUrl) as boolean;
-    } else if (isLocalFile && localFilePath) {
-      try {
-        const ext = path.extname(localFilePath).toLowerCase();
-        if (ext === '.mkv' || ext === '.strm' || ext === '.ts' || ext === '.m2ts') isHevc = true;
-      } catch (e) {}
     }
+
 
 
     if (isHevc) {
