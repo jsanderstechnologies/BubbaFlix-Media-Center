@@ -3075,78 +3075,6 @@ http://example.com/stream2.m3u8`;
     return false;
   };
 
-  const buildAndSaveLibraryCatalog = async (): Promise<any[]> => {
-    const settings = readJson(SETTINGS_FILE);
-    const mediaFolders: any[] = settings.mediaFolders || [];
-    if (!Array.isArray(mediaFolders) || mediaFolders.length === 0) {
-      writeJson(SCANNED_LIBRARY_FILE, []);
-      return [];
-    }
-
-    const items: any[] = [];
-    const seenTitles = new Set<string>();
-
-    for (const folderObj of mediaFolders) {
-      if (!folderObj || !folderObj.path) continue;
-      const rootPath = normalizeNetworkPath(folderObj.path);
-      const configuredType = folderObj.mediaType || 'movie';
-
-      try {
-        const allVideoFiles = await scanDirectoryForMediaAsync(rootPath, [], 10);
-        if (allVideoFiles.length === 0) continue;
-
-        const titleGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string; mediaType: 'movie' | 'series' }>();
-
-        for (const file of allVideoFiles) {
-          const { title, year, folderPath } = getMediaFolderAndTitle(file, rootPath);
-          const mediaType = isTvSeriesItem(file, folderPath, configuredType) ? 'series' : 'movie';
-          const dedupeKey = `${mediaType}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-
-          if (!titleGroups.has(dedupeKey)) {
-            titleGroups.set(dedupeKey, { title, year, files: [], folderPath, mediaType });
-          }
-          titleGroups.get(dedupeKey)!.files.push(file);
-        }
-
-        for (const [dedupeKey, group] of titleGroups.entries()) {
-          if (seenTitles.has(dedupeKey)) continue;
-          seenTitles.add(dedupeKey);
-
-          group.files.sort((a, b) => {
-            try {
-              return fs.statSync(b).size - fs.statSync(a).size;
-            } catch (e) {
-              return 0;
-            }
-          });
-
-          const primaryFile = group.files[0];
-          const fileId = `local_lib_${Buffer.from(primaryFile).toString('hex').substring(0, 16)}`;
-
-          items.push({
-            id: fileId,
-            tmdbId: fileId,
-            title: group.title,
-            name: group.title,
-            year: group.year || 'Local',
-            poster: '',
-            overview: `Local Shared Folder (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
-            rating: 'SHARE',
-            type: group.mediaType,
-            isNetworkShare: true,
-            streamUrl: `/api/local-media/stream?path=${encodeURIComponent(primaryFile)}`,
-            filePath: primaryFile,
-            folderPath: group.folderPath,
-            filename: path.basename(primaryFile),
-            addedAt: new Date().toISOString()
-          });
-        }
-      } catch (e: any) {
-        console.warn(`[Library Catalog Scan] Error scanning "${rootPath}":`, e.message);
-      }
-    }
-
-    // 1. Instantly save catalog to disk so the response returns in < 0.1s!
   const enrichItemWithTmdb = async (item: any, apiKey: string): Promise<boolean> => {
     if (item.poster) return true;
     try {
@@ -3202,6 +3130,7 @@ http://example.com/stream2.m3u8`;
   };
 
   const buildAndSaveLibraryCatalog = async (): Promise<any[]> => {
+
     const settings = readJson(SETTINGS_FILE);
     const mediaFolders: any[] = settings.mediaFolders || [];
     if (!Array.isArray(mediaFolders) || mediaFolders.length === 0) {
