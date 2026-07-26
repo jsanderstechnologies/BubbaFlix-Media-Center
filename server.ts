@@ -3281,9 +3281,7 @@ http://example.com/stream2.m3u8`;
       res.json({ success: false, data: [], error: e.message });
     }
   });
-.json({ success: false, data: [], error: e.message });
-    }
-  });
+
 
 
 
