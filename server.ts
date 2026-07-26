@@ -1842,31 +1842,15 @@ app.get('/api/youtube/search', async (req, res) => {
 
     if (isHevcByUrl || hevcQuery === 'true') {
       isHevc = true;
-    } else {
-      // Check cached or probe stream directly to prevent copying unplayable HEVC/10-bit video!
-      if (codecCache.has(targetUrl)) {
-        isHevc = codecCache.get(targetUrl) as boolean;
-      } else if (!isLive) {
-        try {
-          const infoUrl = `http://localhost:${process.env.PORT || 5150}/api/media-info?url=${encodeURIComponent(resolvedUrl)}`;
-          const infoRes = await axios.get(infoUrl, { timeout: 3500 });
-          const mediaInfo = infoRes.data;
-          const videoStream = mediaInfo.streams?.find((s: any) => s.codec_type === 'video' && s.codec_name !== 'mjpeg' && s.codec_name !== 'png' && s.codec_name !== 'bmp');
-          if (videoStream) {
-            const codec = (videoStream.codec_name || '').toLowerCase();
-            const pixFmt = (videoStream.pix_fmt || '').toLowerCase();
-            if (codec !== 'h264' || pixFmt.includes('10') || (videoStream.width && videoStream.width > 2000)) {
-              isHevc = true;
-            }
-          }
-          codecCache.set(targetUrl, isHevc);
-        } catch (err: any) {
-          // If probing times out or fails, default to HEVC transcode for non-standard files to ensure video renders!
-          console.warn('[FFmpeg-Proxy] Probe failed, defaulting to HEVC/H.264 transcode for compatibility:', err.message);
-          isHevc = true;
-        }
-      }
+    } else if (codecCache.has(targetUrl)) {
+      isHevc = codecCache.get(targetUrl) as boolean;
+    } else if (isLocalFile && localFilePath) {
+      try {
+        const ext = path.extname(localFilePath).toLowerCase();
+        if (ext === '.mkv' || ext === '.strm' || ext === '.ts' || ext === '.m2ts') isHevc = true;
+      } catch (e) {}
     }
+
 
     if (isHevc) {
       if (useVaapi) {
