@@ -33,6 +33,7 @@ export function LibraryGrid({
   const [networkShareItems, setNetworkShareItems] = useState<any[]>([]);
   const [savedArtists, setSavedArtists] = useState<any[]>([]);
   const [playlists, setPlaylists] = useState<any[]>([]);
+  const [failedPosters, setFailedPosters] = useState<Record<string, boolean>>({});
 
   const loadNetworkShareItems = () => {
     fetch('/api/local-media/library')
@@ -467,32 +468,41 @@ export function LibraryGrid({
                   onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia(item); }}
                 >
                   <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
-                    {item.poster || item.backupPoster ? (
-                      <img 
-                        src={item.poster || item.backupPoster} 
-                        alt={item.title} 
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-full object-cover" 
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          if (item.backupPoster && e.currentTarget.src !== item.backupPoster) {
-                            e.currentTarget.src = item.backupPoster;
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-between p-4 text-center bg-gradient-to-b from-indigo-950 via-slate-900 to-black relative overflow-hidden border border-white/10">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mt-6 shadow-inner">
-                          <Disc className="w-6 h-6 text-indigo-400 animate-pulse" />
+                    {(() => {
+                      const pUrl = item.poster || item.backupPoster;
+                      const isFailed = pUrl ? failedPosters[pUrl] : true;
+
+                      if (pUrl && !isFailed) {
+                        return (
+                          <img 
+                            src={pUrl} 
+                            alt={item.title} 
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover" 
+                            referrerPolicy="no-referrer"
+                            onError={() => {
+                              if (pUrl) {
+                                setFailedPosters(prev => ({ ...prev, [pUrl]: true }));
+                              }
+                            }}
+                          />
+                        );
+                      }
+
+                      return (
+                        <div className="w-full h-full flex flex-col items-center justify-between p-4 text-center bg-gradient-to-b from-indigo-950 via-slate-900 to-black relative overflow-hidden border border-white/10">
+                          <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mt-6 shadow-inner">
+                            <Disc className="w-6 h-6 text-indigo-400 animate-pulse" />
+                          </div>
+                          <div className="space-y-1 my-auto">
+                            <span className="text-xs font-black text-white tracking-wide uppercase line-clamp-3 drop-shadow">{item.title}</span>
+                            {item.year && <span className="text-[10px] text-indigo-300/80 font-bold block">{item.year}</span>}
+                          </div>
+                          <span className="text-[8px] font-black px-2 py-0.5 rounded bg-white/10 text-white/60 uppercase tracking-widest border border-white/5 mb-2">LOCAL MEDIA</span>
                         </div>
-                        <div className="space-y-1 my-auto">
-                          <span className="text-xs font-black text-white tracking-wide uppercase line-clamp-3 drop-shadow">{item.title}</span>
-                          {item.year && <span className="text-[10px] text-indigo-300/80 font-bold block">{item.year}</span>}
-                        </div>
-                        <span className="text-[8px] font-black px-2 py-0.5 rounded bg-white/10 text-white/60 uppercase tracking-widest border border-white/5 mb-2">LOCAL MEDIA</span>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
                     
