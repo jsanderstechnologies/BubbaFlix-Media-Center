@@ -3289,16 +3289,19 @@ http://example.com/stream2.m3u8`;
         savedItems.forEach((item: any) => {
           if (item.filePath) {
             // Guarantee item.type strictly matches the configured mediaType of its parent folder
-            const normItemPath = normalizeNetworkPath(item.filePath);
+            const normItemPath = normalizeNetworkPath(item.filePath).toLowerCase();
             for (const folder of mediaFolders) {
-              if (folder && folder.path && normItemPath.startsWith(normalizeNetworkPath(folder.path))) {
-                const correctType = folder.mediaType || 'movie';
-                if (item.type !== correctType) {
-                  console.log(`[Library Type Fix] Corrected "${item.title}" type from "${item.type}" to "${correctType}" based on folder settings.`);
-                  item.type = correctType;
-                  fixedAny = true;
+              if (folder && folder.path) {
+                const normFolderPath = normalizeNetworkPath(folder.path).toLowerCase();
+                if (normItemPath.startsWith(normFolderPath)) {
+                  const correctType = folder.mediaType || 'movie';
+                  if (item.type !== correctType) {
+                    console.log(`[Library Type Fix] Corrected "${item.title}" type from "${item.type}" to "${correctType}" based on folder settings.`);
+                    item.type = correctType;
+                    fixedAny = true;
+                  }
+                  break;
                 }
-                break;
               }
             }
 

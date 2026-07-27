@@ -382,6 +382,8 @@ export function LibraryGrid({
 
   const isMatchMovie = (item: any) => {
     if (!item) return false;
+    const t = (item.type || item.mediaType || '').toLowerCase();
+    if (t === 'movie' || t === 'movies') return true;
     return !isMatchSeries(item);
   };
 
