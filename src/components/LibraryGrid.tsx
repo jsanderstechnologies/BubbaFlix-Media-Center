@@ -399,13 +399,20 @@ export function LibraryGrid({
     return false;
   });
 
-  // Deduplicate items by unique ID
+  const getItemKey = (item: any, index: number) => {
+    if (item.favoriteId) return `fav_${item.favoriteId}`;
+    if (item.id) return `item_${item.id}`;
+    if (item.filePath) return `path_${item.filePath}`;
+    return `idx_${index}_${item.title}`;
+  };
+
+  // Deduplicate items by unique key
   const rawMedia = [...shareMedia, ...userFavs];
-  const seenIds = new Set<string>();
-  const filteredMedia = rawMedia.filter((item) => {
-    const key = item.id || item.favoriteId || item.filePath || item.title;
-    if (seenIds.has(key)) return false;
-    seenIds.add(key);
+  const seenKeys = new Set<string>();
+  const filteredMedia = rawMedia.filter((item, idx) => {
+    const k = getItemKey(item, idx);
+    if (seenKeys.has(k)) return false;
+    seenKeys.add(k);
     return true;
   });
 
@@ -448,9 +455,9 @@ export function LibraryGrid({
           ) : (
             <section key={activeTab} className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
 
-              {filteredMedia.map((item: any) => (
+              {filteredMedia.map((item: any, idx: number) => (
                 <div 
-                  key={item.id || item.favoriteId} 
+                  key={getItemKey(item, idx)} 
                   className="group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl" 
                   onClick={() => onSelectMedia(item)}
                   onMouseEnter={() => onHoverMedia?.(item.poster)}
