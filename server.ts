@@ -3506,6 +3506,11 @@ http://example.com/stream2.m3u8`;
   app.post('/api/log', express.json(), (req, res) => { console.log('[CLIENT ERROR]', req.body); res.sendStatus(200); });
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    // Start background scan of local & network shares as soon as program starts up!
+    setTimeout(() => {
+      console.log("[Startup] Automatically building local and network media library catalog in background...");
+      buildAndSaveLibraryCatalog().catch(err => console.error("[Startup Scan Error]", err.message));
+    }, 1000);
   });
 }
 

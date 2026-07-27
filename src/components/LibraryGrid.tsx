@@ -376,14 +376,15 @@ export function LibraryGrid({
     if (!item) return false;
     const t = (item.type || item.mediaType || '').toLowerCase();
     if (t === 'series' || t === 'tv' || t === 'show' || t === 'tvseries' || t === 'shows') return true;
-    if (item.first_air_date || item.number_of_seasons || item.seasons) return true;
-    return false;
+    if (t === 'movie' || t === 'movies') return false;
+    return Boolean(item.first_air_date || item.number_of_seasons || item.seasons);
   };
 
   const isMatchMovie = (item: any) => {
     if (!item) return false;
     const t = (item.type || item.mediaType || '').toLowerCase();
     if (t === 'movie' || t === 'movies') return true;
+    if (t === 'series' || t === 'tv' || t === 'show' || t === 'tvseries' || t === 'shows') return false;
     return !isMatchSeries(item);
   };
 
