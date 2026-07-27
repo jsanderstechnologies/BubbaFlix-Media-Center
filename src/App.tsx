@@ -123,6 +123,103 @@ function MainApp() {
     () => sessionStorage.getItem('firstAdminPassword')
   );
 
+  // Exit Toast state for Remote Back button handler
+  const [showExitToast, setShowExitToast] = useState(false);
+  const backPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastBackPressTimeRef = useRef<number>(0);
+
+  // Remote Back Button Handler
+  useEffect(() => {
+    const handleRemoteBack = (e: KeyboardEvent) => {
+      const isBackKey = 
+        e.key === 'Escape' || 
+        e.key === 'Back' || 
+        e.key === 'BrowserBack' || 
+        e.key === 'GoBack' || 
+        e.keyCode === 27 || 
+        e.keyCode === 461 || 
+        e.keyCode === 10009 || 
+        (e.keyCode === 8 && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement));
+
+      if (!isBackKey) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      // 1. If Video Player is open, exit video player
+      if (playingUrl) {
+        setPlayingUrl('');
+        return;
+      }
+
+      // 2. If Media Modal is open, close media modal
+      if (selectedMovie) {
+        setSelectedMovie(null);
+        return;
+      }
+
+      // 3. If Virtual Keyboard is open, close virtual keyboard
+      if (isKeyboardOpen) {
+        setIsKeyboardOpen(false);
+        return;
+      }
+
+      // 4. If any Modal / Settings / Auth / Dropdown is open, close it
+      const modalElement = document.querySelector('#user-settings-modal, #auth-modal, #auth-dropdown');
+      if (modalElement) {
+        const closeBtn = modalElement.querySelector('button[title="Close"], button.close-btn, button:has(svg)') as HTMLElement;
+        if (closeBtn) {
+          closeBtn.click();
+        } else {
+          window.dispatchEvent(new CustomEvent('closeActiveModal'));
+        }
+        return;
+      }
+
+      // 5. Check if active focus is currently inside the left navigation sidebar
+      const activeEl = document.activeElement as HTMLElement;
+      const sidebarEl = document.getElementById('sidebar-nav');
+      const isInsideSidebar = sidebarEl && activeEl && sidebarEl.contains(activeEl);
+
+      if (!isInsideSidebar) {
+        // We are inside main content / grid -> Move focus directly to left navigation menu!
+        const targetNavId = `nav-tab-${activeTab}`;
+        const targetNavEl = document.getElementById(targetNavId) || document.getElementById('nav-tab-home');
+        if (targetNavEl) {
+          targetNavEl.focus();
+        }
+        return;
+      }
+
+      // 6. Focus is ALREADY inside left sidebar -> Double-press to exit handler!
+      const now = Date.now();
+      if (now - lastBackPressTimeRef.current < 3000) {
+        // Pressed twice within 3 seconds -> Exit application!
+        try {
+          if ((window as any).electron?.close) {
+            (window as any).electron.close();
+          } else if (window.close) {
+            window.close();
+          }
+        } catch (err) {}
+      } else {
+        // First press -> Show double-click to exit toast!
+        lastBackPressTimeRef.current = now;
+        setShowExitToast(true);
+        if (backPressTimerRef.current) clearTimeout(backPressTimerRef.current);
+        backPressTimerRef.current = setTimeout(() => {
+          setShowExitToast(false);
+        }, 3000);
+      }
+    };
+
+    window.addEventListener('keydown', handleRemoteBack, true);
+    return () => {
+      window.removeEventListener('keydown', handleRemoteBack, true);
+      if (backPressTimerRef.current) clearTimeout(backPressTimerRef.current);
+    };
+  }, [playingUrl, selectedMovie, isKeyboardOpen, activeTab]);
+
   const activePoster = activeTab === 'music' ? '/music_backdrop.jpg' : (hoveredPoster || (selectedMovie?.poster) || backgroundPoster);
 
   const selectRandomBackdrop = (itemsList: any[]) => {
@@ -804,12 +901,13 @@ function MainApp() {
       )}
 
       {/* Sidebar */}
-      <div className="w-20 bg-black/60 border-r border-white/10 flex flex-col items-center py-10 gap-10 z-20 shrink-0">
+      <div id="sidebar-nav" className="w-20 bg-black/60 border-r border-white/10 flex flex-col items-center py-10 gap-10 z-20 shrink-0">
         <div className="select-none cursor-pointer flex items-center justify-center hover:scale-110 transition-transform duration-300" title="BUBBAFLIX">
           <img src="https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg" alt="BubbaFlix Icon" className="w-10 h-10 drop-shadow-lg" />
         </div>
         <div className="flex flex-col gap-8 text-white/60 w-full px-2">
           <div 
+            id="nav-tab-home"
             tabIndex={0}
             onClick={() => { setActiveTab('home'); setSearchQuery(''); }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'home' ? 'text-red-500' : ''}`}
@@ -819,6 +917,7 @@ function MainApp() {
             <span className="text-[9px] uppercase tracking-wider font-medium">Home</span>
           </div>
           <div 
+            id="nav-tab-tv"
             tabIndex={0}
             onClick={() => { setActiveTab('tv'); setSearchQuery(''); }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'tv' ? 'text-red-500' : ''}`}
@@ -828,6 +927,7 @@ function MainApp() {
             <span className="text-[9px] uppercase tracking-wider font-medium">Live</span>
           </div>
           <div 
+            id="nav-tab-series"
             tabIndex={0}
             onClick={() => { setActiveTab('series'); setSearchQuery(''); }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'series' ? 'text-red-500' : ''}`}
@@ -837,6 +937,7 @@ function MainApp() {
             <span className="text-[9px] uppercase tracking-wider font-medium">Series</span>
           </div>
           <div 
+            id="nav-tab-catalog"
             tabIndex={0}
             onClick={() => { setActiveTab('catalog'); setSearchQuery(''); }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'catalog' ? 'text-red-500' : ''}`}
@@ -846,6 +947,7 @@ function MainApp() {
             <span className="text-[9px] uppercase tracking-wider font-medium">Movies</span>
           </div>
           <div 
+            id="nav-tab-music"
             tabIndex={0}
             onClick={() => { setActiveTab('music'); setSearchQuery(''); }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'music' ? 'text-red-500' : ''}`}
@@ -855,6 +957,7 @@ function MainApp() {
             <span className="text-[9px] uppercase tracking-wider font-medium">Music</span>
           </div>
           <div 
+            id="nav-tab-library"
             tabIndex={0}
             onClick={() => { setActiveTab('library'); setSearchQuery(''); }}
             className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'library' ? 'text-red-500' : ''}`}
@@ -865,6 +968,7 @@ function MainApp() {
           </div>
           {user?.role === 'admin' && (
             <div 
+              id="nav-tab-settings"
               tabIndex={0}
               onClick={() => { setActiveTab('settings'); setSearchQuery(''); }}
               className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
@@ -973,15 +1077,23 @@ function MainApp() {
               tabIndex={0}
               className="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-3 w-48 sm:w-64 cursor-pointer hover:bg-white/10 transition-colors relative focus:bg-white/10 focus:outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20"
               onClick={() => { setActiveTab('search'); setIsKeyboardOpen(true); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  setActiveTab('search');
+                  setIsKeyboardOpen(true);
+                }
+              }}
             >
               <Search className="w-4 h-4 text-white/50 shrink-0" />
               <input 
                 type="text" 
+                tabIndex={-1}
+                readOnly
                 placeholder="Search Catalog..." 
-                className="bg-transparent border-none outline-none text-sm text-white w-full pr-6 placeholder-white/30 cursor-text"
+                className="bg-transparent border-none outline-none text-sm text-white w-full pr-6 placeholder-white/30 cursor-pointer pointer-events-none"
                 value={searchQuery}
-                onFocus={() => { setActiveTab('search'); setIsKeyboardOpen(true); }}
-                onChange={(e) => { setSearchQuery(e.target.value); setActiveTab('search'); }}
+                onFocus={() => { setActiveTab('search'); }}
               />
               {searchQuery && (
                 <button type="button" onClick={(e) => { e.stopPropagation(); setSearchQuery(''); }} className="absolute right-3 p-1 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer z-10"><X className="w-3.5 h-3.5" /></button>
@@ -1147,6 +1259,14 @@ function MainApp() {
         onClose={() => setIsKeyboardOpen(false)}
         isOpen={isKeyboardOpen}
       />
+
+      {/* Double-Click Back to Exit Toast Popup */}
+      {showExitToast && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100000] bg-zinc-900/95 border border-white/20 text-white text-sm font-bold px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 duration-300">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+          <span>Click Back again to exit BubbaFlix</span>
+        </div>
+      )}
     </div>
     </>
   );
