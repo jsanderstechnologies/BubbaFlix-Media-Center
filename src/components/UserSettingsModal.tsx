@@ -20,20 +20,29 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ensure focus stays within the modal for all navigation keys
+      if (modalRef.current && !modalRef.current.contains(document.activeElement)) {
+        const firstFocusable = modalRef.current.querySelector('button, input, select, [tabindex="0"]') as HTMLElement;
+        if (firstFocusable) firstFocusable.focus();
+      }
+
       if (e.key === 'Tab' && modalRef.current) {
-        const focusableElements = modalRef.current.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        const focusableElements = Array.from(
+          modalRef.current.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+        ) as HTMLElement[];
+        
         if (focusableElements.length === 0) return;
 
-        const firstElement = focusableElements[0] as HTMLElement;
-        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
 
         if (e.shiftKey) {
-          if (document.activeElement === firstElement || document.activeElement === document.body) {
+          if (document.activeElement === firstElement || !modalRef.current.contains(document.activeElement)) {
             e.preventDefault();
             lastElement.focus();
           }
         } else {
-          if (document.activeElement === lastElement || document.activeElement === document.body) {
+          if (document.activeElement === lastElement || !modalRef.current.contains(document.activeElement)) {
             e.preventDefault();
             firstElement.focus();
           }
@@ -41,8 +50,8 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
       }
     };
     
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, []);
 
   useEffect(() => {
@@ -51,27 +60,30 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
   }, [userSettings, zoom]);
 
   useEffect(() => {
-    let focusTimeout: any;
-    
+    // Immediately disable background navigation synchronously
+    SpatialNavigation.disable('');
+    SpatialNavigation.disable('auth-dropdown');
+
     SpatialNavigation.add('settings-modal', {
       selector: '#user-settings-modal .focusable, #user-settings-modal button, #user-settings-modal input, #user-settings-modal select, #user-settings-modal [tabindex="0"]',
       restrict: 'self-only',
       enterTo: 'last-focused'
     });
     
-    // Slight delay to ensure portal is rendered and layout calculated
-    focusTimeout = setTimeout(() => {
-      SpatialNavigation.makeFocusable('settings-modal');
-      SpatialNavigation.focus('settings-modal');
-      SpatialNavigation.disable('auth-dropdown');
-      SpatialNavigation.disable(''); // Disable background
-    }, 50);
+    SpatialNavigation.makeFocusable('settings-modal');
+    SpatialNavigation.focus('settings-modal');
+
+    // Auto-focus first input/button inside modal
+    if (modalRef.current) {
+      const firstElement = modalRef.current.querySelector('button, input, select') as HTMLElement;
+      if (firstElement) firstElement.focus();
+    }
 
     return () => {
-      clearTimeout(focusTimeout);
       SpatialNavigation.remove('settings-modal');
       SpatialNavigation.enable('');
       SpatialNavigation.makeFocusable();
+      SpatialNavigation.focus('');
     };
   }, []);
 
