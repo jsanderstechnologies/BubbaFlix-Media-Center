@@ -2803,7 +2803,7 @@ http://example.com/stream2.m3u8`;
     return [];
   };
 
-  const scanDirectoryForMediaAsync = async (dirPath: string, fileList: string[] = [], maxDepth = 10, currentDepth = 0): Promise<string[]> => {
+  const scanDirectoryForMediaAsync = async (dirPath: string, fileList: string[] = [], maxDepth = 15, currentDepth = 0): Promise<string[]> => {
     if (currentDepth > maxDepth) return fileList;
 
     const videoExtensions = [
@@ -2820,15 +2820,29 @@ http://example.com/stream2.m3u8`;
 
       for (const fullPath of entries) {
         try {
-          const stat = fs.existsSync(fullPath) ? fs.statSync(fullPath) : null;
-          if (stat && stat.isDirectory()) {
+          let isDir = false;
+          let isFile = false;
+
+          try {
+            const stat = fs.statSync(fullPath);
+            isDir = stat.isDirectory();
+            isFile = stat.isFile();
+          } catch (e) {
+            // Fallback for UNC shares / network drives where statSync fails: test path without ext as directory!
+            const ext = path.extname(fullPath).toLowerCase();
+            if (!ext || ext.length === 0) {
+              isDir = true;
+            } else {
+              isFile = true;
+            }
+          }
+
+          if (isDir) {
             await scanDirectoryForMediaAsync(fullPath, fileList, maxDepth, currentDepth + 1);
-          } else {
+          } else if (isFile || videoExtensions.includes(path.extname(fullPath).toLowerCase())) {
             const ext = path.extname(fullPath).toLowerCase();
             if (videoExtensions.includes(ext)) {
               fileList.push(fullPath);
-            } else if (!ext || ext.length === 0) {
-              await scanDirectoryForMediaAsync(fullPath, fileList, maxDepth, currentDepth + 1);
             }
           }
         } catch (e: any) {
@@ -3103,10 +3117,11 @@ http://example.com/stream2.m3u8`;
   };
 
   const isTvSeriesItem = (filePath: string, folderPath: string, configuredType: string): boolean => {
+    if (configuredType === 'series' || configuredType === 'tv' || configuredType === 'shows') return true;
+    if (configuredType === 'movie' || configuredType === 'movies') return false;
     const p = (folderPath || '').toLowerCase();
     const f = (filePath || '').toLowerCase();
-    if (configuredType === 'series' || configuredType === 'tv' || configuredType === 'shows') return true;
-    if (/\b(s\d{1,2}e\d{1,2}|\d{1,2}x\d{1,2}|season\s*\d+|specials)\b/i.test(f) || /\b(s\d{1,2}e\d{1,2}|\d{1,2}x\d{1,2}|season\s*\d+|specials)\b/i.test(p)) return true;
+    if (/\b(s\d{1,2}e\d{1,2}|\d{1,2}x\d{1,2}|season\s*\d+)\b/i.test(f) || /\b(s\d{1,2}e\d{1,2}|\d{1,2}x\d{1,2}|season\s*\d+)\b/i.test(p)) return true;
     return false;
   };
 
