@@ -372,31 +372,34 @@ export function LibraryGrid({
     return <div className="text-white text-sm mt-8">Please log in to view your library.</div>;
   }
 
-  const isMatchMovie = (type?: string) => {
-    const t = (type || '').toLowerCase();
-    return t === 'movie' || t === 'movies' || (!t && true);
+  const isMatchSeries = (item: any) => {
+    if (!item) return false;
+    const t = (item.type || item.mediaType || '').toLowerCase();
+    if (t === 'series' || t === 'tv' || t === 'show' || t === 'tvseries' || t === 'shows') return true;
+    if (item.first_air_date || item.number_of_seasons || item.seasons) return true;
+    return false;
   };
 
-  const isMatchSeries = (type?: string) => {
-    const t = (type || '').toLowerCase();
-    return t === 'series' || t === 'tv' || t === 'show' || t === 'tvseries' || t === 'shows';
+  const isMatchMovie = (item: any) => {
+    if (!item) return false;
+    return !isMatchSeries(item);
   };
 
   const userFavs = favorites.filter(item => {
-    if (activeTab === 'movies') return isMatchMovie(item.type);
-    if (activeTab === 'series') return isMatchSeries(item.type);
+    if (activeTab === 'movies') return isMatchMovie(item);
+    if (activeTab === 'series') return isMatchSeries(item);
     return false;
   });
 
   const shareMedia = networkShareItems.filter(item => {
-    if (activeTab === 'movies') return isMatchMovie(item.type);
-    if (activeTab === 'series') return isMatchSeries(item.type);
+    if (activeTab === 'movies') return isMatchMovie(item);
+    if (activeTab === 'series') return isMatchSeries(item);
     return false;
   });
   const filteredMedia = [...shareMedia, ...userFavs];
 
-  const movieCount = networkShareItems.filter(i => isMatchMovie(i.type)).length + favorites.filter(i => isMatchMovie(i.type)).length;
-  const seriesCount = networkShareItems.filter(i => isMatchSeries(i.type)).length + favorites.filter(i => isMatchSeries(i.type)).length;
+  const movieCount = networkShareItems.filter(i => isMatchMovie(i)).length + favorites.filter(i => isMatchMovie(i)).length;
+  const seriesCount = networkShareItems.filter(i => isMatchSeries(i)).length + favorites.filter(i => isMatchSeries(i)).length;
 
   return (
     <div className="mt-8 relative pb-24">

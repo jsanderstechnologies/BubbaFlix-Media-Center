@@ -3168,10 +3168,12 @@ http://example.com/stream2.m3u8`;
           const releaseDate = match.release_date || match.first_air_date;
           if (releaseDate) item.year = releaseDate.split('-')[0];
           item.realTmdbId = match.id;
-          if (match.media_type === 'tv' || match.first_air_date || (match.name && !match.title)) {
-            item.type = 'series';
-          } else if (match.media_type === 'movie' || match.release_date || match.title) {
-            item.type = 'movie';
+          if (!item.type) {
+            if (match.media_type === 'tv' || match.first_air_date || (match.name && !match.title)) {
+              item.type = 'series';
+            } else {
+              item.type = 'movie';
+            }
           }
           return true;
         }
