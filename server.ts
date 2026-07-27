@@ -3274,13 +3274,15 @@ http://example.com/stream2.m3u8`;
 
     const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
     if (apiKey && items.length > 0) {
-      const batchSize = 10;
-      for (let i = 0; i < items.length; i += batchSize) {
-        const chunk = items.slice(i, i + batchSize);
-        await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
-      }
-      writeJson(SCANNED_LIBRARY_FILE, items);
-      console.log(`[Persistent Library Background Enrich] TMDB poster enrichment complete for ${items.length} items.`);
+      setTimeout(async () => {
+        const batchSize = 10;
+        for (let i = 0; i < items.length; i += batchSize) {
+          const chunk = items.slice(i, i + batchSize);
+          await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
+        }
+        writeJson(SCANNED_LIBRARY_FILE, items);
+        console.log(`[Persistent Library Background Enrich] TMDB poster enrichment complete for ${items.length} items.`);
+      }, 50);
     }
 
     return items;
@@ -3341,36 +3343,21 @@ http://example.com/stream2.m3u8`;
         }
 
 
-        // Self-healing poster fetch for items missing posters
+        // Self-healing poster fetch for items missing posters (Asynchronous in background)
         const unposterized = savedItems.filter((i: any) => !i.poster);
-
         if (unposterized.length > 0) {
           const settings = readJson(SETTINGS_FILE);
           const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
           if (apiKey) {
-            // Immediately enrich up to 15 items synchronously so response has posters on first render!
-            const syncChunk = unposterized.slice(0, 15);
-            let newlyFound = 0;
-            const results = await Promise.allSettled(syncChunk.map(item => enrichItemWithTmdb(item, apiKey)));
-            newlyFound += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-
-            if (unposterized.length > 15) {
-              setTimeout(async () => {
-                const remaining = unposterized.slice(15);
-                const batchSize = 10;
-                for (let i = 0; i < remaining.length; i += batchSize) {
-                  const chunk = remaining.slice(i, i + batchSize);
-                  await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
-                }
-                writeJson(SCANNED_LIBRARY_FILE, savedItems);
-                console.log(`[Local Media Background Enrich] Processed all ${unposterized.length} missing posters.`);
-              }, 10);
-            }
-
-            if (newlyFound > 0) {
+            setTimeout(async () => {
+              const batchSize = 10;
+              for (let i = 0; i < unposterized.length; i += batchSize) {
+                const chunk = unposterized.slice(i, i + batchSize);
+                await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
+              }
               writeJson(SCANNED_LIBRARY_FILE, savedItems);
-              console.log(`[Local Media Sync Enrich] Found ${newlyFound} missing posters before returning library.`);
-            }
+              console.log(`[Local Media Background Enrich] Processed missing posters for ${unposterized.length} items.`);
+            }, 100);
           }
         }
       }
