@@ -3311,7 +3311,8 @@ http://example.com/stream2.m3u8`;
           });
 
           const primaryFile = group.files[0];
-          const fileId = `local_lib_${Buffer.from(primaryFile).toString('hex').substring(0, 16)}`;
+          const fileHash = crypto.createHash('md5').update(primaryFile).digest('hex');
+          const fileId = `local_lib_${fileHash}`;
           const localPoster = findLocalPosterForFile(primaryFile, group.folderPath);
 
           items.push({

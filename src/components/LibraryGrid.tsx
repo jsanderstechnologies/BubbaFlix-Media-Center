@@ -405,9 +405,9 @@ export function LibraryGrid({
 
   const getItemKey = (item: any, index: number) => {
     if (item.favoriteId) return `fav_${item.favoriteId}`;
-    if (item.id) return `item_${item.id}`;
     if (item.filePath) return `path_${item.filePath}`;
-    return `idx_${index}_${item.title}`;
+    if (item.id) return `item_${item.id}`;
+    return `idx_${index}_${item.title || item.name}`;
   };
 
   const getSortableTitle = (title?: string) => {
