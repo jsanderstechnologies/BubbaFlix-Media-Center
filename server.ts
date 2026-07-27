@@ -365,11 +365,21 @@ async function startServer() {
   const readJson = (file: string, fallback: any = {}) => {
     try {
       if (!fs.existsSync(file)) return fallback;
-      const content = fs.readFileSync(file, 'utf8').trim();
+      let content = fs.readFileSync(file, 'utf8').trim();
       if (!content) return fallback;
+      // Strip UTF-8 Byte Order Mark (BOM) if present
+      if (content.charCodeAt(0) === 0xFEFF) {
+        content = content.slice(1).trim();
+      }
       return JSON.parse(content);
     } catch (e: any) {
-      console.error(`[JSON Read Error] Failed parsing "${file}": ${e.message}`);
+      console.error(`[JSON Read Error] Recovered from invalid JSON in "${file}": ${e.message}`);
+      if (file === SETTINGS_FILE || file === SCANNED_LIBRARY_FILE || file === USERS_FILE) {
+        try {
+          writeJson(file, fallback);
+          console.log(`[JSON Auto-Repair] Cleanly re-initialized corrupt data file: ${file}`);
+        } catch (err) {}
+      }
       return fallback;
     }
   };
