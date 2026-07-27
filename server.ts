@@ -3109,11 +3109,63 @@ http://example.com/stream2.m3u8`;
   const isGenericSubfolder = (name: string) => {
     const n = name.toLowerCase().trim();
     return /^season\s*\d+/i.test(n) ||
-           /^specials$/i.test(n) ||
+           /^s\d{1,2}$/i.test(n) ||
+           /^series\s*\d+/i.test(n) ||
+           /^staffel\s*\d+/i.test(n) ||
+           /^saison\s*\d+/i.test(n) ||
+           /^specials?$/i.test(n) ||
            /^(4k|2160p|1080p|720p|bluray|web-dl|dvdrip|remux)$/i.test(n) ||
            /^(subs|subtitles|bonus|extra|extras|featurettes|sample|cd1|cd2)$/i.test(n) ||
            /^(movies|tv|tv shows|tvseries|videos|media|library|emby|collections|films)$/i.test(n);
   };
+
+  const cleanTvShowTitle = (rawTitle: string): string => {
+    let clean = rawTitle
+      .replace(/\b(season|series|staffel|saison)\s*\d+\b/gi, '')
+      .replace(/\bS\d{1,2}(E\d{1,2})?\b/gi, '')
+      .replace(/\b(specials?|bonus|extras?)\b/gi, '')
+      .replace(/[\(\)\[\]\-_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return clean || rawTitle;
+  };
+
+  async function normalizeTvSeriesWithGemini(rawSeriesTitles: string[], apiKey: string): Promise<Record<string, string>> {
+    if (!apiKey || rawSeriesTitles.length === 0) return {};
+    try {
+      const prompt = `You are an expert TV series catalog organizer. Given the following list of folder/title names from a media server scan, detect which items are different seasons or subfolder variations of the SAME TV show. Return a JSON object mapping each raw input title to its clean canonical TV show name.
+       
+Input titles:
+${JSON.stringify(rawSeriesTitles)}
+
+Respond ONLY with valid JSON in this exact structure without markdown or explanation:
+{
+  "Raw Title 1": "Canonical TV Show Name",
+  "Raw Title 2": "Canonical TV Show Name"
+}`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+      }
+    } catch (err) {
+      console.warn('[Gemini AI TV Normalizer] Failed to normalize TV series titles with Gemini:', err);
+    }
+    return {};
+  }
 
 
   const getMediaFolderAndTitle = (filePath: string, rootPath: string) => {
@@ -3288,6 +3340,11 @@ http://example.com/stream2.m3u8`;
             }
           }
 
+          // For series, clean season numbers from title so all seasons group under the parent TV series
+          if (mediaType === 'series') {
+            parsedTitle = cleanTvShowTitle(parsedTitle);
+          }
+
           const cleanKey = parsedTitle.toLowerCase().replace(/[^a-z0-9]/g, '') || filenameNoExt.toLowerCase().replace(/[^a-z0-9]/g, '');
           
           // For movies, each individual file gets its own card!
@@ -3300,6 +3357,39 @@ http://example.com/stream2.m3u8`;
             titleGroups.set(dedupeKey, { title: parsedTitle, year: parsedYear, files: [], folderPath, mediaType });
           }
           titleGroups.get(dedupeKey)!.files.push(file);
+        }
+
+        // Gemini AI Smart Normalization for TV Series with separate season subfolders
+        if (settings.geminiApiKey) {
+          const rawSeriesTitles = Array.from(titleGroups.values())
+            .filter(g => g.mediaType === 'series')
+            .map(g => g.title);
+
+          if (rawSeriesTitles.length > 0) {
+            const geminiMap = await normalizeTvSeriesWithGemini(rawSeriesTitles, settings.geminiApiKey);
+            if (Object.keys(geminiMap).length > 0) {
+              const mergedGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string; mediaType: 'movie' | 'series' }>();
+              
+              for (const [key, group] of titleGroups.entries()) {
+                if (group.mediaType === 'series') {
+                  const canonicalName = geminiMap[group.title] || group.title;
+                  const canonicalKey = `series_${canonicalName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+                  if (!mergedGroups.has(canonicalKey)) {
+                    mergedGroups.set(canonicalKey, { ...group, title: canonicalName });
+                  } else {
+                    mergedGroups.get(canonicalKey)!.files.push(...group.files);
+                  }
+                } else {
+                  mergedGroups.set(key, group);
+                }
+              }
+              
+              titleGroups.clear();
+              for (const [k, v] of mergedGroups.entries()) {
+                titleGroups.set(k, v);
+              }
+            }
+          }
         }
 
         for (const [dedupeKey, group] of titleGroups.entries()) {
