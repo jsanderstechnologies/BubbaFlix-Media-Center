@@ -3205,12 +3205,28 @@ http://example.com/stream2.m3u8`;
         const titleGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string; mediaType: 'movie' | 'series' }>();
 
         for (const file of allVideoFiles) {
-          const { title, year, folderPath } = getMediaFolderAndTitle(file, rootPath);
+          const { title: folderTitle, year: folderYear, folderPath } = getMediaFolderAndTitle(file, rootPath);
           const mediaType = isTvSeriesItem(file, folderPath, configuredType) ? 'series' : 'movie';
-          const dedupeKey = `${mediaType}_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+          
+          let parsedTitle = folderTitle;
+          let parsedYear = folderYear;
+
+          // For Movies, or when folderTitle is generic, derive title from filename so each movie gets its own card
+          if (mediaType === 'movie' || isGenericSubfolder(folderTitle) || folderPath === rootPath) {
+            const filenameNoExt = path.basename(file, path.extname(file));
+            const parsedFile = parseMediaName(filenameNoExt);
+            if (parsedFile.title && parsedFile.title.length > 1) {
+              parsedTitle = parsedFile.title;
+              if (parsedFile.year) parsedYear = parsedFile.year;
+            }
+          }
+
+          // For Movies, deduplicate by individual file/title; for TV Series, deduplicate by show title
+          const cleanKey = parsedTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const dedupeKey = mediaType === 'movie' ? `movie_${cleanKey}_${path.basename(file)}` : `series_${cleanKey}`;
 
           if (!titleGroups.has(dedupeKey)) {
-            titleGroups.set(dedupeKey, { title, year, files: [], folderPath, mediaType });
+            titleGroups.set(dedupeKey, { title: parsedTitle, year: parsedYear, files: [], folderPath, mediaType });
           }
           titleGroups.get(dedupeKey)!.files.push(file);
         }
@@ -3277,8 +3293,9 @@ http://example.com/stream2.m3u8`;
       let savedItems = readJson(SCANNED_LIBRARY_FILE, []);
       if (!Array.isArray(savedItems)) savedItems = [];
 
-      if (savedItems.length === 0) {
-        console.log("[Local Media Library] Catalog empty or missing. Auto-scanning library now...");
+      const needsRescan = req.query.rescan === 'true' || savedItems.some((i: any) => i.title === 'Movies' || i.title === 'Media' || i.title === 'Library');
+      if (savedItems.length === 0 || needsRescan) {
+        console.log("[Local Media Library] Catalog empty or contains generic titles. Auto-scanning library now...");
         savedItems = await buildAndSaveLibraryCatalog();
       } else {
         // Auto-fix misidentified titles & media types by re-evaluating folder configuration & filenames
