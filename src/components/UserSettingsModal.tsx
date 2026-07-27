@@ -70,8 +70,8 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
     return () => {
       clearTimeout(focusTimeout);
       SpatialNavigation.remove('settings-modal');
-      SpatialNavigation.enable('auth-dropdown');
-      SpatialNavigation.focus('auth-dropdown');
+      SpatialNavigation.enable('');
+      SpatialNavigation.makeFocusable();
     };
   }, []);
 
@@ -92,8 +92,19 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
   };
 
   return createPortal(
-    <div id="user-settings-modal" ref={modalRef} className="fixed inset-0 z-[1000] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh]">
+    <div 
+      id="user-settings-modal" 
+      ref={modalRef} 
+      className="fixed inset-0 z-[10000] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+    >
+      <div 
+        className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-6 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
