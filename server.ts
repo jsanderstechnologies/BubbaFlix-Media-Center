@@ -2867,29 +2867,38 @@ http://example.com/stream2.m3u8`;
     return fileList;
   };
 
-  const scanDirectoryForMedia = (dirPath: string, fileList: string[] = [], maxDepth = 10, currentDepth = 0) => {
-    const normDir = normalizeNetworkPath(dirPath);
+  const scanDirectoryForMedia = (dirPath: string, fileList: string[] = [], maxDepth = 15, currentDepth = 0): string[] => {
     if (currentDepth > maxDepth) return fileList;
+    const normDir = normalizeNetworkPath(dirPath);
 
-    if (!safeExists(normDir)) {
-      return fileList;
-    }
+    const videoExtensions = [
+      '.mp4', '.mkv', '.avi', '.mov', '.m4v', '.ts', '.webm', '.flv',
+      '.wmv', '.m2ts', '.mts', '.iso', '.vob', '.mpg', '.mpeg', '.strm',
+      '.divx', '.3gp', '.ogv'
+    ];
 
     try {
       const entries = fs.readdirSync(normDir);
-      const videoExtensions = [
-        '.mp4', '.mkv', '.avi', '.mov', '.m4v', '.ts', '.webm', '.flv',
-        '.wmv', '.m2ts', '.mts', '.iso', '.vob', '.mpg', '.mpeg', '.strm',
-        '.divx', '.3gp', '.ogv'
-      ];
-
       for (const entry of entries) {
+        if (!entry || entry.startsWith('.')) continue;
         const fullPath = path.join(normDir, entry);
         try {
-          const entryStat = fs.statSync(fullPath);
-          if (entryStat.isDirectory()) {
+          let isDir = false;
+          let isFile = false;
+
+          try {
+            const entryStat = fs.statSync(fullPath);
+            isDir = entryStat.isDirectory();
+            isFile = entryStat.isFile();
+          } catch (e) {
+            const ext = path.extname(entry).toLowerCase();
+            if (!ext || ext.length === 0) isDir = true;
+            else isFile = true;
+          }
+
+          if (isDir) {
             scanDirectoryForMedia(fullPath, fileList, maxDepth, currentDepth + 1);
-          } else if (entryStat.isFile()) {
+          } else if (isFile || videoExtensions.includes(path.extname(entry).toLowerCase())) {
             const ext = path.extname(entry).toLowerCase();
             if (videoExtensions.includes(ext)) {
               fileList.push(fullPath);
@@ -3254,25 +3263,34 @@ http://example.com/stream2.m3u8`;
         const titleGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string; mediaType: 'movie' | 'series' }>();
 
         for (const file of allVideoFiles) {
-          const { title: folderTitle, year: folderYear, folderPath } = getMediaFolderAndTitle(file, rootPath);
+          let { title: folderTitle, year: folderYear, folderPath } = getMediaFolderAndTitle(file, rootPath);
           const mediaType = isTvSeriesItem(file, folderPath, configuredType) ? 'series' : 'movie';
           
           let parsedTitle = folderTitle;
           let parsedYear = folderYear;
+          const filenameNoExt = path.basename(file, path.extname(file));
+          const parsedFile = parseMediaName(filenameNoExt);
 
-          // For Movies, or when folderTitle is generic, derive title from filename so each movie gets its own card
-          if (mediaType === 'movie' || isGenericSubfolder(folderTitle) || folderPath === rootPath) {
-            const filenameNoExt = path.basename(file, path.extname(file));
-            const parsedFile = parseMediaName(filenameNoExt);
-            if (parsedFile.title && parsedFile.title.length > 1) {
+          // If folderTitle is generic (like "Movies", "TV Shows", "Media", "Library"), derive title from parent dir or filename
+          if (isGenericSubfolder(parsedTitle) || folderPath === rootPath) {
+            const parentDirName = path.basename(path.dirname(file));
+            if (!isGenericSubfolder(parentDirName) && path.dirname(file) !== rootPath) {
+              parsedTitle = parseMediaName(parentDirName).title || parentDirName;
+            } else if (parsedFile.title && parsedFile.title.length > 1) {
               parsedTitle = parsedFile.title;
               if (parsedFile.year) parsedYear = parsedFile.year;
+            } else {
+              parsedTitle = filenameNoExt;
             }
           }
 
-          // For Movies, deduplicate by individual file/title; for TV Series, deduplicate by show title
-          const cleanKey = parsedTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const dedupeKey = mediaType === 'movie' ? `movie_${cleanKey}_${path.basename(file)}` : `series_${cleanKey}`;
+          const cleanKey = parsedTitle.toLowerCase().replace(/[^a-z0-9]/g, '') || filenameNoExt.toLowerCase().replace(/[^a-z0-9]/g, '');
+          
+          // For movies, each individual file gets its own card!
+          // For series, each distinct show title (or episode file if at root) gets its own card!
+          const dedupeKey = mediaType === 'movie' || folderPath === rootPath
+            ? `movie_${cleanKey}_${filenameNoExt}` 
+            : `series_${cleanKey}`;
 
           if (!titleGroups.has(dedupeKey)) {
             titleGroups.set(dedupeKey, { title: parsedTitle, year: parsedYear, files: [], folderPath, mediaType });
