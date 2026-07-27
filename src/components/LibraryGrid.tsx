@@ -35,8 +35,8 @@ export function LibraryGrid({
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [failedPosters, setFailedPosters] = useState<Record<string, boolean>>({});
 
-  const loadNetworkShareItems = () => {
-    fetch('/api/local-media/library')
+  const loadNetworkShareItems = (forceRescan = false) => {
+    fetch(`/api/local-media/library${forceRescan ? '?rescan=true' : ''}`)
       .then(res => res.json())
       .then(data => {
         if (data && data.success && Array.isArray(data.data)) {

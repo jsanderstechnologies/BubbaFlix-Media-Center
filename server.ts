@@ -3336,9 +3336,15 @@ http://example.com/stream2.m3u8`;
       let savedItems = readJson(SCANNED_LIBRARY_FILE, []);
       if (!Array.isArray(savedItems)) savedItems = [];
 
-      const needsRescan = req.query.rescan === 'true' || savedItems.some((i: any) => i.title === 'Movies' || i.title === 'Media' || i.title === 'Library');
-      if (savedItems.length === 0 || needsRescan) {
-        console.log("[Local Media Library] Catalog empty or contains generic titles. Auto-scanning library now...");
+      const settings = readJson(SETTINGS_FILE);
+      const mediaFolders: any[] = settings.mediaFolders || [];
+
+      const needsRescan = req.query.rescan === 'true' || 
+                          savedItems.length <= 2 || 
+                          savedItems.some((i: any) => i.title === 'Movies' || i.title === 'Media' || i.title === 'Library');
+
+      if ((mediaFolders.length > 0 && savedItems.length <= 2) || needsRescan) {
+        console.log("[Local Media Library] Performing fresh catalog scan of configured folders...");
         savedItems = await buildAndSaveLibraryCatalog();
       } else {
         // Auto-fix misidentified titles & media types by re-evaluating folder configuration & filenames
