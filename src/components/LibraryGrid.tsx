@@ -396,7 +396,16 @@ export function LibraryGrid({
     if (activeTab === 'series') return isMatchSeries(item);
     return false;
   });
-  const filteredMedia = [...shareMedia, ...userFavs];
+
+  // Deduplicate items by unique ID
+  const rawMedia = [...shareMedia, ...userFavs];
+  const seenIds = new Set<string>();
+  const filteredMedia = rawMedia.filter((item) => {
+    const key = item.id || item.favoriteId || item.filePath || item.title;
+    if (seenIds.has(key)) return false;
+    seenIds.add(key);
+    return true;
+  });
 
   const movieCount = networkShareItems.filter(i => isMatchMovie(i)).length + favorites.filter(i => isMatchMovie(i)).length;
   const seriesCount = networkShareItems.filter(i => isMatchSeries(i)).length + favorites.filter(i => isMatchSeries(i)).length;
@@ -435,7 +444,7 @@ export function LibraryGrid({
               Your {activeTab === 'movies' ? 'movies' : 'TV series'} library is empty. Add a network share folder in Settings or bookmark media!
             </div>
           ) : (
-            <section className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
+            <section key={activeTab} className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
 
               {filteredMedia.map((item: any) => (
                 <div 

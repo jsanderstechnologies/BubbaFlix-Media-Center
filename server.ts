@@ -3281,19 +3281,38 @@ http://example.com/stream2.m3u8`;
         console.log("[Local Media Library] Catalog empty or missing. Auto-scanning library now...");
         savedItems = await buildAndSaveLibraryCatalog();
       } else {
-        // Auto-fix misidentified titles by re-evaluating filename & folderPath with latest parseMediaName
+        // Auto-fix misidentified titles & media types by re-evaluating folder configuration & filenames
+        const settings = readJson(SETTINGS_FILE);
+        const mediaFolders: any[] = settings.mediaFolders || [];
         let fixedAny = false;
+
         savedItems.forEach((item: any) => {
-          if (item.filePath && !item.isCustomMatch) {
-            const rootPath = path.dirname(item.folderPath || item.filePath);
-            const { title, year } = getMediaFolderAndTitle(item.filePath, rootPath);
-            if (title && title !== item.title) {
-              console.log(`[Library Auto-Fix] Corrected title from "${item.title}" to "${title}" (Year: ${year || item.year})`);
-              item.title = title;
-              item.name = title;
-              if (year) item.year = year;
-              item.poster = ''; // Force poster refetch with corrected title
-              fixedAny = true;
+          if (item.filePath) {
+            // Guarantee item.type strictly matches the configured mediaType of its parent folder
+            const normItemPath = normalizeNetworkPath(item.filePath);
+            for (const folder of mediaFolders) {
+              if (folder && folder.path && normItemPath.startsWith(normalizeNetworkPath(folder.path))) {
+                const correctType = folder.mediaType || 'movie';
+                if (item.type !== correctType) {
+                  console.log(`[Library Type Fix] Corrected "${item.title}" type from "${item.type}" to "${correctType}" based on folder settings.`);
+                  item.type = correctType;
+                  fixedAny = true;
+                }
+                break;
+              }
+            }
+
+            if (!item.isCustomMatch) {
+              const rootPath = path.dirname(item.folderPath || item.filePath);
+              const { title, year } = getMediaFolderAndTitle(item.filePath, rootPath);
+              if (title && title !== item.title) {
+                console.log(`[Library Auto-Fix] Corrected title from "${item.title}" to "${title}" (Year: ${year || item.year})`);
+                item.title = title;
+                item.name = title;
+                if (year) item.year = year;
+                item.poster = ''; // Force poster refetch with corrected title
+                fixedAny = true;
+              }
             }
           }
         });
