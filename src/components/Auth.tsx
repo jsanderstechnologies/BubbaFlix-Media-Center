@@ -10,13 +10,22 @@ export interface AuthUser {
   role?: string;
 }
 
+// Helper to initialize session instantly from localStorage
+const getStoredUser = (): AuthUser | null => {
+  try {
+    const raw = localStorage.getItem('authUser');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+};
+
 // Global state to avoid prop drilling for Auth
-let globalUser: AuthUser | null = null;
+let globalUser: AuthUser | null = getStoredUser();
 let globalSetUser: ((u: AuthUser | null) => void)[] = [];
 
 export function useAuth() {
   const [user, setUserState] = useState<AuthUser | null>(globalUser);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!globalUser);
 
   useEffect(() => {
     globalSetUser.push(setUserState);
@@ -30,16 +39,26 @@ export function useAuth() {
     fetch('/api/auth/me', {
       headers: { Authorization: `Bearer ${token}` }
     })
-      .then(res => res.json())
-      .then(data => {
-        if (data.user) {
-          globalUser = data.user;
-          globalSetUser.forEach(fn => fn(data.user));
-        } else {
+      .then(res => {
+        if (res.status === 401) {
           localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          globalUser = null;
+          globalSetUser.forEach(fn => fn(null));
+          return null;
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (data && data.user) {
+          globalUser = data.user;
+          localStorage.setItem('authUser', JSON.stringify(data.user));
+          globalSetUser.forEach(fn => fn(data.user));
         }
       })
-      .catch(console.error)
+      .catch(err => {
+        console.warn('[Auth] Network error verifying session, maintaining offline session:', err);
+      })
       .finally(() => setLoading(false));
 
     return () => {
@@ -49,12 +68,14 @@ export function useAuth() {
 
   const login = (user: AuthUser, token: string) => {
     localStorage.setItem('authToken', token);
+    localStorage.setItem('authUser', JSON.stringify(user));
     globalUser = user;
     globalSetUser.forEach(fn => fn(user));
   };
 
   const logout = () => {
     localStorage.removeItem('authToken');
+    localStorage.removeItem('authUser');
     globalUser = null;
     globalSetUser.forEach(fn => fn(null));
   };

@@ -761,7 +761,9 @@ async function startServer() {
     }
 
     const token = crypto.randomBytes(32).toString('hex');
+    const existingTokens = Array.isArray((user as any).tokens) ? (user as any).tokens : [];
     (user as any).token = token;
+    (user as any).tokens = [...existingTokens.slice(-15), token];
     writeJson(USERS_FILE, users);
 
     res.json({ user: { uid: (user as any).uid, email: (user as any).email, username: (user as any).username, role: (user as any).role || 'user', status }, token });
@@ -783,7 +785,9 @@ async function startServer() {
     if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
     
     const token = authHeader.split(' ')[1];
-    const user = Object.values(users as Record<string, any>).find((u: any) => u.token === token);
+    const user = Object.values(users as Record<string, any>).find((u: any) => 
+      u.token === token || (Array.isArray(u.tokens) && u.tokens.includes(token))
+    );
 
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     res.json({ user: { uid: user.uid, email: user.email, username: user.username, role: user.role || 'user' } });
