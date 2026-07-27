@@ -432,19 +432,19 @@ export function LibraryGrid({
               Your {activeTab === 'movies' ? 'movies' : 'TV series'} library is empty. Add a network share folder in Settings or bookmark media!
             </div>
           ) : (
-            <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-6">
+            <section className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
 
               {filteredMedia.map((item: any) => (
                 <div 
                   key={item.id || item.favoriteId} 
-                  className="group cursor-pointer focus:outline-none" 
+                  className="group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl" 
                   onClick={() => onSelectMedia(item)}
                   onMouseEnter={() => onHoverMedia?.(item.poster)}
                   onMouseLeave={() => onHoverMedia?.('')}
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia(item); }}
                 >
-                  <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-3 relative border border-white/5 shadow-2xl group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
+                  <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
                     {item.poster || item.backupPoster ? (
                       <img 
                         src={item.poster || item.backupPoster} 
@@ -492,19 +492,19 @@ export function LibraryGrid({
                       </button>
                     </div>
 
-                    <div className="absolute bottom-3 left-3 right-3 flex flex-col pointer-events-none">
-                      <span className="text-xs font-semibold leading-tight text-white drop-shadow truncate">{item.title}</span>
+                    <div className="absolute bottom-2.5 left-2.5 right-2.5 flex flex-col pointer-events-none">
+                      <span className="text-xs sm:text-sm font-medium leading-tight text-white drop-shadow truncate">{item.title}</span>
                     </div>
 
                     <div className="absolute top-2 left-2 flex gap-1 items-center">
                       <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow tracking-wider uppercase border ${item.isNetworkShare ? 'bg-indigo-600/90 text-white border-indigo-400/40' : 'bg-red-600/90 text-white border-red-400/40'}`}>
-                        {item.isNetworkShare ? 'NETWORK SHARE' : (item.type === 'movie' ? 'MOVIE' : 'TV')}
+                        {item.isNetworkShare ? 'LOCAL' : (item.type === 'movie' ? 'MOVIE' : 'TV')}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between px-1">
-                    <span className="text-xs text-white/90">{item.year || 'N/A'}</span>
-                    <span className="text-xs bg-black/40 text-white px-1.5 py-0.5 rounded border border-white/10">{item.rating || 'LOCAL'}</span>
+                    <span className="text-xs text-white/70 font-mono">{item.year || 'N/A'}</span>
+                    {item.rating && <span className="text-xs bg-black/40 text-amber-400 font-mono px-1.5 py-0.5 rounded border border-white/10">★ {item.rating}</span>}
                   </div>
                 </div>
               ))}

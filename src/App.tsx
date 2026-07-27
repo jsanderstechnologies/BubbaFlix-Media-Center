@@ -382,6 +382,17 @@ function MainApp() {
       finalContext = { ...finalContext, isLive: true };
     }
     setPlayingContext(finalContext);
+
+    // Native Android TV ExoPlayer integration
+    if ((window as any).AndroidBridge || (window as any).playNativeMedia) {
+      const fullStreamUrl = url.startsWith('/') ? `${window.location.origin}${url}` : url;
+      const mediaTitle = selectedMovie?.title || selectedMovie?.name || finalContext?.title || 'BubbaFlix Stream';
+      const mediaId = finalContext?.id || selectedMovie?.id || '';
+      const startMs = (resumeTime || 0) * 1000;
+      if ((window as any).playNativeMedia && (window as any).playNativeMedia(fullStreamUrl, mediaTitle, mediaId, startMs, '')) {
+        return;
+      }
+    }
     
     setCurrentTime(0);
     setBufferedSeconds(0);
