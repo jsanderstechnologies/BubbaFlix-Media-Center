@@ -408,7 +408,12 @@ export function LibraryGrid({
     return `idx_${index}_${item.title}`;
   };
 
-  // Deduplicate items by unique key
+  const getSortableTitle = (title?: string) => {
+    if (!title) return '';
+    return title.trim().replace(/^(the|a|an)\s+/i, '').trim();
+  };
+
+  // Deduplicate items by unique key and sort alphabetically ignoring leading articles ("The", "A", "An")
   const rawMedia = [...shareMedia, ...userFavs];
   const seenKeys = new Set<string>();
   const filteredMedia = rawMedia.filter((item, idx) => {
@@ -416,6 +421,12 @@ export function LibraryGrid({
     if (seenKeys.has(k)) return false;
     seenKeys.add(k);
     return true;
+  });
+
+  filteredMedia.sort((a, b) => {
+    const tA = getSortableTitle(a.title || a.name);
+    const tB = getSortableTitle(b.title || b.name);
+    return tA.localeCompare(tB, undefined, { sensitivity: 'base', numeric: true });
   });
 
   const movieCount = networkShareItems.filter(i => isMatchMovie(i)).length + favorites.filter(i => isMatchMovie(i)).length;

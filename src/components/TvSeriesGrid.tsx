@@ -35,6 +35,11 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
     processedSeries = processedSeries.filter((s: any) => s.genres && s.genres.includes(filterGenre));
   }
 
+  const getSortableTitle = (title?: string) => {
+    if (!title) return '';
+    return title.trim().replace(/^(the|a|an)\s+/i, '').trim();
+  };
+
   if (sortOption === 'newest') {
     processedSeries.sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
   } else if (sortOption === 'oldest') {
@@ -43,6 +48,10 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
     processedSeries.sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
   } else if (sortOption === 'rating_low') {
     processedSeries.sort((a, b) => parseFloat(a.rating) - parseFloat(b.rating));
+  } else if (sortOption === 'title_asc' || sortOption === 'title' || sortOption === 'name') {
+    processedSeries.sort((a, b) => getSortableTitle(a.title || a.name).localeCompare(getSortableTitle(b.title || b.name), undefined, { sensitivity: 'base', numeric: true }));
+  } else if (sortOption === 'title_desc') {
+    processedSeries.sort((a, b) => getSortableTitle(b.title || b.name).localeCompare(getSortableTitle(a.title || a.name), undefined, { sensitivity: 'base', numeric: true }));
   }
 
   if (processedSeries.length === 0) {
