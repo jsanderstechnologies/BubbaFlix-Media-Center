@@ -67,9 +67,11 @@ export function LibraryGrid({
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'movies' | 'series' | 'music'>('movies');
+  const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
 
   useEffect(() => {
     loadNetworkShareItems();
+    setSelectedLetter(null);
   }, [activeTab]);
 
   const [musicSubTab, setMusicSubTab] = useState<'artists' | 'playlists'>('artists');
@@ -429,6 +431,22 @@ export function LibraryGrid({
     return tA.localeCompare(tB, undefined, { sensitivity: 'base', numeric: true });
   });
 
+  const getItemFirstChar = (item: any): string => {
+    const title = getSortableTitle(item.title || item.name);
+    if (!title) return '#';
+    const firstChar = title.charAt(0).toUpperCase();
+    if (/[0-9]/.test(firstChar)) return '#';
+    if (/[A-Z]/.test(firstChar)) return firstChar;
+    return '#';
+  };
+
+  const alphabetList = ['ALL', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
+  const availableLetters = new Set(filteredMedia.map(getItemFirstChar));
+
+  const displayMedia = selectedLetter && selectedLetter !== 'ALL'
+    ? filteredMedia.filter(item => getItemFirstChar(item) === selectedLetter)
+    : filteredMedia;
+
   const movieCount = networkShareItems.filter(i => isMatchMovie(i)).length + favorites.filter(i => isMatchMovie(i)).length;
   const seriesCount = networkShareItems.filter(i => isMatchSeries(i)).length + favorites.filter(i => isMatchSeries(i)).length;
 
@@ -437,13 +455,13 @@ export function LibraryGrid({
       {/* Tab Selectors */}
       <div className="flex gap-6 mb-6 border-b border-white/10 pb-4">
         <button 
-          onClick={() => { setActiveTab('movies'); setSelectedPlaylist(null); }}
+          onClick={() => { setActiveTab('movies'); setSelectedPlaylist(null); setSelectedLetter(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'movies' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
           Movies ({movieCount})
         </button>
         <button 
-          onClick={() => { setActiveTab('series'); setSelectedPlaylist(null); }}
+          onClick={() => { setActiveTab('series'); setSelectedPlaylist(null); setSelectedLetter(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'series' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
           TV Series ({seriesCount})
@@ -451,7 +469,7 @@ export function LibraryGrid({
 
 
         <button 
-          onClick={() => { setActiveTab('music'); }}
+          onClick={() => { setActiveTab('music'); setSelectedLetter(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'music' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
           Music Library
@@ -461,14 +479,44 @@ export function LibraryGrid({
       {/* Movies / Series content */}
       {activeTab !== 'music' && (
         <>
-          {filteredMedia.length === 0 ? (
+          {/* Quick-Jump Alphabet Index Bar */}
+          {filteredMedia.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mb-6 py-2 px-3 bg-white/[0.03] backdrop-blur-md rounded-xl border border-white/10">
+              <span className="text-[10px] font-black uppercase text-white/40 tracking-wider mr-1 sm:mr-2">Jump To:</span>
+              {alphabetList.map((letter) => {
+                const isAll = letter === 'ALL';
+                const isActive = isAll ? !selectedLetter || selectedLetter === 'ALL' : selectedLetter === letter;
+                const hasItems = isAll ? true : availableLetters.has(letter);
+
+                return (
+                  <button
+                    key={letter}
+                    disabled={!hasItems && !isAll}
+                    onClick={() => setSelectedLetter(isActive ? null : letter)}
+                    className={`px-2 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 scale-105'
+                        : hasItems
+                        ? 'bg-white/5 text-white/80 hover:bg-white/15 hover:text-white'
+                        : 'bg-transparent text-white/20 cursor-not-allowed opacity-40'
+                    }`}
+                    title={hasItems || isAll ? `Show items starting with ${letter}` : `No items starting with ${letter}`}
+                  >
+                    {letter}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {displayMedia.length === 0 ? (
             <div className="text-white/50 text-sm py-12 text-center bg-white/[0.02] border border-white/5 rounded-2xl max-w-md mx-auto">
-              Your {activeTab === 'movies' ? 'movies' : 'TV series'} library is empty. Add a network share folder in Settings or bookmark media!
+              {selectedLetter ? `No ${activeTab === 'movies' ? 'movies' : 'TV series'} found starting with "${selectedLetter}".` : `Your ${activeTab === 'movies' ? 'movies' : 'TV series'} library is empty. Add a network share folder in Settings or bookmark media!`}
             </div>
           ) : (
             <section key={activeTab} className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
 
-              {filteredMedia.map((item: any, idx: number) => (
+              {displayMedia.map((item: any, idx: number) => (
                 <div 
                   key={getItemKey(item, idx)} 
                   className="group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl" 
