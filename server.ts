@@ -3238,7 +3238,7 @@ http://example.com/stream2.m3u8`;
       const configuredType = folderObj.mediaType || 'movie';
 
       try {
-        const allVideoFiles = await scanDirectoryForMediaAsync(rootPath, [], 10);
+        const allVideoFiles = scanDirectoryForMedia(rootPath, [], 15);
         if (allVideoFiles.length === 0) continue;
 
         const titleGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string; mediaType: 'movie' | 'series' }>();
