@@ -3195,6 +3195,32 @@ http://example.com/stream2.m3u8`;
     return false;
   };
 
+  const findLocalPosterForFile = (filePath: string, folderPath?: string): string => {
+    try {
+      const dir = folderPath || path.dirname(filePath);
+      if (!dir) return '';
+
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+      const posterNames = [
+        'poster', 'folder', 'cover', 'fanart', 'thumb', 'movie',
+        path.basename(filePath, path.extname(filePath)),
+        path.basename(dir)
+      ];
+
+      for (const name of posterNames) {
+        for (const ext of imageExtensions) {
+          const testPath = path.join(dir, `${name}${ext}`);
+          try {
+            if (fs.existsSync(testPath)) {
+              return `/api/local-media/stream?path=${encodeURIComponent(testPath)}`;
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+    return '';
+  };
+
   const buildAndSaveLibraryCatalog = async (): Promise<any[]> => {
     const settings = readJson(SETTINGS_FILE);
     const mediaFolders: any[] = settings.mediaFolders || [];
@@ -3258,6 +3284,7 @@ http://example.com/stream2.m3u8`;
 
           const primaryFile = group.files[0];
           const fileId = `local_lib_${Buffer.from(primaryFile).toString('hex').substring(0, 16)}`;
+          const localPoster = findLocalPosterForFile(primaryFile, group.folderPath);
 
           items.push({
             id: fileId,
@@ -3265,7 +3292,8 @@ http://example.com/stream2.m3u8`;
             title: group.title,
             name: group.title,
             year: group.year || 'Local',
-            poster: '',
+            poster: localPoster,
+            backupPoster: localPoster,
             overview: `Local Shared Folder (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
             rating: 'SHARE',
             type: group.mediaType,
