@@ -2751,14 +2751,12 @@ http://example.com/stream2.m3u8`;
       }
     }
 
-    // 1. Try standard fs.readdirSync on candidates
+    // 1. Try standard fs.readdirSync on candidates directly
     for (const cand of candidates) {
       try {
-        if (fs.existsSync(cand)) {
-          const entries = fs.readdirSync(cand);
-          if (Array.isArray(entries) && entries.length >= 0) {
-            return entries.map(e => path.join(cand, e));
-          }
+        const entries = fs.readdirSync(cand);
+        if (Array.isArray(entries)) {
+          return entries.map(e => path.join(cand, e));
         }
       } catch (e) {}
     }
