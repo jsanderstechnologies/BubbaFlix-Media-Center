@@ -125,24 +125,16 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                 max="2.0" 
                 step="0.1" 
                 value={localZoom}
-                onChange={e => {
-                  const z = parseFloat(e.target.value);
-                  setLocalZoom(z);
-                  updateZoom(z);
-                }}
+                onChange={e => setLocalZoom(parseFloat(e.target.value))}
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowLeft') {
                     e.preventDefault();
                     e.stopPropagation();
-                    const newZ = Math.max(0.5, Number((localZoom - 0.1).toFixed(1)));
-                    setLocalZoom(newZ);
-                    updateZoom(newZ);
+                    setLocalZoom(z => Math.max(0.5, Number((z - 0.1).toFixed(1))));
                   } else if (e.key === 'ArrowRight') {
                     e.preventDefault();
                     e.stopPropagation();
-                    const newZ = Math.min(2.0, Number((localZoom + 0.1).toFixed(1)));
-                    setLocalZoom(newZ);
-                    updateZoom(newZ);
+                    setLocalZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))));
                   }
                 }}
                 className="focusable w-full accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 rounded-lg"
