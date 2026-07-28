@@ -656,11 +656,6 @@ export function LibraryGrid({
                   onHoverMedia={onHoverMedia}
                 />
               ))}
-            </section>
-          )}
-        </>
-      )}
-            </section>
           )}
         </>
       )}
