@@ -596,18 +596,10 @@ export function LibraryGrid({
         >
           TV Series ({seriesCount})
         </button>
-
-
-        <button 
-          onClick={() => { setActiveTab('music'); setSelectedLetter(null); }}
-          className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'music' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
-        >
-          Music Library
-        </button>
       </div>
 
       {/* Movies / Series content */}
-      {activeTab !== 'music' && (
+      {true && (
         <>
           {/* Quick-Jump Alphabet Index Bar */}
           {filteredMedia.length > 0 && (

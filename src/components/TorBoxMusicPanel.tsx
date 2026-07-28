@@ -18,7 +18,7 @@ interface AudioFile {
 }
 
 export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?: string }) {
-  const [activeTab, setActiveTab] = useState<'search' | 'videos' | 'library' | 'playlists'>('search');
+  const [activeTab, setActiveTab] = useState<'library' | 'search' | 'videos' | 'playlists'>('library');
   const [selectedVideoModal, setSelectedVideoModal] = useState<any | null>(null);
 
   const [query, setQuery] = useState(initialQuery);
@@ -682,9 +682,9 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
     <div className="space-y-8 animate-fadeIn pb-32">
       {/* Tabs */}
       <div className="flex items-center gap-6 border-b border-white/10 pb-4">
+        <button onClick={() => { setActiveTab('library'); setSelectedLibraryArtist(null); setSelectedLibraryAlbum(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'library' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>Library</button>
         <button onClick={() => { setActiveTab('search'); setSelectedRelease(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'search' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>TorBox & Audio</button>
         <button onClick={() => { setActiveTab('videos'); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'videos' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>YouTube Music Videos</button>
-        <button onClick={() => { setActiveTab('library'); setSelectedLibraryArtist(null); setSelectedLibraryAlbum(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'library' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>Library</button>
         <button onClick={() => { setActiveTab('playlists'); setSelectedPlaylist(null); }} className={`pb-4 -mb-[17px] text-sm font-medium transition-colors ${activeTab === 'playlists' ? 'text-red-500 border-b-2 border-red-500' : 'text-white/50 hover:text-white'}`}>Playlists</button>
       </div>
 
