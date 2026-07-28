@@ -3018,6 +3018,7 @@ http://example.com/stream2.m3u8`;
         const normalizedFilename = filename.toLowerCase().replace(/[^a-z0-9]/g, '');
         const normalizedFullPath = file.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+        let isMatch = false;
         const targetYear = req.query.year ? String(req.query.year).trim() : '';
 
         if (isTargetSeries && season !== undefined && episode !== undefined) {
