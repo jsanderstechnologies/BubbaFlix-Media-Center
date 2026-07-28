@@ -228,7 +228,76 @@ export function LibraryGrid({
     }
   });
   const [selectedCollection, setSelectedCollection] = useState<any | null>(null);
+  const [fullCollectionMovies, setFullCollectionMovies] = useState<any[]>([]);
+  const [isLoadingFullCollection, setIsLoadingFullCollection] = useState(false);
   const [isResolvingCollections, setIsResolvingCollections] = useState(false);
+
+  const handleSelectCollection = async (col: any) => {
+    setSelectedCollection(col);
+    setFullCollectionMovies(col.movies || []);
+    setIsLoadingFullCollection(true);
+
+    const apiKey = localStorage.getItem('tmdbKey') || '841059f71aab310b4d4c4f3a7e28328e';
+    if (col && col.id) {
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/collection/${col.id}?api_key=${apiKey}`).then(r => r.json()).catch(() => null);
+        if (res && Array.isArray(res.parts)) {
+          const existingMovies = [...(col.movies || [])];
+
+          const mergedMovies = res.parts.map((part: any) => {
+            const partYear = part.release_date ? part.release_date.split('-')[0] : '';
+            const match = existingMovies.find((m: any) => {
+              if (m.realTmdbId && String(m.realTmdbId) === String(part.id)) return true;
+              if (m.id && String(m.id) === String(part.id)) return true;
+              const mClean = (m.title || m.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              const pClean = (part.title || part.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              const mYear = m.year || (m.release_date ? m.release_date.split('-')[0] : '');
+              return mClean === pClean && (!partYear || !mYear || partYear === mYear);
+            });
+
+            if (match) return match;
+
+            return {
+              id: part.id,
+              tmdbId: part.id,
+              realTmdbId: part.id,
+              title: part.title || part.name,
+              name: part.title || part.name,
+              year: partYear,
+              poster: part.poster_path ? `https://image.tmdb.org/t/p/w500${part.poster_path}` : '',
+              backdrop: part.backdrop_path ? `https://image.tmdb.org/t/p/w500${part.backdrop_path}` : '',
+              rating: part.vote_average ? part.vote_average.toFixed(1) : '',
+              overview: part.overview || '',
+              type: 'movie'
+            };
+          });
+
+          existingMovies.forEach((m: any) => {
+            if (!mergedMovies.some((p: any) => p.id === m.id || p.title === m.title)) {
+              mergedMovies.push(m);
+            }
+          });
+
+          mergedMovies.sort((a: any, b: any) => {
+            const yrA = parseInt(a.year || (a.release_date ? a.release_date.split('-')[0] : '9999'), 10) || 9999;
+            const yrB = parseInt(b.year || (b.release_date ? b.release_date.split('-')[0] : '9999'), 10) || 9999;
+            if (yrA !== yrB) return yrA - yrB;
+            const tA = (a.title || a.name || '').toLowerCase();
+            const tB = (b.title || b.name || '').toLowerCase();
+            return tA.localeCompare(tB);
+          });
+
+          setFullCollectionMovies(mergedMovies);
+        }
+      } catch (e) {
+        console.warn('Error fetching TMDB collection details:', e);
+      } finally {
+        setIsLoadingFullCollection(false);
+      }
+    } else {
+      setIsLoadingFullCollection(false);
+    }
+  };
 
   useEffect(() => {
     if (collections.length > 0) {
@@ -762,10 +831,10 @@ export function LibraryGrid({
                 >
                   ← Back to Collections
                 </button>
-                <h3 className="text-lg font-bold text-white tracking-wide">{selectedCollection.name} ({selectedCollection.movies.length} Movies)</h3>
+                <h3 className="text-lg font-bold text-white tracking-wide">{selectedCollection.name} ({fullCollectionMovies.length} Movies)</h3>
               </div>
               <section className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
-                {selectedCollection.movies.map((item: any, idx: number) => (
+                {fullCollectionMovies.map((item: any, idx: number) => (
                   <LibraryCardItem
                     key={getItemKey(item, idx)}
                     item={item}
@@ -786,9 +855,9 @@ export function LibraryGrid({
               {collections.map((col: any) => (
                 <div
                   key={col.id}
-                  onClick={() => setSelectedCollection(col)}
+                  onClick={() => handleSelectCollection(col)}
                   tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter') setSelectedCollection(col); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSelectCollection(col); }}
                   className="group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl"
                 >
                   <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
