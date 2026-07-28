@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Newspaper, Globe, MapPin, Flag, Trophy, RefreshCw, ExternalLink, AlertCircle, Building2 } from 'lucide-react';
 import { useSettings } from '../lib/settings';
@@ -27,24 +27,72 @@ const STATE_NAME_MAP: Record<string, string> = {
   VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming'
 };
 
-export default function NewsPanel() {
-  const [activeTab, setActiveTab] = useState<'local' | 'regional' | 'national' | 'world' | 'sports'>('local');
-  const { userSettings } = useSettings();
+// Geocode helper to correctly resolve ZIP codes (e.g. 67202 -> Wichita, Kansas) or City names
+async function resolveLocation(query: string): Promise<{ city: string; state: string }> {
+  const clean = query.trim();
+  if (!clean) return { city: 'Austin', state: 'Texas' };
 
-  const locationQuery = userSettings.weatherLocation || 'Austin, TX';
-
-  // Extract city and state from weatherLocation (e.g., "Austin, TX" -> city="Austin", state="Texas")
-  const { city, state } = useMemo(() => {
-    const parts = locationQuery.split(',').map(s => s.trim());
+  // If format is "City, ST" or "City, State"
+  if (clean.includes(',')) {
+    const parts = clean.split(',').map(s => s.trim());
     const city = parts[0] || 'Austin';
     let state = parts[1] || '';
     if (state.length === 2 && STATE_NAME_MAP[state.toUpperCase()]) {
       state = STATE_NAME_MAP[state.toUpperCase()];
     }
     return { city, state: state || 'Texas' };
+  }
+
+  // Check if it is a numeric ZIP code (or single city name)
+  try {
+    const isZip = /^\d{5}(-\d{4})?$/.test(clean);
+    const searchUrl = isZip
+      ? `https://api.zippopotam.us/us/${clean.substring(0, 5)}`
+      : `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(clean)}&count=1&language=en&format=json`;
+
+    if (isZip) {
+      const zipRes = await fetch(searchUrl).then(r => r.json()).catch(() => null);
+      if (zipRes && zipRes.places && zipRes.places[0]) {
+        const place = zipRes.places[0];
+        const city = place['place name'] || clean;
+        const stateAbbr = place['state abbreviation'] || '';
+        const stateName = place['state'] || STATE_NAME_MAP[stateAbbr.toUpperCase()] || stateAbbr;
+        return { city, state: stateName };
+      }
+    } else {
+      const geoRes = await fetch(searchUrl).then(r => r.json()).catch(() => null);
+      if (geoRes && geoRes.results?.[0]) {
+        const res = geoRes.results[0];
+        const city = res.name || clean;
+        const stateName = res.admin1 || 'Texas';
+        return { city, state: stateName };
+      }
+    }
+  } catch (err) {
+    console.error('Error resolving news location:', err);
+  }
+
+  return { city: clean, state: 'Texas' };
+}
+
+export default function NewsPanel() {
+  const [activeTab, setActiveTab] = useState<'local' | 'regional' | 'national' | 'world' | 'sports'>('local');
+  const { userSettings } = useSettings();
+
+  const locationQuery = userSettings.weatherLocation || 'Austin, TX';
+  const [resolvedLoc, setResolvedLoc] = useState<{ city: string; state: string }>({ city: 'Austin', state: 'Texas' });
+
+  useEffect(() => {
+    let isMounted = true;
+    resolveLocation(locationQuery).then(res => {
+      if (isMounted) setResolvedLoc(res);
+    });
+    return () => { isMounted = false; };
   }, [locationQuery]);
 
-  const fetchNewsForTab = async (tab: string): Promise<Article[]> => {
+  const { city, state } = resolvedLoc;
+
+  const fetchNewsForTab = async (tab: string, currentCity: string, currentState: string): Promise<Article[]> => {
     const articles: Article[] = [];
 
     // Helper to fetch NewsAPI
@@ -98,12 +146,12 @@ export default function NewsPanel() {
 
     switch (tab) {
       case 'local':
-        newsApiParams = `q=${encodeURIComponent(city)}`;
-        gnewsParams = `q=${encodeURIComponent(city)}`;
+        newsApiParams = `q=${encodeURIComponent(currentCity)}`;
+        gnewsParams = `q=${encodeURIComponent(currentCity)}`;
         break;
       case 'regional':
-        newsApiParams = `q=${encodeURIComponent(state)}`;
-        gnewsParams = `q=${encodeURIComponent(state)}`;
+        newsApiParams = `q=${encodeURIComponent(currentState)}`;
+        gnewsParams = `q=${encodeURIComponent(currentState)}`;
         break;
       case 'national':
         newsApiParams = `country=us&category=general`;
@@ -145,9 +193,10 @@ export default function NewsPanel() {
   };
 
   const { data: articles, isLoading, isError, refetch } = useQuery<Article[]>({
-    queryKey: ['news-feed', activeTab, locationQuery],
-    queryFn: () => fetchNewsForTab(activeTab),
+    queryKey: ['news-feed', activeTab, city, state],
+    queryFn: () => fetchNewsForTab(activeTab, city, state),
     staleTime: 5 * 60 * 1000,
+    enabled: !!city && !!state,
   });
 
   const timeAgo = (dateStr: string) => {
@@ -178,7 +227,7 @@ export default function NewsPanel() {
             </h1>
           </div>
           <p className="text-[11px] text-white/50 mt-0.5 font-mono truncate">
-            Coverage for <strong className="text-amber-400">{locationQuery}</strong> &amp; worldwide updates
+            Coverage for <strong className="text-amber-400">{city}, {state}</strong> &amp; worldwide updates
           </p>
         </div>
 
@@ -247,9 +296,9 @@ export default function NewsPanel() {
 
       {/* Main Content Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="h-64 bg-white/[0.03] border border-white/5 rounded-2xl animate-pulse" />
+            <div key={i} className="h-96 bg-white/[0.03] border border-white/5 rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : isError ? (
@@ -269,7 +318,7 @@ export default function NewsPanel() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {articles.map((item) => (
             <a
               key={item.id}
@@ -280,7 +329,7 @@ export default function NewsPanel() {
             >
               <div>
                 {item.imageUrl ? (
-                  <div className="h-44 w-full overflow-hidden bg-slate-900 relative">
+                  <div className="h-64 sm:h-72 w-full overflow-hidden bg-slate-900 relative">
                     <img
                       src={item.imageUrl}
                       alt={item.title}
@@ -292,13 +341,13 @@ export default function NewsPanel() {
                   </div>
                 ) : null}
 
-                <div className="p-4 space-y-2">
-                  <div className="flex items-center justify-between text-[10px] text-white/50 font-mono">
-                    <span className="font-bold text-amber-400 truncate max-w-[140px]">{item.source}</span>
+                <div className="p-5 space-y-3">
+                  <div className="flex items-center justify-between text-[11px] text-white/50 font-mono">
+                    <span className="font-bold text-amber-400 truncate max-w-[160px]">{item.source}</span>
                     <span>{timeAgo(item.publishedAt)}</span>
                   </div>
 
-                  <h2 className="text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-red-400 transition-colors">
+                  <h2 className="text-base font-bold text-white line-clamp-2 leading-snug group-hover:text-red-400 transition-colors">
                     {item.title}
                   </h2>
 
@@ -310,11 +359,11 @@ export default function NewsPanel() {
                 </div>
               </div>
 
-              <div className="p-4 pt-0 flex items-center justify-between text-xs font-bold text-red-400 border-t border-white/5 mt-2">
-                <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-white/40 font-mono">
+              <div className="p-5 pt-0 flex items-center justify-between text-xs font-bold text-red-400 border-t border-white/5 mt-3">
+                <span className="text-[10px] px-2.5 py-1 rounded bg-white/5 text-white/40 font-mono">
                   {item.apiSource}
                 </span>
-                <div className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                <div className="flex items-center gap-1.5 group-hover:translate-x-1 transition-transform">
                   <span>Read Article</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </div>
@@ -326,3 +375,4 @@ export default function NewsPanel() {
     </div>
   );
 }
+
