@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CloudSun, Search, MapPin, Wind, Droplets, Gauge, Sun, Thermometer, Radio, ExternalLink, RefreshCw, Eye, ShieldAlert, CloudRain, Snowflake, CloudLightning, CloudFog, Maximize2, Minimize2, X } from 'lucide-react';
 import { useSettings } from '../lib/settings';
+import { logger } from '../lib/logger';
 
 interface WeatherData {
   city: string;
@@ -85,6 +86,7 @@ export default function WeatherPanel() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isFullScreenRadar) {
+        logger.info("Weather: Exit fullscreen radar via Escape key");
         setIsFullScreenRadar(false);
       }
     };
@@ -98,10 +100,21 @@ export default function WeatherPanel() {
     }
   }, [userSettings.weatherLocation]);
 
+  const handleSetRadarProvider = (provider: 'windy' | 'rainviewer' | 'weatherbug' | 'zoomradar') => {
+    logger.info("Weather: Changed radar provider", { provider });
+    setRadarProvider(provider);
+  };
+
+  const handleToggleFullScreenRadar = (enabled: boolean) => {
+    logger.info("Weather: Toggled fullscreen radar mode", { enabled });
+    setIsFullScreenRadar(enabled);
+  };
+
   const fetchWeather = async (locStr: string) => {
     if (!locStr || locStr.trim().length === 0) return;
     setLoading(true);
     setError(null);
+    logger.info("Weather: Fetching weather conditions", { location: locStr, unit });
 
     try {
       let lat: number | null = null;
@@ -136,7 +149,9 @@ export default function WeatherPanel() {
       }
 
       if (lat === null || lon === null) {
-        setError(`Could not locate "${locStr}". Please check city name or ZIP code.`);
+        const errMsg = `Could not locate "${locStr}". Please check city name or ZIP code.`;
+        setError(errMsg);
+        logger.warn("Weather: Location geocoding failed", { location: locStr });
         setLoading(false);
         return;
       }
@@ -150,6 +165,7 @@ export default function WeatherPanel() {
 
       if (!data || !data.current) {
         setError('Failed to load weather forecast data.');
+        logger.error("Weather: Failed to parse forecast payload", { location: locStr });
         setLoading(false);
         return;
       }
@@ -204,9 +220,17 @@ export default function WeatherPanel() {
         daily: dailyList
       });
 
+      logger.info("Weather: Successfully loaded forecast", {
+        city: cityName,
+        state: stateName,
+        temp: Math.round(curr.temperature_2m),
+        condition: WMO_CODE_MAP[curr.weather_code]?.label || 'Clear'
+      });
+
     } catch (e: any) {
       console.error('Weather fetch error:', e);
       setError('Network error fetching weather data.');
+      logger.error("Weather: Exception during fetchWeather", { location: locStr, error: e?.message || e });
     } finally {
       setLoading(false);
     }
@@ -220,6 +244,7 @@ export default function WeatherPanel() {
     e.preventDefault();
     if (searchQuery.trim()) {
       const newLoc = searchQuery.trim();
+      logger.info("Weather: User submitted new location search", { query: newLoc });
       setLocationQuery(newLoc);
       updateUserSettings({ ...userSettings, weatherLocation: newLoc });
       setSearchQuery('');
@@ -228,6 +253,7 @@ export default function WeatherPanel() {
 
   const toggleUnit = () => {
     const newUnit = unit === 'F' ? 'C' : 'F';
+    logger.info("Weather: Toggled temperature unit", { newUnit });
     setUnit(newUnit);
     updateUserSettings({ ...userSettings, temperatureUnit: newUnit });
   };
@@ -273,25 +299,25 @@ export default function WeatherPanel() {
             <div className="flex items-center gap-3">
               <div className="flex bg-black/60 p-1 rounded-xl border border-white/10">
                 <button
-                  onClick={() => setRadarProvider('windy')}
+                  onClick={() => handleSetRadarProvider('windy')}
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'windy' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
                   Windy Radar
                 </button>
                 <button
-                  onClick={() => setRadarProvider('rainviewer')}
+                  onClick={() => handleSetRadarProvider('rainviewer')}
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'rainviewer' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
                   RainViewer Radar
                 </button>
                 <button
-                  onClick={() => setRadarProvider('weatherbug')}
+                  onClick={() => handleSetRadarProvider('weatherbug')}
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'weatherbug' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
                   WeatherBug Radar
                 </button>
                 <button
-                  onClick={() => setRadarProvider('zoomradar')}
+                  onClick={() => handleSetRadarProvider('zoomradar')}
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'zoomradar' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
                   ZoomRadar
@@ -309,7 +335,7 @@ export default function WeatherPanel() {
               </a>
 
               <button
-                onClick={() => setIsFullScreenRadar(false)}
+                onClick={() => handleToggleFullScreenRadar(false)}
                 className="flex items-center gap-2 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg"
               >
                 <Minimize2 className="w-4 h-4" />
@@ -520,25 +546,25 @@ export default function WeatherPanel() {
                 <div className="flex items-center gap-2">
                   <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
                     <button
-                      onClick={() => setRadarProvider('windy')}
+                      onClick={() => handleSetRadarProvider('windy')}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'windy' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
                     >
                       Windy
                     </button>
                     <button
-                      onClick={() => setRadarProvider('rainviewer')}
+                      onClick={() => handleSetRadarProvider('rainviewer')}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'rainviewer' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
                     >
                       RainViewer
                     </button>
                     <button
-                      onClick={() => setRadarProvider('weatherbug')}
+                      onClick={() => handleSetRadarProvider('weatherbug')}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'weatherbug' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
                     >
                       WeatherBug
                     </button>
                     <button
-                      onClick={() => setRadarProvider('zoomradar')}
+                      onClick={() => handleSetRadarProvider('zoomradar')}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'zoomradar' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
                     >
                       ZoomRadar
@@ -546,7 +572,7 @@ export default function WeatherPanel() {
                   </div>
 
                   <button
-                    onClick={() => setIsFullScreenRadar(true)}
+                    onClick={() => handleToggleFullScreenRadar(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/90 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all hover:scale-105 cursor-pointer shadow-lg border border-red-400/30"
                     title="Open Full Screen Radar Map"
                   >
@@ -577,7 +603,7 @@ export default function WeatherPanel() {
                 />
                 
                 <button
-                  onClick={() => setIsFullScreenRadar(true)}
+                  onClick={() => handleToggleFullScreenRadar(true)}
                   className="absolute bottom-3 right-3 px-3 py-2 bg-black/80 hover:bg-black backdrop-blur-md text-white border border-white/20 rounded-xl text-xs font-bold flex items-center gap-2 transition-all opacity-80 group-hover:opacity-100 shadow-xl cursor-pointer"
                 >
                   <Maximize2 className="w-4 h-4 text-amber-400" />
