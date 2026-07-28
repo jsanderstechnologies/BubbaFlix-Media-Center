@@ -3534,9 +3534,12 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
         }
       }
 
-      res.json({ success: true, data: savedItems });
     } catch (e: any) {
       console.error("[Local Media Library Error]", e.message);
+      res.json({ success: false, data: [], error: e.message });
+    }
+  });
+
   // API Route: Scan TV Series folder for seasons and episodes
   app.get("/api/local-media/episodes", (req, res) => {
     try {
