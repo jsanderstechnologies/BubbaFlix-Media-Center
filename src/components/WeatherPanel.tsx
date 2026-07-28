@@ -80,7 +80,7 @@ export default function WeatherPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer' | 'weatherbug' | 'zoomradar'>('windy');
+  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer' | 'ventusky'>('windy');
   const [isFullScreenRadar, setIsFullScreenRadar] = useState(false);
 
   useEffect(() => {
@@ -100,7 +100,7 @@ export default function WeatherPanel() {
     }
   }, [userSettings.weatherLocation]);
 
-  const handleSetRadarProvider = (provider: 'windy' | 'rainviewer' | 'weatherbug' | 'zoomradar') => {
+  const handleSetRadarProvider = (provider: 'windy' | 'rainviewer' | 'ventusky') => {
     logger.info("Weather: Changed radar provider", { provider });
     setRadarProvider(provider);
   };
@@ -274,11 +274,8 @@ export default function WeatherPanel() {
     if (radarProvider === 'rainviewer') {
       return `https://www.rainviewer.com/map.html?loc=${weather.lat},${weather.lon},7&o=1&c=1&oCloud=0&p=1&m=1&col=1&theme=1`;
     }
-    if (radarProvider === 'weatherbug') {
-      return `https://www.weatherbug.com/maps/`;
-    }
-    if (radarProvider === 'zoomradar') {
-      return `https://maps.zoomradar.net/?lat=${weather.lat}&lng=${weather.lon}&zoom=8`;
+    if (radarProvider === 'ventusky') {
+      return `https://www.ventusky.com/?p=${weather.lat};${weather.lon};8&l=radar`;
     }
     return `https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=in&metricTemp=%C2%B0F&radarRange=-1&overlay=radar&product=radar&level=surface&lat=${weather.lat}&lon=${weather.lon}&zoom=8`;
   };
@@ -302,41 +299,56 @@ export default function WeatherPanel() {
                   onClick={() => handleSetRadarProvider('windy')}
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'windy' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
-                  Windy Radar
+                  Windy
                 </button>
                 <button
                   onClick={() => handleSetRadarProvider('rainviewer')}
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'rainviewer' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
-                  RainViewer Radar
+                  RainViewer
                 </button>
                 <button
-                  onClick={() => handleSetRadarProvider('weatherbug')}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'weatherbug' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
+                  onClick={() => handleSetRadarProvider('ventusky')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'ventusky' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
-                  WeatherBug Radar
-                </button>
-                <button
-                  onClick={() => handleSetRadarProvider('zoomradar')}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'zoomradar' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
-                >
-                  ZoomRadar
+                  Ventusky
                 </button>
               </div>
 
-              <a
-                href={getNwsRadarUrl(weather.lat, weather.lon)}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-xl text-xs font-bold transition-all hover:bg-amber-500/30"
-              >
-                <span>NOAA NWS Site (weather.gov)</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+              <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-bold">
+                <span className="text-white/40 px-2 text-[10px] uppercase">External:</span>
+                <a
+                  href={getNwsRadarUrl(weather.lat, weather.lon)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-lg transition-all flex items-center gap-1"
+                >
+                  <span>NOAA</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                <a
+                  href="https://www.weatherbug.com/maps/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 rounded-lg transition-all flex items-center gap-1"
+                >
+                  <span>WeatherBug</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                <a
+                  href={`https://maps.zoomradar.net/?lat=${weather.lat}&lng=${weather.lon}&zoom=8`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 rounded-lg transition-all flex items-center gap-1"
+                >
+                  <span>ZoomRadar</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
 
               <button
                 onClick={() => handleToggleFullScreenRadar(false)}
-                className="flex items-center gap-2 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg"
+                className="flex items-center gap-2 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg ml-2"
               >
                 <Minimize2 className="w-4 h-4" />
                 <span>Exit Fullscreen (Esc)</span>
@@ -558,16 +570,10 @@ export default function WeatherPanel() {
                       RainViewer
                     </button>
                     <button
-                      onClick={() => handleSetRadarProvider('weatherbug')}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'weatherbug' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
+                      onClick={() => handleSetRadarProvider('ventusky')}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'ventusky' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
                     >
-                      WeatherBug
-                    </button>
-                    <button
-                      onClick={() => handleSetRadarProvider('zoomradar')}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'zoomradar' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
-                    >
-                      ZoomRadar
+                      Ventusky
                     </button>
                   </div>
 
@@ -579,18 +585,39 @@ export default function WeatherPanel() {
                     <Maximize2 className="w-3.5 h-3.5" />
                     <span>Full Screen</span>
                   </button>
-
-                  <a
-                    href={getNwsRadarUrl(weather.lat, weather.lon)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1.5 rounded-xl transition-all"
-                    title="Open Official NOAA National Weather Service Radar Website"
-                  >
-                    <span>NOAA weather.gov</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
                 </div>
+              </div>
+
+              {/* Direct Web Popout Links Bar for Weather Services with Iframe Blocks */}
+              <div className="flex flex-wrap items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10 text-xs">
+                <span className="text-white/50 text-[11px] font-bold uppercase tracking-wider">Web Popouts:</span>
+                <a
+                  href={getNwsRadarUrl(weather.lat, weather.lon)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-lg transition-all flex items-center gap-1 font-medium"
+                >
+                  <span>NOAA weather.gov</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                <a
+                  href="https://www.weatherbug.com/maps/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-lg transition-all flex items-center gap-1 font-medium"
+                >
+                  <span>WeatherBug</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                <a
+                  href={`https://maps.zoomradar.net/?lat=${weather.lat}&lng=${weather.lon}&zoom=8`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 rounded-lg transition-all flex items-center gap-1 font-medium"
+                >
+                  <span>ZoomRadar</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
 
               <div className="aspect-video w-full rounded-2xl overflow-hidden border border-white/10 bg-black relative shadow-2xl group">
