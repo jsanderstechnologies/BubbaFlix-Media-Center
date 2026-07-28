@@ -113,6 +113,7 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
   const { systemSettings, userSettings } = useSettings();
 
   const playlistUrl = systemSettings.iptvUrl || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus';
+  const epgUrl = systemSettings.epgUrl || 'http://cord-cutter.net:8080/xmltv.php?username=foyers1@rogers.com&password=9jguFdUq3Y';
 
   const [streamMatches, setStreamMatches] = useState<Record<string, StreamMatch>>({});
   const [matchingGameId, setMatchingGameId] = useState<string | null>(null);
@@ -315,7 +316,8 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
             homeTeam: game.homeTeam.name,
             awayTeam: game.awayTeam.name,
             sport: activeSport,
-            channels
+            channels,
+            epgUrl
           })
         });
         if (res.ok) {
@@ -339,7 +341,8 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
           homeTeam: game.homeTeam.name,
           awayTeam: game.awayTeam.name,
           sport: activeSport,
-          channels: parsedM3u.channels
+          channels: parsedM3u.channels,
+          epgUrl
         })
       });
       if (res.ok) {

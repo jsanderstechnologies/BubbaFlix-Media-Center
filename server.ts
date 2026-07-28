@@ -258,7 +258,7 @@ export async function parseM3U(source: string) {
 
 // Global cache for EPG data to avoid parsing huge files repeatedly
 const epgCache = new Map<string, { timestamp: number, data: any }>();
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 /**
  * Fetches and parses an XMLTV EPG file
@@ -1054,7 +1054,7 @@ async function startServer() {
     try {
       const settings = readJson(SETTINGS_FILE);
       const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
-      const { homeTeam, awayTeam, sport, channels } = req.body;
+      const { homeTeam, awayTeam, sport, channels, epgUrl } = req.body;
 
       if (!channels || !Array.isArray(channels) || channels.length === 0) {
         return res.status(400).json({ error: 'No IPTV channels provided' });
@@ -1082,7 +1082,28 @@ async function startServer() {
 
       // If Gemini API Key is available, use Gemini AI for smart matching
       if (apiKey) {
-        const channelListStr = targetChannels.map((c: any, i: number) => `[ID: ${i}] ${c.title || c.name} (Group: ${c.group?.title || c.group || 'General'})`).join('\n');
+        let epgPrograms: any[] = [];
+        if (epgUrl) {
+          try {
+            const parsedEpg = await parseEPG(epgUrl);
+            epgPrograms = parsedEpg?.programs || [];
+          } catch (e) {
+            console.error('[EPG Match Fetch Error]', e);
+          }
+        }
+
+        const now = Date.now();
+        const channelListStr = targetChannels.map((c: any, i: number) => {
+          let nowPlayingStr = '';
+          if (epgPrograms.length > 0) {
+            const chanId = c.tvg?.id || c.name || '';
+            const currentProgram = epgPrograms.find(p => p.channel === chanId && new Date(p.start).getTime() <= now && new Date(p.stop).getTime() >= now);
+            if (currentProgram) {
+              nowPlayingStr = ` | Now Playing: ${currentProgram.title?.[0]?.value || currentProgram.title || 'Unknown'}`;
+            }
+          }
+          return `[ID: ${i}] ${c.title || c.name} (Group: ${c.group?.title || c.group || 'General'})${nowPlayingStr}`;
+        }).join('\n');
         
         const prompt = `You are a live sports broadcast matching assistant.
 Match the following game to the single best available IPTV channel from the list.
