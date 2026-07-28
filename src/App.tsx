@@ -23,6 +23,8 @@ import HomePanel from './components/HomePanel';
 import SearchPanel from './components/SearchPanel';
 import TorBoxMusicPanel from './components/TorBoxMusicPanel';
 import WeatherPanel from './components/WeatherPanel';
+import WeatherAlertModal from './components/WeatherAlertModal';
+import { fetchActiveWeatherAlerts, WeatherAlert } from './lib/weatherAlerts';
 import SpatialNavigation from 'spatial-navigation-js';
 
 
@@ -66,6 +68,50 @@ function MainApp() {
   const [streamOffset, setStreamOffset] = useState<number>(0);
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
   const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [activeWeatherAlert, setActiveWeatherAlert] = useState<WeatherAlert | null>(null);
+
+  // Monitor National Weather Service alerts for user location every 3 minutes
+  useEffect(() => {
+    let isMounted = true;
+    const checkAlerts = async () => {
+      const locStr = userSettings.weatherLocation || 'Austin, TX';
+      try {
+        let lat: number | null = null;
+        let lon: number | null = null;
+        const isZip = /^\d{5}(-\d{4})?$/.test(locStr.trim());
+        if (isZip) {
+          const zipRes = await fetch(`https://api.zippopotam.us/us/${locStr.trim()}`).then(r => r.json()).catch(() => null);
+          if (zipRes && zipRes.places?.[0]) {
+            lat = parseFloat(zipRes.places[0].latitude);
+            lon = parseFloat(zipRes.places[0].longitude);
+          }
+        }
+        if (lat === null || lon === null) {
+          const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locStr.trim())}&count=1&language=en&format=json`).then(r => r.json()).catch(() => null);
+          if (geoRes && geoRes.results?.[0]) {
+            lat = geoRes.results[0].latitude;
+            lon = geoRes.results[0].longitude;
+          }
+        }
+        if (lat !== null && lon !== null && isMounted) {
+          const alerts = await fetchActiveWeatherAlerts(lat, lon);
+          if (alerts.length > 0 && isMounted) {
+            setActiveWeatherAlert(alerts[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Weather alert check error:', err);
+      }
+    };
+
+    checkAlerts();
+    const interval = setInterval(checkAlerts, 3 * 60 * 1000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [userSettings.weatherLocation]);
 
   useEffect(() => {
     SpatialNavigation.init();
@@ -1279,6 +1325,21 @@ function MainApp() {
           <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
           <span>Click Back again to exit BubbaFlix</span>
         </div>
+      )}
+
+      {/* Global Emergency Severe Weather Alert Modal Overlay */}
+      {activeWeatherAlert && (
+        <WeatherAlertModal
+          alert={activeWeatherAlert}
+          onDismiss={() => setActiveWeatherAlert(null)}
+          onGoToWeather={() => {
+            setActiveWeatherAlert(null);
+            setPlayingUrl('');
+            setPlayingContext(null);
+            setIsPlaying(false);
+            setActiveTab('weather');
+          }}
+        />
       )}
     </div>
     </>
