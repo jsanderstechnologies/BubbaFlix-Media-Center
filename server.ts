@@ -3433,21 +3433,23 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
       }
     }
 
-    writeJson(SCANNED_LIBRARY_FILE, items);
-    console.log(`[Persistent Library] Saved ${items.length} media items to disk.`);
-
     const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
     if (apiKey && items.length > 0) {
-      setTimeout(async () => {
-        const batchSize = 10;
-        for (let i = 0; i < items.length; i += batchSize) {
-          const chunk = items.slice(i, i + batchSize);
-          await Promise.allSettled(chunk.map(item => enrichItemWithTmdb(item, apiKey)));
-        }
-        writeJson(SCANNED_LIBRARY_FILE, items);
-        console.log(`[Persistent Library Background Enrich] TMDB poster enrichment complete for ${items.length} items.`);
-      }, 50);
+      console.log(`[Library Catalog Scan] Enriching ${items.length} items with TMDB posters...`);
+      const batchSize = 10;
+      for (let i = 0; i < items.length; i += batchSize) {
+        const chunk = items.slice(i, i + batchSize);
+        await Promise.allSettled(chunk.map(item => {
+          if (!item.poster || item.poster === '') {
+            return enrichItemWithTmdb(item, apiKey);
+          }
+          return Promise.resolve(true);
+        }));
+      }
     }
+
+    writeJson(SCANNED_LIBRARY_FILE, items);
+    console.log(`[Persistent Library] Saved ${items.length} media items with enriched posters to disk.`);
 
     return items;
   };

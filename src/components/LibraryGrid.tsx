@@ -19,6 +19,136 @@ interface Track {
   year?: string;
 }
 
+function LibraryCardItem({
+  item,
+  itemKey,
+  onSelectMedia,
+  onPlayMedia,
+  onHoverMedia
+}: {
+  item: any;
+  itemKey: string;
+  onSelectMedia: (media: any) => void;
+  onPlayMedia?: (url: string, logo?: string, resumeTime?: number, context?: any) => void;
+  onHoverMedia?: (posterUrl: string) => void;
+}) {
+  const [posterUrl, setPosterUrl] = useState<string>(item.poster || item.backupPoster || '');
+  const [imgFailed, setImgFailed] = useState(false);
+  const [isFetchingTmdb, setIsFetchingTmdb] = useState(false);
+
+  useEffect(() => {
+    // If item poster is empty or failed, dynamically fetch poster from TMDB!
+    if ((!posterUrl || imgFailed) && !isFetchingTmdb) {
+      const rawTitle = item.title || item.name || '';
+      const titleToSearch = rawTitle.replace(/\b(remastered|extended|uncut|1080p|720p|4k|bluray)\b/gi, '').trim();
+      if (!titleToSearch || titleToSearch.length < 2) return;
+
+      setIsFetchingTmdb(true);
+      const apiKey = localStorage.getItem('tmdbKey') || '841059f71aab310b4d4c4f3a7e28328e';
+      const endpoint = item.type === 'series' ? 'tv' : 'movie';
+      
+      fetch(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(titleToSearch)}`)
+        .then(r => r.json())
+        .then(data => {
+          const match = data.results?.find((r: any) => r.poster_path || r.backdrop_path);
+          if (match) {
+            const pPath = match.poster_path || match.backdrop_path;
+            const fullUrl = `https://image.tmdb.org/t/p/w500${pPath}`;
+            setPosterUrl(fullUrl);
+            setImgFailed(false);
+            item.poster = fullUrl;
+          } else {
+            return fetch(`https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(titleToSearch)}`)
+              .then(r => r.json())
+              .then(multiData => {
+                const multiMatch = multiData.results?.find((r: any) => r.poster_path || r.backdrop_path);
+                if (multiMatch) {
+                  const pPath = multiMatch.poster_path || multiMatch.backdrop_path;
+                  const fullUrl = `https://image.tmdb.org/t/p/w500${pPath}`;
+                  setPosterUrl(fullUrl);
+                  setImgFailed(false);
+                  item.poster = fullUrl;
+                }
+              });
+          }
+        })
+        .catch(console.warn)
+        .finally(() => setIsFetchingTmdb(false));
+    }
+  }, [item.title, item.name, posterUrl, imgFailed]);
+
+  return (
+    <div 
+      key={itemKey} 
+      className="group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl" 
+      onClick={() => onSelectMedia({ ...item, poster: posterUrl || item.poster })}
+      onMouseEnter={() => onHoverMedia?.(posterUrl || item.poster)}
+      onMouseLeave={() => onHoverMedia?.('')}
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia({ ...item, poster: posterUrl || item.poster }); }}
+    >
+      <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
+        {posterUrl && !imgFailed ? (
+          <img 
+            src={posterUrl} 
+            alt={item.title} 
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover" 
+            referrerPolicy="no-referrer"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-between p-4 text-center bg-gradient-to-b from-indigo-950 via-slate-900 to-black relative overflow-hidden border border-white/10">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mt-6 shadow-inner">
+              <Disc className="w-6 h-6 text-indigo-400 animate-pulse" />
+            </div>
+            <div className="space-y-1 my-auto">
+              <span className="text-xs font-black text-white tracking-wide uppercase line-clamp-3 drop-shadow">{item.title}</span>
+              {item.year && <span className="text-[10px] text-indigo-300/80 font-bold block">{item.year}</span>}
+            </div>
+            <span className="text-[8px] font-black px-2 py-0.5 rounded bg-white/10 text-white/60 uppercase tracking-widest border border-white/5 mb-2">LOCAL MEDIA</span>
+          </div>
+        )}
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
+        
+        {/* Hover Play Button */}
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (item.streamUrl && onPlayMedia) {
+                onPlayMedia(item.streamUrl, undefined, 0, { ...item, poster: posterUrl || item.poster });
+              } else {
+                onSelectMedia({ ...item, poster: posterUrl || item.poster });
+              }
+            }}
+            className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all cursor-pointer"
+            title="Play Shared File"
+          >
+            <Play className="w-6 h-6 ml-0.5 fill-white" />
+          </button>
+        </div>
+
+        <div className="absolute bottom-2.5 left-2.5 right-2.5 flex flex-col pointer-events-none">
+          <span className="text-xs sm:text-sm font-medium leading-tight text-white drop-shadow truncate">{item.title}</span>
+        </div>
+
+        <div className="absolute top-2 left-2 flex gap-1 items-center">
+          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow tracking-wider uppercase border ${item.isNetworkShare ? 'bg-indigo-600/90 text-white border-indigo-400/40' : 'bg-red-600/90 text-white border-red-400/40'}`}>
+            {item.isNetworkShare ? 'LOCAL' : (item.type === 'movie' ? 'MOVIE' : 'TV')}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center justify-between px-1">
+        <span className="text-xs text-white/70 font-mono">{item.year || 'N/A'}</span>
+        {item.rating && <span className="text-xs bg-black/40 text-amber-400 font-mono px-1.5 py-0.5 rounded border border-white/10">★ {item.rating}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function LibraryGrid({ 
   onSelectMedia, 
   onPlayMedia, 
@@ -517,88 +647,19 @@ export function LibraryGrid({
             <section key={activeTab} className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
 
               {displayMedia.map((item: any, idx: number) => (
-                <div 
-                  key={getItemKey(item, idx)} 
-                  className="group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl" 
-                  onClick={() => onSelectMedia(item)}
-                  onMouseEnter={() => onHoverMedia?.(item.poster)}
-                  onMouseLeave={() => onHoverMedia?.('')}
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia(item); }}
-                >
-                  <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
-                    {(() => {
-                      const pUrl = item.poster || item.backupPoster;
-                      const isFailed = pUrl ? failedPosters[pUrl] : true;
-
-                      if (pUrl && !isFailed) {
-                        return (
-                          <img 
-                            src={pUrl} 
-                            alt={item.title} 
-                            loading="lazy"
-                            decoding="async"
-                            className="w-full h-full object-cover" 
-                            referrerPolicy="no-referrer"
-                            onError={() => {
-                              if (pUrl) {
-                                setFailedPosters(prev => ({ ...prev, [pUrl]: true }));
-                              }
-                            }}
-                          />
-                        );
-                      }
-
-                      return (
-                        <div className="w-full h-full flex flex-col items-center justify-between p-4 text-center bg-gradient-to-b from-indigo-950 via-slate-900 to-black relative overflow-hidden border border-white/10">
-                          <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mt-6 shadow-inner">
-                            <Disc className="w-6 h-6 text-indigo-400 animate-pulse" />
-                          </div>
-                          <div className="space-y-1 my-auto">
-                            <span className="text-xs font-black text-white tracking-wide uppercase line-clamp-3 drop-shadow">{item.title}</span>
-                            {item.year && <span className="text-[10px] text-indigo-300/80 font-bold block">{item.year}</span>}
-                          </div>
-                          <span className="text-[8px] font-black px-2 py-0.5 rounded bg-white/10 text-white/60 uppercase tracking-widest border border-white/5 mb-2">LOCAL MEDIA</span>
-                        </div>
-                      );
-                    })()}
-
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
-                    
-                    {/* Hover Play Button */}
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (item.streamUrl && onPlayMedia) {
-                            onPlayMedia(item.streamUrl, undefined, 0, item);
-                          } else {
-                            onSelectMedia(item);
-                          }
-                        }}
-                        className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all cursor-pointer"
-                        title="Play Shared File"
-                      >
-                        <Play className="w-6 h-6 ml-0.5 fill-white" />
-                      </button>
-                    </div>
-
-                    <div className="absolute bottom-2.5 left-2.5 right-2.5 flex flex-col pointer-events-none">
-                      <span className="text-xs sm:text-sm font-medium leading-tight text-white drop-shadow truncate">{item.title}</span>
-                    </div>
-
-                    <div className="absolute top-2 left-2 flex gap-1 items-center">
-                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow tracking-wider uppercase border ${item.isNetworkShare ? 'bg-indigo-600/90 text-white border-indigo-400/40' : 'bg-red-600/90 text-white border-red-400/40'}`}>
-                        {item.isNetworkShare ? 'LOCAL' : (item.type === 'movie' ? 'MOVIE' : 'TV')}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-xs text-white/70 font-mono">{item.year || 'N/A'}</span>
-                    {item.rating && <span className="text-xs bg-black/40 text-amber-400 font-mono px-1.5 py-0.5 rounded border border-white/10">★ {item.rating}</span>}
-                  </div>
-                </div>
+                <LibraryCardItem
+                  key={getItemKey(item, idx)}
+                  item={item}
+                  itemKey={getItemKey(item, idx)}
+                  onSelectMedia={onSelectMedia}
+                  onPlayMedia={onPlayMedia}
+                  onHoverMedia={onHoverMedia}
+                />
               ))}
+            </section>
+          )}
+        </>
+      )}
             </section>
           )}
         </>
