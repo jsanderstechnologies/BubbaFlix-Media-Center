@@ -478,6 +478,17 @@ export function LibraryGrid({
 
       const resultCollections = Array.from(collectionsMap.values())
         .filter(c => c.movies.length > 0)
+        .map(c => {
+          c.movies.sort((a: any, b: any) => {
+            const yrA = parseInt(a.year || (a.release_date ? a.release_date.split('-')[0] : '9999'), 10) || 9999;
+            const yrB = parseInt(b.year || (b.release_date ? b.release_date.split('-')[0] : '9999'), 10) || 9999;
+            if (yrA !== yrB) return yrA - yrB;
+            const tA = (a.title || a.name || '').toLowerCase();
+            const tB = (b.title || b.name || '').toLowerCase();
+            return tA.localeCompare(tB);
+          });
+          return c;
+        })
         .sort((a, b) => b.movies.length - a.movies.length || a.name.localeCompare(b.name));
 
       setCollections(resultCollections);
