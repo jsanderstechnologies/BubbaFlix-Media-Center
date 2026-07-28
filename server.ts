@@ -1038,6 +1038,96 @@ async function startServer() {
     }
   });
 
+  // Sports Stream AI Matcher via Gemini API
+  app.post('/api/sports/match-channel', async (req, res) => {
+    try {
+      const settings = readJson(SETTINGS_FILE);
+      const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
+      const { homeTeam, awayTeam, sport, channels } = req.body;
+
+      if (!channels || !Array.isArray(channels) || channels.length === 0) {
+        return res.status(400).json({ error: 'No IPTV channels provided' });
+      }
+
+      // Filter channels to relevant sports or event channels to keep prompt size efficient
+      const sportsKeywords = [sport, homeTeam, awayTeam, 'sport', 'espn', 'fox', 'cbs', 'nbc', 'bally', 'tnt', 'tbs', 'nfl', 'nba', 'mlb', 'nhl', 'redzone', 'ppv', 'network', 'stadium', 'sec', 'acc', 'bigten', 'big10', 'pac12'];
+      const candidateChannels = channels.filter((ch: any) => {
+        const titleLower = (ch.title || ch.name || '').toLowerCase();
+        const groupLower = (ch.group?.title || ch.group || '').toLowerCase();
+        return sportsKeywords.some(kw => kw && (titleLower.includes(kw.toLowerCase()) || groupLower.includes(kw.toLowerCase())));
+      }).slice(0, 150); // limit candidates for token safety
+
+      const targetChannels = candidateChannels.length > 0 ? candidateChannels : channels.slice(0, 100);
+
+      // If Gemini API Key is available, use Gemini AI for smart matching
+      if (apiKey) {
+        const channelListStr = targetChannels.map((c: any, i: number) => `[ID: ${i}] ${c.title || c.name} (Group: ${c.group?.title || c.group || 'General'})`).join('\n');
+        
+        const prompt = `You are a live sports broadcast matching assistant.
+Match the following game to the single best available IPTV channel from the list.
+
+GAME: ${awayTeam} vs ${homeTeam} (${sport.toUpperCase()})
+
+AVAILABLE CHANNELS:
+${channelListStr}
+
+Respond ONLY with a valid JSON object in this exact format, with no markdown code blocks or extra text:
+{"matchedIndex": number, "channelName": "string", "confidence": "high"|"medium"|"low"}
+If no channel matches the team names or relevant regional/national network for this game, respond with {"matchedIndex": -1}.`;
+
+        const geminiRes = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+          }
+        );
+
+        const replyText = geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (replyText) {
+          try {
+            const parsed = JSON.parse(replyText);
+            if (parsed.matchedIndex >= 0 && targetChannels[parsed.matchedIndex]) {
+              const matched = targetChannels[parsed.matchedIndex];
+              return res.json({
+                matched: true,
+                streamUrl: matched.rawUrl || matched.url,
+                channelName: matched.title || matched.name,
+                logo: matched.tvg?.logo || matched.logo || '',
+                confidence: parsed.confidence || 'high'
+              });
+            }
+          } catch (e) {
+            console.error('[Gemini Match JSON Parse Error]', e);
+          }
+        }
+      }
+
+      // Fallback matching logic (exact/keyword search if no Gemini key or parse failure)
+      const homeLower = homeTeam.toLowerCase();
+      const awayLower = awayTeam.toLowerCase();
+      const directMatch = targetChannels.find((c: any) => {
+        const name = (c.title || c.name || '').toLowerCase();
+        return (name.includes(homeLower) && name.includes(awayLower)) || name.includes(homeLower) || name.includes(awayLower);
+      });
+
+      if (directMatch) {
+        return res.json({
+          matched: true,
+          streamUrl: directMatch.rawUrl || directMatch.url,
+          channelName: directMatch.title || directMatch.name,
+          logo: directMatch.tvg?.logo || directMatch.logo || '',
+          confidence: 'medium'
+        });
+      }
+
+      return res.json({ matched: false, message: 'No matching stream found' });
+    } catch (err: any) {
+      console.error('[Sports Match Error]', err?.message || err);
+      res.status(500).json({ error: 'Failed to match sports channel' });
+    }
+  });
+
 
   // /api/admin/test-email POST
   app.post('/api/admin/test-email', requireAdmin, async (req, res) => {

@@ -1293,7 +1293,7 @@ function MainApp() {
           ) : activeTab === 'weather' ? (
             <WeatherPanel />
           ) : activeTab === 'news' ? (
-            <NewsPanel />
+            <NewsPanel onPlayStream={handlePlayStream} />
           ) : activeTab === 'tv' ? (
             <IptvGuide onPlayStream={handlePlayStream} />
           ) : activeTab === 'settings' ? (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Newspaper, Globe, MapPin, Flag, Trophy, RefreshCw, ExternalLink, AlertCircle, Building2, Activity } from 'lucide-react';
+import { Newspaper, Globe, MapPin, Flag, Trophy, RefreshCw, ExternalLink, AlertCircle, Building2, Activity, Play, Tv, Loader2 } from 'lucide-react';
 import { useSettings } from '../lib/settings';
 
 export interface Article {
@@ -35,6 +35,14 @@ export interface ScoreGame {
     score: string;
     isWinner?: boolean;
   };
+}
+
+interface StreamMatch {
+  matched: boolean;
+  streamUrl?: string;
+  channelName?: string;
+  logo?: string;
+  confidence?: string;
 }
 
 const STATE_NAME_MAP: Record<string, string> = {
@@ -95,10 +103,35 @@ async function resolveLocation(query: string): Promise<{ city: string; state: st
   return { city: clean, state: 'Texas' };
 }
 
-export default function NewsPanel() {
+interface NewsPanelProps {
+  onPlayStream?: (url: string, logo?: string, resumeTime?: number, context?: any) => void;
+}
+
+export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
   const [activeTab, setActiveTab] = useState<'local' | 'regional' | 'national' | 'world' | 'sports' | 'scores'>('local');
   const [activeSport, setActiveSport] = useState<'nfl' | 'nba' | 'mlb' | 'nhl' | 'ncaa_football' | 'ncaa_basketball' | 'soccer'>('nfl');
-  const { userSettings } = useSettings();
+  const { systemSettings, userSettings } = useSettings();
+
+  const playlistUrl = systemSettings.iptvUrl || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus';
+
+  const [streamMatches, setStreamMatches] = useState<Record<string, StreamMatch>>({});
+  const [matchingGameId, setMatchingGameId] = useState<string | null>(null);
+
+  // Fetch IPTV M3U Playlist channels
+  const { data: parsedM3u } = useQuery({
+    queryKey: ['m3u', playlistUrl],
+    queryFn: async () => {
+      const res = await fetch('/api/m3u', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: playlistUrl })
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 10 * 60 * 1000,
+    enabled: activeTab === 'scores',
+  });
 
   const locationQuery = userSettings.weatherLocation || 'Austin, TX';
   const [resolvedLoc, setResolvedLoc] = useState<{ city: string; state: string }>({ city: 'Austin', state: 'Texas' });
@@ -220,7 +253,7 @@ export default function NewsPanel() {
         const comp = evt.competitions?.[0];
         const homeComp = comp?.competitors?.find((c: any) => c.homeAway === 'home');
         const awayComp = comp?.competitors?.find((c: any) => c.homeAway === 'away');
-        const statusState = evt.status?.type?.state; // "pre", "in", "post"
+        const statusState = evt.status?.type?.state;
 
         return {
           id: evt.id || `game-${Math.random()}`,
@@ -261,9 +294,67 @@ export default function NewsPanel() {
   const { data: scores, isLoading: isLoadingScores, isError: isErrorScores, refetch: refetchScores } = useQuery<ScoreGame[]>({
     queryKey: ['sports-scores', activeSport],
     queryFn: () => fetchScoresForSport(activeSport),
-    staleTime: 60 * 1000, // refresh every minute
+    staleTime: 60 * 1000,
     enabled: activeTab === 'scores',
   });
+
+  // Auto-run Gemini IPTV channel matching whenever scores or channels load
+  useEffect(() => {
+    if (activeTab !== 'scores' || !scores || scores.length === 0 || !parsedM3u?.channels) return;
+
+    const channels = parsedM3u.channels;
+
+    scores.forEach(async (game) => {
+      if (streamMatches[game.id] !== undefined) return;
+
+      try {
+        const res = await fetch('/api/sports/match-channel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            homeTeam: game.homeTeam.name,
+            awayTeam: game.awayTeam.name,
+            sport: activeSport,
+            channels
+          })
+        });
+        if (res.ok) {
+          const matchData = await res.json();
+          setStreamMatches(prev => ({ ...prev, [game.id]: matchData }));
+        }
+      } catch (err) {
+        console.error('Stream matching error:', err);
+      }
+    });
+  }, [activeTab, scores, parsedM3u, activeSport]);
+
+  const handleManualStreamMatch = async (game: ScoreGame) => {
+    if (!parsedM3u?.channels) return;
+    setMatchingGameId(game.id);
+    try {
+      const res = await fetch('/api/sports/match-channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          homeTeam: game.homeTeam.name,
+          awayTeam: game.awayTeam.name,
+          sport: activeSport,
+          channels: parsedM3u.channels
+        })
+      });
+      if (res.ok) {
+        const matchData = await res.json();
+        setStreamMatches(prev => ({ ...prev, [game.id]: matchData }));
+        if (matchData.matched && matchData.streamUrl && onPlayStream) {
+          onPlayStream(matchData.streamUrl, matchData.logo || game.homeTeam.logo, 0, { title: `${game.awayTeam.name} vs ${game.homeTeam.name}` });
+        }
+      }
+    } catch (err) {
+      console.error('Manual stream match error:', err);
+    } finally {
+      setMatchingGameId(null);
+    }
+  };
 
   const timeAgo = (dateStr: string) => {
     try {
@@ -442,7 +533,7 @@ export default function NewsPanel() {
         isLoadingScores ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="h-40 bg-white/[0.03] border border-white/5 rounded-2xl animate-pulse" />
+              <div key={i} className="h-44 bg-white/[0.03] border border-white/5 rounded-2xl animate-pulse" />
             ))}
           </div>
         ) : isErrorScores ? (
@@ -459,63 +550,103 @@ export default function NewsPanel() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {scores.map((game) => (
-              <div
-                key={game.id}
-                className="bg-black/50 border border-white/10 rounded-2xl p-5 space-y-4 shadow-xl hover:border-amber-500/40 transition-all flex flex-col justify-between"
-              >
-                {/* Game Status Badge */}
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                  <span className={`text-[10px] px-2.5 py-1 rounded-full font-extrabold uppercase tracking-wider ${
-                    game.isLive
-                      ? 'bg-red-600 text-white animate-pulse'
-                      : game.status === 'Final'
-                      ? 'bg-white/10 text-white/60'
-                      : 'bg-emerald-500/20 text-emerald-400'
-                  }`}>
-                    {game.isLive ? '• LIVE' : game.status}
-                  </span>
-                  <span className="text-xs font-mono text-white/60">{game.statusDetail}</span>
-                </div>
+            {scores.map((game) => {
+              const match = streamMatches[game.id];
+              const isMatching = matchingGameId === game.id;
 
-                {/* Teams & Scores */}
-                <div className="space-y-3">
-                  {/* Away Team */}
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {game.awayTeam.logo ? (
-                        <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-8 h-8 object-contain shrink-0" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold shrink-0">{game.awayTeam.abbreviation}</div>
-                      )}
-                      <span className={`text-sm font-bold truncate ${game.awayTeam.isWinner ? 'text-amber-400 font-extrabold' : 'text-white'}`}>
-                        {game.awayTeam.name}
-                      </span>
-                    </div>
-                    <span className={`text-xl font-mono font-black shrink-0 ${game.awayTeam.isWinner ? 'text-amber-400' : 'text-white'}`}>
-                      {game.awayTeam.score}
+              return (
+                <div
+                  key={game.id}
+                  className="bg-black/50 border border-white/10 rounded-2xl p-5 space-y-4 shadow-xl hover:border-amber-500/40 transition-all flex flex-col justify-between"
+                >
+                  {/* Game Status Badge */}
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-extrabold uppercase tracking-wider ${
+                      game.isLive
+                        ? 'bg-red-600 text-white animate-pulse'
+                        : game.status === 'Final'
+                        ? 'bg-white/10 text-white/60'
+                        : 'bg-emerald-500/20 text-emerald-400'
+                    }`}>
+                      {game.isLive ? '• LIVE' : game.status}
                     </span>
+                    <span className="text-xs font-mono text-white/60">{game.statusDetail}</span>
                   </div>
 
-                  {/* Home Team */}
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {game.homeTeam.logo ? (
-                        <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-8 h-8 object-contain shrink-0" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold shrink-0">{game.homeTeam.abbreviation}</div>
-                      )}
-                      <span className={`text-sm font-bold truncate ${game.homeTeam.isWinner ? 'text-amber-400 font-extrabold' : 'text-white'}`}>
-                        {game.homeTeam.name}
+                  {/* Teams & Scores */}
+                  <div className="space-y-3">
+                    {/* Away Team */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {game.awayTeam.logo ? (
+                          <img src={game.awayTeam.logo} alt={game.awayTeam.name} className="w-8 h-8 object-contain shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold shrink-0">{game.awayTeam.abbreviation}</div>
+                        )}
+                        <span className={`text-sm font-bold truncate ${game.awayTeam.isWinner ? 'text-amber-400 font-extrabold' : 'text-white'}`}>
+                          {game.awayTeam.name}
+                        </span>
+                      </div>
+                      <span className={`text-xl font-mono font-black shrink-0 ${game.awayTeam.isWinner ? 'text-amber-400' : 'text-white'}`}>
+                        {game.awayTeam.score}
                       </span>
                     </div>
-                    <span className={`text-xl font-mono font-black shrink-0 ${game.homeTeam.isWinner ? 'text-amber-400' : 'text-white'}`}>
-                      {game.homeTeam.score}
-                    </span>
+
+                    {/* Home Team */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {game.homeTeam.logo ? (
+                          <img src={game.homeTeam.logo} alt={game.homeTeam.name} className="w-8 h-8 object-contain shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold shrink-0">{game.homeTeam.abbreviation}</div>
+                        )}
+                        <span className={`text-sm font-bold truncate ${game.homeTeam.isWinner ? 'text-amber-400 font-extrabold' : 'text-white'}`}>
+                          {game.homeTeam.name}
+                        </span>
+                      </div>
+                      <span className={`text-xl font-mono font-black shrink-0 ${game.homeTeam.isWinner ? 'text-amber-400' : 'text-white'}`}>
+                        {game.homeTeam.score}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Stream Match / Play Link */}
+                  <div className="pt-2 border-t border-white/5">
+                    {match?.matched && match.streamUrl ? (
+                      <button
+                        onClick={() => {
+                          if (onPlayStream && match.streamUrl) {
+                            onPlayStream(match.streamUrl, match.logo || game.homeTeam.logo, 0, { title: `${game.awayTeam.name} vs ${game.homeTeam.name}` });
+                          }
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all hover:scale-[1.02] cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-white" />
+                        <span className="truncate">Watch Live ({match.channelName})</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleManualStreamMatch(game)}
+                        disabled={isMatching}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl text-xs font-medium border border-white/10 transition-all cursor-pointer"
+                      >
+                        {isMatching ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                            <span>Gemini AI Matching Stream...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Tv className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Find IPTV Stream</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )
       ) : (
