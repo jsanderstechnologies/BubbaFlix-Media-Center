@@ -332,6 +332,10 @@ export async function playMediaStream(streamUrl: string) {
 // this is just to allow you to test the API in the browser preview here)
 // ============================================================================
 
+const { Parser } = require('m3u8-parser');
+const EztvApi = require('eztv-api-pt');
+const eztv = new EztvApi({ baseUrl: 'https://eztvx.to/' });
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5150;
@@ -883,7 +887,9 @@ async function startServer() {
       disableLogin: settings.disableLogin === true,
       preferHEVC: settings.preferHEVC !== false,
       hevcMode: settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer'),
-      mediaFolders: settings.mediaFolders || []
+      mediaFolders: settings.mediaFolders || [],
+      sportsIptvGroups: settings.sportsIptvGroups || [],
+      enableEztv: settings.enableEztv === true
     });
   });
 
@@ -940,6 +946,8 @@ async function startServer() {
     if (req.body.xtreamPassword !== undefined) settings.xtreamPassword = req.body.xtreamPassword;
     if (req.body.iptvProviders !== undefined) settings.iptvProviders = req.body.iptvProviders;
     if (req.body.customChannels !== undefined) settings.customChannels = req.body.customChannels;
+    if (req.body.sportsIptvGroups !== undefined) settings.sportsIptvGroups = req.body.sportsIptvGroups;
+    if (req.body.enableEztv !== undefined) settings.enableEztv = req.body.enableEztv;
 
     writeJson(SETTINGS_FILE, settings);
     res.json({ success: true });
@@ -1054,12 +1062,22 @@ async function startServer() {
       }
 
       // Filter channels to relevant sports or event channels to keep prompt size efficient
-      const sportsKeywords = [sport, homeTeam, awayTeam, 'sport', 'espn', 'fox', 'cbs', 'nbc', 'bally', 'tnt', 'tbs', 'nfl', 'nba', 'mlb', 'nhl', 'redzone', 'ppv', 'network', 'stadium', 'sec', 'acc', 'bigten', 'big10', 'pac12'];
-      const candidateChannels = channels.filter((ch: any) => {
-        const titleLower = (ch.title || ch.name || '').toLowerCase();
-        const groupLower = (ch.group?.title || ch.group || '').toLowerCase();
-        return sportsKeywords.some(kw => kw && (titleLower.includes(kw.toLowerCase()) || groupLower.includes(kw.toLowerCase())));
-      }).slice(0, 150); // limit candidates for token safety
+      let candidateChannels: any[] = [];
+      const sportsGroups = settings.sportsIptvGroups || [];
+
+      if (sportsGroups.length > 0) {
+        candidateChannels = channels.filter((ch: any) => {
+          const groupTitle = ch.group?.title || ch.group || '';
+          return sportsGroups.includes(groupTitle);
+        }).slice(0, 150);
+      } else {
+        const sportsKeywords = [sport, homeTeam, awayTeam, 'sport', 'espn', 'fox', 'cbs', 'nbc', 'bally', 'tnt', 'tbs', 'nfl', 'nba', 'mlb', 'nhl', 'redzone', 'ppv', 'network', 'stadium', 'sec', 'acc', 'bigten', 'big10', 'pac12'];
+        candidateChannels = channels.filter((ch: any) => {
+          const titleLower = (ch.title || ch.name || '').toLowerCase();
+          const groupLower = (ch.group?.title || ch.group || '').toLowerCase();
+          return sportsKeywords.some(kw => kw && (titleLower.includes(kw.toLowerCase()) || groupLower.includes(kw.toLowerCase())));
+        }).slice(0, 150);
+      }
 
       const targetChannels = candidateChannels.length > 0 ? candidateChannels : channels.slice(0, 100);
 
@@ -2550,8 +2568,8 @@ app.get('/api/youtube/search', async (req, res) => {
           headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
         }).catch(() => null),
         // EZTV (works best for TV shows — needs numeric IMDB ID)
-        (imdbId && typeof imdbId === 'string' && !isMusicQuery)
-          ? axios.get(`https://eztvx.to/api/get-torrents?limit=30&imdb_id=${imdbId.replace(/^tt/, '')}`, { timeout: 7000 }).catch(() => null)
+        (settings.enableEztv && imdbId && typeof imdbId === 'string' && !isMusicQuery)
+          ? eztv.getTorrents({ limit: 30, imdb: imdbId.replace(/^tt/, '') }).then((res: any) => ({ data: res })).catch(() => null)
           : Promise.resolve(null),
       ]);
 

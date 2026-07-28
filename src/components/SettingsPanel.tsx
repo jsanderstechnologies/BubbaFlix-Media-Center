@@ -49,9 +49,21 @@ const CollapsibleSection = ({ id, title, icon: Icon, isOpen, onToggle, children,
   );
 };
 
+
+const SETTINGS_TABS = [
+  { id: 'users', label: 'Users', icon: Users, adminOnly: true },
+  { id: 'media', label: 'Media Sources', icon: Database, adminOnly: false },
+  { id: 'playback', label: 'Playback & Transcoding', icon: PlayCircle, adminOnly: false },
+  { id: 'iptv', label: 'Live TV (IPTV)', icon: Tv, adminOnly: false },
+  { id: 'system', label: 'System', icon: Server, adminOnly: true }
+];
+
 export default function SettingsPanel() {
   const queryClient = useQueryClient();
   const [openSections, setOpenSections] = useState<string[]>([]);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'users' : 'media');
   
   const toggleSection = (section: string) => {
     setOpenSections(prev => 
@@ -105,6 +117,9 @@ export default function SettingsPanel() {
   const [customChannels, setCustomChannels] = useState<Record<string, any>>(() => systemSettings.customChannels || {});
   const [isDeduplicating, setIsDeduplicating] = useState(false);
   const [channelSearch, setChannelSearch] = useState('');
+
+  const [sportsGroups, setSportsGroups] = useState<string[]>(() => systemSettings.sportsIptvGroups || []);
+  const [enableEztv, setEnableEztv] = useState<boolean>(() => systemSettings.enableEztv === true);
 
   const [mediaFolders, setMediaFolders] = useState<Array<{ id: string; path: string; mediaType: 'movie' | 'series' }>>(() => {
     return systemSettings.mediaFolders || [];
@@ -216,8 +231,6 @@ export default function SettingsPanel() {
 
   const [saved, setSaved] = useState(false);
   
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
 
   // --- Debug Logging state ---
   const [enableDebugLog, setEnableDebugLog] = useState(() => localStorage.getItem('enableDebugLog') === 'true');
@@ -372,6 +385,24 @@ export default function SettingsPanel() {
     }
   };
 
+  const toggleSportsGroup = (group: string) => {
+    setSportsGroups(prev => {
+      const current = prev || [];
+      return current.includes(group) 
+        ? current.filter(g => g !== group)
+        : [...current, group]
+    });
+  };
+
+  const toggleAllSportsGroups = () => {
+    const current = sportsGroups || [];
+    if (current.length === availableGroups.length) {
+      setSportsGroups([]);
+    } else {
+      setSportsGroups(availableGroups);
+    }
+  };
+
   const editableChannels = useMemo(() => {
     if (!parsedM3u?.channels) return [];
     if (!channelSearch.trim()) return parsedM3u.channels;
@@ -429,7 +460,9 @@ export default function SettingsPanel() {
 
       usenetPort,
       usenetUsername,
-      usenetPassword
+      usenetPassword,
+      sportsIptvGroups: sportsGroups || [],
+      enableEztv
     });
 
     updateUserSettings({
@@ -458,14 +491,39 @@ export default function SettingsPanel() {
         </button>
       </div>
 
+
+      {/* Tabs */}
+      <div className="flex overflow-x-auto hide-scrollbar gap-2 mb-2 p-1 bg-black/20 rounded-2xl border border-white/5">
+        {SETTINGS_TABS.filter(t => !t.adminOnly || isAdmin).map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium transition-all whitespace-nowrap ${
+                isActive 
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' 
+                  : 'text-white/50 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-indigo-400'}`} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="grid gap-6">
-        {isAdmin && (
-          <div className="mb-2">
+        {activeTab === 'users' && isAdmin && (
+          <div className="mb-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <AdminPanel />
           </div>
         )}
 
         {/* Email Configuration */}
+        {activeTab === 'system' && isAdmin && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
         {isAdmin && (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
@@ -558,6 +616,11 @@ export default function SettingsPanel() {
           </div>
         )}
 
+          </div>
+        )}
+
+        {activeTab === 'media' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
         {/* Local & Network Shared Folders */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
@@ -744,6 +807,19 @@ export default function SettingsPanel() {
             </div>
 
             <div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={enableEztv} 
+                  onChange={(e) => setEnableEztv(e.target.checked)}
+                  className="w-4 h-4 text-indigo-500 rounded bg-black/40 border-white/20 focus:ring-indigo-500 focus:ring-offset-gray-900" 
+                />
+                <span className="text-sm font-medium text-white">Enable EZTV Integration</span>
+              </label>
+              <p className="text-xs text-white/80 mt-2 ml-7">Turn on EZTV searches for TV Shows. (Note: EZTV API can sometimes block requests or rate limit).</p>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-white mb-2">NewsAPI.org API Key</label>
               <div className="flex">
                 <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
@@ -904,7 +980,16 @@ export default function SettingsPanel() {
                 />
               </div>
               <p className="text-xs text-white/80 mt-2">Required to fetch movie metadata, posters, and trending lists.</p>
-            </div>            {/* Multi-Provider IPTV Manager & Channel Customization Table */}
+            </div>
+          </div>
+          </div>
+          </div>
+        )}
+
+        {activeTab === 'iptv' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              {/* Multi-Provider IPTV Manager & Channel Customization Table */}
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
                 <div>
@@ -1150,10 +1235,59 @@ export default function SettingsPanel() {
                   )}
                 </div>
               </div>
+
+              {/* Sports Group Selection */}
+              <div className="mt-6 border-t border-white/10 pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <label className="text-sm font-medium text-white block">Sports Playlist Groups</label>
+                    <span className="text-xs text-white/50">Select the groups to use when searching for live sports. If none are selected, it will fall back to keyword matching.</span>
+                  </div>
+                  {availableGroups.length > 0 && (
+                    <button 
+                      onClick={toggleAllSportsGroups}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 font-medium"
+                    >
+                      {((sportsGroups || []).length === availableGroups.length) ? 'Deselect All' : 'Select All'}
+                    </button>
+                  )}
+                </div>
+                
+                <div className="bg-black/20 border border-white/10 rounded-lg p-4 max-h-60 overflow-y-auto custom-scrollbar">
+                  {isM3uLoading ? (
+                    <div className="text-center text-white text-sm py-4">Loading groups...</div>
+                  ) : availableGroups.length === 0 ? (
+                    <div className="text-center text-white text-sm py-4">No groups found in playlist or invalid URL.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {availableGroups.map(group => {
+                        const isEnabled = (sportsGroups || []).includes(group);
+                        return (
+                          <div 
+                            key={`sports-${group}`} 
+                            onClick={() => toggleSportsGroup(group)}
+                            className="flex items-center gap-3 cursor-pointer group/item"
+                          >
+                            <div className="text-indigo-400">
+                              {isEnabled ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 opacity-50 group-hover/item:opacity-100 transition-opacity" />}
+                            </div>
+                            <span className={`text-sm truncate transition-colors ${isEnabled ? 'text-white' : 'text-white/60 group-hover/item:text-white'}`}>
+                              {group}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
+        )}
 
+        {activeTab === 'playback' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
         {/* Content Filters */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
@@ -1253,6 +1387,11 @@ export default function SettingsPanel() {
           </div>
         </div>
 
+          </div>
+        )}
+
+        {activeTab === 'system' && isAdmin && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
         {/* Developer / Debug */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
@@ -1340,6 +1479,8 @@ export default function SettingsPanel() {
           </div>
         </div>
 
+          </div>
+        )}
       </div>
     </div>
   );
