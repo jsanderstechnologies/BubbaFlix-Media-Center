@@ -281,7 +281,8 @@ export default function WeatherPanel() {
       return `https://www.meteoblue.com/en/weather/maps/widget/${encodeURIComponent(weather.city)}?windAnimation=1&gust=0&satellite=1&cloudsAndPrecipitation=1&celsius=0&domain=NMM`;
     }
     if (radarProvider === 'weatherandradar') {
-      return `https://www.weatherandradar.com/weather-radar?lat=${weather.lat}&lon=${weather.lon}&zoom=8`;
+      const citySlug = weather.city.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+      return `https://www.weatherandradar.com/weather-radar/${citySlug}`;
     }
     return `https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=in&metricTemp=%C2%B0F&radarRange=-1&overlay=radar&product=radar&level=surface&lat=${weather.lat}&lon=${weather.lon}&zoom=8`;
   };
