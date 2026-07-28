@@ -272,7 +272,7 @@ export default function WeatherPanel() {
   const getRadarIframeUrl = () => {
     if (!weather) return 'https://embed.windy.com/';
     if (radarProvider === 'rainviewer') {
-      return `https://www.rainviewer.com/map.html?loc=${weather.lat},${weather.lon},7&o=1&c=1&oCloud=0&p=1&m=1&col=1&theme=1`;
+      return `https://www.rainviewer.com/map.html?loc=${weather.lat},${weather.lon},8&o=90&c=1&oCloud=0&p=1&m=1&col=1&theme=1&sm=1&sn=1`;
     }
     if (radarProvider === 'ventusky') {
       return `https://www.ventusky.com/?p=${weather.lat};${weather.lon};8&l=radar`;
