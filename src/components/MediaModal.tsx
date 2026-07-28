@@ -412,17 +412,64 @@ export default function MediaModal({
     if (movie) {
       if (isSeries) {
         setSeriesDetailsLoading(true);
-        getTvSeriesDetails(movie.id).then(details => {
-          if (!isActive) return;
-          if (details && details.seasons) {
-            const validSeasons = details.seasons.filter((s: any) => s.season_number > 0);
-            setSeasons(validSeasons);
-            if (validSeasons.length > 0) {
-              setSelectedSeason(validSeasons[0].season_number);
+        
+        (async () => {
+          let targetTmdbId = movie.realTmdbId || movie.tmdbId;
+          const isLocalId = typeof movie.id === 'string' && movie.id.startsWith('local_');
+
+          if (!targetTmdbId && !isLocalId && typeof movie.id === 'number') {
+            targetTmdbId = movie.id;
+          }
+
+          // If local item with no tmdbId yet, search TMDB for show title
+          if (!targetTmdbId) {
+            try {
+              const cleanTitle = (movie.title || movie.name || '').replace(/\b(remastered|extended|uncut|1080p|720p|4k)\b/gi, '').trim();
+              const apiKey = localStorage.getItem('tmdbKey') || '841059f71aab310b4d4c4f3a7e28328e';
+              const searchRes = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${apiKey}&query=${encodeURIComponent(cleanTitle)}`).then(r => r.json()).catch(() => null);
+              if (searchRes?.results?.[0]?.id) {
+                targetTmdbId = searchRes.results[0].id;
+                movie.realTmdbId = targetTmdbId;
+              }
+            } catch (e) {}
+          }
+
+          let tmdbSeasons: any[] = [];
+          if (targetTmdbId) {
+            const details = await getTvSeriesDetails(targetTmdbId);
+            if (details && details.seasons) {
+              tmdbSeasons = details.seasons.filter((s: any) => s.season_number > 0);
             }
           }
+
+          // Also check for local files & seasons in shared folder
+          let localSeasons: any[] = [];
+          if (movie.isNetworkShare || movie.folderPath || movie.filePath) {
+            try {
+              const epRes = await fetch(`/api/local-media/episodes?folderPath=${encodeURIComponent(movie.folderPath || '')}&filePath=${encodeURIComponent(movie.filePath || '')}`).then(r => r.json()).catch(() => null);
+              if (epRes?.success && Array.isArray(epRes.seasons) && epRes.seasons.length > 0) {
+                localSeasons = epRes.seasons;
+              }
+            } catch (e) {}
+          }
+
+          if (!isActive) return;
+
+          const combinedSeasonsMap = new Map<number, any>();
+          tmdbSeasons.forEach(s => combinedSeasonsMap.set(s.season_number, s));
+          localSeasons.forEach(s => {
+            if (!combinedSeasonsMap.has(s.season_number)) {
+              combinedSeasonsMap.set(s.season_number, s);
+            }
+          });
+
+          const finalSeasons = Array.from(combinedSeasonsMap.values()).sort((a, b) => a.season_number - b.season_number);
+          setSeasons(finalSeasons);
+          if (finalSeasons.length > 0) {
+            setSelectedSeason(finalSeasons[0].season_number);
+          }
           setSeriesDetailsLoading(false);
-        });
+        })();
       } else {
         setLoading(true);
         setStreams([]);
@@ -650,18 +697,57 @@ export default function MediaModal({
   useEffect(() => {
     let isActive = true;
     if (isSeries && selectedSeason !== null && movie) {
-      getTvSeasonDetails(movie.id, selectedSeason).then(seasonData => {
-        if (!isActive) return;
-        if (seasonData && seasonData.episodes) {
-          setEpisodes(seasonData.episodes);
-          if (seasonData.episodes.length > 0) {
-            setSelectedEpisode(prevEp => {
-              const epExists = seasonData.episodes.some((e: any) => e.episode_number === prevEp);
-              return epExists ? prevEp : seasonData.episodes[0].episode_number;
-            });
+      (async () => {
+        let targetTmdbId = movie.realTmdbId || movie.tmdbId;
+        if (!targetTmdbId && typeof movie.id === 'number') {
+          targetTmdbId = movie.id;
+        }
+
+        let tmdbEpisodes: any[] = [];
+        if (targetTmdbId) {
+          const seasonData = await getTvSeasonDetails(targetTmdbId, selectedSeason);
+          if (seasonData && seasonData.episodes) {
+            tmdbEpisodes = seasonData.episodes;
           }
         }
-      });
+
+        let localEpisodes: any[] = [];
+        if (movie.isNetworkShare || movie.folderPath || movie.filePath) {
+          try {
+            const epRes = await fetch(`/api/local-media/episodes?folderPath=${encodeURIComponent(movie.folderPath || '')}&filePath=${encodeURIComponent(movie.filePath || '')}`).then(r => r.json()).catch(() => null);
+            if (epRes?.success && Array.isArray(epRes.seasons)) {
+              const matchedSeason = epRes.seasons.find((s: any) => s.season_number === selectedSeason) || epRes.seasons[0];
+              if (matchedSeason && Array.isArray(matchedSeason.episodes)) {
+                localEpisodes = matchedSeason.episodes;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (!isActive) return;
+
+        const epMap = new Map<number, any>();
+        tmdbEpisodes.forEach(e => epMap.set(e.episode_number, e));
+        localEpisodes.forEach(e => {
+          if (!epMap.has(e.episode_number)) {
+            epMap.set(e.episode_number, e);
+          } else {
+            // merge local stream URL into existing TMDB episode object!
+            epMap.get(e.episode_number)!.streamUrl = e.streamUrl;
+            epMap.get(e.episode_number)!.filePath = e.filePath;
+          }
+        });
+
+        const finalEpisodes = Array.from(epMap.values()).sort((a, b) => a.episode_number - b.episode_number);
+        setEpisodes(finalEpisodes);
+
+        if (finalEpisodes.length > 0) {
+          setSelectedEpisode(prevEp => {
+            const epExists = finalEpisodes.some((e: any) => e.episode_number === prevEp);
+            return epExists ? prevEp : finalEpisodes[0].episode_number;
+          });
+        }
+      })();
     }
     return () => { isActive = false; };
   }, [isSeries, selectedSeason, movie]);

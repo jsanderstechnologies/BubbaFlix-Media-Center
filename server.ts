@@ -3537,7 +3537,72 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
       res.json({ success: true, data: savedItems });
     } catch (e: any) {
       console.error("[Local Media Library Error]", e.message);
-      res.json({ success: false, data: [], error: e.message });
+  // API Route: Scan TV Series folder for seasons and episodes
+  app.get("/api/local-media/episodes", (req, res) => {
+    try {
+      const folderPath = req.query.folderPath as string;
+      const filePath = req.query.filePath as string;
+
+      const targetDir = folderPath || (filePath ? path.dirname(filePath) : '');
+      if (!targetDir) {
+        return res.json({ success: false, seasons: [] });
+      }
+
+      const normDir = normalizeNetworkPath(targetDir);
+      const allFiles = scanDirectoryForMedia(normDir, [], 5);
+      
+      const seasonsMap = new Map<number, any[]>();
+
+      for (const file of allFiles) {
+        const filename = path.basename(file);
+        
+        let seasonNum = 1;
+        let episodeNum = 1;
+
+        const sMatch = filename.match(/s(\d{1,2})e(\d{1,2})/i) || 
+                       filename.match(/(\d{1,2})x(\d{1,2})/i) ||
+                       path.dirname(file).match(/season\s*(\d{1,2})/i);
+
+        if (sMatch) {
+          if (sMatch[1]) seasonNum = parseInt(sMatch[1], 10);
+          if (sMatch[2]) episodeNum = parseInt(sMatch[2], 10);
+        } else {
+          const epMatch = filename.match(/\be(?:pisode)?\s*(\d{1,2})\b/i) || filename.match(/\b(\d{1,3})\b/);
+          if (epMatch) episodeNum = parseInt(epMatch[1], 10);
+        }
+
+        if (!seasonsMap.has(seasonNum)) {
+          seasonsMap.set(seasonNum, []);
+        }
+
+        const episodeTitle = parseMediaName(filename.replace(/\.[^/.]+$/, '')).title || `Episode ${episodeNum}`;
+
+        seasonsMap.get(seasonNum)!.push({
+          id: `local_ep_${crypto.createHash('md5').update(file).digest('hex')}`,
+          name: episodeTitle,
+          title: episodeTitle,
+          season_number: seasonNum,
+          episode_number: episodeNum,
+          filename: filename,
+          filePath: file,
+          streamUrl: `/api/local-media/stream?path=${encodeURIComponent(file)}`,
+          overview: `Local media file: ${filename}`
+        });
+      }
+
+      const seasons = Array.from(seasonsMap.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([sNum, epList]) => ({
+          season_number: sNum,
+          name: `Season ${sNum}`,
+          episode_count: epList.length,
+          episodes: epList.sort((a, b) => a.episode_number - b.episode_number)
+        }));
+
+      res.json({ success: true, seasons });
+    } catch (e: any) {
+      console.error("[Local Media Episodes Error]", e.message);
+      res.json({ success: false, seasons: [] });
     }
   });
 
