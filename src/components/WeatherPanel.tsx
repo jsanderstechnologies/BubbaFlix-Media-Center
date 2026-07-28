@@ -79,7 +79,7 @@ export default function WeatherPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [radarProvider, setRadarProvider] = useState<'nws' | 'rainviewer'>('nws');
+  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer'>('windy');
   const [isFullScreenRadar, setIsFullScreenRadar] = useState(false);
 
   useEffect(() => {
@@ -244,11 +244,11 @@ export default function WeatherPanel() {
   };
 
   const getRadarIframeUrl = () => {
-    if (!weather) return 'https://radar.weather.gov/';
-    if (radarProvider === 'nws') {
-      return getNwsRadarUrl(weather.lat, weather.lon);
+    if (!weather) return 'https://embed.windy.com/';
+    if (radarProvider === 'rainviewer') {
+      return `https://www.rainviewer.com/map.html?loc=${weather.lat},${weather.lon},7&o=1&c=1&oCloud=0&p=1&m=1&col=1&theme=1`;
     }
-    return `https://www.rainviewer.com/map.html?loc=${weather.lat},${weather.lon},7&o=1&c=1&oCloud=0&p=1&m=1&col=1&theme=1`;
+    return `https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=in&metricTemp=%C2%B0F&radarRange=-1&overlay=radar&product=radar&level=surface&lat=${weather.lat}&lon=${weather.lon}&zoom=8`;
   };
 
   return (
@@ -260,17 +260,17 @@ export default function WeatherPanel() {
             <div className="flex items-center gap-3">
               <Radio className="w-5 h-5 text-red-500 animate-pulse" />
               <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
-                National Weather Service (NWS) Live Radar - {weather.city}{weather.state ? `, ${weather.state}` : ''}
+                Live Interactive Weather Radar - {weather.city}{weather.state ? `, ${weather.state}` : ''}
               </h2>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="flex bg-black/60 p-1 rounded-xl border border-white/10">
                 <button
-                  onClick={() => setRadarProvider('nws')}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'nws' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
+                  onClick={() => setRadarProvider('windy')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'windy' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
-                  NOAA NWS Radar
+                  Windy Radar
                 </button>
                 <button
                   onClick={() => setRadarProvider('rainviewer')}
@@ -280,9 +280,19 @@ export default function WeatherPanel() {
                 </button>
               </div>
 
+              <a
+                href={getNwsRadarUrl(weather.lat, weather.lon)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-xl text-xs font-bold transition-all hover:bg-amber-500/30"
+              >
+                <span>NOAA NWS Site (weather.gov)</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+
               <button
                 onClick={() => setIsFullScreenRadar(false)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg"
+                className="flex items-center gap-2 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg"
               >
                 <Minimize2 className="w-4 h-4" />
                 <span>Exit Fullscreen (Esc)</span>
@@ -292,7 +302,7 @@ export default function WeatherPanel() {
 
           <div className="flex-1 w-full h-full relative bg-black">
             <iframe
-              title="Fullscreen National Weather Service Radar"
+              title="Fullscreen Live Weather Radar"
               src={getRadarIframeUrl()}
               className="w-full h-full border-0"
               allow="geolocation"
@@ -311,7 +321,7 @@ export default function WeatherPanel() {
             </h1>
           </div>
           <p className="text-xs text-white/50 mt-1 font-mono">
-            Real-time conditions, multi-day forecasts & National Weather Service (NWS) live radar loops
+            Real-time conditions, multi-day forecasts & live animated weather radar loops
           </p>
         </div>
 
@@ -453,7 +463,7 @@ export default function WeatherPanel() {
             </div>
           </div>
 
-          {/* 7-Day Forecast & Live NWS Radar Section */}
+          {/* 7-Day Forecast & Live Radar Section */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* 7-Day Forecast */}
             <div className="space-y-3 lg:col-span-1">
@@ -481,21 +491,21 @@ export default function WeatherPanel() {
               </div>
             </div>
 
-            {/* Live Interactive Weather Radar (NWS NOAA) & External Links */}
+            {/* Live Interactive Weather Radar & External Links */}
             <div className="space-y-3 lg:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-bold text-white/80 uppercase tracking-wider flex items-center gap-2">
                   <Radio className="w-4 h-4 text-red-500 animate-pulse" />
-                  <span>National Weather Service (NWS) Radar</span>
+                  <span>Live Animated Weather Radar</span>
                 </h3>
                 
                 <div className="flex items-center gap-2">
                   <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
                     <button
-                      onClick={() => setRadarProvider('nws')}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'nws' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
+                      onClick={() => setRadarProvider('windy')}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'windy' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
                     >
-                      NWS NOAA
+                      Windy
                     </button>
                     <button
                       onClick={() => setRadarProvider('rainviewer')}
@@ -519,8 +529,9 @@ export default function WeatherPanel() {
                     target="_blank"
                     rel="noreferrer"
                     className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1.5 rounded-xl transition-all"
+                    title="Open Official NOAA National Weather Service Radar Website"
                   >
-                    <span>weather.gov</span>
+                    <span>NOAA weather.gov</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
@@ -528,7 +539,7 @@ export default function WeatherPanel() {
 
               <div className="aspect-video w-full rounded-2xl overflow-hidden border border-white/10 bg-black relative shadow-2xl group">
                 <iframe
-                  title="National Weather Service Interactive Radar"
+                  title="Live Interactive Weather Radar"
                   src={getRadarIframeUrl()}
                   className="w-full h-full border-0"
                   loading="lazy"
