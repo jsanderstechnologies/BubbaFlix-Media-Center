@@ -80,7 +80,7 @@ export default function WeatherPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer' | 'ventusky' | 'meteoblue' | 'nws'>('windy');
+  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer' | 'ventusky' | 'meteoblue' | 'nws' | 'wunderground'>('windy');
   const [isFullScreenRadar, setIsFullScreenRadar] = useState(false);
 
   useEffect(() => {
@@ -100,7 +100,7 @@ export default function WeatherPanel() {
     }
   }, [userSettings.weatherLocation]);
 
-  const handleSetRadarProvider = (provider: 'windy' | 'rainviewer' | 'ventusky' | 'meteoblue' | 'nws') => {
+  const handleSetRadarProvider = (provider: 'windy' | 'rainviewer' | 'ventusky' | 'meteoblue' | 'nws' | 'wunderground') => {
     logger.info("Weather: Changed radar provider", { provider });
     setRadarProvider(provider);
   };
@@ -283,6 +283,9 @@ export default function WeatherPanel() {
     if (radarProvider === 'nws') {
       return getNwsRadarUrl(weather.lat, weather.lon);
     }
+    if (radarProvider === 'wunderground') {
+      return `https://www.wunderground.com/wundermap?lat=${weather.lat}&lon=${weather.lon}&zoom=8&radar=1`;
+    }
     return `https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=in&metricTemp=%C2%B0F&radarRange=-1&overlay=radar&product=radar&level=surface&lat=${weather.lat}&lon=${weather.lon}&zoom=8`;
   };
 
@@ -330,6 +333,12 @@ export default function WeatherPanel() {
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'nws' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
                   NOAA NWS Radar
+                </button>
+                <button
+                  onClick={() => handleSetRadarProvider('wunderground')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'wunderground' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
+                >
+                  Weather Underground
                 </button>
               </div>
 
@@ -573,6 +582,12 @@ export default function WeatherPanel() {
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'nws' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
                     >
                       NOAA NWS
+                    </button>
+                    <button
+                      onClick={() => handleSetRadarProvider('wunderground')}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'wunderground' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
+                    >
+                      Weather Underground
                     </button>
                   </div>
 
