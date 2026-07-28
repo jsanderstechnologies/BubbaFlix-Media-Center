@@ -610,9 +610,9 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
                     </div>
                   </div>
 
-                  {/* Stream Match / Play Link */}
-                  <div className="pt-2 border-t border-white/5">
-                    {match?.matched && match.streamUrl ? (
+                  {/* Stream Match / Play Link - Only rendered if a stream is matched */}
+                  {match?.matched && match.streamUrl ? (
+                    <div className="pt-2 border-t border-white/5">
                       <button
                         onClick={() => {
                           if (onPlayStream && match.streamUrl) {
@@ -624,26 +624,13 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
                         <Play className="w-3.5 h-3.5 fill-white" />
                         <span className="truncate">Watch Live ({match.channelName})</span>
                       </button>
-                    ) : (
-                      <button
-                        onClick={() => handleManualStreamMatch(game)}
-                        disabled={isMatching}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl text-xs font-medium border border-white/10 transition-all cursor-pointer"
-                      >
-                        {isMatching ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                            <span>Gemini AI Matching Stream...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Tv className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Find IPTV Stream</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
+                    </div>
+                  ) : match === undefined ? (
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-center gap-2 text-[11px] text-white/40 font-mono">
+                      <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
+                      <span>Checking live streams...</span>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
