@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2 } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun } from 'lucide-react';
 import { collection, query, where, onSnapshot, setDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
 import { logger } from './lib/logger';
@@ -22,6 +22,7 @@ import { VirtualKeyboard } from './components/VirtualKeyboard';
 import HomePanel from './components/HomePanel';
 import SearchPanel from './components/SearchPanel';
 import TorBoxMusicPanel from './components/TorBoxMusicPanel';
+import WeatherPanel from './components/WeatherPanel';
 import SpatialNavigation from 'spatial-navigation-js';
 
 
@@ -966,6 +967,16 @@ function MainApp() {
             <Bookmark className="w-6 h-6" />
             <span className="text-[9px] uppercase tracking-wider font-medium">Library</span>
           </div>
+          <div 
+            id="nav-tab-weather"
+            tabIndex={0}
+            onClick={() => { setActiveTab('weather'); setSearchQuery(''); }}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'weather' ? 'text-red-500' : ''}`}
+            title="Weather & Radar"
+          >
+            <CloudSun className="w-6 h-6" />
+            <span className="text-[9px] uppercase tracking-wider font-medium">Weather</span>
+          </div>
           {user?.role === 'admin' && (
             <div 
               id="nav-tab-settings"
@@ -1222,6 +1233,8 @@ function MainApp() {
             </>
           ) : activeTab === 'music' ? (
             <TorBoxMusicPanel initialQuery={searchQuery} />
+          ) : activeTab === 'weather' ? (
+            <WeatherPanel />
           ) : activeTab === 'tv' ? (
             <IptvGuide onPlayStream={handlePlayStream} />
           ) : activeTab === 'settings' ? (

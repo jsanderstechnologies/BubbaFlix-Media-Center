@@ -219,6 +219,44 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
             </div>
           </div>
 
+          {/* Weather Settings */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Weather Location</h3>
+            
+            <div className="space-y-2">
+              <label className="text-xs text-white/50 block">Default City Name or ZIP Code (e.g. 78701, Chicago)</label>
+              <input 
+                type="text" 
+                value={settings.weatherLocation || ''}
+                onChange={e => setSettings({...settings, weatherLocation: e.target.value})}
+                className="focusable w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none"
+                placeholder="Austin, TX or 78701"
+              />
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <label className="text-xs text-white/50 block">Temperature Unit</label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  tabIndex={0}
+                  onClick={() => setSettings({...settings, temperatureUnit: 'F'})}
+                  className={`focusable flex-1 py-2.5 rounded-xl border text-xs font-bold font-mono transition-all ${settings.temperatureUnit === 'F' || !settings.temperatureUnit ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}
+                >
+                  Fahrenheit (°F)
+                </button>
+                <button
+                  type="button"
+                  tabIndex={0}
+                  onClick={() => setSettings({...settings, temperatureUnit: 'C'})}
+                  className={`focusable flex-1 py-2.5 rounded-xl border text-xs font-bold font-mono transition-all ${settings.temperatureUnit === 'C' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}
+                >
+                  Celsius (°C)
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Auto CC */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Playback Options</h3>

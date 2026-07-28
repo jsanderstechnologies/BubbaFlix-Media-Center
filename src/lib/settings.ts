@@ -38,6 +38,8 @@ export interface UserSettings {
   preferredLanguage?: string;
   playerPath?: string;
   enabledGroups?: string[];
+  weatherLocation?: string;
+  temperatureUnit?: 'F' | 'C';
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
@@ -49,7 +51,9 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   filterAnime: false,
   preferredLanguage: 'all',
   playerPath: 'mpv',
-  enabledGroups: []
+  enabledGroups: [],
+  weatherLocation: 'Austin, TX',
+  temperatureUnit: 'F'
 };
 
 // Global state to avoid prop drilling and multiple fetches
@@ -81,6 +85,8 @@ function syncSystemSettingsToLocalStorage(data: SystemSettings) {
 function syncUserSettingsToLocalStorage(data: UserSettings) {
   if (data.preferredLanguage) localStorage.setItem('preferredLanguage', data.preferredLanguage);
   if (data.filterAnime !== undefined) localStorage.setItem('filterAnime', data.filterAnime ? 'true' : 'false');
+  if (data.weatherLocation) localStorage.setItem('weatherLocation', data.weatherLocation);
+  if (data.temperatureUnit) localStorage.setItem('temperatureUnit', data.temperatureUnit);
 }
 
 type SystemSettingsListener = (settings: SystemSettings) => void;
