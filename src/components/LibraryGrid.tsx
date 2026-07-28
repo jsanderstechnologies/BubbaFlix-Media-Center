@@ -524,7 +524,10 @@ export function LibraryGrid({
           });
           return c;
         })
-        .sort((a, b) => b.movies.length - a.movies.length || a.name.localeCompare(b.name));
+        .sort((a, b) => {
+          const getSortableName = (name?: string) => (name || '').trim().replace(/^(the|a|an)\s+/i, '').trim();
+          return getSortableName(a.name).localeCompare(getSortableName(b.name), undefined, { sensitivity: 'base', numeric: true });
+        });
 
       setCollections(resultCollections);
       setIsResolvingCollections(false);
