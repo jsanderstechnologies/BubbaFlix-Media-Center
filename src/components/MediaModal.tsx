@@ -1003,6 +1003,30 @@ export default function MediaModal({
         setFavoriteId(null);
         return;
       }
+
+      // Check if item is directly from a local network share
+      const isLocalMedia = movie.isNetworkShare || !!movie.filePath || (typeof movie.id === 'string' && movie.id.startsWith('local_'));
+      if (isLocalMedia) {
+        setIsFavorite(true);
+        return;
+      }
+
+      // Check if title exists in scanned local library
+      try {
+        const libRes = await fetch('/api/local-media/library').then(r => r.json()).catch(() => null);
+        if (libRes?.success && Array.isArray(libRes.data)) {
+          const normTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const inLocalLib = libRes.data.some((i: any) => {
+            const itemNorm = (i.title || i.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            return itemNorm && itemNorm === normTitle;
+          });
+          if (inLocalLib) {
+            setIsFavorite(true);
+            return;
+          }
+        }
+      } catch (e) {}
+
       try {
         const q = query(collection(db, 'favorites'), where('userId', '==', user.uid), where('tmdbId', '==', movie.id));
         const snapshot = await getDocs(q);
@@ -1387,6 +1411,11 @@ export default function MediaModal({
                       <span className="flex items-center gap-1 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white font-mono bg-white/5">
                           <Star className="w-3 h-3 text-yellow-500 fill-current" /> <span className="font-mono">{movie.rating}</span>
                       </span>
+                      {(isFavorite || movie.isNetworkShare || movie.filePath) && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 border border-emerald-500/40 rounded text-[11px] font-bold text-emerald-400 font-mono leading-none tracking-wide uppercase bg-emerald-950/40">
+                          <BookmarkCheck className="w-3 h-3 text-emerald-400" /> In Library
+                        </span>
+                      )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
