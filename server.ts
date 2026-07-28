@@ -3440,7 +3440,7 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
             poster: localPoster,
             backupPoster: localPoster,
             overview: `Local Shared Folder (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
-            rating: 'SHARE',
+            rating: '',
             type: group.mediaType,
             isNetworkShare: true,
             streamUrl: `/api/local-media/stream?path=${encodeURIComponent(primaryFile)}`,

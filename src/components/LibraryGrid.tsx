@@ -143,7 +143,9 @@ function LibraryCardItem({
       </div>
       <div className="flex items-center justify-between px-1">
         <span className="text-xs text-white/70 font-mono">{item.year || 'N/A'}</span>
-        {item.rating && <span className="text-xs bg-black/40 text-amber-400 font-mono px-1.5 py-0.5 rounded border border-white/10">★ {item.rating}</span>}
+        {Boolean(item.rating && item.rating !== 'SHARE' && !isNaN(parseFloat(item.rating))) && (
+          <span className="text-xs bg-black/40 text-amber-400 font-mono px-1.5 py-0.5 rounded border border-white/10">★ {item.rating}</span>
+        )}
       </div>
     </div>
   );
