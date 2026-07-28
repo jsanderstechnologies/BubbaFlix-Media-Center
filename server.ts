@@ -3087,10 +3087,11 @@ http://example.com/stream2.m3u8`;
 
   const parseMediaName = (rawName: string) => {
     let clean = rawName
-      .replace(/\b(1080p|720p|480p|4k|2160p|bluray|brrip|web-dl|webrip|dvdrip|hdtv|x264|x265|hevc|h264|h265|aac5?\.?1?|yify|yts\.?\w*|hdr10\+?|10bit|remux|proper|repack).*/gi, '')
+      .replace(/[\._\-](web-?dl|web-?rip|web|1080p|720p|480p|4k|2160p|bluray|brrip|bdrip|dvdrip|hdtv|x264|x265|hevc|remux).*/gi, '')
+      .replace(/\b(1080p|720p|480p|4k|2160p|bluray|brrip|bdrip|web-?dl|web-?rip|web|dvdrip|hdtv|x264|x265|hevc|h264|h265|aac5?\.?1?|yify|yts\.?\w*|hdr10\+?|10bit|remux|proper|repack).*/gi, '')
       .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical|se|ce|dc|ee|ue|dubbed|dub|subbed|sub|dual|multi|japanese|english|spanish|french|german|italian|russian|korean|chinese|hindi|hdcam|telesync|workprint|hc)\b.*/gi, '')
       .replace(/[\._\-\+\[\]]/g, ' ')
-      .replace(/\b(remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical|se|ce|dc|ee|ue|dubbed|dub|subbed|sub|dual|multi|japanese|english|spanish|french|german|italian|russian|korean|chinese|hindi|hdcam|telesync|workprint|hc)\b/gi, '')
+      .replace(/\b(web|web-?dl|web-?rip|1080p|720p|480p|4k|2160p|bluray|brrip|bdrip|dvdrip|hdtv|x264|x265|hevc|remastered|remaster|extended|uncut|unrated|directors?\s*cut|special\s*edition|restored|criterion|imax|anniversary|collectors?\s*edition|theatrical|se|ce|dc|ee|ue|dubbed|dub|subbed|sub|dual|multi|japanese|english|spanish|french|german|italian|russian|korean|chinese|hindi|hdcam|telesync|workprint|hc)\b/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -3102,7 +3103,6 @@ http://example.com/stream2.m3u8`;
       const matchedYear = lastMatch[1];
       const matchIndex = lastMatch.index ?? -1;
 
-      // If there are multiple 4-digit numbers, or text precedes the 4-digit number, use the last 4-digit number as year
       if (matches.length > 1 || matchIndex > 0) {
         year = matchedYear;
         clean = (clean.substring(0, matchIndex) + clean.substring(matchIndex + matchedYear.length))
@@ -3114,6 +3114,38 @@ http://example.com/stream2.m3u8`;
     }
 
     return { title: clean || rawName, year };
+  };
+
+
+
+
+
+
+  const isGenericSubfolder = (name: string) => {
+    const n = name.toLowerCase().trim();
+    return /^season\s*\d+/i.test(n) ||
+           /^s\d{1,2}$/i.test(n) ||
+           /^series\s*\d+/i.test(n) ||
+           /^staffel\s*\d+/i.test(n) ||
+           /^saison\s*\d+/i.test(n) ||
+           /^specials?$/i.test(n) ||
+           /^(4k|2160p|1080p|720p|bluray|web-?dl|web-?rip|web|dvdrip|remux)$/i.test(n) ||
+           /^(subs|subtitles|bonus|extra|extras|featurettes|sample|cd1|cd2)$/i.test(n) ||
+           /^(movies|tv|tv shows|tvseries|videos|media|library|emby|collections|films)$/i.test(n);
+  };
+
+  const cleanTvShowTitle = (rawTitle: string): string => {
+    let clean = rawTitle
+      .replace(/[\._\-](web-?dl|web-?rip|web|1080p|720p|480p|4k|2160p|bluray|brrip|dvdrip|hdtv|x264|x265|hevc|remux).*/gi, '')
+      .replace(/\b(season|series|staffel|saison)\s*\d+\b/gi, '')
+      .replace(/\bS\d{1,2}(E\d{1,2})?\b/gi, '')
+      .replace(/\b(specials?|bonus|extras?)\b/gi, '')
+      .replace(/\b(web|web-?dl|web-?rip|1080p|720p|480p|4k|2160p|bluray|brrip|bdrip|dvdrip|hdtv|x264|x265|hevc|h264|h265|aac5?\.?1?|yify|remux|proper|repack)\b/gi, '')
+      .replace(/[\(\)\[\]\-_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return clean || rawTitle;
   };
 
 
