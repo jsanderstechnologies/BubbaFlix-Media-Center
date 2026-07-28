@@ -405,12 +405,21 @@ export default function SettingsPanel() {
 
   const editableChannels = useMemo(() => {
     if (!parsedM3u?.channels) return [];
-    if (!channelSearch.trim()) return parsedM3u.channels;
+    
+    let filtered = parsedM3u.channels;
+    if (enabledGroups && enabledGroups.length > 0) {
+      filtered = filtered.filter((c: any) => {
+        const groupName = c.group?.title || c.group || '';
+        return enabledGroups.includes(groupName);
+      });
+    }
+
+    if (!channelSearch.trim()) return filtered;
     const q = channelSearch.toLowerCase();
-    return parsedM3u.channels.filter((c: any) => 
+    return filtered.filter((c: any) => 
       (c.title || c.name || '').toLowerCase().includes(q) || (c.group?.title || c.group || '').toLowerCase().includes(q)
     );
-  }, [parsedM3u, channelSearch]);
+  }, [parsedM3u, channelSearch, enabledGroups]);
 
   const handleSave = () => {
     let finalIptvUrl = iptvUrl;
