@@ -25,6 +25,8 @@ export interface SystemSettings {
   filterAnime?: boolean;
   preferredLanguage?: string;
   mediaFolders?: Array<{ id: string; path: string; mediaType: 'movie' | 'series' }>;
+  newsApiKey?: string;
+  gnewsApiKey?: string;
 }
 
 export interface UserSettings {

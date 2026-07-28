@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper } from 'lucide-react';
 import { collection, query, where, onSnapshot, setDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
 import { logger } from './lib/logger';
@@ -23,6 +23,7 @@ import HomePanel from './components/HomePanel';
 import SearchPanel from './components/SearchPanel';
 import TorBoxMusicPanel from './components/TorBoxMusicPanel';
 import WeatherPanel from './components/WeatherPanel';
+import NewsPanel from './components/NewsPanel';
 import WeatherAlertModal from './components/WeatherAlertModal';
 import { fetchActiveWeatherAlerts, WeatherAlert } from './lib/weatherAlerts';
 import SpatialNavigation from 'spatial-navigation-js';
@@ -1023,6 +1024,16 @@ function MainApp() {
             <CloudSun className="w-6 h-6" />
             <span className="text-[9px] uppercase tracking-wider font-medium">Weather</span>
           </div>
+          <div 
+            id="nav-tab-news"
+            tabIndex={0}
+            onClick={() => { setActiveTab('news'); setSearchQuery(''); }}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'news' ? 'text-red-500' : ''}`}
+            title="News & Sports"
+          >
+            <Newspaper className="w-6 h-6" />
+            <span className="text-[9px] uppercase tracking-wider font-medium">News</span>
+          </div>
           {user?.role === 'admin' && (
             <div 
               id="nav-tab-settings"
@@ -1281,6 +1292,8 @@ function MainApp() {
             <TorBoxMusicPanel initialQuery={searchQuery} />
           ) : activeTab === 'weather' ? (
             <WeatherPanel />
+          ) : activeTab === 'news' ? (
+            <NewsPanel />
           ) : activeTab === 'tv' ? (
             <IptvGuide onPlayStream={handlePlayStream} />
           ) : activeTab === 'settings' ? (

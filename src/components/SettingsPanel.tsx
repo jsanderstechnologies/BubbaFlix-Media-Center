@@ -63,6 +63,8 @@ export default function SettingsPanel() {
   const [tmdbKey, setTmdbKey] = useState(systemSettings.tmdbKey || '');
   const [torboxApiKey, setTorboxApiKey] = useState(systemSettings.torboxApiKey || '');
   const [geminiApiKey, setGeminiApiKey] = useState(systemSettings.geminiApiKey || '');
+  const [newsApiKey, setNewsApiKey] = useState(systemSettings.newsApiKey || '');
+  const [gnewsApiKey, setGnewsApiKey] = useState(systemSettings.gnewsApiKey || '');
   const [preferHEVC, setPreferHEVC] = useState(systemSettings.preferHEVC !== false);
   const [hevcMode, setHevcMode] = useState<'prefer' | 'allow' | 'exclude'>(() => {
     if (systemSettings.hevcMode) return systemSettings.hevcMode;
@@ -382,6 +384,8 @@ export default function SettingsPanel() {
       tmdbKey,
       torboxApiKey,
       geminiApiKey,
+      newsApiKey,
+      gnewsApiKey,
       preferHEVC: hevcMode !== 'exclude',
       hevcMode,
 
@@ -716,6 +720,40 @@ export default function SettingsPanel() {
                 />
               </div>
               <p className="text-xs text-white/80 mt-2">Used by the backend to smartly filter out honeypot torrents and incorrect search results.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">NewsAPI.org API Key</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
+                  <Key className="w-4 h-4" />
+                </span>
+                <input 
+                  type="password"
+                  value={newsApiKey}
+                  onChange={(e) => setNewsApiKey(e.target.value)}
+                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
+                  placeholder="Enter NewsAPI.org Key..."
+                />
+              </div>
+              <p className="text-xs text-white/80 mt-2">Powers local, national, world, and sports news headlines.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">GNews API Key</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
+                  <Key className="w-4 h-4" />
+                </span>
+                <input 
+                  type="password"
+                  value={gnewsApiKey}
+                  onChange={(e) => setGnewsApiKey(e.target.value)}
+                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
+                  placeholder="Enter GNews API Key..."
+                />
+              </div>
+              <p className="text-xs text-white/80 mt-2">Provides additional regional, global, and sports news feeds.</p>
             </div>
             
             <div className="space-y-4 pt-4 border-t border-white/10">

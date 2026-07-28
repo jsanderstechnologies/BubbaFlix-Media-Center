@@ -365,7 +365,7 @@ export default function WeatherPanel() {
               type="text" 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="City or ZIP Code…"
+              placeholder="Local City or ZIP (Weather & News)…"
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 pl-8 text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
             />
             <Search className="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-2.5" />

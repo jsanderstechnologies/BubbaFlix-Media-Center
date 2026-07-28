@@ -693,6 +693,8 @@ async function startServer() {
       enableTorrentSearch: settings.enableTorrentSearch !== false,
       intelTranscoding: settings.intelTranscoding === true,
       disableLogin: settings.disableLogin === true,
+      newsApiKey: settings.newsApiKey || '',
+      gnewsApiKey: settings.gnewsApiKey || '',
       mediaFolders: settings.mediaFolders || []
     });
   });
@@ -923,6 +925,8 @@ async function startServer() {
     // Some general settings that any admin can save from SettingsPanel
     if (req.body.tmdbKey !== undefined) settings.tmdbKey = req.body.tmdbKey;
     if (req.body.torboxApiKey !== undefined) settings.torboxApiKey = req.body.torboxApiKey;
+    if (req.body.newsApiKey !== undefined) settings.newsApiKey = req.body.newsApiKey;
+    if (req.body.gnewsApiKey !== undefined) settings.gnewsApiKey = req.body.gnewsApiKey;
     if (req.body.preferHEVC !== undefined) settings.preferHEVC = req.body.preferHEVC;
     if (req.body.maxResults !== undefined) settings.maxResults = req.body.maxResults;
     if (req.body.streamBufferSeconds !== undefined) settings.streamBufferSeconds = req.body.streamBufferSeconds;
@@ -935,6 +939,64 @@ async function startServer() {
 
     writeJson(SETTINGS_FILE, settings);
     res.json({ success: true });
+  });
+
+  // News Proxy Endpoints
+  app.get('/api/news/newsapi', async (req, res) => {
+    try {
+      const settings = readJson(SETTINGS_FILE);
+      const apiKey = settings.newsApiKey || process.env.NEWS_API_KEY;
+      if (!apiKey) {
+        return res.status(400).json({ error: 'NewsAPI.org key is not configured in Settings.' });
+      }
+
+      const { q, category, country, pageSize = '20' } = req.query;
+      let url = 'https://newsapi.org/v2/';
+      if (category || (country && !q)) {
+        url += `top-headlines?apiKey=${apiKey}&pageSize=${pageSize}`;
+        if (category) url += `&category=${encodeURIComponent(String(category))}`;
+        if (country) url += `&country=${encodeURIComponent(String(country))}`;
+        if (q) url += `&q=${encodeURIComponent(String(q))}`;
+      } else {
+        url += `everything?apiKey=${apiKey}&pageSize=${pageSize}&sortBy=publishedAt`;
+        if (q) url += `&q=${encodeURIComponent(String(q))}`;
+        else url += `&q=news`;
+      }
+
+      const response = await axios.get(url, { headers: { 'User-Agent': 'BubbaFlix-News/1.0' } });
+      res.json(response.data);
+    } catch (err: any) {
+      console.error('[NewsAPI Proxy Error]', err?.response?.data || err?.message || err);
+      res.status(err?.response?.status || 500).json({ error: err?.response?.data?.message || err?.message || 'Failed to fetch from NewsAPI' });
+    }
+  });
+
+  app.get('/api/news/gnews', async (req, res) => {
+    try {
+      const settings = readJson(SETTINGS_FILE);
+      const apiKey = settings.gnewsApiKey || process.env.GNEWS_API_KEY;
+      if (!apiKey) {
+        return res.status(400).json({ error: 'GNews API key is not configured in Settings.' });
+      }
+
+      const { q, topic, country, max = '20' } = req.query;
+      let url = 'https://gnews.io/api/v4/';
+      if (topic) {
+        url += `top-headlines?category=${encodeURIComponent(String(topic))}&apikey=${apiKey}&max=${max}&lang=en`;
+      } else if (q) {
+        url += `search?q=${encodeURIComponent(String(q))}&apikey=${apiKey}&max=${max}&lang=en`;
+      } else {
+        url += `top-headlines?category=general&apikey=${apiKey}&max=${max}&lang=en`;
+      }
+
+      if (country) url += `&country=${encodeURIComponent(String(country))}`;
+
+      const response = await axios.get(url);
+      res.json(response.data);
+    } catch (err: any) {
+      console.error('[GNews Proxy Error]', err?.response?.data || err?.message || err);
+      res.status(err?.response?.status || 500).json({ error: err?.response?.data?.errors?.[0] || err?.message || 'Failed to fetch from GNews' });
+    }
   });
 
 
