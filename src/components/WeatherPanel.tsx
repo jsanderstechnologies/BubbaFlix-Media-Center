@@ -79,7 +79,7 @@ export default function WeatherPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer' | 'weatherbug'>('windy');
+  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer' | 'weatherbug' | 'zoomradar'>('windy');
   const [isFullScreenRadar, setIsFullScreenRadar] = useState(false);
 
   useEffect(() => {
@@ -251,6 +251,9 @@ export default function WeatherPanel() {
     if (radarProvider === 'weatherbug') {
       return `https://www.weatherbug.com/maps/`;
     }
+    if (radarProvider === 'zoomradar') {
+      return `https://maps.zoomradar.net/?lat=${weather.lat}&lng=${weather.lon}&zoom=8`;
+    }
     return `https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=in&metricTemp=%C2%B0F&radarRange=-1&overlay=radar&product=radar&level=surface&lat=${weather.lat}&lon=${weather.lon}&zoom=8`;
   };
 
@@ -286,6 +289,12 @@ export default function WeatherPanel() {
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'weatherbug' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
                   WeatherBug Radar
+                </button>
+                <button
+                  onClick={() => setRadarProvider('zoomradar')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'zoomradar' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
+                >
+                  ZoomRadar
                 </button>
               </div>
 
@@ -527,6 +536,12 @@ export default function WeatherPanel() {
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'weatherbug' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
                     >
                       WeatherBug
+                    </button>
+                    <button
+                      onClick={() => setRadarProvider('zoomradar')}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'zoomradar' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
+                    >
+                      ZoomRadar
                     </button>
                   </div>
 
