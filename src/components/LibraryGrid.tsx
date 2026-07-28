@@ -797,13 +797,20 @@ export function LibraryGrid({
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
                     />
+                    <div className="absolute top-2 left-2 flex gap-1 items-center">
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded shadow tracking-wider uppercase border bg-red-600/90 text-white border-red-400/40">
+                        COLLECTION
+                      </span>
+                    </div>
+                    <div className="absolute top-2 right-2 flex gap-1 items-center">
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded shadow tracking-wider uppercase border bg-black/80 text-white border-white/20 font-mono">
+                        {col.movies.length} {col.movies.length === 1 ? 'MOVIE' : 'MOVIES'}
+                      </span>
+                    </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
                       <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Franchise</span>
                       <span className="text-xs font-bold text-white leading-tight">{col.name}</span>
                       <span className="text-[10px] text-white/70 font-mono mt-1">{col.movies.length} {col.movies.length === 1 ? 'Movie' : 'Movies'} in Library</span>
-                    </div>
-                    <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/80 backdrop-blur-md rounded-md border border-white/10 text-[10px] font-bold font-mono text-emerald-400">
-                      {col.movies.length} {col.movies.length === 1 ? 'Movie' : 'Movies'}
                     </div>
                   </div>
                   <h3 className="text-xs font-medium text-white/90 truncate group-hover:text-red-400 transition-colors">
