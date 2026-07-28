@@ -80,7 +80,7 @@ export default function WeatherPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer' | 'ventusky'>('windy');
+  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer' | 'ventusky' | 'meteoblue' | 'weatherandradar'>('windy');
   const [isFullScreenRadar, setIsFullScreenRadar] = useState(false);
 
   useEffect(() => {
@@ -100,7 +100,7 @@ export default function WeatherPanel() {
     }
   }, [userSettings.weatherLocation]);
 
-  const handleSetRadarProvider = (provider: 'windy' | 'rainviewer' | 'ventusky') => {
+  const handleSetRadarProvider = (provider: 'windy' | 'rainviewer' | 'ventusky' | 'meteoblue' | 'weatherandradar') => {
     logger.info("Weather: Changed radar provider", { provider });
     setRadarProvider(provider);
   };
@@ -277,6 +277,12 @@ export default function WeatherPanel() {
     if (radarProvider === 'ventusky') {
       return `https://www.ventusky.com/?p=${weather.lat};${weather.lon};8&l=radar`;
     }
+    if (radarProvider === 'meteoblue') {
+      return `https://www.meteoblue.com/en/weather/maps/widget/${encodeURIComponent(weather.city)}?windAnimation=1&gust=0&satellite=1&cloudsAndPrecipitation=1&celsius=0&domain=NMM`;
+    }
+    if (radarProvider === 'weatherandradar') {
+      return `https://www.weatherandradar.com/weather-radar?lat=${weather.lat}&lon=${weather.lon}&zoom=8`;
+    }
     return `https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=in&metricTemp=%C2%B0F&radarRange=-1&overlay=radar&product=radar&level=surface&lat=${weather.lat}&lon=${weather.lon}&zoom=8`;
   };
 
@@ -312,6 +318,18 @@ export default function WeatherPanel() {
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'ventusky' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
                   Ventusky
+                </button>
+                <button
+                  onClick={() => handleSetRadarProvider('meteoblue')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'meteoblue' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
+                >
+                  Meteoblue
+                </button>
+                <button
+                  onClick={() => handleSetRadarProvider('weatherandradar')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'weatherandradar' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
+                >
+                  Weather & Radar USA
                 </button>
               </div>
 
@@ -525,7 +543,7 @@ export default function WeatherPanel() {
                 </h3>
                 
                 <div className="flex items-center gap-2">
-                  <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+                  <div className="flex flex-wrap bg-white/5 p-1 rounded-xl border border-white/10">
                     <button
                       onClick={() => handleSetRadarProvider('windy')}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'windy' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
@@ -543,6 +561,18 @@ export default function WeatherPanel() {
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'ventusky' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
                     >
                       Ventusky
+                    </button>
+                    <button
+                      onClick={() => handleSetRadarProvider('meteoblue')}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'meteoblue' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
+                    >
+                      Meteoblue
+                    </button>
+                    <button
+                      onClick={() => handleSetRadarProvider('weatherandradar')}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'weatherandradar' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
+                    >
+                      Weather & Radar USA
                     </button>
                   </div>
 
