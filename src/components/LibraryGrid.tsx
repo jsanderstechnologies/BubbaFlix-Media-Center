@@ -196,8 +196,11 @@ export function LibraryGrid({
   }, []);
 
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'movies' | 'series' | 'music'>('movies');
+  const [activeTab, setActiveTab] = useState<'movies' | 'series' | 'collections'>('movies');
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
+  const [collections, setCollections] = useState<any[]>([]);
+  const [selectedCollection, setSelectedCollection] = useState<any | null>(null);
+  const [isResolvingCollections, setIsResolvingCollections] = useState(false);
 
   useEffect(() => {
     loadNetworkShareItems();
@@ -398,6 +401,92 @@ export function LibraryGrid({
     return () => unsubscribe();
   }, [user]);
 
+  // Resolve TMDB Collections for movies in user's library
+  useEffect(() => {
+    const isMovieItem = (item: any) => {
+      if (!item) return false;
+      const t = (item.type || item.mediaType || '').toLowerCase();
+      if (t === 'movie' || t === 'movies') return true;
+      if (t === 'series' || t === 'tv' || t === 'show' || t === 'tvseries' || t === 'shows') return false;
+      return !Boolean(item.first_air_date || item.number_of_seasons || item.seasons);
+    };
+
+    const allMovies = [...networkShareItems, ...favorites].filter(isMovieItem);
+    if (allMovies.length === 0) {
+      setCollections([]);
+      return;
+    }
+
+    let isActive = true;
+    setIsResolvingCollections(true);
+
+    const apiKey = localStorage.getItem('tmdbKey') || '841059f71aab310b4d4c4f3a7e28328e';
+
+    (async () => {
+      const collectionsMap = new Map<string, { id: any; name: string; poster: string; movies: any[] }>();
+
+      const moviePromises = allMovies.map(async (movie) => {
+        let tmdbId = movie.realTmdbId || (typeof movie.id === 'number' ? movie.id : null);
+        let colInfo = movie.collectionInfo;
+
+        if (!tmdbId && typeof movie.id === 'string' && movie.id.startsWith('local_')) {
+          try {
+            const cleanTitle = (movie.title || movie.name || '').replace(/\b(remastered|extended|uncut|1080p|720p|4k)\b/gi, '').trim();
+            const sRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(cleanTitle)}${movie.year ? `&year=${movie.year}` : ''}`).then(r => r.json()).catch(() => null);
+            if (sRes?.results?.[0]?.id) {
+              tmdbId = sRes.results[0].id;
+              movie.realTmdbId = tmdbId;
+            }
+          } catch (e) {}
+        }
+
+        if (tmdbId && !colInfo) {
+          try {
+            const details = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${apiKey}`).then(r => r.json()).catch(() => null);
+            if (details?.belongs_to_collection) {
+              const b = details.belongs_to_collection;
+              colInfo = {
+                id: b.id,
+                name: b.name,
+                poster: b.poster_path ? `https://image.tmdb.org/t/p/w500${b.poster_path}` : (b.backdrop_path ? `https://image.tmdb.org/t/p/w500${b.backdrop_path}` : movie.poster)
+              };
+              movie.collectionInfo = colInfo;
+            }
+          } catch (e) {}
+        }
+
+        if (colInfo && colInfo.name) {
+          const key = String(colInfo.id || colInfo.name);
+          if (!collectionsMap.has(key)) {
+            collectionsMap.set(key, {
+              id: colInfo.id || key,
+              name: colInfo.name,
+              poster: colInfo.poster || movie.poster,
+              movies: []
+            });
+          }
+          const col = collectionsMap.get(key)!;
+          if (!col.movies.some(m => m.id === movie.id || (m.title && m.title === movie.title))) {
+            col.movies.push(movie);
+          }
+        }
+      });
+
+      await Promise.allSettled(moviePromises);
+
+      if (!isActive) return;
+
+      const resultCollections = Array.from(collectionsMap.values())
+        .filter(c => c.movies.length > 0)
+        .sort((a, b) => b.movies.length - a.movies.length || a.name.localeCompare(b.name));
+
+      setCollections(resultCollections);
+      setIsResolvingCollections(false);
+    })();
+
+    return () => { isActive = false; };
+  }, [networkShareItems, favorites]);
+
   // Listen to Saved Artists
   useEffect(() => {
     if (!user) {
@@ -585,21 +674,101 @@ export function LibraryGrid({
       {/* Tab Selectors */}
       <div className="flex gap-6 mb-6 border-b border-white/10 pb-4">
         <button 
-          onClick={() => { setActiveTab('movies'); setSelectedPlaylist(null); setSelectedLetter(null); }}
+          onClick={() => { setActiveTab('movies'); setSelectedPlaylist(null); setSelectedCollection(null); setSelectedLetter(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'movies' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
           Movies ({movieCount})
         </button>
         <button 
-          onClick={() => { setActiveTab('series'); setSelectedPlaylist(null); setSelectedLetter(null); }}
+          onClick={() => { setActiveTab('series'); setSelectedPlaylist(null); setSelectedCollection(null); setSelectedLetter(null); }}
           className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'series' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
         >
           TV Series ({seriesCount})
         </button>
+        <button 
+          onClick={() => { setActiveTab('collections'); setSelectedPlaylist(null); setSelectedCollection(null); setSelectedLetter(null); }}
+          className={`text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'collections' ? 'text-red-500 border-b-2 border-red-500 pb-4 -mb-[18px]' : 'text-white/60 hover:text-white pb-4'}`}
+        >
+          Collections ({collections.length})
+        </button>
       </div>
 
-      {/* Movies / Series content */}
-      {true && (
+      {/* Movies / Series / Collections content */}
+      {activeTab === 'collections' ? (
+        <div>
+          {isResolvingCollections && collections.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 space-y-3">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+              <span className="text-xs font-mono text-white/60 uppercase tracking-widest animate-pulse">Scanning TMDB Movie Collections...</span>
+            </div>
+          ) : selectedCollection ? (
+            <div>
+              <div className="flex items-center gap-4 mb-6">
+                <button 
+                  onClick={() => setSelectedCollection(null)}
+                  className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/80 hover:text-white transition-colors bg-white/5 border border-white/10 px-3.5 py-2 rounded-xl cursor-pointer"
+                >
+                  ← Back to Collections
+                </button>
+                <h3 className="text-lg font-bold text-white tracking-wide">{selectedCollection.name} ({selectedCollection.movies.length} Movies)</h3>
+              </div>
+              <section className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
+                {selectedCollection.movies.map((item: any, idx: number) => (
+                  <LibraryCardItem
+                    key={getItemKey(item, idx)}
+                    item={item}
+                    itemKey={getItemKey(item, idx)}
+                    onSelectMedia={onSelectMedia}
+                    onPlayMedia={onPlayMedia}
+                    onHoverMedia={onHoverMedia}
+                  />
+                ))}
+              </section>
+            </div>
+          ) : collections.length === 0 ? (
+            <div className="text-white/50 text-sm py-12 text-center bg-white/[0.02] border border-white/5 rounded-2xl max-w-md mx-auto">
+              No movie collections found. Add franchise movies to your library to view automatically grouped collections!
+            </div>
+          ) : (
+            <section className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
+              {collections.map((col: any) => (
+                <div
+                  key={col.id}
+                  onClick={() => setSelectedCollection(col)}
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter') setSelectedCollection(col); }}
+                  className="group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl"
+                >
+                  <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
+                    <img 
+                      src={col.poster} 
+                      alt={col.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                      <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Franchise</span>
+                      <span className="text-xs font-bold text-white leading-tight">{col.name}</span>
+                      <span className="text-[10px] text-white/70 font-mono mt-1">{col.movies.length} {col.movies.length === 1 ? 'Movie' : 'Movies'} in Library</span>
+                    </div>
+                    <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/80 backdrop-blur-md rounded-md border border-white/10 text-[10px] font-bold font-mono text-emerald-400">
+                      {col.movies.length} {col.movies.length === 1 ? 'Movie' : 'Movies'}
+                    </div>
+                  </div>
+                  <h3 className="text-xs font-medium text-white/90 truncate group-hover:text-red-400 transition-colors">
+                    {col.name}
+                  </h3>
+                </div>
+              ))}
+            </section>
+          )}
+        </div>
+      ) : (
         <>
           {/* Quick-Jump Alphabet Index Bar */}
           {filteredMedia.length > 0 && (
