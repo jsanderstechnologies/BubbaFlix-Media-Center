@@ -999,6 +999,45 @@ async function startServer() {
     }
   });
 
+  // Sports Scores Proxy Endpoint (ESPN Public API - No key required)
+  app.get('/api/sports/scores', async (req, res) => {
+    try {
+      const sport = String(req.query.sport || 'nfl').toLowerCase();
+      let endpoint = '';
+      switch (sport) {
+        case 'nfl':
+          endpoint = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+          break;
+        case 'nba':
+          endpoint = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
+          break;
+        case 'mlb':
+          endpoint = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard';
+          break;
+        case 'nhl':
+          endpoint = 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard';
+          break;
+        case 'ncaa_football':
+          endpoint = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard';
+          break;
+        case 'ncaa_basketball':
+          endpoint = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard';
+          break;
+        case 'soccer':
+          endpoint = 'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard';
+          break;
+        default:
+          endpoint = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+      }
+
+      const response = await axios.get(endpoint, { headers: { 'User-Agent': 'BubbaFlix-Sports/1.0' } });
+      res.json(response.data);
+    } catch (err: any) {
+      console.error('[Sports Scores Proxy Error]', err?.message || err);
+      res.status(500).json({ error: 'Failed to fetch sports scores' });
+    }
+  });
+
 
   // /api/admin/test-email POST
   app.post('/api/admin/test-email', requireAdmin, async (req, res) => {
