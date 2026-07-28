@@ -284,7 +284,7 @@ export default function WeatherPanel() {
   };
 
   return (
-    <div className="min-h-full p-6 sm:p-8 space-y-8 max-w-7xl mx-auto pb-24 text-white">
+    <div className="h-full w-full overflow-y-auto p-4 lg:p-6 space-y-6 text-white pb-24">
       {/* Fullscreen Radar Modal */}
       {isFullScreenRadar && weather && (
         <div className="fixed top-20 left-20 right-0 bottom-0 z-40 bg-black flex flex-col border-t border-l border-white/10 shadow-2xl animate-in fade-in duration-200">
@@ -346,34 +346,34 @@ export default function WeatherPanel() {
       )}
 
       {/* Header & Location Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <CloudSun className="w-8 h-8 text-amber-400 animate-pulse" />
-            <h1 className="text-2xl sm:text-3xl font-black tracking-wide uppercase bg-gradient-to-r from-white via-white/90 to-amber-300 bg-clip-text text-transparent">
-              Weather & Radar
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-5">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <CloudSun className="w-7 h-7 text-amber-400 animate-pulse shrink-0" />
+            <h1 className="text-xl lg:text-2xl font-black tracking-wide uppercase bg-gradient-to-r from-white via-white/90 to-amber-300 bg-clip-text text-transparent truncate">
+              Weather &amp; Radar
             </h1>
           </div>
-          <p className="text-xs text-white/50 mt-1 font-mono">
-            Real-time conditions, multi-day forecasts & live animated weather radar loops
+          <p className="text-[11px] text-white/50 mt-0.5 font-mono truncate">
+            Real-time conditions, forecasts &amp; live radar
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <form onSubmit={handleSearchSubmit} className="relative flex-1 sm:w-80">
+        <div className="flex items-center gap-2 shrink-0">
+          <form onSubmit={handleSearchSubmit} className="relative w-44 sm:w-56 lg:w-72">
             <input 
               type="text" 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search City or ZIP Code (e.g. 78701, Chicago)"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 pl-10 text-xs sm:text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+              placeholder="City or ZIP Code…"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 pl-8 text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
             />
-            <Search className="w-4 h-4 text-white/40 absolute left-3.5 top-3" />
+            <Search className="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-2.5" />
           </form>
 
           <button
             onClick={toggleUnit}
-            className="px-3.5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold font-mono transition-all hover:scale-105 active:scale-95 cursor-pointer text-amber-400"
+            className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold font-mono transition-all hover:scale-105 active:scale-95 cursor-pointer text-amber-400"
             title="Toggle Temperature Unit (°F / °C)"
           >
             °{unit}
@@ -381,7 +381,7 @@ export default function WeatherPanel() {
 
           <button
             onClick={() => fetchWeather(locationQuery)}
-            className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/70 hover:text-white transition-all cursor-pointer"
+            className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/70 hover:text-white transition-all cursor-pointer"
             title="Refresh Weather"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -405,31 +405,31 @@ export default function WeatherPanel() {
       {weather && (
         <>
           {/* Main Weather Hero Card */}
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-950/40 via-slate-900/60 to-black/80 p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative z-10">
-              <div className="space-y-4">
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-950/40 via-slate-900/60 to-black/80 p-4 sm:p-6 backdrop-blur-xl shadow-2xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
+              <div className="space-y-3 min-w-0">
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-amber-400" />
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-wide text-white">
+                  <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                  <h2 className="text-lg sm:text-xl font-bold tracking-wide text-white truncate">
                     {weather.city}{weather.state ? `, ${weather.state}` : ''} {weather.country ? `(${weather.country})` : ''}
                   </h2>
                 </div>
 
-                <div className="flex items-baseline gap-4">
-                  <span className="text-6xl sm:text-7xl font-black text-white tracking-tighter">
+                <div className="flex items-baseline gap-3">
+                  <span className="text-5xl sm:text-6xl font-black text-white tracking-tighter">
                     {weather.current.temp}°
                   </span>
-                  <div className="space-y-1">
-                    <span className="text-3xl">
+                  <div className="space-y-0.5">
+                    <span className="text-2xl">
                       {WMO_CODE_MAP[weather.current.weatherCode]?.icon || '🌤️'}
                     </span>
-                    <div className="text-base font-bold text-amber-300">
+                    <div className="text-sm font-bold text-amber-300">
                       {WMO_CODE_MAP[weather.current.weatherCode]?.label || 'Clear'}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4 text-xs text-white/70 font-medium">
+                <div className="flex flex-wrap items-center gap-3 text-xs text-white/70 font-medium">
                   <span>Feels like <strong className="text-white font-bold">{weather.current.feelsLike}°</strong></span>
                   <span>•</span>
                   <span>High <strong className="text-red-400 font-bold">{weather.current.tempMax}°</strong> / Low <strong className="text-blue-400 font-bold">{weather.current.tempMin}°</strong></span>
@@ -437,39 +437,39 @@ export default function WeatherPanel() {
               </div>
 
               {/* Grid of Weather Details */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t lg:border-t-0 lg:border-l border-white/10 pt-6 lg:pt-0 lg:pl-8">
-                <div className="bg-white/5 border border-white/5 p-3.5 rounded-2xl flex flex-col justify-between">
-                  <div className="flex items-center gap-2 text-white/50 text-[11px] font-bold uppercase">
-                    <Droplets className="w-3.5 h-3.5 text-blue-400" />
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6 shrink-0">
+                <div className="bg-white/5 border border-white/5 p-3 rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 text-white/50 text-[10px] font-bold uppercase">
+                    <Droplets className="w-3 h-3 text-blue-400" />
                     <span>Humidity</span>
                   </div>
-                  <span className="text-lg font-bold text-white mt-2 font-mono">{weather.current.humidity}%</span>
+                  <span className="text-base font-bold text-white mt-1.5 font-mono">{weather.current.humidity}%</span>
                 </div>
 
-                <div className="bg-white/5 border border-white/5 p-3.5 rounded-2xl flex flex-col justify-between">
-                  <div className="flex items-center gap-2 text-white/50 text-[11px] font-bold uppercase">
-                    <Wind className="w-3.5 h-3.5 text-emerald-400" />
+                <div className="bg-white/5 border border-white/5 p-3 rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 text-white/50 text-[10px] font-bold uppercase">
+                    <Wind className="w-3 h-3 text-emerald-400" />
                     <span>Wind</span>
                   </div>
-                  <span className="text-lg font-bold text-white mt-2 font-mono">
+                  <span className="text-base font-bold text-white mt-1.5 font-mono">
                     {weather.current.windSpeed} {unit === 'F' ? 'mph' : 'km/h'} {getWindDirectionStr(weather.current.windDirection)}
                   </span>
                 </div>
 
-                <div className="bg-white/5 border border-white/5 p-3.5 rounded-2xl flex flex-col justify-between">
-                  <div className="flex items-center gap-2 text-white/50 text-[11px] font-bold uppercase">
-                    <Gauge className="w-3.5 h-3.5 text-purple-400" />
+                <div className="bg-white/5 border border-white/5 p-3 rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 text-white/50 text-[10px] font-bold uppercase">
+                    <Gauge className="w-3 h-3 text-purple-400" />
                     <span>Pressure</span>
                   </div>
-                  <span className="text-lg font-bold text-white mt-2 font-mono">{weather.current.pressure} hPa</span>
+                  <span className="text-base font-bold text-white mt-1.5 font-mono">{weather.current.pressure} hPa</span>
                 </div>
 
-                <div className="bg-white/5 border border-white/5 p-3.5 rounded-2xl flex flex-col justify-between">
-                  <div className="flex items-center gap-2 text-white/50 text-[11px] font-bold uppercase">
-                    <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <div className="bg-white/5 border border-white/5 p-3 rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 text-white/50 text-[10px] font-bold uppercase">
+                    <Sun className="w-3 h-3 text-amber-400" />
                     <span>UV Index</span>
                   </div>
-                  <span className="text-lg font-bold text-white mt-2 font-mono">{weather.current.uvIndexMax}</span>
+                  <span className="text-base font-bold text-white mt-1.5 font-mono">{weather.current.uvIndexMax}</span>
                 </div>
               </div>
             </div>
@@ -498,24 +498,24 @@ export default function WeatherPanel() {
           </div>
 
           {/* 7-Day Forecast & Live Radar Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
             {/* 7-Day Forecast */}
-            <div className="space-y-3 lg:col-span-1">
-              <h3 className="text-sm font-bold text-white/80 uppercase tracking-wider">7-Day Daily Forecast</h3>
-              <div className="space-y-2.5">
+            <div className="space-y-2.5 xl:col-span-1">
+              <h3 className="text-xs font-bold text-white/80 uppercase tracking-wider">7-Day Forecast</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2">
                 {weather.daily.map((day, idx) => (
                   <div 
                     key={idx}
-                    className="flex items-center justify-between p-3.5 bg-white/[0.03] border border-white/5 hover:border-white/20 rounded-2xl transition-all"
+                    className="flex items-center justify-between p-3 bg-white/[0.03] border border-white/5 hover:border-white/20 rounded-xl transition-all"
                   >
-                    <span className="text-xs font-bold text-white w-16">{day.dayName}</span>
-                    <div className="flex items-center gap-2 flex-1 justify-center">
-                      <span className="text-xl">{WMO_CODE_MAP[day.weatherCode]?.icon || '🌤️'}</span>
-                      <span className="text-xs text-white/60 font-medium truncate max-w-[7rem]">
+                    <span className="text-xs font-bold text-white w-14 shrink-0">{day.dayName}</span>
+                    <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
+                      <span className="text-lg">{WMO_CODE_MAP[day.weatherCode]?.icon || '🌤️'}</span>
+                      <span className="text-[11px] text-white/60 font-medium truncate">
                         {WMO_CODE_MAP[day.weatherCode]?.label || 'Clear'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-mono font-bold">
+                    <div className="flex items-center gap-1.5 text-xs font-mono font-bold shrink-0">
                       <span className="text-red-400">{day.tempMax}°</span>
                       <span className="text-white/30">/</span>
                       <span className="text-blue-400">{day.tempMin}°</span>
@@ -525,16 +525,16 @@ export default function WeatherPanel() {
               </div>
             </div>
 
-            {/* Live Interactive Weather Radar & External Links */}
-            <div className="space-y-3 lg:col-span-2">
+            {/* Live Interactive Weather Radar */}
+            <div className="flex flex-col gap-2.5 xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-bold text-white/80 uppercase tracking-wider flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-red-500 animate-pulse" />
+                <h3 className="text-xs font-bold text-white/80 uppercase tracking-wider flex items-center gap-2">
+                  <Radio className="w-3.5 h-3.5 text-red-500 animate-pulse" />
                   <span>Live Animated Weather Radar</span>
                 </h3>
                 
                 <div className="flex items-center gap-2">
-                  <div className="flex flex-wrap bg-white/5 p-1 rounded-xl border border-white/10">
+                  <div className="flex flex-wrap bg-white/5 p-0.5 rounded-xl border border-white/10">
                     <button
                       onClick={() => handleSetRadarProvider('windy')}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'windy' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
@@ -563,32 +563,30 @@ export default function WeatherPanel() {
 
                   <button
                     onClick={() => handleToggleFullScreenRadar(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/90 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all hover:scale-105 cursor-pointer shadow-lg border border-red-400/30"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600/90 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all hover:scale-105 cursor-pointer shadow-lg border border-red-400/30"
                     title="Open Full Screen Radar Map"
                   >
                     <Maximize2 className="w-3.5 h-3.5" />
-                    <span>Full Screen</span>
+                    <span className="hidden sm:inline">Full Screen</span>
                   </button>
                 </div>
               </div>
 
-
-
-              <div className="aspect-video w-full rounded-2xl overflow-hidden border border-white/10 bg-black relative shadow-2xl group">
+              <div className="relative w-full rounded-2xl overflow-hidden border border-white/10 bg-black shadow-2xl group" style={{ minHeight: '280px', height: 'clamp(280px, 40vw, 520px)' }}>
                 <iframe
                   title="Live Interactive Weather Radar"
                   src={getRadarIframeUrl()}
-                  className="w-full h-full border-0"
+                  className="absolute inset-0 w-full h-full border-0"
                   loading="lazy"
                   allow="geolocation"
                 />
                 
                 <button
                   onClick={() => handleToggleFullScreenRadar(true)}
-                  className="absolute bottom-3 right-3 px-3 py-2 bg-black/80 hover:bg-black backdrop-blur-md text-white border border-white/20 rounded-xl text-xs font-bold flex items-center gap-2 transition-all opacity-80 group-hover:opacity-100 shadow-xl cursor-pointer"
+                  className="absolute bottom-3 right-3 px-3 py-2 bg-black/80 hover:bg-black backdrop-blur-md text-white border border-white/20 rounded-xl text-xs font-bold flex items-center gap-2 transition-all opacity-0 group-hover:opacity-100 shadow-xl cursor-pointer"
                 >
                   <Maximize2 className="w-4 h-4 text-amber-400" />
-                  <span>Full Screen Radar</span>
+                  <span>Full Screen</span>
                 </button>
               </div>
             </div>
