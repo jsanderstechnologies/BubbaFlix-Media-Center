@@ -608,7 +608,8 @@ export default function MediaModal({
             .then(r => r.json())
             .catch(() => null);
 
-          const localMediaPromise = fetch(`/api/local-media/search?title=${encodeURIComponent(movie.title || movie.name)}&type=movie`)
+          const movieYear = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
+          const localMediaPromise = fetch(`/api/local-media/search?title=${encodeURIComponent(movie.title || movie.name)}&type=movie${movieYear ? `&year=${encodeURIComponent(movieYear)}` : ''}`)
             .then(r => r.json())
             .catch(() => null);
 

@@ -3018,7 +3018,7 @@ http://example.com/stream2.m3u8`;
         const normalizedFilename = filename.toLowerCase().replace(/[^a-z0-9]/g, '');
         const normalizedFullPath = file.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        let isMatch = false;
+        const targetYear = req.query.year ? String(req.query.year).trim() : '';
 
         if (isTargetSeries && season !== undefined && episode !== undefined) {
           const sPattern = `s${String(season).padStart(2, '0')}e${String(episode).padStart(2, '0')}`;
@@ -3029,8 +3029,23 @@ http://example.com/stream2.m3u8`;
             isMatch = true;
           }
         } else {
-          if (normalizedFilename.includes(normalizedTitle) || normalizedFullPath.includes(normalizedTitle)) {
-            isMatch = true;
+          const hasTitleMatch = normalizedFilename.includes(normalizedTitle) || normalizedFullPath.includes(normalizedTitle);
+          if (hasTitleMatch) {
+            const targetCleanTitle = (title as string).toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+            const fileCleanTitle = parseMediaName(filename.replace(/\.[^/.]+$/, '')).title.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+
+            const isSequelMismatch = fileCleanTitle.startsWith(targetCleanTitle) && 
+              /\b(2|3|4|5|6|ii|iii|iv|v|part\s*2|part\s*3|chapter\s*2)\b/i.test(fileCleanTitle.slice(targetCleanTitle.length));
+
+            if (!isSequelMismatch) {
+              const fileYears = filename.match(/\b(19\d\d|20\d\d)\b/g);
+              if (targetYear && targetYear.length === 4 && fileYears && fileYears.length > 0) {
+                if (!fileYears.includes(targetYear)) {
+                  continue;
+                }
+              }
+              isMatch = true;
+            }
           }
         }
 
@@ -3228,24 +3243,22 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
           searchUrl += item.type === 'series' ? `&first_air_date_year=${item.year}` : `&year=${item.year}`;
         }
         let tmdbRes = await axios.get(searchUrl, { timeout: 3000 }).catch(() => null);
-        let match = tmdbRes?.data?.results?.find((r: any) => r.poster_path || r.backdrop_path);
+        let match = tmdbRes?.data?.results?.find((r: any) => {
+          const rYear = (r.release_date || r.first_air_date || '').split('-')[0];
+          return (r.poster_path || r.backdrop_path) && (item.year && item.year !== 'Local' ? rYear === String(item.year) : true);
+        });
 
         if (!match) {
           const fallbackUrl = `https://api.themoviedb.org/3/search/${primaryEndpoint}?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
           tmdbRes = await axios.get(fallbackUrl, { timeout: 3000 }).catch(() => null);
-          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path || r.backdrop_path);
+          match = tmdbRes?.data?.results?.find((r: any) => {
+            const rYear = (r.release_date || r.first_air_date || '').split('-')[0];
+            return (r.poster_path || r.backdrop_path) && (item.year && item.year !== 'Local' ? rYear === String(item.year) : true);
+          });
         }
 
-        if (!match) {
-          const secUrl = `https://api.themoviedb.org/3/search/${secondaryEndpoint}?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
-          tmdbRes = await axios.get(secUrl, { timeout: 3000 }).catch(() => null);
-          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path || r.backdrop_path);
-        }
-
-        if (!match) {
-          const multiUrl = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
-          tmdbRes = await axios.get(multiUrl, { timeout: 3000 }).catch(() => null);
-          match = tmdbRes?.data?.results?.find((r: any) => r.poster_path || r.backdrop_path);
+        if (!match && tmdbRes?.data?.results?.length > 0) {
+          match = tmdbRes.data.results.find((r: any) => r.poster_path || r.backdrop_path);
         }
 
         if (match && (match.poster_path || match.backdrop_path)) {
@@ -3254,7 +3267,9 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
           if (match.vote_average) item.rating = match.vote_average.toFixed(1);
           if (match.overview) item.overview = match.overview;
           const releaseDate = match.release_date || match.first_air_date;
-          if (releaseDate) item.year = releaseDate.split('-')[0];
+          if (releaseDate && (!item.year || item.year === 'Local')) {
+            item.year = releaseDate.split('-')[0];
+          }
           item.realTmdbId = match.id;
           if (!item.type) {
             if (match.media_type === 'tv' || match.first_air_date || (match.name && !match.title)) {
