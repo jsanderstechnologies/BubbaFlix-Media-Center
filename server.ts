@@ -3153,31 +3153,6 @@ http://example.com/stream2.m3u8`;
 
 
 
-  const isGenericSubfolder = (name: string) => {
-    const n = name.toLowerCase().trim();
-    return /^season\s*\d+/i.test(n) ||
-           /^s\d{1,2}$/i.test(n) ||
-           /^series\s*\d+/i.test(n) ||
-           /^staffel\s*\d+/i.test(n) ||
-           /^saison\s*\d+/i.test(n) ||
-           /^specials?$/i.test(n) ||
-           /^(4k|2160p|1080p|720p|bluray|web-dl|dvdrip|remux)$/i.test(n) ||
-           /^(subs|subtitles|bonus|extra|extras|featurettes|sample|cd1|cd2)$/i.test(n) ||
-           /^(movies|tv|tv shows|tvseries|videos|media|library|emby|collections|films)$/i.test(n);
-  };
-
-  const cleanTvShowTitle = (rawTitle: string): string => {
-    let clean = rawTitle
-      .replace(/\b(season|series|staffel|saison)\s*\d+\b/gi, '')
-      .replace(/\bS\d{1,2}(E\d{1,2})?\b/gi, '')
-      .replace(/\b(specials?|bonus|extras?)\b/gi, '')
-      .replace(/[\(\)\[\]\-_]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    return clean || rawTitle;
-  };
-
   async function normalizeTvSeriesWithGemini(rawSeriesTitles: string[], apiKey: string): Promise<Record<string, string>> {
     if (!apiKey || rawSeriesTitles.length === 0) return {};
     try {
