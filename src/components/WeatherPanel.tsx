@@ -315,37 +315,6 @@ export default function WeatherPanel() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-bold">
-                <span className="text-white/40 px-2 text-[10px] uppercase">External:</span>
-                <a
-                  href={getNwsRadarUrl(weather.lat, weather.lon)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-lg transition-all flex items-center gap-1"
-                >
-                  <span>NOAA</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-                <a
-                  href="https://www.weatherbug.com/maps/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 rounded-lg transition-all flex items-center gap-1"
-                >
-                  <span>WeatherBug</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-                <a
-                  href={`https://maps.zoomradar.net/?lat=${weather.lat}&lng=${weather.lon}&zoom=8`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 rounded-lg transition-all flex items-center gap-1"
-                >
-                  <span>ZoomRadar</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-
               <button
                 onClick={() => handleToggleFullScreenRadar(false)}
                 className="flex items-center gap-2 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg ml-2"
@@ -588,37 +557,7 @@ export default function WeatherPanel() {
                 </div>
               </div>
 
-              {/* Direct Web Popout Links Bar for Weather Services with Iframe Blocks */}
-              <div className="flex flex-wrap items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/10 text-xs">
-                <span className="text-white/50 text-[11px] font-bold uppercase tracking-wider">Web Popouts:</span>
-                <a
-                  href={getNwsRadarUrl(weather.lat, weather.lon)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-lg transition-all flex items-center gap-1 font-medium"
-                >
-                  <span>NOAA weather.gov</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-                <a
-                  href="https://www.weatherbug.com/maps/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-lg transition-all flex items-center gap-1 font-medium"
-                >
-                  <span>WeatherBug</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-                <a
-                  href={`https://maps.zoomradar.net/?lat=${weather.lat}&lng=${weather.lon}&zoom=8`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 rounded-lg transition-all flex items-center gap-1 font-medium"
-                >
-                  <span>ZoomRadar</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
+
 
               <div className="aspect-video w-full rounded-2xl overflow-hidden border border-white/10 bg-black relative shadow-2xl group">
                 <iframe
