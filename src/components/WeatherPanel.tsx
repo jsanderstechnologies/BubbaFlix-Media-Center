@@ -261,7 +261,7 @@ export default function WeatherPanel() {
     <div className="min-h-full p-6 sm:p-8 space-y-8 max-w-7xl mx-auto pb-24 text-white">
       {/* Fullscreen Radar Modal */}
       {isFullScreenRadar && weather && (
-        <div className="fixed inset-0 z-[99999] bg-black flex flex-col">
+        <div className="fixed top-20 left-20 right-0 bottom-0 z-40 bg-black flex flex-col border-t border-l border-white/10 shadow-2xl animate-in fade-in duration-200">
           <div className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-white/10 shrink-0">
             <div className="flex items-center gap-3">
               <Radio className="w-5 h-5 text-red-500 animate-pulse" />
