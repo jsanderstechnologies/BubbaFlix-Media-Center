@@ -332,7 +332,6 @@ export async function playMediaStream(streamUrl: string) {
 // this is just to allow you to test the API in the browser preview here)
 // ============================================================================
 
-const { Parser } = require('m3u8-parser');
 const EztvApi = require('eztv-api-pt');
 const eztv = new EztvApi({ baseUrl: 'https://eztvx.to/' });
 
