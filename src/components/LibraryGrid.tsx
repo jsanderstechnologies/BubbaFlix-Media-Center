@@ -160,10 +160,25 @@ export function LibraryGrid({
 }) {
   const { user } = useAuth();
   const [favorites, setFavorites] = useState<any[]>([]);
-  const [networkShareItems, setNetworkShareItems] = useState<any[]>([]);
+  const [networkShareItems, setNetworkShareItems] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_network_share_items');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [savedArtists, setSavedArtists] = useState<any[]>([]);
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [failedPosters, setFailedPosters] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (networkShareItems.length > 0) {
+      try {
+        localStorage.setItem('cached_network_share_items', JSON.stringify(networkShareItems));
+      } catch (e) {}
+    }
+  }, [networkShareItems]);
 
   const loadNetworkShareItems = (forceRescan = false) => {
     fetch(`/api/local-media/library${forceRescan ? '?rescan=true' : ''}`)
@@ -171,6 +186,9 @@ export function LibraryGrid({
       .then(data => {
         if (data && data.success && Array.isArray(data.data)) {
           setNetworkShareItems(data.data);
+          try {
+            localStorage.setItem('cached_network_share_items', JSON.stringify(data.data));
+          } catch (e) {}
           if (data.data.some((i: any) => !i.poster)) {
             setTimeout(() => {
               fetch('/api/local-media/library')
@@ -178,6 +196,9 @@ export function LibraryGrid({
                 .then(d2 => {
                   if (d2?.success && Array.isArray(d2.data)) {
                     setNetworkShareItems(d2.data);
+                    try {
+                      localStorage.setItem('cached_network_share_items', JSON.stringify(d2.data));
+                    } catch (e) {}
                   }
                 }).catch(() => null);
             }, 3000);
@@ -190,20 +211,34 @@ export function LibraryGrid({
 
   useEffect(() => {
     loadNetworkShareItems();
-    const handleRefresh = () => loadNetworkShareItems();
+    const handleRefresh = () => loadNetworkShareItems(true);
     window.addEventListener('refresh-local-library', handleRefresh);
     return () => window.removeEventListener('refresh-local-library', handleRefresh);
   }, []);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => networkShareItems.length === 0);
   const [activeTab, setActiveTab] = useState<'movies' | 'series' | 'collections'>('movies');
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
-  const [collections, setCollections] = useState<any[]>([]);
+  const [collections, setCollections] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_movie_collections');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [selectedCollection, setSelectedCollection] = useState<any | null>(null);
   const [isResolvingCollections, setIsResolvingCollections] = useState(false);
 
   useEffect(() => {
-    loadNetworkShareItems();
+    if (collections.length > 0) {
+      try {
+        localStorage.setItem('cached_movie_collections', JSON.stringify(collections));
+      } catch (e) {}
+    }
+  }, [collections]);
+
+  useEffect(() => {
     setSelectedLetter(null);
   }, [activeTab]);
 
