@@ -3272,7 +3272,21 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
         if (match && (match.poster_path || match.backdrop_path)) {
           const imgPath = match.poster_path || match.backdrop_path;
           item.poster = `https://image.tmdb.org/t/p/w500${imgPath}`;
-          if (match.vote_average) item.rating = match.vote_average.toFixed(1);
+          if (match.vote_average && match.vote_average > 0) {
+            item.rating = match.vote_average.toFixed(1);
+          }
+          
+          if (!item.rating || item.rating === '0' || item.rating === '0.0') {
+            try {
+              const titleQuery = encodeURIComponent(item.title || item.name || '');
+              const yearQuery = item.year && item.year !== 'Local' ? `&y=${item.year}` : '';
+              const omdbRes = await axios.get(`https://www.omdbapi.com/?apikey=trilogy&t=${titleQuery}${yearQuery}`, { timeout: 2500 }).catch(() => null);
+              if (omdbRes?.data?.imdbRating && omdbRes.data.imdbRating !== 'N/A') {
+                item.rating = omdbRes.data.imdbRating;
+              }
+            } catch (e) {}
+          }
+
           if (match.overview) item.overview = match.overview;
           const releaseDate = match.release_date || match.first_air_date;
           if (releaseDate && (!item.year || item.year === 'Local')) {

@@ -35,6 +35,25 @@ function LibraryCardItem({
   const [posterUrl, setPosterUrl] = useState<string>(item.poster || item.backupPoster || '');
   const [imgFailed, setImgFailed] = useState(false);
   const [isFetchingTmdb, setIsFetchingTmdb] = useState(false);
+  const [rating, setRating] = useState<string>(item.rating || '');
+
+  useEffect(() => {
+    if (!rating || rating === '0' || rating === '0.0' || rating === 'SHARE') {
+      const rawTitle = item.title || item.name || '';
+      const cleanTitle = rawTitle.replace(/\b(remastered|extended|uncut|1080p|720p|4k|bluray)\b/gi, '').trim();
+      if (!cleanTitle || cleanTitle.length < 2) return;
+
+      fetch(`https://www.omdbapi.com/?apikey=trilogy&t=${encodeURIComponent(cleanTitle)}${item.year ? `&y=${item.year}` : ''}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data?.imdbRating && data.imdbRating !== 'N/A') {
+            setRating(data.imdbRating);
+            item.rating = data.imdbRating;
+          }
+        })
+        .catch(() => null);
+    }
+  }, [item.title, item.name, rating]);
 
   useEffect(() => {
     // If item poster is empty or failed, dynamically fetch poster from TMDB!
@@ -57,6 +76,11 @@ function LibraryCardItem({
             setPosterUrl(fullUrl);
             setImgFailed(false);
             item.poster = fullUrl;
+            if (match.vote_average && !item.rating) {
+              const rStr = match.vote_average.toFixed(1);
+              setRating(rStr);
+              item.rating = rStr;
+            }
           } else {
             return fetch(`https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(titleToSearch)}`)
               .then(r => r.json())
@@ -68,6 +92,11 @@ function LibraryCardItem({
                   setPosterUrl(fullUrl);
                   setImgFailed(false);
                   item.poster = fullUrl;
+                  if (multiMatch.vote_average && !item.rating) {
+                    const rStr = multiMatch.vote_average.toFixed(1);
+                    setRating(rStr);
+                    item.rating = rStr;
+                  }
                 }
               });
           }
@@ -143,8 +172,8 @@ function LibraryCardItem({
       </div>
       <div className="flex items-center justify-between px-1">
         <span className="text-xs text-white/70 font-mono">{item.year || 'N/A'}</span>
-        {Boolean(item.rating && item.rating !== 'SHARE' && !isNaN(parseFloat(item.rating))) && (
-          <span className="text-xs bg-black/40 text-amber-400 font-mono px-1.5 py-0.5 rounded border border-white/10">★ {item.rating}</span>
+        {Boolean(rating && rating !== 'SHARE' && !isNaN(parseFloat(rating))) && (
+          <span className="text-xs bg-black/40 text-amber-400 font-mono px-1.5 py-0.5 rounded border border-white/10">★ {rating}</span>
         )}
       </div>
     </div>
