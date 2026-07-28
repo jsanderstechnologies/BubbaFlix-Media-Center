@@ -96,6 +96,16 @@ export default function SettingsPanel() {
   const [hideUnreleasedMedia, setHideUnreleasedMedia] = useState(() => localStorage.getItem('hideUnreleasedMedia') !== 'false');
   const [preferredLanguage, setPreferredLanguage] = useState(systemSettings.preferredLanguage || userSettings.preferredLanguage || 'all');
 
+  const [iptvProviders, setIptvProviders] = useState(() => {
+    if (systemSettings.iptvProviders && Array.isArray(systemSettings.iptvProviders) && systemSettings.iptvProviders.length > 0) {
+      return systemSettings.iptvProviders;
+    }
+    return [{ id: 'default-m3u', name: 'Primary M3U Provider', type: 'm3u' as const, url: systemSettings.iptvUrl || '', enabled: true }];
+  });
+  const [customChannels, setCustomChannels] = useState<Record<string, any>>(() => systemSettings.customChannels || {});
+  const [isDeduplicating, setIsDeduplicating] = useState(false);
+  const [channelSearch, setChannelSearch] = useState('');
+
   const [mediaFolders, setMediaFolders] = useState<Array<{ id: string; path: string; mediaType: 'movie' | 'series' }>>(() => {
     return systemSettings.mediaFolders || [];
   });
@@ -362,6 +372,15 @@ export default function SettingsPanel() {
     }
   };
 
+  const editableChannels = useMemo(() => {
+    if (!parsedM3u?.channels) return [];
+    if (!channelSearch.trim()) return parsedM3u.channels;
+    const q = channelSearch.toLowerCase();
+    return parsedM3u.channels.filter((c: any) => 
+      (c.title || c.name || '').toLowerCase().includes(q) || (c.group?.title || c.group || '').toLowerCase().includes(q)
+    );
+  }, [parsedM3u, channelSearch]);
+
   const handleSave = () => {
     let finalIptvUrl = iptvUrl;
     let finalEpgUrl = epgUrl;
@@ -396,6 +415,8 @@ export default function SettingsPanel() {
       xtreamServer,
       xtreamUsername,
       xtreamPassword,
+      iptvProviders,
+      customChannels,
       streamBufferSeconds,
       enableUsenetSearch,
       enableTorrentSearch,
@@ -883,114 +904,212 @@ export default function SettingsPanel() {
                 />
               </div>
               <p className="text-xs text-white/80 mt-2">Required to fetch movie metadata, posters, and trending lists.</p>
-            </div>
-            
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-white">IPTV Provider Configuration</label>
-                <div className="flex bg-black/40 rounded-lg p-1 border border-white/10">
+            </div>            {/* Multi-Provider IPTV Manager & Channel Customization Table */}
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+                <div>
+                  <h3 className="text-base font-medium text-white">IPTV Stream Providers</h3>
+                  <p className="text-xs text-white/50">Add multiple M3U playlist URLs or Xtream Codes servers.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newProv = { id: `prov-${Date.now()}`, name: `Provider #${iptvProviders.length + 1}`, type: 'm3u' as const, url: '', enabled: true };
+                    setIptvProviders([...iptvProviders, newProv]);
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Provider
+                </button>
+              </div>
+
+              {/* Providers List */}
+              <div className="space-y-3">
+                {iptvProviders.map((prov, index) => (
+                  <div key={prov.id} className="bg-black/30 border border-white/10 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 flex-1">
+                        <input
+                          type="text"
+                          value={prov.name}
+                          onChange={(e) => {
+                            const updated = [...iptvProviders];
+                            updated[index].name = e.target.value;
+                            setIptvProviders(updated);
+                          }}
+                          className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-white font-bold text-sm outline-none focus:border-indigo-500 w-48"
+                          placeholder="Provider Name"
+                        />
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${prov.type === 'm3u' ? 'bg-indigo-950 text-indigo-300 border border-indigo-500/30' : 'bg-purple-950 text-purple-300 border border-purple-500/30'}`}>
+                          {prov.type.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...iptvProviders];
+                            updated[index].enabled = !updated[index].enabled;
+                            setIptvProviders(updated);
+                          }}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${prov.enabled ? 'bg-emerald-600' : 'bg-slate-700'}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${prov.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIptvProviders(iptvProviders.filter((_, i) => i !== index));
+                          }}
+                          className="text-white/40 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={prov.url}
+                        onChange={(e) => {
+                          const updated = [...iptvProviders];
+                          updated[index].url = e.target.value;
+                          setIptvProviders(updated);
+                        }}
+                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs outline-none focus:border-indigo-500"
+                        placeholder="M3U Playlist URL or Xtream Host..."
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Channel Customization & Gemini AI Matcher */}
+              <div className="pt-6 border-t border-white/10 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-medium text-white flex items-center gap-2">
+                      <span>Channel Editor & AI Deduplicator</span>
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold uppercase">Gemini AI</span>
+                    </h3>
+                    <p className="text-xs text-white/50">Edit channel names, logos, groups, hide channels, or run AI matching across providers to setup backup streams.</p>
+                  </div>
                   <button
-                    onClick={() => setProviderType('m3u')}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${providerType === 'm3u' ? 'bg-indigo-600 text-white' : 'text-white/60 hover:text-white'}`}
+                    type="button"
+                    onClick={async () => {
+                      if (!parsedM3u?.channels || parsedM3u.channels.length === 0) {
+                        alert("No IPTV channels found to deduplicate. Make sure your provider M3U URLs are valid.");
+                        return;
+                      }
+                      setIsDeduplicating(true);
+                      try {
+                        const token = localStorage.getItem('authToken');
+                        const res = await fetch('/api/admin/iptv/ai-dedupe', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({ channels: parsedM3u.channels })
+                        });
+                        const data = await res.json();
+                        if (data.success && data.customChannels) {
+                          setCustomChannels({ ...customChannels, ...data.customChannels });
+                          alert(data.message || `Successfully matched and grouped ${data.matchedGroupsCount || 0} identical channels with primary & backup fallback streams!`);
+                        } else {
+                          alert(data.error || "Gemini AI channel deduplication failed.");
+                        }
+                      } catch (e: any) {
+                        alert(e.message || "Failed to run Gemini channel matcher.");
+                      } finally {
+                        setIsDeduplicating(false);
+                      }
+                    }}
+                    disabled={isDeduplicating}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow shrink-0"
                   >
-                    M3U / XMLTV
+                    <RefreshCw className={`w-3.5 h-3.5 ${isDeduplicating ? 'animate-spin' : ''}`} />
+                    {isDeduplicating ? 'Gemini Matching Duplicates...' : '⚡ Run Gemini AI Deduplication'}
                   </button>
-                  <button
-                    onClick={() => setProviderType('xtream')}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${providerType === 'xtream' ? 'bg-indigo-600 text-white' : 'text-white/60 hover:text-white'}`}
-                  >
-                    Xtream Codes
-                  </button>
+                </div>
+
+                {/* Search & Channel Table */}
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={channelSearch}
+                    onChange={(e) => setChannelSearch(e.target.value)}
+                    placeholder="Search channels to edit..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-white text-xs outline-none focus:border-indigo-500"
+                  />
+
+                  <div className="bg-black/40 border border-white/10 rounded-xl overflow-hidden max-h-96 overflow-y-auto custom-scrollbar">
+                    {editableChannels.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-white/40">No channels found matching search.</div>
+                    ) : (
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-white/5 text-white/60 font-mono uppercase text-[10px] sticky top-0 backdrop-blur-md">
+                          <tr>
+                            <th className="p-3">Visibility</th>
+                            <th className="p-3">Channel Name</th>
+                            <th className="p-3">Group / Category</th>
+                            <th className="p-3">Backups</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {editableChannels.slice(0, 50).map((ch) => {
+                            const cfg = customChannels[ch.id] || { id: ch.id, name: ch.title || ch.name, group: ch.group?.title || ch.group || '', hidden: false, primaryStreamUrl: ch.rawUrl || ch.url, backupStreamUrls: [] };
+                            return (
+                              <tr key={ch.id} className="hover:bg-white/[0.02]">
+                                <td className="p-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = { ...customChannels, [ch.id]: { ...cfg, hidden: !cfg.hidden } };
+                                      setCustomChannels(updated);
+                                    }}
+                                    className={`p-1.5 rounded-lg transition-colors ${cfg.hidden ? 'text-red-400 bg-red-950/30' : 'text-emerald-400 bg-emerald-950/30'}`}
+                                  >
+                                    {cfg.hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                  </button>
+                                </td>
+                                <td className="p-3">
+                                  <input
+                                    type="text"
+                                    value={cfg.name}
+                                    onChange={(e) => {
+                                      const updated = { ...customChannels, [ch.id]: { ...cfg, name: e.target.value } };
+                                      setCustomChannels(updated);
+                                    }}
+                                    className="bg-black/40 border border-white/10 rounded px-2 py-1 text-white text-xs w-full"
+                                  />
+                                </td>
+                                <td className="p-3">
+                                  <input
+                                    type="text"
+                                    value={cfg.group}
+                                    onChange={(e) => {
+                                      const updated = { ...customChannels, [ch.id]: { ...cfg, group: e.target.value } };
+                                      setCustomChannels(updated);
+                                    }}
+                                    className="bg-black/40 border border-white/10 rounded px-2 py-1 text-white/80 text-xs w-full"
+                                  />
+                                </td>
+                                <td className="p-3">
+                                  <span className="font-mono text-[10px] text-amber-400 font-bold">
+                                    {cfg.backupStreamUrls?.length || 0} Fallbacks
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {providerType === 'm3u' ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs text-white mb-1">M3U Playlist URL or Path</label>
-                    <div className="flex">
-                      <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                        <Tv className="w-4 h-4" />
-                      </span>
-                      <input 
-                        type="text"
-                        value={iptvUrl}
-                        onChange={(e) => setIptvUrl(e.target.value)}
-                        className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors font-mono text-xs"
-                        placeholder="http://example.com/playlist.m3u"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-white mb-1">XMLTV EPG URL (Optional)</label>
-                    <div className="flex">
-                      <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                        <LinkIcon className="w-4 h-4" />
-                      </span>
-                      <input 
-                        type="text"
-                        value={epgUrl}
-                        onChange={(e) => setEpgUrl(e.target.value)}
-                        className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors font-mono text-xs"
-                        placeholder="http://example.com/epg.xml"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs text-white mb-1">Server URL</label>
-                    <input 
-                      type="text"
-                      value={xtreamServer}
-                      onChange={(e) => setXtreamServer(e.target.value)}
-                      className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors font-mono text-xs"
-                      placeholder="http://server-domain.com:port"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-white mb-1">Username</label>
-                      <input 
-                        type="text"
-                        value={xtreamUsername}
-                        onChange={(e) => setXtreamUsername(e.target.value)}
-                        className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors font-mono text-xs"
-                        placeholder="Username"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-white mb-1">Password</label>
-                      <input 
-                        type="password"
-                        value={xtreamPassword}
-                        onChange={(e) => setXtreamPassword(e.target.value)}
-                        className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors font-mono text-xs"
-                        placeholder="Password"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-emerald-500/80 mt-2">
-                    Saving will automatically generate the M3U and EPG URLs from these credentials.
-                  </p>
-                </div>
-              )}
-              
-              <div className="mt-4">
-                <label className="block text-xs text-white mb-1">EPG Time Offset (Hours)</label>
-                <input 
-                  type="number"
-                  value={epgOffset}
-                  onChange={(e) => setEpgOffset(e.target.value)}
-                  className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors font-mono text-xs"
-                  placeholder="e.g. 0, -5, 2"
-                />
-                <p className="text-xs text-white/80 mt-2">Shift EPG times to match your timezone if they appear incorrect.</p>
-              </div>
-              
               {/* Group Selection */}
-              <div className="mt-6">
+              <div className="mt-6 border-t border-white/10 pt-6">
                 <div className="flex items-center justify-between mb-3">
                   <label className="text-sm font-medium text-white">Available Playlist Groups</label>
                   {availableGroups.length > 0 && (

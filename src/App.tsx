@@ -748,6 +748,24 @@ function MainApp() {
                       message: error?.message, 
                       src: e.currentTarget.src 
                     });
+
+                    // Automatic IPTV Stream Failover to Backup URL
+                    if (playingContext?.backupUrls && Array.isArray(playingContext.backupUrls) && playingContext.backupUrls.length > 0) {
+                      const nextBackupIndex = (playingContext.backupIndex || 0);
+                      if (nextBackupIndex < playingContext.backupUrls.length) {
+                        const backupUrl = playingContext.backupUrls[nextBackupIndex];
+                        console.warn(`[Stream Failover] Main stream failed. Automatically switching to Backup #${nextBackupIndex + 1}: ${backupUrl}`);
+                        
+                        setPlayingContext({
+                          ...playingContext,
+                          backupIndex: nextBackupIndex + 1
+                        });
+                        setPlayingUrl(backupUrl);
+                        setPlayerStatus(`SWITCHING TO BACKUP #${nextBackupIndex + 1}...`);
+                        return;
+                      }
+                    }
+
                     setPlayerStatus("ERROR: Video failed to load.");
                   }}
                   onPlay={() => { 

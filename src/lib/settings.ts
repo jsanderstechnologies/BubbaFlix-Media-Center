@@ -1,5 +1,27 @@
 import { useState, useEffect } from 'react';
 
+export interface IptvProvider {
+  id: string;
+  name: string;
+  type: 'm3u' | 'xtream';
+  url: string;
+  epgUrl?: string;
+  username?: string;
+  password?: string;
+  enabled: boolean;
+}
+
+export interface CustomChannelConfig {
+  id: string;
+  name: string;
+  logo?: string;
+  group?: string;
+  hidden?: boolean;
+  primaryStreamUrl: string;
+  backupStreamUrls: string[];
+  primaryProviderName?: string;
+}
+
 export interface SystemSettings {
   tmdbKey?: string;
   torboxApiKey?: string;
@@ -27,6 +49,8 @@ export interface SystemSettings {
   mediaFolders?: Array<{ id: string; path: string; mediaType: 'movie' | 'series' }>;
   newsApiKey?: string;
   gnewsApiKey?: string;
+  iptvProviders?: IptvProvider[];
+  customChannels?: Record<string, CustomChannelConfig>;
 }
 
 export interface UserSettings {

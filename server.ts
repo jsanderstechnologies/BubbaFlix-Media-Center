@@ -695,6 +695,8 @@ async function startServer() {
       disableLogin: settings.disableLogin === true,
       newsApiKey: settings.newsApiKey || '',
       gnewsApiKey: settings.gnewsApiKey || '',
+      iptvProviders: settings.iptvProviders || [],
+      customChannels: settings.customChannels || {},
       mediaFolders: settings.mediaFolders || []
     });
   });
@@ -936,6 +938,8 @@ async function startServer() {
     if (req.body.xtreamServer !== undefined) settings.xtreamServer = req.body.xtreamServer;
     if (req.body.xtreamUsername !== undefined) settings.xtreamUsername = req.body.xtreamUsername;
     if (req.body.xtreamPassword !== undefined) settings.xtreamPassword = req.body.xtreamPassword;
+    if (req.body.iptvProviders !== undefined) settings.iptvProviders = req.body.iptvProviders;
+    if (req.body.customChannels !== undefined) settings.customChannels = req.body.customChannels;
 
     writeJson(SETTINGS_FILE, settings);
     res.json({ success: true });
@@ -1125,6 +1129,125 @@ If no channel matches the team names or relevant regional/national network for t
     } catch (err: any) {
       console.error('[Sports Match Error]', err?.message || err);
       res.status(500).json({ error: 'Failed to match sports channel' });
+    }
+  });
+
+  // Gemini AI Channel Deduplicator & Backup Stream Matcher
+  app.post('/api/admin/iptv/ai-dedupe', requireAdmin, async (req, res) => {
+    try {
+      const settings = readJson(SETTINGS_FILE);
+      const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
+      const { channels } = req.body;
+
+      if (!channels || !Array.isArray(channels) || channels.length === 0) {
+        return res.status(400).json({ error: 'No channels provided' });
+      }
+
+      // Group channels by basic sanitized name to find candidate duplicates
+      const channelSummaries = channels.map((c: any, index: number) => ({
+        id: c.id || `ch-${index}`,
+        index,
+        name: c.title || c.name,
+        group: c.group?.title || c.group || 'General',
+        providerName: c.providerName || 'Provider',
+        url: c.rawUrl || c.url
+      }));
+
+      if (!apiKey) {
+        // Fallback exact-name matching if no Gemini key configured
+        const mapByName: Record<string, any[]> = {};
+        for (const ch of channelSummaries) {
+          const norm = ch.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (!mapByName[norm]) mapByName[norm] = [];
+          mapByName[norm].push(ch);
+        }
+
+        const groupedConfigs: Record<string, any> = {};
+        for (const [key, chList] of Object.entries(mapByName)) {
+          if (chList.length > 1) {
+            const primary = chList[0];
+            const backups = chList.slice(1).map(c => c.url);
+            groupedConfigs[primary.id] = {
+              id: primary.id,
+              name: primary.name,
+              logo: '',
+              group: primary.group,
+              hidden: false,
+              primaryStreamUrl: primary.url,
+              backupStreamUrls: backups,
+              primaryProviderName: primary.providerName
+            };
+          }
+        }
+        return res.json({ success: true, customChannels: groupedConfigs, message: 'Deduplicated using exact name matching (Add Gemini Key in Settings for AI matching).' });
+      }
+
+      // Slice candidate list for token safety
+      const sample = channelSummaries.slice(0, 300);
+      const listStr = sample.map(c => `[ID: ${c.id}] Name: "${c.name}" | Provider: "${c.providerName}" | Group: "${c.group}"`).join('\n');
+
+      const prompt = `You are an expert IPTV channel deduplication and stream backup manager.
+Analyze the following list of IPTV channels from different providers.
+Identify channels that represent the EXACT SAME TV channel (e.g. "HBO East (Provider 1)" and "US: HBO HD (Provider 2)").
+
+CHANNELS LIST:
+${listStr}
+
+Return ONLY a valid JSON object mapping each primary channel ID to its deduplicated configuration.
+Format:
+{
+  "groupedChannels": [
+    {
+      "primaryId": "string",
+      "canonicalName": "string",
+      "group": "string",
+      "primaryProviderName": "string",
+      "primaryStreamUrl": "string",
+      "backupStreamUrls": ["string", "string"]
+    }
+  ]
+}
+If no duplicates are found, return {"groupedChannels": []}.
+Do not include markdown blocks or extra text.`;
+
+      const geminiRes = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+        }
+      );
+
+      const replyText = geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!replyText) {
+        return res.status(500).json({ error: 'Empty response from Gemini AI' });
+      }
+
+      const parsed = JSON.parse(replyText);
+      const groupedArray = parsed.groupedChannels || [];
+      const resultConfigs: Record<string, any> = {};
+
+      for (const item of groupedArray) {
+        if (item.primaryId) {
+          const primaryCh = sample.find(c => c.id === item.primaryId);
+          if (primaryCh) {
+            resultConfigs[item.primaryId] = {
+              id: item.primaryId,
+              name: item.canonicalName || primaryCh.name,
+              group: item.group || primaryCh.group,
+              hidden: false,
+              primaryStreamUrl: item.primaryStreamUrl || primaryCh.url,
+              backupStreamUrls: item.backupStreamUrls || [],
+              primaryProviderName: item.primaryProviderName || primaryCh.providerName
+            };
+          }
+        }
+      }
+
+      res.json({ success: true, customChannels: resultConfigs, matchedGroupsCount: Object.keys(resultConfigs).length });
+    } catch (err: any) {
+      console.error('[IPTV AI Dedupe Error]', err?.message || err);
+      res.status(500).json({ error: err?.message || 'Failed to run Gemini IPTV deduplication' });
     }
   });
 
@@ -2861,30 +2984,85 @@ app.get('/api/youtube/search', async (req, res) => {
   });
 
 
-  // API Route: Test parsing M3U (we'll create a dummy file to test)
+  // API Route: Aggregate M3U Playlists across all enabled IPTV providers & apply custom channel configs
   app.post("/api/m3u", async (req, res) => {
-
     try {
       const { url } = req.body;
-      if (url) {
+      const settings = readJson(SETTINGS_FILE);
+
+      // If specific URL requested explicitly, parse single URL
+      if (url && !url.includes('get.php') && !settings.iptvProviders?.length) {
         const parsed = await parseM3U(url);
         return res.json(parsed);
       }
-      
-      const dummyFilePath = path.join(__dirname, 'sample.m3u');
-      // Create a dummy M3U file if it doesn't exist just for testing
-      if (!fs.existsSync(dummyFilePath)) {
-        const dummyM3U = `#EXTM3U
-#EXTINF:-1 tvg-id="test" tvg-logo="https://example.com/logo.png",Test Channel 1
-http://example.com/stream1.m3u8
-#EXTINF:-1 tvg-id="test2",Test Channel 2
-http://example.com/stream2.m3u8`;
-        fs.writeFileSync(dummyFilePath, dummyM3U);
+
+      // Collect all active IPTV providers
+      const activeProviders: Array<{ id: string; name: string; url: string }> = [];
+      if (settings.iptvProviders && Array.isArray(settings.iptvProviders)) {
+        for (const p of settings.iptvProviders) {
+          if (p.enabled && p.url) {
+            activeProviders.push({ id: p.id, name: p.name, url: p.url });
+          }
+        }
       }
-      
-      const parsed = await parseM3U(dummyFilePath);
-      res.json(parsed);
+
+      // If no multi-providers configured, fallback to legacy default iptvUrl
+      if (activeProviders.length === 0) {
+        const fallbackUrl = url || settings.iptvUrl || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus';
+        activeProviders.push({ id: 'default', name: 'Primary IPTV Provider', url: fallbackUrl });
+      }
+
+      // Fetch & parse M3Us in parallel
+      const parsedLists = await Promise.all(
+        activeProviders.map(async (prov) => {
+          try {
+            const parsed = await parseM3U(prov.url);
+            const items = parsed.items || [];
+            return items.map((item: any, idx: number) => ({
+              ...item,
+              id: item.tvg?.id || `${prov.id}-ch-${idx}`,
+              providerId: prov.id,
+              providerName: prov.name,
+              rawUrl: item.url
+            }));
+          } catch (e) {
+            console.error(`[M3U Provider Error] Failed to parse M3U for ${prov.name}:`, e);
+            return [];
+          }
+        })
+      );
+
+      let allChannels = parsedLists.flat();
+      const customChannels: Record<string, any> = settings.customChannels || {};
+
+      // If custom channel mappings exist, apply renames, logo updates, backups, and hidden status
+      if (Object.keys(customChannels).length > 0) {
+        const resultChannels: any[] = [];
+        const handledChannelIds = new Set<string>();
+
+        for (const ch of allChannels) {
+          const cfg = customChannels[ch.id];
+          if (cfg) {
+            if (cfg.hidden) continue; // Skip hidden channels
+            handledChannelIds.add(ch.id);
+            resultChannels.push({
+              ...ch,
+              name: cfg.name || ch.name,
+              title: cfg.name || ch.title,
+              group: { ...ch.group, title: cfg.group || ch.group?.title },
+              url: cfg.primaryStreamUrl || ch.rawUrl || ch.url,
+              backupUrls: cfg.backupStreamUrls || []
+            });
+          } else {
+            resultChannels.push(ch);
+          }
+        }
+        allChannels = resultChannels;
+      }
+
+      res.json({ header: { attrs: {} }, items: allChannels, channels: allChannels });
     } catch (error: any) {
+      console.error('[Multi-Provider M3U Error]', error);
       res.status(500).json({ error: error.message });
     }
   });
