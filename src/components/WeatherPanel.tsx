@@ -80,7 +80,7 @@ export default function WeatherPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer' | 'ventusky' | 'meteoblue' | 'weatherandradar'>('windy');
+  const [radarProvider, setRadarProvider] = useState<'windy' | 'rainviewer' | 'ventusky' | 'meteoblue'>('windy');
   const [isFullScreenRadar, setIsFullScreenRadar] = useState(false);
 
   useEffect(() => {
@@ -100,7 +100,7 @@ export default function WeatherPanel() {
     }
   }, [userSettings.weatherLocation]);
 
-  const handleSetRadarProvider = (provider: 'windy' | 'rainviewer' | 'ventusky' | 'meteoblue' | 'weatherandradar') => {
+  const handleSetRadarProvider = (provider: 'windy' | 'rainviewer' | 'ventusky' | 'meteoblue') => {
     logger.info("Weather: Changed radar provider", { provider });
     setRadarProvider(provider);
   };
@@ -280,10 +280,6 @@ export default function WeatherPanel() {
     if (radarProvider === 'meteoblue') {
       return `https://www.meteoblue.com/en/weather/maps/widget/${encodeURIComponent(weather.city)}?windAnimation=1&gust=0&satellite=1&cloudsAndPrecipitation=1&celsius=0&domain=NMM`;
     }
-    if (radarProvider === 'weatherandradar') {
-      const citySlug = weather.city.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
-      return `https://www.weatherandradar.com/weather-radar/${citySlug}`;
-    }
     return `https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=in&metricTemp=%C2%B0F&radarRange=-1&overlay=radar&product=radar&level=surface&lat=${weather.lat}&lon=${weather.lon}&zoom=8`;
   };
 
@@ -325,12 +321,6 @@ export default function WeatherPanel() {
                   className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'meteoblue' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
                 >
                   Meteoblue
-                </button>
-                <button
-                  onClick={() => handleSetRadarProvider('weatherandradar')}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${radarProvider === 'weatherandradar' ? 'bg-red-600 text-white shadow' : 'text-white/60 hover:text-white'}`}
-                >
-                  Weather & Radar USA
                 </button>
               </div>
 
@@ -568,12 +558,6 @@ export default function WeatherPanel() {
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'meteoblue' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
                     >
                       Meteoblue
-                    </button>
-                    <button
-                      onClick={() => handleSetRadarProvider('weatherandradar')}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${radarProvider === 'weatherandradar' ? 'bg-amber-500 text-black shadow' : 'text-white/60 hover:text-white'}`}
-                    >
-                      Weather & Radar USA
                     </button>
                   </div>
 
