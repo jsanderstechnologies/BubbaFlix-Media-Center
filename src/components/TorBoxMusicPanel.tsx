@@ -393,6 +393,38 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
     return rawSearchResults;
   }, [selectedAlbumDetails, rawSearchResults]);
 
+  // ── Artist page TorBox cache check ───────────────────────────────────────────
+  // Fires whenever an artist is opened in Library. Searches TorBox by artist name
+  // so we can surface cached/available releases without the user having to search.
+  const { data: artistTorBoxRaw, isLoading: isLoadingArtistTorBox } = useQuery<TorBoxSearchResult[]>({
+    queryKey: ['torbox-artist-cache', selectedLibraryArtist?.artistName],
+    queryFn: () => fetchStreamsForMusic(selectedLibraryArtist!.artistName),
+    enabled: !!selectedLibraryArtist && !selectedLibraryAlbum,
+    staleTime: 60_000,
+  });
+
+  // Set of album names already in the Firestore library for this artist (for dedup)
+  const libraryAlbumNames = useMemo(() => {
+    if (!selectedLibraryArtist) return new Set<string>();
+    return new Set(
+      deduplicatedSavedAlbums
+        .filter(a => a.artistName?.toLowerCase().trim() === selectedLibraryArtist.artistName?.toLowerCase().trim())
+        .map(a => (a.albumName || '').toLowerCase().trim())
+    );
+  }, [selectedLibraryArtist, deduplicatedSavedAlbums]);
+
+  // Cached on TorBox = isCached true and not already in library
+  const artistTorBoxCached = useMemo(() => {
+    if (!artistTorBoxRaw) return [];
+    return artistTorBoxRaw.filter(r => r.isCached && !libraryAlbumNames.has(r.name.toLowerCase().trim()));
+  }, [artistTorBoxRaw, libraryAlbumNames]);
+
+  // Available on TorBox = not cached and not already in library
+  const artistTorBoxAvailable = useMemo(() => {
+    if (!artistTorBoxRaw) return [];
+    return artistTorBoxRaw.filter(r => !r.isCached && !libraryAlbumNames.has(r.name.toLowerCase().trim()));
+  }, [artistTorBoxRaw, libraryAlbumNames]);
+
   // Auto-check if selected album is already cached in Library or TorBox
   useEffect(() => {
     if (!selectedAlbumDetails) return;
@@ -410,9 +442,9 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
       return;
     }
 
-    // 2. Check if an instant cached torrent is returned in searchResults
+    // 2. Check if an instant cached torrent is returned in searchResults (use isCached — the mapped field)
     if (searchResults && searchResults.length > 0) {
-      const instantCache = searchResults.find(r => r.cached === true);
+      const instantCache = searchResults.find(r => r.isCached === true);
       if (instantCache && (!audioFiles || audioFiles.length === 0) && !releaseStatus) {
         console.log(`[Auto-Cache Check] Instant TorBox cache hit for "${instantCache.name}". Auto-caching...`);
         handleSelectRelease(instantCache);
@@ -1151,13 +1183,14 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
               )}
             </div>
           ) : !selectedLibraryAlbum ? (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 p-6 bg-gradient-to-br from-red-900/20 to-black/40 border border-white/10 rounded-2xl mb-6">
+            <div className="space-y-8">
+              {/* Artist hero header */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-stretch gap-6 p-6 bg-gradient-to-br from-red-900/20 to-black/40 border border-white/10 rounded-2xl">
                 <img src={selectedLibraryArtist.artwork} alt={selectedLibraryArtist.artistName} className="w-32 h-32 rounded-full object-cover shadow-2xl" />
                 <div className="flex flex-col justify-center flex-1 text-center sm:text-left">
                   <h3 className="text-3xl font-bold text-white mb-1">{selectedLibraryArtist.artistName}</h3>
                   <div className="flex items-center gap-3 mt-2 justify-center sm:justify-start">
-                    <button 
+                    <button
                       onClick={() => setSelectedLibraryArtist(null)}
                       className="text-sm text-white/50 hover:text-white flex items-center gap-2"
                     >
@@ -1167,55 +1200,186 @@ export default function TorBoxMusicPanel({ initialQuery = '' }: { initialQuery?:
                 </div>
               </div>
 
-
-
-
-              <h2 className="text-lg font-bold text-white mb-4">Saved Albums</h2>
-              {deduplicatedSavedAlbums.filter(a => a.artistName?.toLowerCase().trim() === selectedLibraryArtist.artistName?.toLowerCase().trim()).length === 0 ? (
-                <div className="text-center py-12 text-white/40 bg-black/40 border border-white/5 rounded-2xl">
-                  No albums saved for this artist. Search TorBox and click "Save Album to Library".
+              {/* ── SECTION 1: In Your Library ───────────────────────────────── */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                  <h2 className="text-sm font-bold text-white uppercase tracking-wider">In Your Library</h2>
+                  <span className="text-xs text-white/30 font-mono ml-1">
+                    {deduplicatedSavedAlbums.filter(a => a.artistName?.toLowerCase().trim() === selectedLibraryArtist.artistName?.toLowerCase().trim()).length} albums
+                  </span>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {deduplicatedSavedAlbums
-                    .filter(a => a.artistName?.toLowerCase().trim() === selectedLibraryArtist.artistName?.toLowerCase().trim())
-                    .map(album => (
-                    <div 
-                      key={album.id}
-                      onClick={() => setSelectedLibraryAlbum(album)}
-                      className="bg-black/40 border border-white/5 hover:border-red-500/50 p-4 rounded-xl cursor-pointer transition-colors group flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-12 h-12 bg-red-950 rounded flex items-center justify-center shrink-0 border border-red-900/30 overflow-hidden">
-                          {album.artwork ? (
-                            <img src={album.artwork} alt={album.albumName} className="w-full h-full object-cover" />
-                          ) : (
-                            <Disc className="w-6 h-6 text-red-500" />
-                          )}
+                {deduplicatedSavedAlbums.filter(a => a.artistName?.toLowerCase().trim() === selectedLibraryArtist.artistName?.toLowerCase().trim()).length === 0 ? (
+                  <div className="text-sm text-white/30 bg-black/20 border border-white/5 rounded-xl px-4 py-3">
+                    No albums saved yet — add cached releases below to your library.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {deduplicatedSavedAlbums
+                      .filter(a => a.artistName?.toLowerCase().trim() === selectedLibraryArtist.artistName?.toLowerCase().trim())
+                      .map(album => (
+                        <div
+                          key={album.id}
+                          onClick={() => setSelectedLibraryAlbum(album)}
+                          className="bg-black/40 border border-amber-500/20 hover:border-amber-500/60 p-4 rounded-xl cursor-pointer transition-all group flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-4 min-w-0">
+                            <div className="w-12 h-12 bg-red-950 rounded flex items-center justify-center shrink-0 border border-red-900/30 overflow-hidden">
+                              {album.artwork ? (
+                                <img src={album.artwork} alt={album.albumName} className="w-full h-full object-cover" />
+                              ) : (
+                                <Disc className="w-6 h-6 text-red-500" />
+                              )}
+                            </div>
+                            <div className="flex flex-col overflow-hidden min-w-0">
+                              <span className="text-white font-medium truncate group-hover:text-amber-400 transition-colors">{album.albumName}</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold uppercase tracking-wider">Library</span>
+                                <span className="text-xs text-white/40 font-mono">{album.audioFiles?.length || 0} tracks</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Play className="w-4 h-4 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (user && album.id) {
+                                  try { await deleteDoc(doc(db, 'saved_albums', album.id)); } catch (err) {}
+                                }
+                              }}
+                              className="text-white/20 hover:text-red-400 p-1.5 rounded-lg transition-colors cursor-pointer"
+                              title="Remove Album"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex flex-col overflow-hidden min-w-0">
-                          <span className="text-white font-medium truncate group-hover:text-red-400">{album.albumName}</span>
-                          <span className="text-xs text-white/40 mt-1 font-mono">{album.audioFiles?.length || 0} tracks</span>
-                        </div>
-                      </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ── SECTION 2: Cached on TorBox ──────────────────────────────── */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                  <h2 className="text-sm font-bold text-white uppercase tracking-wider">Cached on TorBox</h2>
+                  {isLoadingArtistTorBox ? (
+                    <span className="text-xs text-white/30 font-mono ml-1 animate-pulse">Checking TorBox...</span>
+                  ) : (
+                    <span className="text-xs text-white/30 font-mono ml-1">{artistTorBoxCached.length} instant</span>
+                  )}
+                </div>
+
+                {isLoadingArtistTorBox ? (
+                  <div className="flex flex-col gap-2">
+                    {[0,1,2].map(i => (
+                      <div key={i} className="h-14 bg-white/[0.03] border border-white/5 rounded-xl animate-pulse" />
+                    ))}
+                  </div>
+                ) : artistTorBoxCached.length === 0 ? (
+                  <div className="text-sm text-white/30 bg-black/20 border border-white/5 rounded-xl px-4 py-3">
+                    No cached releases found on TorBox for this artist.
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {artistTorBoxCached.map(result => (
                       <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (user && album.id) {
-                            try {
-                              await deleteDoc(doc(db, 'saved_albums', album.id));
-                            } catch (err) {}
-                          }
+                        key={result.id}
+                        onClick={() => {
+                          // Set a synthetic selectedAlbumDetails so handleSelectRelease can auto-save
+                          setSelectedAlbumDetails({
+                            artist: selectedLibraryArtist.artistName,
+                            title: result.name,
+                            artwork: selectedLibraryArtist.artwork,
+                            year: '',
+                            id: null,
+                          });
+                          handleSelectRelease(result);
+                          setActiveTab('search');
                         }}
-                        className="text-white/20 hover:text-red-400 p-2 rounded-lg transition-colors cursor-pointer shrink-0"
-                        title="Remove Album"
+                        className="w-full flex items-center justify-between gap-4 px-4 py-3 bg-emerald-950/30 border border-emerald-500/20 hover:border-emerald-500/60 hover:bg-emerald-950/50 rounded-xl transition-all text-left group cursor-pointer"
                       >
-                        <X className="w-4 h-4" />
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-900/50 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                            <Music className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white truncate group-hover:text-emerald-400 transition-colors">{result.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold uppercase tracking-wider">⚡ Instant</span>
+                              <span className="text-[10px] text-white/40 font-mono uppercase">{result.type}</span>
+                              <span className="text-[10px] text-white/40 font-mono">{result.size}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-emerald-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">Add &amp; Play →</span>
+                          <Download className="w-4 h-4 text-emerald-400" />
+                        </div>
                       </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ── SECTION 3: Available on TorBox ───────────────────────────── */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-2 h-2 rounded-full bg-white/30 shrink-0" />
+                  <h2 className="text-sm font-bold text-white uppercase tracking-wider">Available on TorBox</h2>
+                  {!isLoadingArtistTorBox && (
+                    <span className="text-xs text-white/30 font-mono ml-1">{artistTorBoxAvailable.length} releases</span>
+                  )}
                 </div>
-              )}
+
+                {isLoadingArtistTorBox ? (
+                  <div className="flex flex-col gap-2">
+                    {[0,1,2,3].map(i => (
+                      <div key={i} className="h-14 bg-white/[0.03] border border-white/5 rounded-xl animate-pulse" />
+                    ))}
+                  </div>
+                ) : artistTorBoxAvailable.length === 0 ? (
+                  <div className="text-sm text-white/30 bg-black/20 border border-white/5 rounded-xl px-4 py-3">
+                    No additional releases found on TorBox.
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {artistTorBoxAvailable.slice(0, 20).map(result => (
+                      <button
+                        key={result.id}
+                        onClick={() => {
+                          setSelectedAlbumDetails({
+                            artist: selectedLibraryArtist.artistName,
+                            title: result.name,
+                            artwork: selectedLibraryArtist.artwork,
+                            year: '',
+                            id: null,
+                          });
+                          handleSelectRelease(result);
+                          setActiveTab('search');
+                        }}
+                        className="w-full flex items-center justify-between gap-4 px-4 py-3 bg-white/[0.03] border border-white/5 hover:border-white/20 hover:bg-white/[0.06] rounded-xl transition-all text-left group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                            <Disc className="w-4 h-4 text-white/40" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white/80 truncate group-hover:text-white transition-colors">{result.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/50 font-bold uppercase tracking-wider">{result.type}</span>
+                              <span className="text-[10px] text-white/30 font-mono">{result.size}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <Download className="w-4 h-4 text-white/30 group-hover:text-white/70 transition-colors shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
             </div>
           ) : (
