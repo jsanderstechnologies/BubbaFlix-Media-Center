@@ -25,29 +25,6 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
         const firstFocusable = modalRef.current.querySelector('button, input, select, [tabindex="0"]') as HTMLElement;
         if (firstFocusable) firstFocusable.focus();
       }
-
-      if (e.key === 'Tab' && modalRef.current) {
-        const focusableElements = Array.from(
-          modalRef.current.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-        ) as HTMLElement[];
-        
-        if (focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (e.shiftKey) {
-          if (document.activeElement === firstElement || !modalRef.current.contains(document.activeElement)) {
-            e.preventDefault();
-            lastElement.focus();
-          }
-        } else {
-          if (document.activeElement === lastElement || !modalRef.current.contains(document.activeElement)) {
-            e.preventDefault();
-            firstElement.focus();
-          }
-        }
-      }
     };
     
     document.addEventListener('keydown', handleKeyDown, true);
