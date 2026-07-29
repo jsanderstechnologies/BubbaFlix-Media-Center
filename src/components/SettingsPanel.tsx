@@ -361,10 +361,19 @@ export default function SettingsPanel() {
     return Array.from(groups).sort();
   }, [parsedM3u]);
 
-  // If enabledGroups is null (never saved) and we load groups, enable them all by default
+  // If enabledGroups is null (never saved) and we load groups, enable them all by default.
+  // Also, if the user completely replaces their IPTV provider, their old groups will no longer exist.
+  // In that case, auto-enable the new groups so they aren't left with an empty TV guide.
   useEffect(() => {
-    if (availableGroups.length > 0 && enabledGroups === null) {
-      setEnabledGroups(availableGroups);
+    if (availableGroups.length > 0) {
+      if (enabledGroups === null) {
+        setEnabledGroups(availableGroups);
+      } else if (enabledGroups.length > 0) {
+        const overlap = enabledGroups.filter(g => availableGroups.includes(g));
+        if (overlap.length === 0) {
+          setEnabledGroups(availableGroups);
+        }
+      }
     }
   }, [availableGroups, enabledGroups]);
 
@@ -422,7 +431,7 @@ export default function SettingsPanel() {
     );
   }, [parsedM3u, channelSearch, enabledGroups]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     let finalIptvUrl = iptvUrl;
     let finalEpgUrl = epgUrl;
     
@@ -440,7 +449,7 @@ export default function SettingsPanel() {
     logger.setEnabled(enableDebugLog);
 
 
-    updateSystemSettings({
+    await updateSystemSettings({
       tmdbKey,
       torboxApiKey,
       geminiApiKey,
@@ -475,7 +484,7 @@ export default function SettingsPanel() {
       enableEztv
     });
 
-    updateUserSettings({
+    await updateUserSettings({
       playerPath,
       filterAnime,
       preferredLanguage,
@@ -485,6 +494,7 @@ export default function SettingsPanel() {
 
     queryClient.invalidateQueries({ queryKey: ['movies'] });
     queryClient.invalidateQueries({ queryKey: ['tvseries'] });
+    queryClient.invalidateQueries({ queryKey: ['m3u'] });
     
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);

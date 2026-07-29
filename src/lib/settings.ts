@@ -163,12 +163,13 @@ export function updateSystemSettings(newSettings: SystemSettings) {
   
   const token = localStorage.getItem('authToken');
   if (token) {
-    fetch('/api/admin/settings', {
+    return fetch('/api/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(newSettings)
     }).catch(console.error);
   }
+  return Promise.resolve();
 }
 
 export function updateUserSettings(newSettings: Partial<UserSettings>) {
@@ -178,12 +179,13 @@ export function updateUserSettings(newSettings: Partial<UserSettings>) {
 
   const token = localStorage.getItem('authToken');
   if (token) {
-    fetch('/api/user/settings', {
+    return fetch('/api/user/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(newSettings)
     }).catch(console.error);
   }
+  return Promise.resolve();
 }
 
 export function updateZoom(zoom: number) {
