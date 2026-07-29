@@ -1000,6 +1000,94 @@ export default function SettingsPanel() {
         {activeTab === 'iptv' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-base font-medium text-white">Primary IPTV Configuration</h3>
+                  <p className="text-xs text-white/50">Setup your primary IPTV provider (M3U or Xtream Codes).</p>
+                </div>
+                
+                <div className="flex gap-4 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setProviderType('m3u')}
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${providerType === 'm3u' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-transparent border-white/10 text-white/50 hover:bg-white/5'}`}
+                  >
+                    M3U Playlist
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProviderType('xtream')}
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${providerType === 'xtream' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-transparent border-white/10 text-white/50 hover:bg-white/5'}`}
+                  >
+                    Xtream Codes API
+                  </button>
+                </div>
+
+                {providerType === 'm3u' ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-white block mb-1">M3U Playlist URL</label>
+                      <input
+                        type="url"
+                        value={iptvUrl}
+                        onChange={e => setIptvUrl(e.target.value)}
+                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors"
+                        placeholder="https://example.com/playlist.m3u"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-white block mb-1">Server URL</label>
+                      <input
+                        type="url"
+                        value={xtreamServer}
+                        onChange={e => setXtreamServer(e.target.value)}
+                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors"
+                        placeholder="http://example.com:8080"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-white block mb-1">Username</label>
+                        <input
+                          type="text"
+                          value={xtreamUsername}
+                          onChange={e => setXtreamUsername(e.target.value)}
+                          className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors"
+                          placeholder="Username"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-white block mb-1">Password</label>
+                        <input
+                          type="password"
+                          value={xtreamPassword}
+                          onChange={e => setXtreamPassword(e.target.value)}
+                          className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors"
+                          placeholder="Password"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-white/10">
+                  <label className="text-sm font-medium text-white block mb-1">EPG XMLTV URL (Optional)</label>
+                  <p className="text-xs text-white/50 mb-2">Provide a custom EPG guide URL. If using Xtream Codes, this can be left blank to use the default server EPG.</p>
+                  <input
+                    type="url"
+                    value={epgUrl}
+                    onChange={e => setEpgUrl(e.target.value)}
+                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors"
+                    placeholder="https://example.com/epg.xml"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
               {/* Multi-Provider IPTV Manager & Channel Customization Table */}
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
