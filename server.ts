@@ -1124,7 +1124,7 @@ Respond ONLY with a valid JSON object in this exact format, with no markdown cod
 If no channel matches the team names or relevant regional/national network for this game, respond with {"matchedIndex": -1}.`;
 
         const geminiRes = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey.trim()}`,
           {
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
@@ -1255,7 +1255,7 @@ If no duplicates are found, return {"groupedChannels": []}.
 Do not include markdown blocks or extra text.`;
 
       const geminiRes = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey.trim()}`,
         {
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
@@ -2528,7 +2528,7 @@ app.get('/api/youtube/search', async (req, res) => {
       }
 
       const res = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${settings.geminiApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${settings.geminiApiKey.trim()}`,
         { contents: [{ parts: [{ text: prompt }] }] },
         { timeout: 60000, headers: { 'Content-Type': 'application/json' } }
       );
@@ -3581,7 +3581,7 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
   "Raw Title 2": "Canonical TV Show Name"
 }`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey.trim()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
