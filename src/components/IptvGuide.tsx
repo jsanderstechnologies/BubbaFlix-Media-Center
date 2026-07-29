@@ -261,7 +261,7 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
       </div>
 
       {/* EPG Grid */}
-      <div ref={containerRef} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col min-h-[550px] relative h-[78vh] max-h-[82vh]">
+      <div ref={containerRef} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col flex-1 min-h-0 relative">
         {/* Date and Current Time Controls */}
         <div className="flex border-b border-white/10 bg-black/60 items-center justify-between p-2 px-4 shrink-0 flex-wrap gap-2">
           <div className="flex items-center gap-2">
