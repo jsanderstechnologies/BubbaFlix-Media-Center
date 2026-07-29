@@ -1098,7 +1098,7 @@ export default function SettingsPanel() {
                 <button
                   type="button"
                   onClick={() => {
-                    const newProv = { id: `prov-${Date.now()}`, name: `Provider #${iptvProviders.length + 1}`, type: 'm3u' as const, url: '', enabled: true };
+                    const newProv = { id: `prov-${Date.now()}`, name: `Provider #${iptvProviders.length + 1}`, type: 'm3u' as const, url: '', epgUrl: '', enabled: true };
                     setIptvProviders([...iptvProviders, newProv]);
                   }}
                   className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow shrink-0"
@@ -1152,7 +1152,7 @@ export default function SettingsPanel() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
                       <input
                         type="text"
                         value={prov.url}
@@ -1161,8 +1161,19 @@ export default function SettingsPanel() {
                           updated[index].url = e.target.value;
                           setIptvProviders(updated);
                         }}
-                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs outline-none focus:border-indigo-500"
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs outline-none focus:border-indigo-500"
                         placeholder="M3U Playlist URL or Xtream Host..."
+                      />
+                      <input
+                        type="text"
+                        value={prov.epgUrl || ''}
+                        onChange={(e) => {
+                          const updated = [...iptvProviders];
+                          updated[index].epgUrl = e.target.value;
+                          setIptvProviders(updated);
+                        }}
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs outline-none focus:border-indigo-500"
+                        placeholder="Custom EPG XMLTV URL (Optional)..."
                       />
                     </div>
                   </div>

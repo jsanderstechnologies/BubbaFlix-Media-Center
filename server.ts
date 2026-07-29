@@ -4151,14 +4151,56 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
   // API Route: Test parsing EPG
 
   app.post("/api/epg", async (req, res) => {
-
     try {
       const { url } = req.body;
-      if (!url) {
-         return res.status(400).json({ error: "EPG URL is required" });
+      const settings = readJson(SETTINGS_FILE);
+
+      // If specific URL requested explicitly and no providers configured
+      if (url && !settings.iptvProviders?.length) {
+        const parsed = await parseEPG(url);
+        return res.json(parsed);
       }
-      const parsed = await parseEPG(url);
-      res.json(parsed);
+
+      const activeEpgUrls: string[] = [];
+      if (settings.iptvProviders && Array.isArray(settings.iptvProviders)) {
+        for (const p of settings.iptvProviders) {
+          if (p.enabled && p.epgUrl) {
+            activeEpgUrls.push(p.epgUrl);
+          } else if (p.enabled && p.type === 'xtream' && p.url) {
+             // For xtream type, we can derive the epgUrl from the M3U url if not explicitly provided
+             const xtreamMatch = p.url.match(/^(https?:\/\/[^\/]+)\/get\.php\?username=([^&]+)&password=([^&]+)/);
+             if (xtreamMatch) {
+                const [_, server, user, pass] = xtreamMatch;
+                activeEpgUrls.push(`${server}/xmltv.php?username=${user}&password=${pass}`);
+             }
+          }
+        }
+      }
+
+      if (activeEpgUrls.length === 0) {
+        const fallbackUrl = url || settings.epgUrl;
+        if (fallbackUrl) activeEpgUrls.push(fallbackUrl);
+      }
+
+      if (activeEpgUrls.length === 0) {
+         return res.json({ channels: [], programs: [] }); // Return empty if none
+      }
+
+      const parsedLists = await Promise.all(
+        activeEpgUrls.map(async (u) => {
+          try {
+            return await parseEPG(u);
+          } catch (e) {
+            console.error(`[EPG Parse Error] Failed to parse ${u}:`, e);
+            return { channels: [], programs: [] };
+          }
+        })
+      );
+
+      const allChannels = parsedLists.map(p => p.channels || []).flat();
+      const allPrograms = parsedLists.map(p => p.programs || []).flat();
+
+      res.json({ channels: allChannels, programs: allPrograms });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
