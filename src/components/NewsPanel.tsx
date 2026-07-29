@@ -308,6 +308,18 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
     scores.forEach(async (game) => {
       if (streamMatches[game.id] !== undefined) return;
 
+      const st = (game.status || '').toLowerCase();
+      const stDetail = (game.statusDetail || '').toLowerCase();
+      if (
+        st.includes('final') || stDetail.includes('final') ||
+        st.includes('postponed') || stDetail.includes('postponed') ||
+        st.includes('canceled') || stDetail.includes('canceled') ||
+        st.includes('cancelled') || stDetail.includes('cancelled') ||
+        st.includes('delayed') || stDetail.includes('delayed')
+      ) {
+        return; // Skip finding streams for games that are not happening or have ended
+      }
+
       try {
         const res = await fetch('/api/sports/match-channel', {
           method: 'POST',
