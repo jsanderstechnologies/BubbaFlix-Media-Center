@@ -123,7 +123,18 @@ function MainApp() {
     SpatialNavigation.focus();
     
     let isUsingKeyboard = false;
-    const handleKeyDown = () => { isUsingKeyboard = true; };
+    const handleKeyDown = (e: KeyboardEvent) => { 
+      isUsingKeyboard = true; 
+      
+      // Global fix for input type="range" trapping Android TV D-Pad Up/Down keys
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && document.activeElement?.tagName === 'INPUT') {
+        const input = document.activeElement as HTMLInputElement;
+        if (input.type === 'range') {
+          e.preventDefault();
+          SpatialNavigation.move(e.key === 'ArrowUp' ? 'up' : 'down');
+        }
+      }
+    };
     const handleMouseDown = () => { isUsingKeyboard = false; };
 
     const handleGlobalFocus = (e: FocusEvent) => {

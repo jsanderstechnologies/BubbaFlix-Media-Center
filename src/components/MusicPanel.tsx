@@ -5,6 +5,7 @@ import {
   Heart, Volume2, VolumeX, ListMusic, FileAudio, FileDown,
   Gauge, RefreshCw, Check, Plus, ListPlus, UserPlus, UserCheck
 } from 'lucide-react';
+import SpatialNavigation from 'spatial-navigation-js';
 import { collection, addDoc, query as firestoreQuery, onSnapshot, where, getDocs, deleteDoc, doc, serverTimestamp, updateDoc, arrayUnion } from '../lib/localDb';
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
