@@ -107,6 +107,7 @@ export default function SettingsPanel() {
   const [filterAnime, setFilterAnime] = useState(systemSettings.filterAnime === true || userSettings.filterAnime === true);
   const [hideUnreleasedMedia, setHideUnreleasedMedia] = useState(() => localStorage.getItem('hideUnreleasedMedia') !== 'false');
   const [preferredLanguage, setPreferredLanguage] = useState(systemSettings.preferredLanguage || userSettings.preferredLanguage || 'all');
+  const [adminMode, setAdminMode] = useState(userSettings.adminMode === true);
 
   const [iptvProviders, setIptvProviders] = useState(() => {
     if (systemSettings.iptvProviders && Array.isArray(systemSettings.iptvProviders) && systemSettings.iptvProviders.length > 0) {
@@ -478,7 +479,8 @@ export default function SettingsPanel() {
       playerPath,
       filterAnime,
       preferredLanguage,
-      enabledGroups: enabledGroups || []
+      enabledGroups: enabledGroups || [],
+      adminMode
     });
 
     queryClient.invalidateQueries({ queryKey: ['movies'] });
@@ -1409,6 +1411,19 @@ export default function SettingsPanel() {
           </div>
           
           <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium text-white block mb-1">Developer Admin Mode</label>
+                <p className="text-xs text-white/80">Enables experimental UI features for UI development.</p>
+              </div>
+              <button
+                onClick={() => setAdminMode(!adminMode)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${adminMode ? 'bg-indigo-600' : 'bg-slate-700'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${adminMode ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-white block mb-1">Disable Login (Auto Admin)</label>

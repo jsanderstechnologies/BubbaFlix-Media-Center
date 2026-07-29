@@ -31,13 +31,9 @@ export function useAuth() {
     globalSetUser.push(setUserState);
     
     const token = localStorage.getItem('authToken');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
 
     fetch('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
     })
       .then(res => {
         if (res.status === 401) {
