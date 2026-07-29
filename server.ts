@@ -340,7 +340,7 @@ async function startServer() {
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5150;
 
   app.set('trust proxy', true);
-  app.use(express.json({ limit: '50mb' }));
+  app.use(express.json({ limit: '200mb' }));
 
   // IP Logging Middleware
   app.use((req, res, next) => {
@@ -2805,7 +2805,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
-  app.post("/api/torbox/usenet/create", express.json(), async (req, res) => {
+  app.post("/api/torbox/usenet/create", async (req, res) => {
     const authHeader = req.headers.authorization;
     const { link } = req.body;
     if (!authHeader) {
@@ -2842,7 +2842,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
-  app.post("/api/torbox/torrents/create", express.json(), async (req, res) => {
+  app.post("/api/torbox/torrents/create", async (req, res) => {
     const authHeader = req.headers.authorization;
     const { magnet } = req.body;
     if (!authHeader) {
@@ -4067,7 +4067,7 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
 
 
   // API Route: Manually fix metadata/poster for a local library item
-  app.post("/api/local-media/fix-match", express.json(), async (req, res) => {
+  app.post("/api/local-media/fix-match", async (req, res) => {
     try {
       const { id, filePath, streamUrl, title, year, poster, overview, rating, type, realTmdbId } = req.body || {};
       if (!title) {
@@ -4182,7 +4182,7 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
   }
 
 
-  app.post('/api/log', express.json(), (req, res) => { console.log('[CLIENT ERROR]', req.body); res.sendStatus(200); });
+  app.post('/api/log', (req, res) => { console.log('[CLIENT ERROR]', req.body); res.sendStatus(200); });
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     // Start background scan of local & network shares as soon as program starts up!
