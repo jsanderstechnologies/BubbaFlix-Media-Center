@@ -234,7 +234,7 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
       <div className="relative group flex items-center">
         <button 
           onClick={scrollLeft}
-          className="absolute left-0 z-10 p-2 m-1 rounded-full bg-black/60 border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 backdrop-blur-sm shadow-lg"
+          className="absolute left-0 z-10 p-2 m-1 rounded-full bg-black/60 border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 backdrop-blur-sm shadow-lg focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -246,7 +246,7 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
             <button 
               key={cat} 
               onClick={() => setSelectedCategory(cat)}
-              className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold tracking-wider whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'}`}
+              className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold tracking-wider whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${selectedCategory === cat ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'}`}
             >
               {cat}
             </button>
@@ -254,7 +254,7 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
         </div>
         <button 
           onClick={scrollRight}
-          className="absolute right-0 z-10 p-2 m-1 rounded-full bg-black/60 border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 backdrop-blur-sm shadow-lg"
+          className="absolute right-0 z-10 p-2 m-1 rounded-full bg-black/60 border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 backdrop-blur-sm shadow-lg focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -267,21 +267,21 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
           <div className="flex items-center gap-2">
             <button 
               onClick={() => shiftTimeline(-1)}
-              className="p-1.5 rounded bg-white/5 hover:bg-white/10 text-white transition-colors"
+              className="p-1.5 rounded bg-white/5 hover:bg-white/10 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               title="Previous Hours"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button 
               onClick={resetTimeline}
-              className="px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 text-xs font-medium text-white transition-colors"
+              className="px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 text-xs font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               title="Go to Live Time"
             >
               Live
             </button>
             <button 
               onClick={() => shiftTimeline(1)}
-              className="p-1.5 rounded bg-white/5 hover:bg-white/10 text-white transition-colors"
+              className="p-1.5 rounded bg-white/5 hover:bg-white/10 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               title="Next Hours"
             >
               <ChevronRight className="w-4 h-4" />
@@ -296,14 +296,14 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
             <div className="flex items-center bg-white/5 p-0.5 rounded-lg border border-white/10 text-xs font-medium text-white/80">
               <button
                 onClick={() => setIsFitWidth(true)}
-                className={`px-2.5 py-1 rounded-md transition-colors ${isFitWidth ? 'bg-emerald-600 text-white font-semibold' : 'hover:text-white'}`}
+                className={`px-2.5 py-1 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${isFitWidth ? 'bg-emerald-600 text-white font-semibold' : 'hover:text-white'}`}
                 title="Scale guide to fit the screen width"
               >
                 Fit Page
               </button>
               <button
                 onClick={() => setIsFitWidth(false)}
-                className={`px-2.5 py-1 rounded-md transition-colors ${!isFitWidth ? 'bg-emerald-600 text-white font-semibold' : 'hover:text-white'}`}
+                className={`px-2.5 py-1 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${!isFitWidth ? 'bg-emerald-600 text-white font-semibold' : 'hover:text-white'}`}
                 title="Scrollable guide width"
               >
                 Scroll
@@ -316,7 +316,7 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
                 <button
                   key={hours}
                   onClick={() => setTimelineDurationHours(hours)}
-                  className={`px-2 py-0.5 rounded-md transition-all ${timelineDurationHours === hours ? 'bg-white/10 text-white font-bold' : 'hover:text-white'}`}
+                  className={`px-2 py-0.5 rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${timelineDurationHours === hours ? 'bg-white/10 text-white font-bold' : 'hover:text-white'}`}
                   title={`Show ${hours} Hour window`}
                 >
                   {hours}H
@@ -380,7 +380,31 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
                 const programs = channel.tvg?.id ? getProgramsForTimeline(channel.tvg.id) : [];
                 
                 return (
-                <div key={i} className={`flex border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group ${i % 2 === 0 ? 'bg-black/20' : ''}`} onClick={() => onPlayStream(channel.url, channel.tvg?.logo, 0, { isLive: true, backupUrls: channel.backupUrls || [] })}>
+                <div 
+                  key={i} 
+                  tabIndex={0}
+                  className={`focusable flex border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500/50 focus:bg-emerald-900/20 ${i % 2 === 0 ? 'bg-black/20' : ''}`} 
+                  onClick={() => onPlayStream(channel.url, channel.tvg?.logo, 0, { isLive: true, backupUrls: channel.backupUrls || [] })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowRight') {
+                      if (epgScrollRef.current) {
+                        const maxScroll = epgScrollRef.current.scrollWidth - epgScrollRef.current.clientWidth;
+                        // Give a small 5px buffer to avoid getting stuck due to rounding
+                        if (epgScrollRef.current.scrollLeft < maxScroll - 5) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          epgScrollRef.current.scrollBy({ left: 300, behavior: 'smooth' });
+                        }
+                      }
+                    } else if (e.key === 'ArrowLeft') {
+                      if (epgScrollRef.current && epgScrollRef.current.scrollLeft > 5) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        epgScrollRef.current.scrollBy({ left: -300, behavior: 'smooth' });
+                      }
+                    }
+                  }}
+                >
                   
                   {/* Channel Info (Sticky Left) */}
                   <div className="w-48 sm:w-64 shrink-0 border-r border-white/10 p-2 py-1 flex items-center gap-3 sticky left-0 z-20 bg-black/80 backdrop-blur-sm group-hover:bg-white/5 h-10">
