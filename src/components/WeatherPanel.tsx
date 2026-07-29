@@ -111,7 +111,20 @@ export default function WeatherPanel() {
   };
 
   const fetchWeather = async (locStr: string) => {
-    if (!locStr || locStr.trim().length === 0) return;
+    let finalLocStr = locStr?.trim() || '';
+    if (!finalLocStr) {
+      try {
+        const geo = await fetch('https://get.geojs.io/v1/ip/geo.json').then(r => r.json());
+        if (geo && geo.city && geo.region) {
+          finalLocStr = `${geo.city}, ${geo.region}`;
+        } else {
+          finalLocStr = 'New York, NY';
+        }
+      } catch (e) {
+        finalLocStr = 'New York, NY';
+      }
+    }
+
     setLoading(true);
     setError(null);
     logger.info("Weather: Fetching weather conditions", { location: locStr, unit });
@@ -119,14 +132,14 @@ export default function WeatherPanel() {
     try {
       let lat: number | null = null;
       let lon: number | null = null;
-      let cityName = locStr.trim();
+      let cityName = finalLocStr;
       let stateName = '';
       let countryName = '';
 
-      const isZip = /^\d{5}(-\d{4})?$/.test(locStr.trim());
+      const isZip = /^\d{5}(-\d{4})?$/.test(finalLocStr);
 
       if (isZip) {
-        const zipRes = await fetch(`https://api.zippopotam.us/us/${locStr.trim()}`).then(r => r.json()).catch(() => null);
+        const zipRes = await fetch(`https://api.zippopotam.us/us/${finalLocStr}`).then(r => r.json()).catch(() => null);
         if (zipRes && zipRes.places?.[0]) {
           lat = parseFloat(zipRes.places[0].latitude);
           lon = parseFloat(zipRes.places[0].longitude);
@@ -137,7 +150,7 @@ export default function WeatherPanel() {
       }
 
       if (lat === null || lon === null) {
-        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locStr.trim())}&count=1&language=en&format=json`).then(r => r.json()).catch(() => null);
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(finalLocStr)}&count=1&language=en&format=json`).then(r => r.json()).catch(() => null);
         if (geoRes && geoRes.results?.[0]) {
           const res = geoRes.results[0];
           lat = res.latitude;
@@ -149,9 +162,9 @@ export default function WeatherPanel() {
       }
 
       if (lat === null || lon === null) {
-        const errMsg = `Could not locate "${locStr}". Please check city name or ZIP code.`;
+        const errMsg = `Could not locate "${finalLocStr}". Please check city name or ZIP code.`;
         setError(errMsg);
-        logger.warn("Weather: Location geocoding failed", { location: locStr });
+        logger.warn("Weather: Location geocoding failed", { location: finalLocStr });
         setLoading(false);
         return;
       }

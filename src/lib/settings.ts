@@ -78,7 +78,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   preferredLanguage: 'all',
   playerPath: 'mpv',
   enabledGroups: [],
-  weatherLocation: 'Austin, TX',
+  weatherLocation: '',
   temperatureUnit: 'F'
 };
 

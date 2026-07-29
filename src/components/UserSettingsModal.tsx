@@ -230,7 +230,7 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                 value={settings.weatherLocation || ''}
                 onChange={e => setSettings({...settings, weatherLocation: e.target.value})}
                 className="focusable w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none"
-                placeholder="Austin, TX or 78701"
+                placeholder="e.g. Chicago, IL or 60601"
               />
             </div>
 

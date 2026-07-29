@@ -60,16 +60,24 @@ const STATE_NAME_MAP: Record<string, string> = {
 
 async function resolveLocation(query: string): Promise<{ city: string; state: string }> {
   const clean = query.trim();
-  if (!clean) return { city: 'Austin', state: 'Texas' };
+  if (!clean) {
+    try {
+      const geo = await fetch('https://get.geojs.io/v1/ip/geo.json').then(r => r.json());
+      if (geo && geo.city && geo.region) {
+         return { city: geo.city, state: geo.region };
+      }
+    } catch(e) {}
+    return { city: 'New York', state: 'New York' };
+  }
 
   if (clean.includes(',')) {
     const parts = clean.split(',').map(s => s.trim());
-    const city = parts[0] || 'Austin';
+    const city = parts[0] || 'New York';
     let state = parts[1] || '';
     if (state.length === 2 && STATE_NAME_MAP[state.toUpperCase()]) {
       state = STATE_NAME_MAP[state.toUpperCase()];
     }
-    return { city, state: state || 'Texas' };
+    return { city, state: state || 'New York' };
   }
 
   try {
@@ -134,8 +142,8 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
     enabled: activeTab === 'scores',
   });
 
-  const locationQuery = userSettings.weatherLocation || 'Austin, TX';
-  const [resolvedLoc, setResolvedLoc] = useState<{ city: string; state: string }>({ city: 'Austin', state: 'Texas' });
+  const locationQuery = userSettings.weatherLocation || '';
+  const [resolvedLoc, setResolvedLoc] = useState<{ city: string; state: string }>({ city: 'New York', state: 'New York' });
 
   useEffect(() => {
     let isMounted = true;
