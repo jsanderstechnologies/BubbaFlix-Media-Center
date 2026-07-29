@@ -408,7 +408,7 @@ export default function SettingsPanel() {
     if (!parsedM3u?.channels) return [];
     
     let filtered = parsedM3u.channels;
-    if (enabledGroups && enabledGroups.length > 0) {
+    if (enabledGroups !== null) {
       filtered = filtered.filter((c: any) => {
         const groupName = c.group?.title || c.group || '';
         return enabledGroups.includes(groupName);
