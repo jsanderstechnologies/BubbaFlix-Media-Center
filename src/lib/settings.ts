@@ -51,6 +51,8 @@ export interface SystemSettings {
   gnewsApiKey?: string;
   iptvProviders?: IptvProvider[];
   customChannels?: Record<string, CustomChannelConfig>;
+  sportsIptvGroups?: string[];
+  enableEztv?: boolean;
 }
 
 export interface UserSettings {

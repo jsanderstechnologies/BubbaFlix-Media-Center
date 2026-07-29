@@ -700,7 +700,9 @@ async function startServer() {
       gnewsApiKey: settings.gnewsApiKey || '',
       iptvProviders: settings.iptvProviders || [],
       customChannels: settings.customChannels || {},
-      mediaFolders: settings.mediaFolders || []
+      mediaFolders: settings.mediaFolders || [],
+      sportsIptvGroups: settings.sportsIptvGroups || [],
+      enableEztv: settings.enableEztv !== false
     });
   });
 
