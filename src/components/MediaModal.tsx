@@ -417,6 +417,10 @@ export default function MediaModal({
           let targetTmdbId = movie.realTmdbId || movie.tmdbId;
           const isLocalId = typeof movie.id === 'string' && movie.id.startsWith('local_');
 
+          if (typeof targetTmdbId === 'string' && targetTmdbId.startsWith('local_')) {
+            targetTmdbId = null;
+          }
+
           if (!targetTmdbId && !isLocalId && typeof movie.id === 'number') {
             targetTmdbId = movie.id;
           }
@@ -700,6 +704,11 @@ export default function MediaModal({
     if (isSeries && selectedSeason !== null && movie) {
       (async () => {
         let targetTmdbId = movie.realTmdbId || movie.tmdbId;
+        
+        if (typeof targetTmdbId === 'string' && targetTmdbId.startsWith('local_')) {
+            targetTmdbId = null;
+        }
+
         if (!targetTmdbId && typeof movie.id === 'number') {
           targetTmdbId = movie.id;
         }
