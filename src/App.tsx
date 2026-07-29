@@ -688,7 +688,52 @@ function MainApp() {
             
           {playingUrl ? (
             <>
-              {selectedSubtitleTrack !== null ? (
+              {playingContext?.isLive ? (
+                <video 
+                  key={`${playingUrl}-${playingContext?.backupIndex || 0}`}
+                  ref={videoRef}
+                  src={playingUrl}
+                  autoPlay
+                  className="w-full h-full object-contain absolute top-0 left-0"
+                  onError={(e) => {
+                    const error = e.currentTarget.error;
+                    console.error("Built-in Player Error (Live TV)", { 
+                      code: error?.code, 
+                      message: error?.message, 
+                      src: e.currentTarget.src 
+                    });
+
+                    // Automatic IPTV Stream Failover to Backup URL
+                    if (playingContext?.backupUrls && Array.isArray(playingContext.backupUrls) && playingContext.backupUrls.length > 0) {
+                      const nextBackupIndex = (playingContext.backupIndex || 0);
+                      if (nextBackupIndex < playingContext.backupUrls.length) {
+                        const backupUrl = playingContext.backupUrls[nextBackupIndex];
+                        console.warn(`[Stream Failover] Main stream failed. Automatically switching to Backup #${nextBackupIndex + 1}: ${backupUrl}`);
+                        
+                        setPlayingContext({
+                          ...playingContext,
+                          backupIndex: nextBackupIndex + 1
+                        });
+                        setPlayingUrl(backupUrl);
+                        setPlayerStatus(`SWITCHING TO BACKUP #${nextBackupIndex + 1}...`);
+                        return;
+                      }
+                    }
+
+                    setPlayerStatus("ERROR: Video failed to load.");
+                  }}
+                  onPlay={() => { 
+                    setIsVideoPlaying(true); 
+                    setPlayerStatus(""); // Clear buffering text when playing
+                  }}
+                  onPause={() => { 
+                    setIsVideoPlaying(false); 
+                  }}
+                  onWaiting={() => { 
+                    setPlayerStatus("BUFFERING..."); 
+                  }}
+                />
+              ) : selectedSubtitleTrack !== null ? (
                 <video 
                   key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}-${selectedSubtitleTrack}-${subtitleOffset}`}
                   ref={videoRef}
