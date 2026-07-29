@@ -37,26 +37,27 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
   }, [userSettings, zoom]);
 
   useEffect(() => {
-    // Immediately disable background navigation synchronously
-    SpatialNavigation.disable('');
-    SpatialNavigation.disable('auth-dropdown');
-
     SpatialNavigation.add('settings-modal', {
       selector: '#user-settings-modal .focusable, #user-settings-modal button, #user-settings-modal input, #user-settings-modal select, #user-settings-modal [tabindex="0"]',
       restrict: 'self-only',
       enterTo: 'last-focused'
     });
-    
-    SpatialNavigation.makeFocusable('settings-modal');
-    SpatialNavigation.focus('settings-modal');
 
-    // Auto-focus first input/button inside modal
-    if (modalRef.current) {
-      const firstElement = modalRef.current.querySelector('button, input, select') as HTMLElement;
-      if (firstElement) firstElement.focus();
-    }
+    const focusTimeout = setTimeout(() => {
+      SpatialNavigation.disable('');
+      SpatialNavigation.disable('auth-dropdown');
+      SpatialNavigation.makeFocusable('settings-modal');
+      SpatialNavigation.focus('settings-modal');
+
+      // Auto-focus first input/button inside modal
+      if (modalRef.current) {
+        const firstElement = modalRef.current.querySelector('button, input, select') as HTMLElement;
+        if (firstElement) firstElement.focus();
+      }
+    }, 50);
 
     return () => {
+      clearTimeout(focusTimeout);
       SpatialNavigation.remove('settings-modal');
       SpatialNavigation.enable('');
       SpatialNavigation.makeFocusable();
