@@ -126,30 +126,14 @@ export function AuthModal() {
   useEffect(() => {
     if (loading || user) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab' && modalRef.current) {
-        // Only allow tab navigation between inputs and the submit button
-        const focusableElements = modalRef.current.querySelectorAll('input:not([tabindex="-1"]), button[type="submit"]');
-        if (focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0] as HTMLElement;
-        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-        if (e.shiftKey) {
-          if (document.activeElement === firstElement || document.activeElement === document.body) {
-            lastElement.focus();
-            e.preventDefault();
-          }
-        } else {
-          if (document.activeElement === lastElement || document.activeElement === document.body) {
-            firstElement.focus();
-            e.preventDefault();
-          }
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
+    SpatialNavigation.init();
+    SpatialNavigation.add({
+      id: 'auth-modal',
+      selector: '#auth-modal input, #auth-modal button, #auth-modal .focusable',
+      enterTo: 'last-focused',
+      defaultElement: '#auth-modal input'
+    });
+    SpatialNavigation.makeFocusable('auth-modal');
     
     // Auto-focus first input on mount
     setTimeout(() => {
@@ -159,7 +143,9 @@ export function AuthModal() {
       }
     }, 100);
 
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      SpatialNavigation.remove('auth-modal');
+    };
   }, [loading, user]);
 
 
@@ -271,7 +257,7 @@ export function AuthModal() {
   }
 
   return (
-    <div ref={modalRef} className="fixed inset-0 z-[999] bg-black flex items-center justify-center p-4">
+    <div id="auth-modal" ref={modalRef} className="fixed inset-0 z-[999] bg-black flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 to-black pointer-events-none" />
       <div className="bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-8 w-full max-w-md relative z-10 shadow-2xl">
         <div className="flex justify-center mb-6">
@@ -379,7 +365,7 @@ export function AuthModal() {
 
             <button 
               type="submit" 
-              className="mt-4 w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
+              className="mt-4 w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider focus:outline-none focus:ring-4 focus:ring-emerald-500/50"
             >
               Continue to API Config
             </button>
@@ -458,14 +444,14 @@ export function AuthModal() {
               <button 
                 type="button"
                 onClick={() => setSetupStep(1)}
-                className="w-1/3 border border-white/10 text-white hover:bg-white/5 font-semibold py-3 rounded-xl transition-all text-xs uppercase tracking-wider"
+                className="w-1/3 border border-white/10 text-white hover:bg-white/5 font-semibold py-3 rounded-xl transition-all text-xs uppercase tracking-wider focus:outline-none focus:ring-4 focus:ring-emerald-500/50"
               >
                 Back
               </button>
               <button 
                 type="submit" 
                 disabled={submitting}
-                className="w-2/3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
+                className="w-2/3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs uppercase tracking-wider focus:outline-none focus:ring-4 focus:ring-emerald-500/50"
               >
                 {submitting ? 'Please wait...' : 'Complete Setup'}
               </button>
@@ -530,7 +516,7 @@ export function AuthModal() {
             <button 
               type="submit" 
               disabled={submitting}
-              className="mt-4 w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="mt-4 w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-4 focus:ring-emerald-500/50"
             >
               {submitting ? 'Please wait...' : isLogin ? <><LogIn className="w-5 h-5"/> Sign In</> : <><UserPlus className="w-5 h-5"/> Register</>}
             </button>
@@ -540,9 +526,8 @@ export function AuthModal() {
         {!setupRequired && (
           <div className="mt-6 text-center">
             <button 
-              tabIndex={-1}
               onClick={() => { setIsLogin(!isLogin); setError(''); }}
-              className="text-white/50 hover:text-white transition-colors text-sm"
+              className="focusable text-white/50 hover:text-white transition-colors text-sm focus:outline-none focus:text-white focus:ring-2 focus:ring-emerald-500/50 rounded px-2 py-1"
             >
               {isLogin ? "Don't have an account? Register" : "Already have an account? Sign in"}
             </button>
