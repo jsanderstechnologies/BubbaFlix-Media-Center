@@ -2741,7 +2741,7 @@ app.get('/api/youtube/search', async (req, res) => {
       // Sort by seeds descending before filtering
       mappedTorrents.sort((a, b) => (b.seeds || 0) - (a.seeds || 0));
 
-      const settings = readJson(SETTINGS_FILE);
+      // Read settings was removed here due to TDZ error
       const isMusic = req.query.category === 'music';
       const filteredTorrents = await filterWithGemini(q as string, mappedTorrents, settings, isMusic);
 
