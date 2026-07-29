@@ -752,9 +752,6 @@ async function startServer() {
 
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
 
-    const hash = crypto.scryptSync(password, (user as any).salt, 64).toString('hex');
-    if (hash !== (user as any).hash) return res.status(400).json({ error: 'Invalid credentials' });
-
     // Check approval status — legacy users without a status field are treated as approved
     const status = (user as any).status || 'approved';
     if (status === 'pending') {
@@ -766,6 +763,13 @@ async function startServer() {
     if (status === 'denied') {
       return res.status(403).json({ error: 'Your account registration was denied.' });
     }
+
+    if (!(user as any).salt || !(user as any).hash) {
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
+
+    const hash = crypto.scryptSync(password, (user as any).salt, 64).toString('hex');
+    if (hash !== (user as any).hash) return res.status(400).json({ error: 'Invalid credentials' });
 
     const token = crypto.randomBytes(32).toString('hex');
     const existingTokens = Array.isArray((user as any).tokens) ? (user as any).tokens : [];
