@@ -390,10 +390,9 @@ async function startServer() {
   async function getOrStartCachedStream(remoteUrl: string): Promise<string> {
     const hash = getMediaUrlHash(remoteUrl);
     const completedFile = path.join(MEDIA_CACHE_DIR, `${hash}.mp4`);
-    const tempFile = path.join(MEDIA_CACHE_DIR, `${hash}.tmp`);
 
-    // 1. If completed file exists and is valid (> 1MB), return it
-    if (fs.existsSync(completedFile)) {
+    // 1. If completed file exists, is valid (> 1MB), and not downloading, return it
+    if (fs.existsSync(completedFile) && !activeCacheDownloads.has(hash)) {
       try {
         const stats = fs.statSync(completedFile);
         if (stats.size > 1024 * 1024) {
@@ -404,16 +403,16 @@ async function startServer() {
       } catch (e) {}
     }
 
-    // 2. If actively downloading in background, return temp file path
-    if (activeCacheDownloads.has(hash) && fs.existsSync(tempFile)) {
-      return tempFile;
+    // 2. If actively downloading in background, return completedFile path
+    if (activeCacheDownloads.has(hash) && fs.existsSync(completedFile)) {
+      return completedFile;
     }
 
-    // 3. Start downloading stream in background for future seeks/replays
+    // 3. Start downloading stream directly into completedFile
     console.log(`[MediaCache] Initiating single-connection pre-cache download...`);
     const startTime = Date.now();
     activeCacheDownloads.set(hash, { 
-      filePath: tempFile, 
+      filePath: completedFile, 
       status: 'downloading', 
       bytesDownloaded: 0, 
       totalBytes: 0,
@@ -423,7 +422,7 @@ async function startServer() {
     });
 
     try {
-      const writer = fs.createWriteStream(tempFile);
+      const writer = fs.createWriteStream(completedFile);
       const response = await axios({
         method: 'get',
         url: remoteUrl,
@@ -456,31 +455,24 @@ async function startServer() {
       response.data.pipe(writer);
 
       writer.on('finish', () => {
-        if (fs.existsSync(tempFile)) {
-          try {
-            fs.renameSync(tempFile, completedFile);
-            console.log(`[MediaCache] Pre-cache complete: ${completedFile} (${(downloaded / (1024 * 1024)).toFixed(1)} MB)`);
-          } catch (err: any) {
-            console.error(`[MediaCache Rename Error] ${err.message}`);
-          }
-        }
+        console.log(`[MediaCache] Pre-cache complete: ${completedFile} (${(downloaded / (1024 * 1024)).toFixed(1)} MB)`);
         activeCacheDownloads.delete(hash);
       });
 
       writer.on('error', (err) => {
         console.error(`[MediaCache Writer Error] ${err.message}`);
         activeCacheDownloads.delete(hash);
-        if (fs.existsSync(tempFile)) {
-          try { fs.unlinkSync(tempFile); } catch (e) {}
+        if (fs.existsSync(completedFile)) {
+          try { fs.unlinkSync(completedFile); } catch (e) {}
         }
       });
 
-      return tempFile;
+      return completedFile;
     } catch (err: any) {
       console.error(`[MediaCache Pre-Cache Error] ${err.message}`);
       activeCacheDownloads.delete(hash);
-      if (fs.existsSync(tempFile)) {
-        try { fs.unlinkSync(tempFile); } catch (e) {}
+      if (fs.existsSync(completedFile)) {
+        try { fs.unlinkSync(completedFile); } catch (e) {}
       }
       return remoteUrl;
     }
@@ -1119,30 +1111,20 @@ async function startServer() {
 
   // /api/cache/progress GET (Client Player HUD)
   app.get('/api/cache/progress', (req, res) => {
-    const targetUrl = req.query.url as string;
+    let targetUrl = req.query.url as string;
     if (!targetUrl) return res.json({ status: 'none' });
+
+    // Unwrap inner URL if player passed /api/transcode/stream.mp4?url=...
+    if (targetUrl.includes('/api/transcode/') || targetUrl.includes('/api/local-media/')) {
+      try {
+        const u = new URL(targetUrl, 'http://127.0.0.1');
+        const innerUrl = u.searchParams.get('url');
+        if (innerUrl) targetUrl = innerUrl;
+      } catch (e) {}
+    }
 
     const hash = getMediaUrlHash(targetUrl);
     const completedFile = path.join(MEDIA_CACHE_DIR, `${hash}.mp4`);
-
-    if (fs.existsSync(completedFile)) {
-      try {
-        const stats = fs.statSync(completedFile);
-        const formattedTotal = stats.size >= 1073741824 
-          ? `${(stats.size / 1073741824).toFixed(2)} GB` 
-          : `${(stats.size / 1048576).toFixed(1)} MB`;
-        return res.json({
-          status: 'completed',
-          progressPercent: 100,
-          bytesDownloaded: stats.size,
-          totalBytes: stats.size,
-          speedBytesPerSec: 0,
-          formattedDownloaded: formattedTotal,
-          formattedTotal: formattedTotal,
-          formattedSpeed: 'Cached to SSD'
-        });
-      } catch (e) {}
-    }
 
     const entry = activeCacheDownloads.get(hash);
     if (entry) {
@@ -1170,6 +1152,25 @@ async function startServer() {
         formattedTotal: entry.totalBytes > 0 ? formatBytes(entry.totalBytes) : 'Unknown',
         formattedSpeed: formatSpeed(entry.speedBytesPerSec)
       });
+    }
+
+    if (fs.existsSync(completedFile)) {
+      try {
+        const stats = fs.statSync(completedFile);
+        const formattedTotal = stats.size >= 1073741824 
+          ? `${(stats.size / 1073741824).toFixed(2)} GB` 
+          : `${(stats.size / 1048576).toFixed(1)} MB`;
+        return res.json({
+          status: 'completed',
+          progressPercent: 100,
+          bytesDownloaded: stats.size,
+          totalBytes: stats.size,
+          speedBytesPerSec: 0,
+          formattedDownloaded: formattedTotal,
+          formattedTotal: formattedTotal,
+          formattedSpeed: 'Cached to SSD'
+        });
+      } catch (e) {}
     }
 
     res.json({ status: 'none' });
@@ -1828,13 +1829,9 @@ Do not include markdown blocks or extra text.`;
     if (currentSettings.enableMediaCache === true && !isLocalFile) {
       const hash = getMediaUrlHash(targetUrl);
       const completedFile = path.join(MEDIA_CACHE_DIR, `${hash}.mp4`);
-      const tempFile = path.join(MEDIA_CACHE_DIR, `${hash}.tmp`);
       if (fs.existsSync(completedFile)) {
         isLocalFile = true;
         localFilePath = completedFile;
-      } else if (fs.existsSync(tempFile)) {
-        isLocalFile = true;
-        localFilePath = tempFile;
       }
     }
 
@@ -2485,7 +2482,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
     
     if (isLocalFile) {
-      if (localFilePath.endsWith('.tmp')) {
+      if (activeCacheDownloads.has(getMediaUrlHash(resolvedUrl))) {
         args.push('-seekable', '0', '-i', localFilePath);
       } else {
         args.push('-i', localFilePath);
