@@ -840,7 +840,9 @@ async function startServer() {
     if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
     
     const token = authHeader.split(' ')[1];
-    const user = Object.values(users as Record<string, any>).find((u: any) => u.token === token);
+    const user = Object.values(users as Record<string, any>).find((u: any) => 
+      u.token === token || (Array.isArray(u.tokens) && u.tokens.includes(token))
+    );
     
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     (req as any).user = user;
