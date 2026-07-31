@@ -1537,25 +1537,7 @@ Do not include markdown blocks or extra text.`;
       } catch (e) {}
     }
 
-    // Resolve TorBox requestdl redirects before probing
-    if (!isLocalFile && targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
-      try {
-        const redirectRes = await axios({
-          method: 'get', url: targetUrl, maxRedirects: 0,
-          validateStatus: (s) => s >= 200 && s < 400,
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        if (redirectRes.status === 307 && redirectRes.headers['location']) {
-          probeUrl = redirectRes.headers['location'] as string;
-        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
-          probeUrl = redirectRes.data.data;
-        }
-      } catch (resolveErr: any) {
-        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
-          probeUrl = resolveErr.response.headers.location;
-        }
-      }
-    }
+    // TorBox requestdl links are passed directly to FFprobe/FFmpeg so 307 redirects are followed natively without token invalidation
 
     const currentSettings = readJson(SETTINGS_FILE);
     if (currentSettings.enableMediaCache === true && !isLocalFile) {
@@ -1730,24 +1712,6 @@ Do not include markdown blocks or extra text.`;
     res.header('Access-Control-Allow-Origin', '*');
 
     let resolvedUrl = targetUrl;
-    if (targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
-      try {
-        const redirectRes = await axios({
-          method: 'get', url: targetUrl, maxRedirects: 0,
-          validateStatus: (s) => s >= 200 && s < 400,
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        if (redirectRes.status === 307 && redirectRes.headers['location']) {
-          resolvedUrl = redirectRes.headers['location'] as string;
-        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
-          resolvedUrl = redirectRes.data.data;
-        }
-      } catch (resolveErr: any) {
-        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
-          resolvedUrl = resolveErr.response.headers.location;
-        }
-      }
-    }
 
     const args = [
       '-reconnect', '1',
@@ -1932,25 +1896,7 @@ app.get('/api/youtube/search', async (req, res) => {
       } catch (e) {}
     }
 
-    // Resolve TorBox requestdl redirects before probing
-    if (!isLocalFile && targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
-      try {
-        const redirectRes = await axios({
-          method: 'get', url: targetUrl, maxRedirects: 0,
-          validateStatus: (s) => s >= 200 && s < 400,
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        if (redirectRes.status === 307 && redirectRes.headers['location']) {
-          resolvedUrl = redirectRes.headers['location'] as string;
-        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
-          resolvedUrl = redirectRes.data.data;
-        }
-      } catch (resolveErr: any) {
-        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
-          resolvedUrl = resolveErr.response.headers.location;
-        }
-      }
-    }
+    // TorBox requestdl links are passed directly to FFprobe/FFmpeg so 307 redirects are followed natively without token invalidation
 
     const args: string[] = [];
     if (isLocalFile) {
@@ -2150,33 +2096,7 @@ app.get('/api/youtube/search', async (req, res) => {
       } catch (e) {}
     }
 
-    // Resolve TorBox redirects FIRST so we can pass the direct HTTP URL to FFmpeg
-    if (!isLocalFile && targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
-      try {
-        console.log('[FFmpeg-Proxy] TorBox requestdl URL detected - resolving redirect...');
-        const redirectRes = await axios({
-          method: 'get',
-          url: targetUrl,
-          maxRedirects: 0,
-          validateStatus: (status) => status >= 200 && status < 400,
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        if (redirectRes.status === 307 && redirectRes.headers['location']) {
-          resolvedUrl = redirectRes.headers['location'] as string;
-          console.log('[FFmpeg-Proxy] Resolved CDN URL:', resolvedUrl);
-        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
-          resolvedUrl = redirectRes.data.data;
-          console.log('[FFmpeg-Proxy] Resolved JSON CDN URL:', resolvedUrl);
-        }
-      } catch (resolveErr: any) {
-        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
-          resolvedUrl = resolveErr.response.headers.location;
-          console.log('[FFmpeg-Proxy] Resolved CDN URL from error response:', resolvedUrl);
-        } else {
-          console.error('[FFmpeg-Proxy] Failed to resolve TorBox redirect:', resolveErr.message);
-        }
-      }
-    }
+    // TorBox requestdl links are passed directly to FFmpeg so 307 redirects are followed natively without token invalidation
     const isLive = req.query.live === 'true';
 
     const bestEncoder = (hwAccel || systemSettings.intelTranscoding) ? detectBestH264Encoder() : 'libx264';
