@@ -3559,11 +3559,11 @@ app.get('/api/youtube/search', async (req, res) => {
           let isFile = false;
 
           try {
-            const stat = fs.statSync(fullPath);
+            const stat = await fs.promises.stat(fullPath);
             isDir = stat.isDirectory();
             isFile = stat.isFile();
           } catch (e) {
-            // Fallback for UNC shares / network drives where statSync fails: test path without ext as directory!
+            // Fallback for UNC shares / network drives where stat fails: test path without ext as directory!
             const ext = path.extname(fullPath).toLowerCase();
             if (!ext || ext.length === 0) {
               isDir = true;
@@ -3579,6 +3579,11 @@ app.get('/api/youtube/search', async (req, res) => {
             if (videoExtensions.includes(ext)) {
               fileList.push(fullPath);
             }
+          }
+          
+          // Yield execution to Node event loop so HTTP server requests never hang during background scanning
+          if (fileList.length % 20 === 0) {
+            await new Promise(r => setImmediate(r));
           }
         } catch (e: any) {
           const ext = path.extname(fullPath).toLowerCase();
@@ -4073,7 +4078,7 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
       const configuredType = folderObj.mediaType || 'movie';
 
       try {
-        const allVideoFiles = scanDirectoryForMedia(rootPath, [], 15);
+        const allVideoFiles = await scanDirectoryForMediaAsync(rootPath, [], 15);
         if (allVideoFiles.length === 0) continue;
 
         const titleGroups = new Map<string, { title: string; year: string; files: string[]; folderPath: string; mediaType: 'movie' | 'series' }>();
@@ -4539,11 +4544,11 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
   app.post('/api/log', (req, res) => { console.log('[CLIENT ERROR]', req.body); res.sendStatus(200); });
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
-    // Start background scan of local & network shares as soon as program starts up!
+    // Start non-blocking background scan of local & network shares 15 seconds after server startup
     setTimeout(() => {
       console.log("[Startup] Automatically building local and network media library catalog in background...");
       buildAndSaveLibraryCatalog().catch(err => console.error("[Startup Scan Error]", err.message));
-    }, 1000);
+    }, 15000);
   });
 }
 
