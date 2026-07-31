@@ -1,6 +1,6 @@
 # <p align="center"><img src="https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/logo.svg?raw=true" width="320" alt="BubbaFlix Logo" /></p>
 
-**BubbaFlix Media Server** is a private, high-performance web-based streaming application and media organizer. It provides user management, content filters, real-time transcoding streams, live TV (M3U/XMLTV), and administrative tools built on a premium, responsive dark-mode layout.
+**BubbaFlix Media Server** is a private, high-performance web-based streaming application and media organizer. It provides user management, content filters, real-time transcoding streams, live TV (M3U/XMLTV), smart TV D-Pad spatial navigation, and administrative tools built on a premium, responsive dark-mode layout.
 
 ---
 
@@ -9,12 +9,18 @@
 ### 🎬 Media Aggregation & Streaming
 - **TMDB Integration**: Browse rich metadata for movies and TV shows, complete with cast, crew, trailers, and recommendations.
 - **TorBox Streaming**: Search for Torrents and Usenet files directly through TorBox and stream them instantly without downloading.
-- **AI-Powered Filtering**: Integrated with Google Gemini (3.5-flash) to intelligently filter out non-English results and irrelevant file names, guaranteeing high-quality search results.
+- **AI-Powered Filtering**: Integrated with Google Gemini (`gemini-1.5-flash`) to intelligently filter out non-English results and irrelevant file names, guaranteeing high-quality search results.
 - **Hardware-Accelerated Transcoding**: Support for Intel Quick Sync Video (QSV) to transcode media on the fly via FFmpeg with minimal CPU usage.
-- **Live TV (IPTV)**: Fully integrated M3U and Xtream Codes support with EPG (Electronic Program Guide) parsing and offset customization.
+- **Live TV (IPTV) & Direct Play**: Fully integrated M3U and Xtream Codes support with EPG (Electronic Program Guide) parsing, offset customization, and direct native HLS playback for TV clients.
 - **Customizable Players**: Native browser playback or automatic spawning of external desktop players like VLC, mpv, or IINA.
 
-### 👥 User Administration & Approvals
+### 📺 Smart TV & Android TV Experience
+- **D-Pad Spatial Navigation**: Built-in `spatial-navigation-js` integration allowing seamless 100% remote control navigation across all menus, video player controls, modal dialogs, and settings.
+- **Interactive EPG Grid**: Scrollable timeline program guide with arrow key support, channel row selection, and quick playback.
+- **Focus Ring Accessibility**: Clear, high-visibility focus indicators designed specifically for 10-foot viewing experiences.
+
+### 👥 User Administration & Multi-Device Auth
+- **Multi-Device Token Sessions**: Support for simultaneous device logins without revoking credentials or admin access.
 - **Pending Registration Workflow**: New registrations are created without passwords and flagged as `pending` until approved by an administrator.
 - **Gmail Welcome Notification**: Upon admin approval, the system auto-generates a secure 12-character password, hashes it using `scrypt`, updates the database, and automatically sends a beautifully formatted email with access credentials to the user.
 - **Account Locking**: Administrators can lock or unlock user accounts at any time, instantly revoking access.
@@ -25,9 +31,67 @@
 - **Email Configuration**: Exposes a dedicated UI to manage and save credentials (Gmail address, App Password, App Name, App URL) to `data/settings.json`, complete with a "Test Email" button.
 - **Developer Debugging**: View real-time frontend and backend console logs directly within the browser Settings UI.
 
-### 🎵 Playback Preferences
-- **User Profiles**: Customized settings on a per-user basis stored in local storage (`resolutions`, `audioLanguage`, `ccLanguage`, `autoCC`).
-- **Dynamic Audio Leveling**: Keeps loud parts in movies and TV shows from overwhelming the user by enabling FFmpeg's Dynamic Audio Normalizer (`dynaudnorm`) filter on target transcode streams.
+---
+
+## 📺 HDMI Kiosk & Standalone TV Server Mode (Plan B)
+
+If your server running Docker/Portainer has an HDMI port connected to a TV, you can transform your server into a dedicated Standalone Media Box controlled with any Bluetooth remote (Google TV, Fire TV, Roku)!
+
+### 1. Pair a Bluetooth Remote to the Server
+Bluetooth remotes output standard HID keyboard events (`ArrowUp`, `ArrowDown`, `Enter`, `Escape`), which work out of the box with BubbaFlix's D-Pad navigation.
+
+1. Put your remote into pairing mode:
+   - **Fire TV Remote**: Press and hold **Home** for 10 seconds until the LED blinks.
+   - **Google TV Remote**: Press and hold **Home + Back** until the LED blinks.
+2. Pair via `bluetoothctl` on the host server:
+   ```bash
+   sudo bluetoothctl
+   agent on
+   default-agent
+   scan on
+   # Locate your remote MAC address (XX:XX:XX:XX:XX:XX)
+   pair XX:XX:XX:XX:XX:XX
+   trust XX:XX:XX:XX:XX:XX
+   connect XX:XX:XX:XX:XX:XX
+   ```
+
+### 2. Plan B: Host-Level Kiosk Output Service (Recommended)
+Running a lightweight display kiosk on the host OS gives the smoothest 4K playback and full GPU hardware acceleration directly to your server's HDMI port.
+
+1. **Install minimal X11 & Chromium on the server:**
+   ```bash
+   sudo apt update
+   sudo apt install -y xorg chromium-browser nodm
+   ```
+
+2. **Enable auto-login in `/etc/default/nodm`:**
+   ```env
+   NODM_ENABLED=true
+   NODM_USER=root
+   ```
+
+3. **Create the Kiosk Startup Script (`~/.xsession`):**
+   ```bash
+   #!/bin/bash
+   # Disable screen sleep / blanking
+   xset s off
+   xset -dpms
+   xset s noblank
+
+   # Start Chromium targeting local BubbaFlix container
+   chromium-browser \
+     --kiosk \
+     --noerrdialogs \
+     --disable-infobars \
+     --autoplay-policy=no-user-gesture-required \
+     --app=http://localhost:5150
+   ```
+
+4. **Make executable and start the kiosk:**
+   ```bash
+   chmod +x ~/.xsession
+   sudo systemctl restart nodm
+   ```
 
 ---
 
@@ -95,7 +159,7 @@ docker compose up -d
 
 ## 🛠️ Tech Stack & Dependencies
 
-- **Frontend**: React, Tailwind CSS, Vite, Lucide Icons, React Query.
+- **Frontend**: React, Tailwind CSS, Vite, Lucide Icons, Spatial Navigation (`spatial-navigation-js`).
 - **Backend**: Node.js, Express, FFmpeg, FFprobe.
 - **Database**: Local JSON-based flat-file database structures (`users.json`, `db.json`, `settings.json`).
 - **Email Infrastructure**: `nodemailer` with Google App Passwords support.
