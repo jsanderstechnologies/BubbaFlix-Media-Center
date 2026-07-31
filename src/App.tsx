@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive } from 'lucide-react';
 import { collection, query, where, onSnapshot, setDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
 import { logger } from './lib/logger';
@@ -69,6 +69,35 @@ function MainApp() {
   const [streamOffset, setStreamOffset] = useState<number>(0);
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
   const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [cacheProgress, setCacheProgress] = useState<{
+    status: 'downloading' | 'completed' | 'none';
+    progressPercent: number;
+    formattedDownloaded: string;
+    formattedTotal: string;
+    formattedSpeed: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!playingUrl || playingContext?.isLive) {
+      setCacheProgress(null);
+      return;
+    }
+
+    const checkCacheProgress = async () => {
+      try {
+        const res = await fetch(`/api/cache/progress?url=${encodeURIComponent(playingUrl)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setCacheProgress(data);
+        }
+      } catch (e) {}
+    };
+
+    checkCacheProgress();
+    const interval = setInterval(checkCacheProgress, 1000);
+    return () => clearInterval(interval);
+  }, [playingUrl, playingContext?.isLive]);
 
   const [activeWeatherAlert, setActiveWeatherAlert] = useState<WeatherAlert | null>(null);
 
@@ -847,6 +876,36 @@ function MainApp() {
                 </div>
               )}
               <div className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-4 z-[110] bg-gradient-to-t from-black/90 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
+                {/* Pre-Cache Progress Badge */}
+                {cacheProgress && cacheProgress.status !== 'none' && systemSettings.enableMediaCache && (
+                  <div className="flex items-center gap-3 bg-black/70 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 shadow-2xl text-xs font-mono w-fit mx-auto pointer-events-auto">
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                      {cacheProgress.status === 'completed' ? (
+                        <HardDrive className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <Download className="w-4 h-4 text-emerald-400 animate-bounce" />
+                      )}
+                      <span>{cacheProgress.status === 'completed' ? 'PRE-CACHED TO SSD' : 'PRE-CACHING TO SERVER SSD'}</span>
+                    </div>
+                    <span className="text-white/80">
+                      {cacheProgress.formattedDownloaded} / {cacheProgress.formattedTotal}
+                    </span>
+                    {cacheProgress.status === 'downloading' && (
+                      <>
+                        <span className="text-white/40">•</span>
+                        <span className="text-amber-400 font-bold">{cacheProgress.formattedSpeed}</span>
+                        <div className="w-24 bg-white/20 h-2 rounded-full overflow-hidden ml-1 relative">
+                          <div 
+                            className="bg-emerald-500 h-full transition-all duration-300 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                            style={{ width: `${cacheProgress.progressPercent}%` }}
+                          />
+                        </div>
+                        <span className="text-emerald-400 font-bold">{cacheProgress.progressPercent}%</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex items-center gap-6 pointer-events-auto w-full max-w-5xl mx-auto">
                   <button 
                     onClick={() => handleSeek(-15)}

@@ -366,8 +366,16 @@ async function startServer() {
     try { fs.mkdirSync(MEDIA_CACHE_DIR, { recursive: true }); } catch (e) {}
   }
 
-  // Active stream downloads map
-  const activeCacheDownloads = new Map<string, { filePath: string, status: string, bytesDownloaded: number, totalBytes: number }>();
+  // Active stream downloads map with speed tracking
+  const activeCacheDownloads = new Map<string, { 
+    filePath: string; 
+    status: string; 
+    bytesDownloaded: number; 
+    totalBytes: number; 
+    speedBytesPerSec: number; 
+    lastBytes: number; 
+    lastTime: number; 
+  }>();
 
   function getMediaUrlHash(url: string): string {
     return crypto.createHash('sha256').update(url).digest('hex').substring(0, 24);
@@ -397,7 +405,16 @@ async function startServer() {
 
     // 3. Start downloading stream in background for future seeks/replays
     console.log(`[MediaCache] Initiating background pre-cache download for future playback...`);
-    activeCacheDownloads.set(hash, { filePath: tempFile, status: 'downloading', bytesDownloaded: 0, totalBytes: 0 });
+    const startTime = Date.now();
+    activeCacheDownloads.set(hash, { 
+      filePath: tempFile, 
+      status: 'downloading', 
+      bytesDownloaded: 0, 
+      totalBytes: 0,
+      speedBytesPerSec: 0,
+      lastBytes: 0,
+      lastTime: startTime
+    });
 
     try {
       const writer = fs.createWriteStream(tempFile);
@@ -418,6 +435,15 @@ async function startServer() {
         if (entry) {
           entry.bytesDownloaded = downloaded;
           entry.totalBytes = totalLen;
+
+          const now = Date.now();
+          const elapsedSec = (now - entry.lastTime) / 1000;
+          if (elapsedSec >= 0.5) {
+            const deltaBytes = downloaded - entry.lastBytes;
+            entry.speedBytesPerSec = deltaBytes / elapsedSec;
+            entry.lastBytes = downloaded;
+            entry.lastTime = now;
+          }
         }
       });
 
@@ -1085,19 +1111,62 @@ async function startServer() {
     }
   });
 
-  // /api/admin/cache/purge POST
-  app.post('/api/admin/cache/purge', requireAdmin, (req, res) => {
-    try {
-      if (fs.existsSync(MEDIA_CACHE_DIR)) {
-        const files = fs.readdirSync(MEDIA_CACHE_DIR);
-        files.forEach(f => {
-          try { fs.unlinkSync(path.join(MEDIA_CACHE_DIR, f)); } catch (e) {}
+  // /api/cache/progress GET (Client Player HUD)
+  app.get('/api/cache/progress', (req, res) => {
+    const targetUrl = req.query.url as string;
+    if (!targetUrl) return res.json({ status: 'none' });
+
+    const hash = getMediaUrlHash(targetUrl);
+    const completedFile = path.join(MEDIA_CACHE_DIR, `${hash}.mp4`);
+
+    if (fs.existsSync(completedFile)) {
+      try {
+        const stats = fs.statSync(completedFile);
+        const formattedTotal = stats.size >= 1073741824 
+          ? `${(stats.size / 1073741824).toFixed(2)} GB` 
+          : `${(stats.size / 1048576).toFixed(1)} MB`;
+        return res.json({
+          status: 'completed',
+          progressPercent: 100,
+          bytesDownloaded: stats.size,
+          totalBytes: stats.size,
+          speedBytesPerSec: 0,
+          formattedDownloaded: formattedTotal,
+          formattedTotal: formattedTotal,
+          formattedSpeed: 'Cached to SSD'
         });
-      }
-      res.json({ success: true, message: 'Media cache purged successfully.' });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      } catch (e) {}
     }
+
+    const entry = activeCacheDownloads.get(hash);
+    if (entry) {
+      const progressPercent = entry.totalBytes > 0 
+        ? Math.min(100, (entry.bytesDownloaded / entry.totalBytes) * 100) 
+        : 0;
+
+      const formatBytes = (bytes: number) => {
+        if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
+        return `${(bytes / 1048576).toFixed(1)} MB`;
+      };
+
+      const formatSpeed = (bytesPerSec: number) => {
+        if (bytesPerSec >= 1048576) return `${(bytesPerSec / 1048576).toFixed(1)} MB/s`;
+        return `${(bytesPerSec / 1024).toFixed(0)} KB/s`;
+      };
+
+      return res.json({
+        status: 'downloading',
+        progressPercent: parseFloat(progressPercent.toFixed(1)),
+        bytesDownloaded: entry.bytesDownloaded,
+        totalBytes: entry.totalBytes,
+        speedBytesPerSec: entry.speedBytesPerSec,
+        formattedDownloaded: formatBytes(entry.bytesDownloaded),
+        formattedTotal: entry.totalBytes > 0 ? formatBytes(entry.totalBytes) : 'Unknown',
+        formattedSpeed: formatSpeed(entry.speedBytesPerSec)
+      });
+    }
+
+    res.json({ status: 'none' });
   });
 
   // /api/admin/settings PUT
