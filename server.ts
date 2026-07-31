@@ -1,7 +1,13 @@
 import express from 'express';
 import path from 'path';
+import os from 'os';
 import dns from 'dns';
 dns.setServers(['1.1.1.1', '8.8.8.8']);
+
+// Maximize multithreading across all available CPU cores for Node libuv threadpool (crypto, DNS, disk I/O)
+const cpuCores = os.cpus()?.length || 4;
+process.env.UV_THREADPOOL_SIZE = String(Math.max(4, cpuCores * 2));
+console.log(`[System Multithreading] Server detected ${cpuCores} CPU cores. Set UV_THREADPOOL_SIZE=${process.env.UV_THREADPOOL_SIZE}`);
 
 import { createServer as createViteServer } from 'vite';
 import axios from 'axios';
@@ -2302,7 +2308,7 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     }
 
-    const args: string[] = [];
+    const args: string[] = ['-threads', '0'];
     if (!isLocalFile) {
       args.push(
         '-probesize', '2M',
@@ -2450,7 +2456,7 @@ app.get('/api/youtube/search', async (req, res) => {
     const vaapiDev = getVaapiDevice();
     const useVaapi = (bestEncoder === 'h264_vaapi') && !!vaapiDev;
 
-    const args = [];
+    const args = ['-threads', '0'];
     if (useVaapi) {
       args.push('-vaapi_device', vaapiDev);
     }
