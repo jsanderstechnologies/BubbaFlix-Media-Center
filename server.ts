@@ -1084,8 +1084,25 @@ async function startServer() {
     res.json(backendLogs);
   });
 
+  // Purge Media Cache helper
+  const purgeMediaCache = () => {
+    activeCacheDownloads.clear();
+    let deletedCount = 0;
+    if (fs.existsSync(MEDIA_CACHE_DIR)) {
+      const files = fs.readdirSync(MEDIA_CACHE_DIR);
+      files.forEach(f => {
+        try { 
+          fs.unlinkSync(path.join(MEDIA_CACHE_DIR, f));
+          deletedCount++;
+        } catch (e) {}
+      });
+    }
+    console.log(`[MediaCache] Purged ${deletedCount} cached media files from server storage.`);
+    return deletedCount;
+  };
+
   // /api/admin/cache/stats GET
-  app.get('/api/admin/cache/stats', requireAdmin, (req, res) => {
+  app.get('/api/admin/cache/stats', requireAuth, (req, res) => {
     try {
       if (!fs.existsSync(MEDIA_CACHE_DIR)) {
         return res.json({ totalFiles: 0, totalSizeBytes: 0, formattedSize: '0 MB' });
@@ -1104,6 +1121,26 @@ async function startServer() {
         ? `${(totalSize / 1073741824).toFixed(2)} GB` 
         : `${(totalSize / 1048576).toFixed(1)} MB`;
       res.json({ totalFiles: fileCount, totalSizeBytes: totalSize, formattedSize });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // /api/admin/cache/purge POST
+  app.post('/api/admin/cache/purge', requireAuth, (req, res) => {
+    try {
+      const count = purgeMediaCache();
+      res.json({ success: true, message: `Media cache purged (${count} files deleted).` });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // /api/cache/purge POST
+  app.post('/api/cache/purge', requireAuth, (req, res) => {
+    try {
+      const count = purgeMediaCache();
+      res.json({ success: true, message: `Media cache purged (${count} files deleted).` });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
