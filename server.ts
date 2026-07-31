@@ -2357,6 +2357,7 @@ app.get('/api/youtube/search', async (req, res) => {
           console.error('[FFmpeg-Proxy] Failed to resolve TorBox redirect:', resolveErr.message);
         }
       }
+    }
     const isLive = req.query.live === 'true';
 
     // Optional Media Pre-Caching for remote streams
