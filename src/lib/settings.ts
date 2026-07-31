@@ -53,9 +53,6 @@ export interface SystemSettings {
   customChannels?: Record<string, CustomChannelConfig>;
   sportsIptvGroups?: string[];
   enableEztv?: boolean;
-  enableMediaCache?: boolean;
-  mediaCacheRetentionHours?: string;
-  mediaCacheMaxGB?: string;
 }
 
 export interface UserSettings {

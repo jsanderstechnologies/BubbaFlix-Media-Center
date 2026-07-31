@@ -367,176 +367,6 @@ async function startServer() {
   const DB_FILE = path.join(DATA_DIR, 'db.json');
   const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
   const SCANNED_LIBRARY_FILE = path.join(DATA_DIR, 'scanned_library.json');
-  const MEDIA_CACHE_DIR = path.join(DATA_DIR, 'media_cache');
-  if (!fs.existsSync(MEDIA_CACHE_DIR)) {
-    try { fs.mkdirSync(MEDIA_CACHE_DIR, { recursive: true }); } catch (e) {}
-  }
-
-  // Active stream downloads map with speed tracking
-  const activeCacheDownloads = new Map<string, { 
-    filePath: string; 
-    status: string; 
-    bytesDownloaded: number; 
-    totalBytes: number; 
-    speedBytesPerSec: number; 
-    lastBytes: number; 
-    lastTime: number; 
-  }>();
-
-  function getMediaUrlHash(url: string): string {
-    return crypto.createHash('sha256').update(url).digest('hex').substring(0, 24);
-  }
-
-  async function getOrStartCachedStream(remoteUrl: string): Promise<string> {
-    const hash = getMediaUrlHash(remoteUrl);
-    const completedFile = path.join(MEDIA_CACHE_DIR, `${hash}.mp4`);
-
-    // 1. If completed file exists, is valid (> 1MB), and not downloading, return it
-    if (fs.existsSync(completedFile) && !activeCacheDownloads.has(hash)) {
-      try {
-        const stats = fs.statSync(completedFile);
-        if (stats.size > 1024 * 1024) {
-          const now = new Date();
-          fs.utimesSync(completedFile, now, now);
-          return completedFile;
-        }
-      } catch (e) {}
-    }
-
-    // 2. If actively downloading in background, return completedFile path
-    if (activeCacheDownloads.has(hash) && fs.existsSync(completedFile)) {
-      return completedFile;
-    }
-
-    // 3. Start downloading stream directly into completedFile
-    console.log(`[MediaCache] Initiating single-connection pre-cache download...`);
-    const startTime = Date.now();
-    activeCacheDownloads.set(hash, { 
-      filePath: completedFile, 
-      status: 'downloading', 
-      bytesDownloaded: 0, 
-      totalBytes: 0,
-      speedBytesPerSec: 0,
-      lastBytes: 0,
-      lastTime: startTime
-    });
-
-    try {
-      const writer = fs.createWriteStream(completedFile);
-      const response = await axios({
-        method: 'get',
-        url: remoteUrl,
-        responseType: 'stream',
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        timeout: 30000
-      });
-
-      const totalLen = parseInt(response.headers['content-length'] || '0', 10);
-      let downloaded = 0;
-
-      response.data.on('data', (chunk: Buffer) => {
-        downloaded += chunk.length;
-        const entry = activeCacheDownloads.get(hash);
-        if (entry) {
-          entry.bytesDownloaded = downloaded;
-          entry.totalBytes = totalLen;
-
-          const now = Date.now();
-          const elapsedSec = (now - entry.lastTime) / 1000;
-          if (elapsedSec >= 0.5) {
-            const deltaBytes = downloaded - entry.lastBytes;
-            entry.speedBytesPerSec = deltaBytes / elapsedSec;
-            entry.lastBytes = downloaded;
-            entry.lastTime = now;
-          }
-        }
-      });
-
-      response.data.pipe(writer);
-
-      writer.on('finish', () => {
-        console.log(`[MediaCache] Pre-cache complete: ${completedFile} (${(downloaded / (1024 * 1024)).toFixed(1)} MB)`);
-        activeCacheDownloads.delete(hash);
-      });
-
-      writer.on('error', (err) => {
-        console.error(`[MediaCache Writer Error] ${err.message}`);
-        activeCacheDownloads.delete(hash);
-        if (fs.existsSync(completedFile)) {
-          try { fs.unlinkSync(completedFile); } catch (e) {}
-        }
-      });
-
-      return completedFile;
-    } catch (err: any) {
-      console.error(`[MediaCache Pre-Cache Error] ${err.message}`);
-      activeCacheDownloads.delete(hash);
-      if (fs.existsSync(completedFile)) {
-        try { fs.unlinkSync(completedFile); } catch (e) {}
-      }
-      return remoteUrl;
-    }
-  }
-
-  function pruneMediaCache() {
-    try {
-      const currentSettings = readJson(SETTINGS_FILE);
-      if (!fs.existsSync(MEDIA_CACHE_DIR)) return;
-
-      const retentionHours = parseInt(currentSettings.mediaCacheRetentionHours || '24', 10);
-      const maxGB = parseFloat(currentSettings.mediaCacheMaxGB || '50');
-      const maxBytes = maxGB * 1024 * 1024 * 1024;
-      const now = Date.now();
-      const cutoffTime = now - (retentionHours * 60 * 60 * 1000);
-
-      const files = fs.readdirSync(MEDIA_CACHE_DIR).map(file => {
-        const filePath = path.join(MEDIA_CACHE_DIR, file);
-        try {
-          const stats = fs.statSync(filePath);
-          return { file, filePath, mtime: stats.mtimeMs, size: stats.size };
-        } catch (e) {
-          return null;
-        }
-      }).filter(Boolean) as { file: string, filePath: string, mtime: number, size: number }[];
-
-      let totalBytes = 0;
-      files.forEach(f => {
-        if (f.mtime < cutoffTime && !f.file.endsWith('.tmp')) {
-          console.log(`[MediaCache Prune] Removing expired cached file: ${f.file}`);
-          try { fs.unlinkSync(f.filePath); } catch (e) {}
-        } else {
-          totalBytes += f.size;
-        }
-      });
-
-      if (maxBytes > 0 && totalBytes > maxBytes) {
-        const remainingFiles = fs.readdirSync(MEDIA_CACHE_DIR).map(file => {
-          const filePath = path.join(MEDIA_CACHE_DIR, file);
-          try {
-            const stats = fs.statSync(filePath);
-            return { file, filePath, mtime: stats.mtimeMs, size: stats.size };
-          } catch (e) { return null; }
-        }).filter(Boolean) as { file: string, filePath: string, mtime: number, size: number }[];
-
-        remainingFiles.sort((a, b) => a.mtime - b.mtime);
-
-        let currentSize = remainingFiles.reduce((sum, f) => sum + f.size, 0);
-        for (const f of remainingFiles) {
-          if (currentSize <= maxBytes) break;
-          if (f.file.endsWith('.tmp')) continue;
-          console.log(`[MediaCache LRU] Pruning file to satisfy disk quota: ${f.file}`);
-          try {
-            fs.unlinkSync(f.filePath);
-            currentSize -= f.size;
-          } catch (e) {}
-        }
-      }
-    } catch (e: any) {
-      console.error(`[MediaCache Prune Error] ${e.message}`);
-    }
-  }
-
-  setInterval(pruneMediaCache, 15 * 60 * 1000);
 
 
 
@@ -1072,145 +902,13 @@ async function startServer() {
       hevcMode: settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer'),
       mediaFolders: settings.mediaFolders || [],
       sportsIptvGroups: settings.sportsIptvGroups || [],
-      enableEztv: settings.enableEztv === true,
-      enableMediaCache: settings.enableMediaCache === true,
-      mediaCacheRetentionHours: settings.mediaCacheRetentionHours || '24',
-      mediaCacheMaxGB: settings.mediaCacheMaxGB || '50'
+      enableEztv: settings.enableEztv === true
     });
   });
 
   // /api/admin/logs GET
   app.get('/api/admin/logs', requireAdmin, (req, res) => {
     res.json(backendLogs);
-  });
-
-  // Purge Media Cache helper
-  const purgeMediaCache = () => {
-    activeCacheDownloads.clear();
-    let deletedCount = 0;
-    if (fs.existsSync(MEDIA_CACHE_DIR)) {
-      const files = fs.readdirSync(MEDIA_CACHE_DIR);
-      files.forEach(f => {
-        try { 
-          fs.unlinkSync(path.join(MEDIA_CACHE_DIR, f));
-          deletedCount++;
-        } catch (e) {}
-      });
-    }
-    console.log(`[MediaCache] Purged ${deletedCount} cached media files from server storage.`);
-    return deletedCount;
-  };
-
-  // /api/admin/cache/stats GET
-  app.get('/api/admin/cache/stats', requireAuth, (req, res) => {
-    try {
-      if (!fs.existsSync(MEDIA_CACHE_DIR)) {
-        return res.json({ totalFiles: 0, totalSizeBytes: 0, formattedSize: '0 MB' });
-      }
-      const files = fs.readdirSync(MEDIA_CACHE_DIR);
-      let totalSize = 0;
-      let fileCount = 0;
-      files.forEach(f => {
-        try {
-          const stats = fs.statSync(path.join(MEDIA_CACHE_DIR, f));
-          totalSize += stats.size;
-          fileCount++;
-        } catch (e) {}
-      });
-      const formattedSize = totalSize > 1073741824 
-        ? `${(totalSize / 1073741824).toFixed(2)} GB` 
-        : `${(totalSize / 1048576).toFixed(1)} MB`;
-      res.json({ totalFiles: fileCount, totalSizeBytes: totalSize, formattedSize });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // /api/admin/cache/purge POST
-  app.post('/api/admin/cache/purge', requireAuth, (req, res) => {
-    try {
-      const count = purgeMediaCache();
-      res.json({ success: true, message: `Media cache purged (${count} files deleted).` });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // /api/cache/purge POST
-  app.post('/api/cache/purge', requireAuth, (req, res) => {
-    try {
-      const count = purgeMediaCache();
-      res.json({ success: true, message: `Media cache purged (${count} files deleted).` });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // /api/cache/progress GET (Client Player HUD)
-  app.get('/api/cache/progress', (req, res) => {
-    let targetUrl = req.query.url as string;
-    if (!targetUrl) return res.json({ status: 'none' });
-
-    // Unwrap inner URL if player passed /api/transcode/stream.mp4?url=...
-    if (targetUrl.includes('/api/transcode/') || targetUrl.includes('/api/local-media/')) {
-      try {
-        const u = new URL(targetUrl, 'http://127.0.0.1');
-        const innerUrl = u.searchParams.get('url');
-        if (innerUrl) targetUrl = innerUrl;
-      } catch (e) {}
-    }
-
-    const hash = getMediaUrlHash(targetUrl);
-    const completedFile = path.join(MEDIA_CACHE_DIR, `${hash}.mp4`);
-
-    const entry = activeCacheDownloads.get(hash);
-    if (entry) {
-      const progressPercent = entry.totalBytes > 0 
-        ? Math.min(100, (entry.bytesDownloaded / entry.totalBytes) * 100) 
-        : 0;
-
-      const formatBytes = (bytes: number) => {
-        if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} GB`;
-        return `${(bytes / 1048576).toFixed(1)} MB`;
-      };
-
-      const formatSpeed = (bytesPerSec: number) => {
-        if (bytesPerSec >= 1048576) return `${(bytesPerSec / 1048576).toFixed(1)} MB/s`;
-        return `${(bytesPerSec / 1024).toFixed(0)} KB/s`;
-      };
-
-      return res.json({
-        status: 'downloading',
-        progressPercent: parseFloat(progressPercent.toFixed(1)),
-        bytesDownloaded: entry.bytesDownloaded,
-        totalBytes: entry.totalBytes,
-        speedBytesPerSec: entry.speedBytesPerSec,
-        formattedDownloaded: formatBytes(entry.bytesDownloaded),
-        formattedTotal: entry.totalBytes > 0 ? formatBytes(entry.totalBytes) : 'Unknown',
-        formattedSpeed: formatSpeed(entry.speedBytesPerSec)
-      });
-    }
-
-    if (fs.existsSync(completedFile)) {
-      try {
-        const stats = fs.statSync(completedFile);
-        const formattedTotal = stats.size >= 1073741824 
-          ? `${(stats.size / 1073741824).toFixed(2)} GB` 
-          : `${(stats.size / 1048576).toFixed(1)} MB`;
-        return res.json({
-          status: 'completed',
-          progressPercent: 100,
-          bytesDownloaded: stats.size,
-          totalBytes: stats.size,
-          speedBytesPerSec: 0,
-          formattedDownloaded: formattedTotal,
-          formattedTotal: formattedTotal,
-          formattedSpeed: 'Cached to SSD'
-        });
-      } catch (e) {}
-    }
-
-    res.json({ status: 'none' });
   });
 
   // /api/admin/settings PUT
@@ -1256,9 +954,6 @@ async function startServer() {
     if (req.body.iptvUrl !== undefined) settings.iptvUrl = req.body.iptvUrl;
     if (req.body.epgUrl !== undefined) settings.epgUrl = req.body.epgUrl;
     if (req.body.epgOffset !== undefined) settings.epgOffset = req.body.epgOffset;
-    if (req.body.enableMediaCache !== undefined) settings.enableMediaCache = req.body.enableMediaCache;
-    if (req.body.mediaCacheRetentionHours !== undefined) settings.mediaCacheRetentionHours = req.body.mediaCacheRetentionHours;
-    if (req.body.mediaCacheMaxGB !== undefined) settings.mediaCacheMaxGB = req.body.mediaCacheMaxGB;
     if (req.body.xtreamServer !== undefined) settings.xtreamServer = req.body.xtreamServer;
     if (req.body.xtreamUsername !== undefined) settings.xtreamUsername = req.body.xtreamUsername;
     if (req.body.xtreamPassword !== undefined) settings.xtreamPassword = req.body.xtreamPassword;
@@ -2484,23 +2179,6 @@ app.get('/api/youtube/search', async (req, res) => {
     }
     const isLive = req.query.live === 'true';
 
-    // Optional Media Pre-Caching for remote streams
-    const currentSettings = readJson(SETTINGS_FILE);
-    if (currentSettings.enableMediaCache === true && !isLocalFile && !isLive) {
-      try {
-        const cachedPath = await getOrStartCachedStream(resolvedUrl);
-        if (cachedPath && fs.existsSync(cachedPath)) {
-          console.log(`[MediaCache] Completed cache hit! Streaming directly from server local storage: ${cachedPath}`);
-          isLocalFile = true;
-          localFilePath = cachedPath;
-        } else {
-          console.log(`[MediaCache] Pre-caching in background... Streaming via remote HTTP connection for smooth initial playback.`);
-        }
-      } catch (cacheErr: any) {
-        console.warn(`[MediaCache Error] Falling back to direct HTTP stream: ${cacheErr.message}`);
-      }
-    }
-
     const bestEncoder = (hwAccel || systemSettings.intelTranscoding) ? detectBestH264Encoder() : 'libx264';
     const vaapiDev = getVaapiDevice();
     const useVaapi = (bestEncoder === 'h264_vaapi') && !!vaapiDev;
@@ -2519,11 +2197,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
     
     if (isLocalFile) {
-      if (activeCacheDownloads.has(getMediaUrlHash(resolvedUrl))) {
-        args.push('-seekable', '0', '-i', localFilePath);
-      } else {
-        args.push('-i', localFilePath);
-      }
+      args.push('-i', localFilePath);
     } else {
       args.push(
         ...getFFmpegNetworkArgs(resolvedUrl),
