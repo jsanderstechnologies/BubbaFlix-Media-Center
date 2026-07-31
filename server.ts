@@ -373,7 +373,7 @@ async function startServer() {
     return crypto.createHash('sha256').update(url).digest('hex').substring(0, 24);
   }
 
-  async function getOrStartCachedStream(remoteUrl: string): Promise<string> {
+  async function getOrStartCachedStream(remoteUrl: string): Promise<string | null> {
     const hash = getMediaUrlHash(remoteUrl);
     const completedFile = path.join(MEDIA_CACHE_DIR, `${hash}.mp4`);
     const tempFile = path.join(MEDIA_CACHE_DIR, `${hash}.tmp`);
@@ -390,13 +390,13 @@ async function startServer() {
       } catch (e) {}
     }
 
-    // 2. If actively downloading, return temp file path
-    if (activeCacheDownloads.has(hash) && fs.existsSync(tempFile)) {
-      return tempFile;
+    // 2. If actively downloading in background, return null so FFmpeg uses remote stream for now
+    if (activeCacheDownloads.has(hash)) {
+      return null;
     }
 
-    // 3. Start downloading stream in background
-    console.log(`[MediaCache] Initiating pre-cache download for stream...`);
+    // 3. Start downloading stream in background for future seeks/replays
+    console.log(`[MediaCache] Initiating background pre-cache download for future playback...`);
     activeCacheDownloads.set(hash, { filePath: tempFile, status: 'downloading', bytesDownloaded: 0, totalBytes: 0 });
 
     try {
@@ -443,14 +443,14 @@ async function startServer() {
         }
       });
 
-      return tempFile;
+      return null;
     } catch (err: any) {
       console.error(`[MediaCache Pre-Cache Error] ${err.message}`);
       activeCacheDownloads.delete(hash);
       if (fs.existsSync(tempFile)) {
         try { fs.unlinkSync(tempFile); } catch (e) {}
       }
-      return remoteUrl;
+      return null;
     }
   }
 
@@ -2364,19 +2364,13 @@ app.get('/api/youtube/search', async (req, res) => {
     const currentSettings = readJson(SETTINGS_FILE);
     if (currentSettings.enableMediaCache === true && !isLocalFile && !isLive) {
       try {
-        console.log(`[MediaCache] Pre-cache enabled. Checking local cache for: ${resolvedUrl.substring(0, 60)}...`);
         const cachedPath = await getOrStartCachedStream(resolvedUrl);
         if (cachedPath && fs.existsSync(cachedPath)) {
-          let retries = 0;
-          while (retries < 20 && fs.statSync(cachedPath).size < 512 * 1024) {
-            await new Promise(r => setTimeout(r, 250));
-            retries++;
-          }
-          if (fs.statSync(cachedPath).size >= 512 * 1024) {
-            console.log(`[MediaCache] Streaming directly from server local cache: ${cachedPath}`);
-            isLocalFile = true;
-            localFilePath = cachedPath;
-          }
+          console.log(`[MediaCache] Completed cache hit! Streaming directly from server local storage: ${cachedPath}`);
+          isLocalFile = true;
+          localFilePath = cachedPath;
+        } else {
+          console.log(`[MediaCache] Pre-caching in background... Streaming via remote HTTP connection for smooth initial playback.`);
         }
       } catch (cacheErr: any) {
         console.warn(`[MediaCache Error] Falling back to direct HTTP stream: ${cacheErr.message}`);
