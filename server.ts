@@ -361,6 +361,158 @@ async function startServer() {
   const DB_FILE = path.join(DATA_DIR, 'db.json');
   const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
   const SCANNED_LIBRARY_FILE = path.join(DATA_DIR, 'scanned_library.json');
+  const MEDIA_CACHE_DIR = path.join(DATA_DIR, 'media_cache');
+  if (!fs.existsSync(MEDIA_CACHE_DIR)) {
+    try { fs.mkdirSync(MEDIA_CACHE_DIR, { recursive: true }); } catch (e) {}
+  }
+
+  // Active stream downloads map
+  const activeCacheDownloads = new Map<string, { filePath: string, status: string, bytesDownloaded: number, totalBytes: number }>();
+
+  function getMediaUrlHash(url: string): string {
+    return crypto.createHash('sha256').update(url).digest('hex').substring(0, 24);
+  }
+
+  async function getOrStartCachedStream(remoteUrl: string): Promise<string> {
+    const hash = getMediaUrlHash(remoteUrl);
+    const completedFile = path.join(MEDIA_CACHE_DIR, `${hash}.mp4`);
+    const tempFile = path.join(MEDIA_CACHE_DIR, `${hash}.tmp`);
+
+    // 1. If completed file exists and is valid (> 1MB), return it
+    if (fs.existsSync(completedFile)) {
+      try {
+        const stats = fs.statSync(completedFile);
+        if (stats.size > 1024 * 1024) {
+          const now = new Date();
+          fs.utimesSync(completedFile, now, now);
+          return completedFile;
+        }
+      } catch (e) {}
+    }
+
+    // 2. If actively downloading, return temp file path
+    if (activeCacheDownloads.has(hash) && fs.existsSync(tempFile)) {
+      return tempFile;
+    }
+
+    // 3. Start downloading stream in background
+    console.log(`[MediaCache] Initiating pre-cache download for stream...`);
+    activeCacheDownloads.set(hash, { filePath: tempFile, status: 'downloading', bytesDownloaded: 0, totalBytes: 0 });
+
+    try {
+      const writer = fs.createWriteStream(tempFile);
+      const response = await axios({
+        method: 'get',
+        url: remoteUrl,
+        responseType: 'stream',
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        timeout: 30000
+      });
+
+      const totalLen = parseInt(response.headers['content-length'] || '0', 10);
+      let downloaded = 0;
+
+      response.data.on('data', (chunk: Buffer) => {
+        downloaded += chunk.length;
+        const entry = activeCacheDownloads.get(hash);
+        if (entry) {
+          entry.bytesDownloaded = downloaded;
+          entry.totalBytes = totalLen;
+        }
+      });
+
+      response.data.pipe(writer);
+
+      writer.on('finish', () => {
+        if (fs.existsSync(tempFile)) {
+          try {
+            fs.renameSync(tempFile, completedFile);
+            console.log(`[MediaCache] Pre-cache complete: ${completedFile} (${(downloaded / (1024 * 1024)).toFixed(1)} MB)`);
+          } catch (err: any) {
+            console.error(`[MediaCache Rename Error] ${err.message}`);
+          }
+        }
+        activeCacheDownloads.delete(hash);
+      });
+
+      writer.on('error', (err) => {
+        console.error(`[MediaCache Writer Error] ${err.message}`);
+        activeCacheDownloads.delete(hash);
+        if (fs.existsSync(tempFile)) {
+          try { fs.unlinkSync(tempFile); } catch (e) {}
+        }
+      });
+
+      return tempFile;
+    } catch (err: any) {
+      console.error(`[MediaCache Pre-Cache Error] ${err.message}`);
+      activeCacheDownloads.delete(hash);
+      if (fs.existsSync(tempFile)) {
+        try { fs.unlinkSync(tempFile); } catch (e) {}
+      }
+      return remoteUrl;
+    }
+  }
+
+  function pruneMediaCache() {
+    try {
+      const currentSettings = readJson(SETTINGS_FILE);
+      if (!fs.existsSync(MEDIA_CACHE_DIR)) return;
+
+      const retentionHours = parseInt(currentSettings.mediaCacheRetentionHours || '24', 10);
+      const maxGB = parseFloat(currentSettings.mediaCacheMaxGB || '50');
+      const maxBytes = maxGB * 1024 * 1024 * 1024;
+      const now = Date.now();
+      const cutoffTime = now - (retentionHours * 60 * 60 * 1000);
+
+      const files = fs.readdirSync(MEDIA_CACHE_DIR).map(file => {
+        const filePath = path.join(MEDIA_CACHE_DIR, file);
+        try {
+          const stats = fs.statSync(filePath);
+          return { file, filePath, mtime: stats.mtimeMs, size: stats.size };
+        } catch (e) {
+          return null;
+        }
+      }).filter(Boolean) as { file: string, filePath: string, mtime: number, size: number }[];
+
+      let totalBytes = 0;
+      files.forEach(f => {
+        if (f.mtime < cutoffTime && !f.file.endsWith('.tmp')) {
+          console.log(`[MediaCache Prune] Removing expired cached file: ${f.file}`);
+          try { fs.unlinkSync(f.filePath); } catch (e) {}
+        } else {
+          totalBytes += f.size;
+        }
+      });
+
+      if (maxBytes > 0 && totalBytes > maxBytes) {
+        const remainingFiles = fs.readdirSync(MEDIA_CACHE_DIR).map(file => {
+          const filePath = path.join(MEDIA_CACHE_DIR, file);
+          try {
+            const stats = fs.statSync(filePath);
+            return { file, filePath, mtime: stats.mtimeMs, size: stats.size };
+          } catch (e) { return null; }
+        }).filter(Boolean) as { file: string, filePath: string, mtime: number, size: number }[];
+
+        remainingFiles.sort((a, b) => a.mtime - b.mtime);
+
+        let currentSize = remainingFiles.reduce((sum, f) => sum + f.size, 0);
+        for (const f of remainingFiles) {
+          if (currentSize <= maxBytes) break;
+          if (f.file.endsWith('.tmp')) continue;
+          console.log(`[MediaCache LRU] Pruning file to satisfy disk quota: ${f.file}`);
+          try {
+            fs.unlinkSync(f.filePath);
+            currentSize -= f.size;
+          } catch (e) {}
+        }
+      }
+    } catch (e: any) {
+      console.error(`[MediaCache Prune Error] ${e.message}`);
+    }
+  }
+
+  setInterval(pruneMediaCache, 15 * 60 * 1000);
 
 
 
@@ -896,13 +1048,56 @@ async function startServer() {
       hevcMode: settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer'),
       mediaFolders: settings.mediaFolders || [],
       sportsIptvGroups: settings.sportsIptvGroups || [],
-      enableEztv: settings.enableEztv === true
+      enableEztv: settings.enableEztv === true,
+      enableMediaCache: settings.enableMediaCache === true,
+      mediaCacheRetentionHours: settings.mediaCacheRetentionHours || '24',
+      mediaCacheMaxGB: settings.mediaCacheMaxGB || '50'
     });
   });
 
   // /api/admin/logs GET
   app.get('/api/admin/logs', requireAdmin, (req, res) => {
     res.json(backendLogs);
+  });
+
+  // /api/admin/cache/stats GET
+  app.get('/api/admin/cache/stats', requireAdmin, (req, res) => {
+    try {
+      if (!fs.existsSync(MEDIA_CACHE_DIR)) {
+        return res.json({ totalFiles: 0, totalSizeBytes: 0, formattedSize: '0 MB' });
+      }
+      const files = fs.readdirSync(MEDIA_CACHE_DIR);
+      let totalSize = 0;
+      let fileCount = 0;
+      files.forEach(f => {
+        try {
+          const stats = fs.statSync(path.join(MEDIA_CACHE_DIR, f));
+          totalSize += stats.size;
+          fileCount++;
+        } catch (e) {}
+      });
+      const formattedSize = totalSize > 1073741824 
+        ? `${(totalSize / 1073741824).toFixed(2)} GB` 
+        : `${(totalSize / 1048576).toFixed(1)} MB`;
+      res.json({ totalFiles: fileCount, totalSizeBytes: totalSize, formattedSize });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // /api/admin/cache/purge POST
+  app.post('/api/admin/cache/purge', requireAdmin, (req, res) => {
+    try {
+      if (fs.existsSync(MEDIA_CACHE_DIR)) {
+        const files = fs.readdirSync(MEDIA_CACHE_DIR);
+        files.forEach(f => {
+          try { fs.unlinkSync(path.join(MEDIA_CACHE_DIR, f)); } catch (e) {}
+        });
+      }
+      res.json({ success: true, message: 'Media cache purged successfully.' });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // /api/admin/settings PUT
@@ -948,6 +1143,9 @@ async function startServer() {
     if (req.body.iptvUrl !== undefined) settings.iptvUrl = req.body.iptvUrl;
     if (req.body.epgUrl !== undefined) settings.epgUrl = req.body.epgUrl;
     if (req.body.epgOffset !== undefined) settings.epgOffset = req.body.epgOffset;
+    if (req.body.enableMediaCache !== undefined) settings.enableMediaCache = req.body.enableMediaCache;
+    if (req.body.mediaCacheRetentionHours !== undefined) settings.mediaCacheRetentionHours = req.body.mediaCacheRetentionHours;
+    if (req.body.mediaCacheMaxGB !== undefined) settings.mediaCacheMaxGB = req.body.mediaCacheMaxGB;
     if (req.body.xtreamServer !== undefined) settings.xtreamServer = req.body.xtreamServer;
     if (req.body.xtreamUsername !== undefined) settings.xtreamUsername = req.body.xtreamUsername;
     if (req.body.xtreamPassword !== undefined) settings.xtreamPassword = req.body.xtreamPassword;
@@ -2159,9 +2357,30 @@ app.get('/api/youtube/search', async (req, res) => {
           console.error('[FFmpeg-Proxy] Failed to resolve TorBox redirect:', resolveErr.message);
         }
       }
-    }
-
     const isLive = req.query.live === 'true';
+
+    // Optional Media Pre-Caching for remote streams
+    const currentSettings = readJson(SETTINGS_FILE);
+    if (currentSettings.enableMediaCache === true && !isLocalFile && !isLive) {
+      try {
+        console.log(`[MediaCache] Pre-cache enabled. Checking local cache for: ${resolvedUrl.substring(0, 60)}...`);
+        const cachedPath = await getOrStartCachedStream(resolvedUrl);
+        if (cachedPath && fs.existsSync(cachedPath)) {
+          let retries = 0;
+          while (retries < 20 && fs.statSync(cachedPath).size < 512 * 1024) {
+            await new Promise(r => setTimeout(r, 250));
+            retries++;
+          }
+          if (fs.statSync(cachedPath).size >= 512 * 1024) {
+            console.log(`[MediaCache] Streaming directly from server local cache: ${cachedPath}`);
+            isLocalFile = true;
+            localFilePath = cachedPath;
+          }
+        }
+      } catch (cacheErr: any) {
+        console.warn(`[MediaCache Error] Falling back to direct HTTP stream: ${cacheErr.message}`);
+      }
+    }
 
     const bestEncoder = (hwAccel || systemSettings.intelTranscoding) ? detectBestH264Encoder() : 'libx264';
     const vaapiDev = getVaapiDevice();

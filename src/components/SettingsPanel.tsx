@@ -230,6 +230,12 @@ export default function SettingsPanel() {
   const [usenetUsername, setUsenetUsername] = useState(systemSettings.usenetUsername || '');
   const [usenetPassword, setUsenetPassword] = useState(systemSettings.usenetPassword || '');
 
+  const [enableMediaCache, setEnableMediaCache] = useState(systemSettings.enableMediaCache === true);
+  const [mediaCacheRetentionHours, setMediaCacheRetentionHours] = useState(systemSettings.mediaCacheRetentionHours || '24');
+  const [mediaCacheMaxGB, setMediaCacheMaxGB] = useState(systemSettings.mediaCacheMaxGB || '50');
+  const [cacheStats, setCacheStats] = useState<{ formattedSize: string; totalFiles: number } | null>(null);
+  const [cachePurging, setCachePurging] = useState(false);
+
   const [saved, setSaved] = useState(false);
   
 
@@ -269,6 +275,43 @@ export default function SettingsPanel() {
       };
     }
   }, [enableDebugLog, isAdmin]);
+
+  const fetchCacheStats = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch('/api/admin/cache/stats', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCacheStats(data);
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (isAdmin) fetchCacheStats();
+  }, [isAdmin]);
+
+  const handlePurgeCache = async () => {
+    if (!confirm('Are you sure you want to purge all cached media files from server storage?')) return;
+    setCachePurging(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch('/api/admin/cache/purge', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        await fetchCacheStats();
+        alert('Media cache purged successfully!');
+      }
+    } catch (e) {
+      alert('Failed to purge media cache');
+    } finally {
+      setCachePurging(false);
+    }
+  };
 
   // --- Email Config state (admin only) ---
   const [emailGmailUser, setEmailGmailUser] = useState('');
@@ -476,10 +519,12 @@ export default function SettingsPanel() {
       preferredLanguage,
       mediaFolders,
       usenetHost,
-
       usenetPort,
       usenetUsername,
       usenetPassword,
+      enableMediaCache,
+      mediaCacheRetentionHours,
+      mediaCacheMaxGB,
       sportsIptvGroups: sportsGroups || [],
       enableEztv
     });
@@ -838,6 +883,75 @@ export default function SettingsPanel() {
                 <span className="text-sm font-medium text-white">Enable EZTV Integration</span>
               </label>
               <p className="text-xs text-white/80 mt-2 ml-7">Turn on EZTV searches for TV Shows. (Note: EZTV API can sometimes block requests or rate limit).</p>
+            </div>
+
+            {/* Media Pre-Caching & Storage Controls */}
+            <div className="pt-6 border-t border-white/10 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">Media Pre-Caching & Storage</h3>
+                  <p className="text-xs text-white/50 mt-0.5">Pre-downloads remote streams to server storage while watching for zero buffering & instant seeking.</p>
+                </div>
+                {cacheStats && (
+                  <div className="text-right">
+                    <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                      {cacheStats.formattedSize} ({cacheStats.totalFiles} files)
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={enableMediaCache} 
+                  onChange={(e) => setEnableMediaCache(e.target.checked)}
+                  className="w-4 h-4 text-emerald-500 rounded bg-black/40 border-white/20 focus:ring-emerald-500 focus:ring-offset-gray-900" 
+                />
+                <span className="text-sm font-medium text-white">Enable Server Stream Pre-Caching</span>
+              </label>
+
+              {enableMediaCache && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-7 pt-2">
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Max Disk Quota (GB)</label>
+                    <input 
+                      type="number"
+                      value={mediaCacheMaxGB}
+                      onChange={(e) => setMediaCacheMaxGB(e.target.value)}
+                      className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-white text-sm outline-none focus:border-emerald-500/50"
+                      placeholder="50"
+                      min="1"
+                    />
+                    <p className="text-[11px] text-white/40 mt-1">Oldest files will be auto-pruned when quota is reached (LRU).</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-white/70 mb-1">Cache Retention Period</label>
+                    <select
+                      value={mediaCacheRetentionHours}
+                      onChange={(e) => setMediaCacheRetentionHours(e.target.value)}
+                      className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-white text-sm outline-none focus:border-emerald-500/50"
+                    >
+                      <option value="6">6 Hours</option>
+                      <option value="12">12 Hours</option>
+                      <option value="24">24 Hours (1 Day)</option>
+                      <option value="72">72 Hours (3 Days)</option>
+                      <option value="168">168 Hours (7 Days)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="pl-7 pt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handlePurgeCache}
+                  disabled={cachePurging}
+                  className="px-3.5 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs font-semibold rounded-lg border border-red-500/30 transition-colors disabled:opacity-40"
+                >
+                  {cachePurging ? 'Purging...' : 'Purge All Cached Files'}
+                </button>
+              </div>
             </div>
 
             <div>

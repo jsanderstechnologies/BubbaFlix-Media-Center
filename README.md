@@ -12,6 +12,7 @@
 - **AI-Powered Filtering**: Integrated with Google Gemini (`gemini-1.5-flash`) to intelligently filter out non-English results and irrelevant file names, guaranteeing high-quality search results.
 - **Hardware-Accelerated Transcoding**: Support for Intel Quick Sync Video (QSV) to transcode media on the fly via FFmpeg with minimal CPU usage.
 - **Live TV (IPTV) & Direct Play**: Fully integrated M3U and Xtream Codes support with EPG (Electronic Program Guide) parsing, offset customization, and direct native HLS playback for TV clients.
+- **Server Stream Pre-Caching**: Optional background media caching for remote streams (TorBox, Usenet, Debrid). Pre-downloads video files progressively to local server storage as they are watched, eliminating CDN rate-limiting, network jitter, and providing instant seeking.
 - **Customizable Players**: Native browser playback or automatic spawning of external desktop players like VLC, mpv, or IINA.
 
 ### 📺 Smart TV & Android TV Experience
