@@ -2,6 +2,8 @@ import express from 'express';
 import path from 'path';
 import os from 'os';
 import dns from 'dns';
+import { createRequire } from 'module';
+const customRequire = typeof require !== 'undefined' ? require : createRequire(typeof import.meta !== 'undefined' && import.meta.url ? import.meta.url : 'file:///' + __filename);
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 
 // Maximize multithreading across all available CPU cores for Node libuv threadpool (crypto, DNS, disk I/O)
@@ -338,7 +340,7 @@ export async function playMediaStream(streamUrl: string) {
 // this is just to allow you to test the API in the browser preview here)
 // ============================================================================
 
-const EztvApi = require('eztv-api-pt');
+const EztvApi = customRequire('eztv-api-pt');
 const eztv = new EztvApi({ baseUrl: 'https://eztvx.to/' });
 
 async function startServer() {
@@ -2383,7 +2385,7 @@ app.get('/api/youtube/search', async (req, res) => {
     const buildMagnet = (hash: string, name: string) =>
       `magnet:?xt=urn:btih:${hash}&dn=${encodeURIComponent(name)}${TRACKERS}`;
 
-    const scrapeHTML = require('cheerio');
+    const scrapeHTML = customRequire('cheerio');
 
     try {
       const isMusicQuery = req.query.category === 'music' || /(flac|mp3|320|lossless|cd|album|discography|aac|alac|music|song|artist)/i.test(q as string);
