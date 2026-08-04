@@ -49,9 +49,9 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
   } else if (sortOption === 'rating_low') {
     processedMovies.sort((a, b) => parseFloat(a.rating) - parseFloat(b.rating));
   } else if (sortOption === 'title_asc' || sortOption === 'title' || sortOption === 'name') {
-    processedMovies.sort((a, b) => getSortableTitle(a.title || a.name).localeCompare(getSortableTitle(b.title || b.name), undefined, { sensitivity: 'base', numeric: true }));
+    processedMovies.sort((a: any, b: any) => getSortableTitle(a.title || a.name).localeCompare(getSortableTitle(b.title || b.name), undefined, { sensitivity: 'base', numeric: true }));
   } else if (sortOption === 'title_desc') {
-    processedMovies.sort((a, b) => getSortableTitle(b.title || b.name).localeCompare(getSortableTitle(a.title || a.name), undefined, { sensitivity: 'base', numeric: true }));
+    processedMovies.sort((a: any, b: any) => getSortableTitle(b.title || b.name).localeCompare(getSortableTitle(a.title || a.name), undefined, { sensitivity: 'base', numeric: true }));
   }
 
   if (processedMovies.length === 0) {

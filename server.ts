@@ -631,7 +631,7 @@ async function startServer() {
       return res.status(400).json({ error: 'Setup has already been completed' });
     }
 
-    const { email, username, password, tmdbKey, torboxApiKey, geminiApiKey } = req.body;
+    const { email, username, password, tmdbKey, geminiApiKey } = req.body;
     if (!email || !username || !password) {
       return res.status(400).json({ error: 'Admin email, username, and password are required' });
     }
@@ -670,7 +670,6 @@ async function startServer() {
     // Save initial system keys if provided
     const settings = readJson(SETTINGS_FILE);
     if (tmdbKey) settings.tmdbKey = tmdbKey;
-    if (torboxApiKey) settings.torboxApiKey = torboxApiKey;
     if (geminiApiKey) settings.geminiApiKey = geminiApiKey;
     writeJson(SETTINGS_FILE, settings);
 
@@ -1565,8 +1564,9 @@ Do not include markdown blocks or extra text.`;
 
     const currentSettings = readJson(SETTINGS_FILE);
     if (currentSettings.enableMediaCache === true && !isLocalFile) {
-      const hash = getMediaUrlHash(targetUrl);
-      const completedFile = path.join(MEDIA_CACHE_DIR, `${hash}.mp4`);
+      const hash = crypto.createHash('md5').update(targetUrl).digest('hex');
+      const mediaCacheDir = path.join(os.tmpdir(), 'media_cache');
+      const completedFile = path.join(mediaCacheDir, `${hash}.mp4`);
       if (fs.existsSync(completedFile)) {
         isLocalFile = true;
         localFilePath = completedFile;
@@ -2003,24 +2003,7 @@ app.get('/api/youtube/search', async (req, res) => {
       } catch (e) {}
     }
 
-    if (!isLocalFile && targetUrl.includes('torbox.app') && targetUrl.includes('requestdl')) {
-      try {
-        const redirectRes = await axios({
-          method: 'get', url: targetUrl, maxRedirects: 0,
-          validateStatus: (s) => s >= 200 && s < 400,
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        if (redirectRes.status === 307 && redirectRes.headers['location']) {
-          resolvedUrl = redirectRes.headers['location'] as string;
-        } else if (redirectRes.data && typeof redirectRes.data === 'object' && redirectRes.data.data) {
-          resolvedUrl = redirectRes.data.data;
-        }
-      } catch (resolveErr: any) {
-        if (resolveErr.response?.status === 307 && resolveErr.response?.headers?.location) {
-          resolvedUrl = resolveErr.response.headers.location;
-        }
-      }
-    }
+
 
     const args: string[] = ['-threads', '0'];
     if (!isLocalFile) {
@@ -2122,8 +2105,8 @@ app.get('/api/youtube/search', async (req, res) => {
 
     // TorBox requestdl links are passed directly to FFmpeg so 307 redirects are followed natively without token invalidation
     const isLive = req.query.live === 'true';
-
-    const bestEncoder = (hwAccel || systemSettings.intelTranscoding) ? detectBestH264Encoder() : 'libx264';
+    const currentSettings = readJson(SETTINGS_FILE);
+    const bestEncoder = (hwAccel || currentSettings.intelTranscoding) ? detectBestH264Encoder() : 'libx264';
     const vaapiDev = getVaapiDevice();
     const useVaapi = (bestEncoder === 'h264_vaapi') && !!vaapiDev;
 
@@ -2288,135 +2271,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
-  // TorBox API Proxies
-  const usenetSearchCache = new Map<string, { timestamp: number, data: any[] }>();
-  const USENET_CACHE_TTL = 1000 * 60 * 5; // 5 minutes
-
-  app.get("/api/torbox/search", async (req, res) => {
-    const { q } = req.query;
-    if (!q || typeof q !== 'string') {
-      return res.status(400).json({ error: "Query 'q' parameter is required." });
-    }
-    console.log(`[Usenet Proxy] Received search request for: "${q}"`);
-
-    try {
-      const cacheKey = q;
-      const now = Date.now();
-      if (usenetSearchCache.has(cacheKey)) {
-        const cached = usenetSearchCache.get(cacheKey)!;
-        if (now - cached.timestamp < USENET_CACHE_TTL) {
-          return res.json({ success: true, detail: "Usenet search returned from cache.", data: cached.data });
-        }
-      }
-
-      const fallbackUrl = `https://www.nzbindex.nl/rss/?q=${encodeURIComponent(q)}&nzblink=1`;
-      console.log(`[Usenet Search Direct] Fetching from NZBIndex: ${fallbackUrl}`);
-      const rssRes = await axios.get(fallbackUrl, {
-        timeout: 7000,
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
-      });
-      const xml = rssRes.data;
-      
-      // Simple regex-based parsing of RSS items
-      const items: any[] = [];
-      const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-      let match;
-      while ((match = itemRegex.exec(xml)) !== null) {
-        const content = match[1];
-        const titleMatch = content.match(/<title>([\s\S]*?)<\/title>/);
-        const linkMatch = content.match(/<link>([\s\S]*?)<\/link>/);
-        const sizeMatch = content.match(/<description>[\s\S]*?Size: ([\s\S]*?)<br \/>/i) || content.match(/length="(\d+)"/);
-        
-        let title = titleMatch ? titleMatch[1].trim() : "Unknown NZB Release";
-        let link = linkMatch ? linkMatch[1].trim() : "";
-
-        // Clean CDATA wrappers if present
-        if (title.includes("![CDATA[")) {
-          title = title.replace("<![CDATA[", "").replace("]]>", "").trim();
-        }
-        if (link.includes("![CDATA[")) {
-          link = link.replace("<![CDATA[", "").replace("]]>", "").trim();
-        }
-
-        // 1. FILTER: Only accept video formats. Ignore subtitle/metadata/archive files.
-        const titleLower = title.toLowerCase();
-        const nonVideoPatterns = [
-          /\.srt\b/i, /\.sub\b/i, /\.nfo\b/i, /\.txt\b/i, /\.jpg\b/i, /\.png\b/i, 
-          /\.sfv\b/i, /\.par2\b/i, /\.nzb\b/i, /\.rar\b/i, /\.zip\b/i, /\.r\d{2}\b/i
-        ];
-        const isNonVideo = nonVideoPatterns.some(pat => pat.test(titleLower));
-        if (isNonVideo) {
-          continue;
-        }
-
-        // 2. CLEAN TITLE: Try to extract actual clean release filename (e.g. remove Usenet release prefixes like [01/10] - or quotes)
-        let cleanTitle = title;
-        
-        // Remove quotes around titles if present
-        if (cleanTitle.startsWith('"') && cleanTitle.endsWith('"')) {
-          cleanTitle = cleanTitle.substring(1, cleanTitle.length - 1);
-        }
-        
-        // Strip common Usenet prefix patterns like "[01/25] - " or "yEnc (" or "Part 1 of 5"
-        cleanTitle = cleanTitle.replace(/^\[\d+\/\d+\]\s*(-\s*)?/, ''); // Removes "[01/12] - "
-        cleanTitle = cleanTitle.replace(/^\(\d+\/\d+\)\s*(-\s*)?/, ''); // Removes "(01/12) - "
-        
-        // Strip trailing yEnc suffixes e.g. "yEnc (1/120)" or just "yEnc"
-        cleanTitle = cleanTitle.replace(/\s*yenc\s*(\(\d+\/\d+\))?.*$/i, '');
-        cleanTitle = cleanTitle.replace(/\s*yenc\s*.*$/i, '');
-        
-        cleanTitle = cleanTitle.replace(/^[^"]*"\s*/, ''); // If it has quotes embedded, grab content inside/after quotes
-        cleanTitle = cleanTitle.replace(/"\s*$/, '');
-        cleanTitle = cleanTitle.trim();
-
-        let size = 0;
-        if (sizeMatch) {
-          if (sizeMatch[1].match(/^\d+$/)) {
-            size = parseInt(sizeMatch[1]);
-          } else {
-            // Parse string representation e.g. "1.2 GB"
-            const sizeStr = sizeMatch[1].toUpperCase();
-            const num = parseFloat(sizeStr);
-            if (sizeStr.includes("GB")) size = num * 1024 * 1024 * 1024;
-            else if (sizeStr.includes("MB")) size = num * 1024 * 1024;
-            else if (sizeStr.includes("KB")) size = num * 1024;
-            else size = num;
-          }
-        }
-
-        if (link) {
-          items.push({
-            name: cleanTitle,
-            title: cleanTitle,
-            link: link,
-            cached: false,
-            seeds: 0,
-            peers: 0,
-            source: 'NZBIndex'
-          });
-        }
-      }
-      
-      // Cleanup old cache entries
-      if (usenetSearchCache.size > 100) {
-        const oldest = [...usenetSearchCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0][0];
-        usenetSearchCache.delete(oldest);
-      }
-
-      const settings = readJson(SETTINGS_FILE);
-      const filteredItems = await filterWithGemini(q as string, items, settings);
-
-      usenetSearchCache.set(cacheKey, { timestamp: now, data: filteredItems });
-      res.json({ success: true, detail: "Usenet search completed successfully.", data: filteredItems });
-    } catch (err: any) {
-      if (err.response && err.response.status === 429) {
-        console.warn(`[Usenet Search Direct] Rate limited by NZBIndex for query '${q}'. Returning empty array.`);
-        return res.json({ success: true, detail: "Rate limited by NZBIndex. Returning empty result.", data: [] });
-      }
-      console.error("[Usenet Search Direct] NZBIndex query failed:", err.message);
-      res.status(500).json({ error: err.message });
-    }
-  });
+  // Search Stream Proxies
 
   async function filterWithGemini(query: string, items: any[], settings: any, isMusic: boolean = false): Promise<any[]> {
     if (items.length === 0) return items;
@@ -2516,11 +2371,6 @@ app.get('/api/youtube/search', async (req, res) => {
       return res.status(400).json({ error: "Query 'q' parameter is required." });
     }
     const settings = readJson(SETTINGS_FILE);
-    let authHeader = req.headers.authorization;
-    if (!authHeader || authHeader.includes('undefined') || authHeader.includes('null') || authHeader.trim() === 'Bearer') {
-      const key = settings.torboxApiKey || '841059f71aab310b4d4c4f3a7e28328e';
-      authHeader = `Bearer ${key}`;
-    }
 
 
     const TRACKERS = [
@@ -2715,7 +2565,6 @@ app.get('/api/youtube/search', async (req, res) => {
   };
 
   app.get("/api/torrents/search", handleTorrentSearch);
-  app.get("/api/torbox/torrents/search", handleTorrentSearch);
 
 
   // --- PREMIUMIZE API PROXIES ---
@@ -3573,6 +3422,9 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
     }
 
     // Local Regex Normalization Fallback if Gemini rate limit (429) or error occurs
+    const cleanLocalTvTitle = (tStr: string): string => {
+      return tStr.replace(/[\._]/g, ' ').replace(/\b(s\d\de\d\d|1080p|720p|4k|2160p|hdtv|x264|x265|hevc|webrip|bluray)\b/gi, '').trim();
+    };
     const fallbackMap: Record<string, string> = {};
     rawSeriesTitles.forEach(t => {
       fallbackMap[t] = cleanLocalTvTitle(t);

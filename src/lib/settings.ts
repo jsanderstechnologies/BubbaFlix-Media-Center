@@ -24,7 +24,6 @@ export interface CustomChannelConfig {
 
 export interface SystemSettings {
   tmdbKey?: string;
-  torboxApiKey?: string;
   geminiApiKey?: string;
   preferHEVC?: boolean;
   hevcMode?: 'prefer' | 'allow' | 'exclude';
@@ -69,6 +68,7 @@ export interface UserSettings {
   enabledGroups?: string[];
   weatherLocation?: string;
   temperatureUnit?: 'F' | 'C';
+  adminMode?: boolean;
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
@@ -93,9 +93,6 @@ let globalZoom: number = parseFloat(localStorage.getItem('zoom') || '1');
 function syncSystemSettingsToLocalStorage(data: SystemSettings) {
   if (data.tmdbKey) localStorage.setItem('tmdbKey', data.tmdbKey);
   else localStorage.removeItem('tmdbKey');
-
-  if (data.torboxApiKey) localStorage.setItem('torboxApiKey', data.torboxApiKey);
-  else localStorage.removeItem('torboxApiKey');
 
   if (data.geminiApiKey) localStorage.setItem('geminiApiKey', data.geminiApiKey);
   else localStorage.removeItem('geminiApiKey');

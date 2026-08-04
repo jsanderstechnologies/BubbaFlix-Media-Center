@@ -90,6 +90,16 @@ class DebugLogger {
     this.addLog('log', ...args);
   }
 
+  public warn(...args: any[]) {
+    this.originalWarn(...args);
+    this.addLog('warn', ...args);
+  }
+
+  public error(...args: any[]) {
+    this.originalError(...args);
+    this.addLog('error', ...args);
+  }
+
   public async fetchBackendLogs(adminToken: string): Promise<LogEntry[]> {
     if (!adminToken) return [];
     try {

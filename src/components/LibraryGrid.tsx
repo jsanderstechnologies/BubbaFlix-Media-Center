@@ -248,7 +248,7 @@ export function LibraryGrid({
   }, []);
 
   const [loading, setLoading] = useState(() => networkShareItems.length === 0);
-  const [activeTab, setActiveTab] = useState<'movies' | 'series' | 'collections'>('movies');
+  const [activeTab, setActiveTab] = useState<'movies' | 'series' | 'collections' | 'music'>('movies');
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
   const [collections, setCollections] = useState<any[]>(() => {
     try {

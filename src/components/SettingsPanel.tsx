@@ -875,71 +875,6 @@ export default function SettingsPanel() {
               <p className="text-xs text-white/80 mt-2">Provides additional regional, global, and sports news feeds.</p>
             </div>
             
-            <div className="space-y-4 pt-4 border-t border-white/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-medium text-white block mb-1">Enable TorBox Usenet Search</label>
-                  <p className="text-xs text-white/80">Fetch streams from Usenet via TorBox API.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    if (!enableTorrentSearch && enableUsenetSearch) {
-                      alert("You must have at least one search method active.");
-                      return;
-                    }
-                    setEnableUsenetSearch(!enableUsenetSearch);
-                  }}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enableUsenetSearch ? 'bg-indigo-600' : 'bg-slate-700'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enableUsenetSearch ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-
-              {enableUsenetSearch && isAdmin && (
-                <div className="pl-4 border-l-2 border-indigo-500/50 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-white/80 mb-1">Usenet Host</label>
-                      <input type="text" value={usenetHost} onChange={(e) => setUsenetHost(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-indigo-500/50 text-sm" placeholder="news.usenet.com" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-white/80 mb-1">Usenet Port</label>
-                      <input type="text" value={usenetPort} onChange={(e) => setUsenetPort(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-indigo-500/50 text-sm" placeholder="563" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-white/80 mb-1">Username</label>
-                      <input type="text" value={usenetUsername} onChange={(e) => setUsenetUsername(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-indigo-500/50 text-sm" placeholder="Username" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-white/80 mb-1">Password</label>
-                      <input type="password" value={usenetPassword} onChange={(e) => setUsenetPassword(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white outline-none focus:border-indigo-500/50 text-sm" placeholder="Password" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-medium text-white block mb-1">Enable TorBox Torrent Search</label>
-                  <p className="text-xs text-white/80">Fetch streams from Torrents via TorBox API.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    if (!enableUsenetSearch && enableTorrentSearch) {
-                      alert("You must have at least one search method active.");
-                      return;
-                    }
-                    setEnableTorrentSearch(!enableTorrentSearch);
-                  }}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enableTorrentSearch ? 'bg-indigo-600' : 'bg-slate-700'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enableTorrentSearch ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-            </div>
-
             <div>
               <label className="text-sm font-medium text-white block mb-2">HEVC (H.265) Codec & Stream Filtering</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
@@ -968,12 +903,12 @@ export default function SettingsPanel() {
                   <span className="text-[10px] opacity-70 mt-1">Strictly force H.264 only (for older devices).</span>
                 </button>
               </div>
-              <p className="text-xs text-white/80">Configure how TorBox and Usenet stream searches handle HEVC / H.265 video releases.</p>
+              <p className="text-xs text-white/80">Configure how stream searches handle HEVC / H.265 video releases.</p>
             </div>
 
 
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Max TorBox Stream Results</label>
+              <label className="block text-sm font-medium text-white mb-2">Max Stream Results</label>
               <input 
                 type="number"
                 value={maxResults}
@@ -983,7 +918,7 @@ export default function SettingsPanel() {
                 min="1"
                 max="100"
               />
-              <p className="text-xs text-white/80 mt-2">Maximum number of cached streams to fetch from TorBox (1-100).</p>
+              <p className="text-xs text-white/80 mt-2">Maximum number of cached streams to fetch (1-100).</p>
             </div>
 
 

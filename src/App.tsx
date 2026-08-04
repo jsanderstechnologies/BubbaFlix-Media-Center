@@ -21,7 +21,7 @@ import LibraryGrid from './components/LibraryGrid';
 import { VirtualKeyboard } from './components/VirtualKeyboard';
 import HomePanel from './components/HomePanel';
 import SearchPanel from './components/SearchPanel';
-import TorBoxMusicPanel from './components/TorBoxMusicPanel';
+import MusicPanel from './components/MusicPanel';
 import WeatherPanel from './components/WeatherPanel';
 import NewsPanel from './components/NewsPanel';
 import WeatherAlertModal from './components/WeatherAlertModal';
@@ -1248,8 +1248,8 @@ function MainApp() {
                 <img src="/images/tmdb-logo.png" alt="TMDB API" className="h-4 object-contain brightness-110" title="TMDB API Active" />
               )}
               {systemSettings.premiumizeApiKey && (
-                <span className="text-[10px] bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm" title="Premiumize.me Instant 4K Debrid Engine Active">
-                  <Zap className="w-3 h-3 text-cyan-400 fill-cyan-400" /> Premiumize ⚡
+                <span className="text-[10px] bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm" title="Premiumize.me Instant 4K Debrid Engine Active">
+                  <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="w-3.5 h-3.5 object-contain" /> Premiumize ⚡
                 </span>
               )}
               {systemSettings.geminiApiKey && (
@@ -1365,7 +1365,7 @@ function MainApp() {
 
             </>
           ) : activeTab === 'music' ? (
-            <TorBoxMusicPanel initialQuery={searchQuery} />
+            <MusicPanel initialQuery={searchQuery} />
           ) : activeTab === 'weather' ? (
             <WeatherPanel />
           ) : activeTab === 'news' ? (
