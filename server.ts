@@ -1095,6 +1095,10 @@ async function startServer() {
       } catch (err: any) {
         lastErr = err;
         const status = err.response?.status;
+        if (status === 429) {
+          console.warn(`[Gemini API] Quota / Rate limit reached (HTTP 429 Too Many Requests). Bypassing AI call.`);
+          throw new Error("Gemini API Rate Limit / Quota Exceeded (429)");
+        }
         if (status === 404) {
           console.warn(`[Gemini API] Model '${model}' returned 404 Not Found. Trying fallback model...`);
           continue;
@@ -2501,9 +2505,14 @@ app.get('/api/youtube/search', async (req, res) => {
       }
       return candidateItems;
     } catch (err: any) {
+      const status = err.response?.status;
       const errMsg = err.response?.data?.error?.message || err.message;
-      console.warn(`[Gemini Filter Warning] (${err.response?.status || 'Network Error'}): ${errMsg}. Bypassing AI filter and returning candidate items.`);
-      return candidateItems; // Fallback to HEVC-stripped candidate items if Gemini fails
+      if (status === 429 || errMsg.includes('429')) {
+        console.warn(`[Gemini Filter Warning]: Gemini API quota / rate limit reached (429). Returning all candidate streams.`);
+      } else {
+        console.warn(`[Gemini Filter Warning] (${status || 'Network Error'}): ${errMsg}. Returning candidate items.`);
+      }
+      return candidateItems; // Fallback to candidate items if Gemini fails
     }
   }
 
@@ -3663,10 +3672,16 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       }
-    } catch (err) {
-      console.warn('[Gemini AI TV Normalizer] Failed to normalize TV series titles with Gemini:', err);
+    } catch (err: any) {
+      console.warn('[Gemini AI TV Normalizer] Gemini API rate limit or error reached. Falling back to local regex normalization:', err.message);
     }
-    return {};
+
+    // Local Regex Normalization Fallback if Gemini rate limit (429) or error occurs
+    const fallbackMap: Record<string, string> = {};
+    rawSeriesTitles.forEach(t => {
+      fallbackMap[t] = cleanLocalTvTitle(t);
+    });
+    return fallbackMap;
   }
 
 
