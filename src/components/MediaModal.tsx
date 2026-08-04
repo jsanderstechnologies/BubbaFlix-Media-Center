@@ -1192,7 +1192,11 @@ export default function MediaModal({
                                         triggerPlay(rdData.streamUrl, stream);
                                         return;
                                       } else if (rdData.error) {
-                                        alert("Real-Debrid Error: " + rdData.error);
+                                        if (rdData.errorCode === 35 || rdData.error === 'infringing_file') {
+                                          alert("Real-Debrid DMCA Block: Real-Debrid has blocked this specific release file due to DMCA infringement guidelines (code 35). Please select a different release version from the list or use TorBox.");
+                                        } else {
+                                          alert("Real-Debrid Error: " + (rdData.message || rdData.error));
+                                        }
                                       }
                                     } catch (err: any) {
                                       console.error("Failed to unrestrict stream on Real-Debrid:", err);

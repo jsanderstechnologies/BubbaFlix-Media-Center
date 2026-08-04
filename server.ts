@@ -2861,8 +2861,13 @@ app.get('/api/youtube/search', async (req, res) => {
       
       res.json({ success: true, data: response.data });
     } catch (err: any) {
-      console.error("[Real-Debrid InstantAvailability Error]:", err.response?.data || err.message);
-      res.status(err.response?.status || 500).json({ error: err.message });
+      const errData = err.response?.data || {};
+      if (errData.error === 'disabled_endpoint' || errData.error_code === 37) {
+        console.warn("[Real-Debrid] Note: instantAvailability endpoint is disabled by Real-Debrid servers. Streams will resolve on click.");
+        return res.json({ success: true, data: {}, disabled: true });
+      }
+      console.error("[Real-Debrid InstantAvailability Error]:", errData || err.message);
+      res.status(err.response?.status || 500).json({ error: err.message, detail: errData });
     }
   });
 
@@ -2926,8 +2931,18 @@ app.get('/api/youtube/search', async (req, res) => {
         unrestricted: unrestrictRes.data
       });
     } catch (err: any) {
-      console.error("[Real-Debrid AddMagnet Error]:", err.response?.data || err.message);
-      res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
+      const errData = err.response?.data || {};
+      if (errData.error === 'infringing_file' || errData.error_code === 35) {
+        console.warn("[Real-Debrid AddMagnet] Infringing file detected (code 35). Magnet blocked by Real-Debrid DMCA policy.");
+        return res.status(400).json({
+          success: false,
+          error: "infringing_file",
+          errorCode: 35,
+          message: "Real-Debrid has blocked this file due to DMCA infringement guidelines. Please select an alternative release."
+        });
+      }
+      console.error("[Real-Debrid AddMagnet Error]:", errData || err.message);
+      res.status(err.response?.status || 500).json({ error: err.message, detail: errData });
     }
   });
 
