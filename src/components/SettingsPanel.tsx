@@ -74,6 +74,7 @@ export default function SettingsPanel() {
 
   const [tmdbKey, setTmdbKey] = useState(systemSettings.tmdbKey || '');
   const [torboxApiKey, setTorboxApiKey] = useState(systemSettings.torboxApiKey || '');
+  const [realDebridApiKey, setRealDebridApiKey] = useState(systemSettings.realDebridApiKey || localStorage.getItem('realDebridApiKey') || '');
   const [geminiApiKey, setGeminiApiKey] = useState(systemSettings.geminiApiKey || '');
   const [newsApiKey, setNewsApiKey] = useState(systemSettings.newsApiKey || '');
   const [gnewsApiKey, setGnewsApiKey] = useState(systemSettings.gnewsApiKey || '');
@@ -449,9 +450,12 @@ export default function SettingsPanel() {
     logger.setEnabled(enableDebugLog);
 
 
+    localStorage.setItem('realDebridApiKey', realDebridApiKey);
+
     await updateSystemSettings({
       tmdbKey,
       torboxApiKey,
+      realDebridApiKey,
       geminiApiKey,
       newsApiKey,
       gnewsApiKey,
@@ -774,6 +778,14 @@ export default function SettingsPanel() {
             </div>
 
             <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
+              <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">Real-Debrid</span>
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${realDebridApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`}></span>
+                <span className="text-sm font-semibold text-white">{realDebridApiKey ? 'ONLINE' : 'MISSING KEY'}</span>
+              </div>
+            </div>
+
+            <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
               <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">Gemini API</span>
               <div className="flex items-center gap-2">
                 <span className={`w-2.5 h-2.5 rounded-full ${geminiApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`}></span>
@@ -807,6 +819,23 @@ export default function SettingsPanel() {
                 />
               </div>
               <p className="text-xs text-white/80 mt-2">Required to monitor TorBox download caching status in real-time.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Real-Debrid API Key / Secret Token</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
+                  <Database className="w-4 h-4" />
+                </span>
+                <input 
+                  type="password"
+                  value={realDebridApiKey}
+                  onChange={(e) => setRealDebridApiKey(e.target.value)}
+                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
+                  placeholder="Enter Real-Debrid API Token..."
+                />
+              </div>
+              <p className="text-xs text-white/80 mt-2">Enables instant 4K high-speed torrent streaming via Real-Debrid. Get token at <a href="https://real-debrid.com/apitoken" target="_blank" rel="noreferrer" className="text-indigo-400 underline hover:text-indigo-300">real-debrid.com/apitoken</a></p>
             </div>
 
             <div>

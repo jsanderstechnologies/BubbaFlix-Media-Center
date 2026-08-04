@@ -420,6 +420,10 @@ async function startServer() {
     settings.torboxApiKey = process.env.TORBOX_API_KEY;
     settingsChanged = true;
   }
+  if ((process.env.REAL_DEBRID_API_KEY || process.env.RD_API_KEY) && settings.realDebridApiKey !== (process.env.REAL_DEBRID_API_KEY || process.env.RD_API_KEY)) {
+    settings.realDebridApiKey = process.env.REAL_DEBRID_API_KEY || process.env.RD_API_KEY;
+    settingsChanged = true;
+  }
   if (process.env.PREFER_HEVC && settings.preferHEVC !== (process.env.PREFER_HEVC === 'true')) {
     settings.preferHEVC = process.env.PREFER_HEVC === 'true';
     settingsChanged = true;
@@ -683,6 +687,7 @@ async function startServer() {
     res.json({
       tmdbKey: settings.tmdbKey || '',
       torboxApiKey: settings.torboxApiKey || '',
+      realDebridApiKey: settings.realDebridApiKey || '',
       geminiApiKey: settings.geminiApiKey || '',
       preferHEVC: settings.preferHEVC !== false,
       hevcMode: settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer'),
@@ -946,6 +951,7 @@ async function startServer() {
     // Some general settings that any admin can save from SettingsPanel
     if (req.body.tmdbKey !== undefined) settings.tmdbKey = req.body.tmdbKey;
     if (req.body.torboxApiKey !== undefined) settings.torboxApiKey = req.body.torboxApiKey;
+    if (req.body.realDebridApiKey !== undefined) settings.realDebridApiKey = req.body.realDebridApiKey;
     if (req.body.newsApiKey !== undefined) settings.newsApiKey = req.body.newsApiKey;
     if (req.body.gnewsApiKey !== undefined) settings.gnewsApiKey = req.body.gnewsApiKey;
     if (req.body.preferHEVC !== undefined) settings.preferHEVC = req.body.preferHEVC;
@@ -2817,6 +2823,158 @@ app.get('/api/youtube/search', async (req, res) => {
         console.error("[TorBox Torrent Create Proxy] Failed:", err.response?.data || err.message);
         return res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
       }
+    }
+  });
+
+
+  // --- REAL-DEBRID API PROXIES ---
+  const rdTorrentListCache = new Map<string, { timestamp: number; data: any }>();
+
+  const getRdToken = (req: any): string => {
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith('Bearer ')) {
+      const tok = auth.replace('Bearer ', '').trim();
+      if (tok) return tok;
+    }
+    const settings = readJson(SETTINGS_FILE);
+    return settings.realDebridApiKey || process.env.REAL_DEBRID_API_KEY || process.env.RD_API_KEY || '';
+  };
+
+  // 1. Instant Availability Check (Check if hashes are cached on Real-Debrid)
+  app.post("/api/realdebrid/instantAvailability", async (req, res) => {
+    const token = getRdToken(req);
+    if (!token) return res.status(401).json({ error: "Real-Debrid API Key is required." });
+    
+    const { hashes } = req.body;
+    if (!hashes || !Array.isArray(hashes) || hashes.length === 0) {
+      return res.json({ success: true, data: {} });
+    }
+
+    try {
+      const cleanHashes = hashes.map((h: string) => h.toLowerCase().trim()).filter(Boolean);
+      const hashPath = cleanHashes.slice(0, 100).join('/');
+      
+      const response = await axios.get(`https://api.real-debrid.com/rest/1.0/torrents/instantAvailability/${hashPath}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 8000
+      });
+      
+      res.json({ success: true, data: response.data });
+    } catch (err: any) {
+      console.error("[Real-Debrid InstantAvailability Error]:", err.response?.data || err.message);
+      res.status(err.response?.status || 500).json({ error: err.message });
+    }
+  });
+
+  // 2. Add Magnet, Auto-Select Files, and Unrestrict to Direct Stream Link
+  app.post("/api/realdebrid/torrents/addMagnet", async (req, res) => {
+    const token = getRdToken(req);
+    if (!token) return res.status(401).json({ error: "Real-Debrid API Key is required." });
+
+    const { magnet } = req.body;
+    if (!magnet) return res.status(400).json({ error: "Magnet link is required." });
+
+    try {
+      const FormData = require('form-data');
+      
+      // Step A: Add Magnet to Real-Debrid
+      const addForm = new FormData();
+      addForm.append('magnet', magnet);
+      const addRes = await axios.post("https://api.real-debrid.com/rest/1.0/torrents/addMagnet", addForm, {
+        headers: { Authorization: `Bearer ${token}`, ...addForm.getHeaders() },
+        timeout: 10000
+      });
+
+      const torrentId = addRes.data?.id;
+      if (!torrentId) {
+        return res.status(500).json({ error: "Failed to add magnet to Real-Debrid." });
+      }
+
+      // Step B: Select All Files so RD generates unrestricted download links
+      const selectForm = new FormData();
+      selectForm.append('files', 'all');
+      await axios.post(`https://api.real-debrid.com/rest/1.0/torrents/selectFiles/${torrentId}`, selectForm, {
+        headers: { Authorization: `Bearer ${token}`, ...selectForm.getHeaders() },
+        timeout: 10000
+      }).catch(e => console.warn("[Real-Debrid selectFiles Warning]:", e.message));
+
+      // Step C: Get Torrent Info to retrieve the generated hoster links
+      const infoRes = await axios.get(`https://api.real-debrid.com/rest/1.0/torrents/info/${torrentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000
+      });
+
+      const links: string[] = infoRes.data?.links || [];
+      if (links.length === 0) {
+        return res.json({ success: true, torrent: infoRes.data, streamUrl: null });
+      }
+
+      // Step D: Unrestrict the first/main download link to get direct playable stream URL!
+      const targetLink = links[0];
+      const unrestrictForm = new FormData();
+      unrestrictForm.append('link', targetLink);
+      const unrestrictRes = await axios.post("https://api.real-debrid.com/rest/1.0/unrestrict/link", unrestrictForm, {
+        headers: { Authorization: `Bearer ${token}`, ...unrestrictForm.getHeaders() },
+        timeout: 10000
+      });
+
+      const directStreamUrl = unrestrictRes.data?.download || null;
+      res.json({
+        success: true,
+        torrent: infoRes.data,
+        streamUrl: directStreamUrl,
+        unrestricted: unrestrictRes.data
+      });
+    } catch (err: any) {
+      console.error("[Real-Debrid AddMagnet Error]:", err.response?.data || err.message);
+      res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
+    }
+  });
+
+  // 3. Get User's Active Real-Debrid Torrents List
+  app.get("/api/realdebrid/torrents", async (req, res) => {
+    const token = getRdToken(req);
+    if (!token) return res.status(401).json({ error: "Real-Debrid API Key is required." });
+
+    const cached = rdTorrentListCache.get(token);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < 3000)) {
+      return res.json(cached.data);
+    }
+
+    try {
+      const response = await axios.get("https://api.real-debrid.com/rest/1.0/torrents?limit=100", {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 8000
+      });
+      rdTorrentListCache.set(token, { timestamp: now, data: response.data });
+      res.json(response.data);
+    } catch (err: any) {
+      if (cached && cached.data) return res.json(cached.data);
+      res.status(err.response?.status || 500).json({ error: err.message });
+    }
+  });
+
+  // 4. Unrestrict Download Link
+  app.post("/api/realdebrid/unrestrict", async (req, res) => {
+    const token = getRdToken(req);
+    if (!token) return res.status(401).json({ error: "Real-Debrid API Key is required." });
+
+    const { link } = req.body;
+    if (!link) return res.status(400).json({ error: "Link is required." });
+
+    try {
+      const FormData = require('form-data');
+      const form = new FormData();
+      form.append('link', link);
+
+      const response = await axios.post("https://api.real-debrid.com/rest/1.0/unrestrict/link", form, {
+        headers: { Authorization: `Bearer ${token}`, ...form.getHeaders() },
+        timeout: 10000
+      });
+      res.json(response.data);
+    } catch (err: any) {
+      res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
     }
   });
 

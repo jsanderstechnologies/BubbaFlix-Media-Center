@@ -621,7 +621,7 @@ export default function MediaModal({
             fetchStreamsForMovie(movie.title || movie.name, movie.year, extraDetails?.imdbId || undefined),
             iptvPromise,
             localMediaPromise
-          ]).then(([data, iptvRes, localRes]) => {
+          ]).then(async ([data, iptvRes, localRes]) => {
               if (!isActive) return;
               
               const updatedData = [...initialData];
@@ -684,6 +684,38 @@ export default function MediaModal({
                       updatedData.push(mappedStream);
                   }
               });
+
+              const rdKey = systemSettings.realDebridApiKey || localStorage.getItem('realDebridApiKey');
+              if (rdKey) {
+                const torrentHashes = Array.from(new Set(
+                  updatedData
+                    .filter((s: any) => s.type === 'torrent' && s.hash)
+                    .map((s: any) => s.hash.toLowerCase())
+                ));
+                if (torrentHashes.length > 0) {
+                  try {
+                    const rdRes = await fetch('/api/realdebrid/instantAvailability', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rdKey}` },
+                      body: JSON.stringify({ hashes: torrentHashes })
+                    });
+                    if (rdRes.ok) {
+                      const rdData = await rdRes.json();
+                      const availMap = rdData.data || {};
+                      updatedData.forEach((s: any) => {
+                        if (s.type === 'torrent' && s.hash && availMap[s.hash.toLowerCase()]) {
+                          const rdVariants = availMap[s.hash.toLowerCase()]?.rd;
+                          if (Array.isArray(rdVariants) && rdVariants.length > 0) {
+                            s.isRealDebrid = true;
+                            s.isCached = true;
+                            s.availability = 'Cached (Real-Debrid ⚡)';
+                          }
+                        }
+                      });
+                    }
+                  } catch (e) {}
+                }
+              }
 
               const hasActive = updatedData.some((s: any) => s.isAdding || (s.downloadProgress !== undefined && s.downloadProgress < 100));
               setStreams(applyFiltersAndSort(updatedData));
@@ -943,11 +975,44 @@ export default function MediaModal({
             }
         });
 
+        const rdKey = systemSettings.realDebridApiKey || localStorage.getItem('realDebridApiKey');
+        if (rdKey) {
+          const torrentHashes = Array.from(new Set(
+            updatedData
+              .filter((s: any) => s.type === 'torrent' && s.hash)
+              .map((s: any) => s.hash.toLowerCase())
+          ));
+          if (torrentHashes.length > 0) {
+            try {
+              const rdRes = await fetch('/api/realdebrid/instantAvailability', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rdKey}` },
+                body: JSON.stringify({ hashes: torrentHashes })
+              });
+              if (rdRes.ok) {
+                const rdData = await rdRes.json();
+                const availMap = rdData.data || {};
+                updatedData.forEach((s: any) => {
+                  if (s.type === 'torrent' && s.hash && availMap[s.hash.toLowerCase()]) {
+                    const rdVariants = availMap[s.hash.toLowerCase()]?.rd;
+                    if (Array.isArray(rdVariants) && rdVariants.length > 0) {
+                      s.isRealDebrid = true;
+                      s.isCached = true;
+                      s.availability = 'Cached (Real-Debrid ⚡)';
+                    }
+                  }
+                });
+              }
+            } catch (e) {}
+          }
+        }
+
         const getStreamPriorityRank = (s: any): number => {
-          if (s.type === 'local') return 1; // 1. Network Share
-          if (s.type === 'iptv') return 2;  // 2. IPTV Provider
-          if (s.isCached) return 3;         // 3. TorBox Cached Files
-          return 4;                         // 4. TorBox Usenet / Torrent Search
+          if (s.type === 'local') return 1;         // 1. Network Share
+          if (s.type === 'iptv') return 2;          // 2. IPTV Provider
+          if (s.isRealDebrid) return 3;             // 3. Real-Debrid Instant Streams
+          if (s.isCached) return 3;                 // 3. TorBox Cached Files
+          return 4;                                 // 4. TorBox Usenet / Torrent Search
         };
 
         let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
@@ -1106,8 +1171,39 @@ export default function MediaModal({
                                   if (stream.downloadProgress !== undefined && stream.downloadProgress < 100) return;
 
                                   const apiKey = systemSettings.torboxApiKey;
-                                  if (!apiKey) {
-                                    alert("Please configure your TorBox API Key in Settings to stream or queue downloads.");
+                                  const rdKey = systemSettings.realDebridApiKey || localStorage.getItem('realDebridApiKey');
+
+                                  // Handle Real-Debrid resolution & instant playback
+                                  if (stream.isRealDebrid || (rdKey && stream.type === 'torrent' && (stream.url || stream.hash))) {
+                                    setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: true } : s));
+                                    try {
+                                      const magnetLink = stream.url || (stream.hash ? `magnet:?xt=urn:btih:${stream.hash}` : '');
+                                      const rdRes = await fetch('/api/realdebrid/torrents/addMagnet', {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                          'Authorization': `Bearer ${rdKey}`
+                                        },
+                                        body: JSON.stringify({ magnet: magnetLink })
+                                      });
+                                      const rdData = await rdRes.json();
+                                      if (rdData.success && rdData.streamUrl) {
+                                        setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false } : s));
+                                        triggerPlay(rdData.streamUrl, stream);
+                                        return;
+                                      } else if (rdData.error) {
+                                        alert("Real-Debrid Error: " + rdData.error);
+                                      }
+                                    } catch (err: any) {
+                                      console.error("Failed to unrestrict stream on Real-Debrid:", err);
+                                      alert("Failed to unrestrict stream on Real-Debrid: " + (err.message || err));
+                                    }
+                                    setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false } : s));
+                                    return;
+                                  }
+
+                                  if (!apiKey && !rdKey && stream.type !== 'local') {
+                                    alert("Please configure your TorBox or Real-Debrid API Key in Settings to stream.");
                                     return;
                                   }
 
@@ -1376,16 +1472,18 @@ export default function MediaModal({
                                             </div>
                                         </div>
                                         <div className="flex gap-2 shrink-0">
-                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'))}`}>
-                                              {stream.isCached 
-                                                ? 'Instant Cached' 
-                                                : stream.isAdding 
-                                                  ? 'Adding to provider...' 
-                                                  : stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100
-                                                    ? `Processing (${stream.downloadState})`
-                                                    : stream.downloadProgress !== undefined 
-                                                      ? `Downloading ${stream.downloadProgress}%` 
-                                                      : 'Queue Download'}
+                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isRealDebrid ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : (stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20')))}`}>
+                                              {stream.isRealDebrid
+                                                ? 'Real-Debrid ⚡'
+                                                : stream.isCached 
+                                                  ? 'Instant Cached' 
+                                                  : stream.isAdding 
+                                                    ? 'Resolving Debrid...' 
+                                                    : stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100
+                                                      ? `Processing (${stream.downloadState})`
+                                                      : stream.downloadProgress !== undefined 
+                                                        ? `Downloading ${stream.downloadProgress}%` 
+                                                        : 'Stream Video'}
                                           </div>
                                           <div className="px-2 py-0.5 bg-indigo-600/10 text-indigo-400 text-[10px] font-bold rounded border border-indigo-500/20 whitespace-nowrap uppercase">
                                               {stream.type}
