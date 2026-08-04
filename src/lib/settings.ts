@@ -53,7 +53,7 @@ export interface SystemSettings {
   customChannels?: Record<string, CustomChannelConfig>;
   sportsIptvGroups?: string[];
   enableEztv?: boolean;
-  realDebridApiKey?: string;
+  premiumizeApiKey?: string;
 }
 
 export interface UserSettings {
