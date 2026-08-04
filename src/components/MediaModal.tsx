@@ -8,8 +8,59 @@ import { useAuth } from './Auth';
 import { useSettings } from '../lib/settings';
 import SpatialNavigation from 'spatial-navigation-js';
 
-const fetchStreamsForMovie = async (_title: string, _year?: string, _imdbId?: string): Promise<any[]> => [];
-const fetchStreamsForTvSeries = async (_title: string, _season?: number, _episode?: number, _imdbId?: string): Promise<any[]> => [];
+const fetchStreamsForMovie = async (title: string, year?: string, imdbId?: string): Promise<any[]> => {
+  try {
+    const q = `${title}${year ? ` ${year}` : ''}`;
+    const url = `/api/torrents/search?q=${encodeURIComponent(q)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
+    const res = await fetch(url).then(r => r.json());
+    if (res?.success && Array.isArray(res.data)) {
+      return res.data.map((t: any) => ({
+        name: t.name,
+        title: t.name,
+        type: 'torrent',
+        hash: t.hash,
+        magnet: t.magnet || t.link,
+        url: t.magnet || t.link,
+        seeds: t.seeds || 0,
+        peers: t.peers || 0,
+        sizeStr: t.size ? `${(t.size / 1e9).toFixed(2)} GB` : 'Unknown',
+        quality: /2160p|4k/i.test(t.name) ? '4K' : /1080p/i.test(t.name) ? '1080p' : /720p/i.test(t.name) ? '720p' : 'HD',
+        source: t.source || 'Torrent'
+      }));
+    }
+  } catch (e) {
+    console.error('Error fetching torrent streams for movie:', e);
+  }
+  return [];
+};
+
+const fetchStreamsForTvSeries = async (title: string, season?: number, episode?: number, imdbId?: string): Promise<any[]> => {
+  try {
+    const sStr = season ? `S${season.toString().padStart(2, '0')}` : '';
+    const eStr = episode ? `E${episode.toString().padStart(2, '0')}` : '';
+    const q = `${title} ${sStr}${eStr}`.trim();
+    const url = `/api/torrents/search?q=${encodeURIComponent(q)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
+    const res = await fetch(url).then(r => r.json());
+    if (res?.success && Array.isArray(res.data)) {
+      return res.data.map((t: any) => ({
+        name: t.name,
+        title: t.name,
+        type: 'torrent',
+        hash: t.hash,
+        magnet: t.magnet || t.link,
+        url: t.magnet || t.link,
+        seeds: t.seeds || 0,
+        peers: t.peers || 0,
+        sizeStr: t.size ? `${(t.size / 1e9).toFixed(2)} GB` : 'Unknown',
+        quality: /2160p|4k/i.test(t.name) ? '4K' : /1080p/i.test(t.name) ? '1080p' : /720p/i.test(t.name) ? '720p' : 'HD',
+        source: t.source || 'Torrent'
+      }));
+    }
+  } catch (e) {
+    console.error('Error fetching torrent streams for TV:', e);
+  }
+  return [];
+};
 
 export default function MediaModal({ 
   movie, 
