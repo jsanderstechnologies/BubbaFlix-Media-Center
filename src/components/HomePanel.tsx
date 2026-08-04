@@ -115,9 +115,8 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                       TV SHOW SPOTLIGHT
                     </span>
                     {systemSettings.premiumizeApiKey && (
-                      <span className="text-[9px] bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold tracking-widest px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1.5" title="Premiumize.me 4K Instant Debrid Engine Active">
-                        <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="w-3.5 h-3.5 object-contain" />
-                        PREMIUMIZE ⚡
+                      <span className="bg-cyan-500/20 border border-cyan-500/40 p-1 rounded-full shadow-sm flex items-center" title="Premiumize.me 4K Instant Debrid Engine Active">
+                        <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="w-4 h-4 object-contain" />
                       </span>
                     )}
                     {encoder && (
@@ -195,9 +194,8 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                       MOVIE SPOTLIGHT
                     </span>
                     {systemSettings.premiumizeApiKey && (
-                      <span className="text-[9px] bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold tracking-widest px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1.5" title="Premiumize.me 4K Instant Debrid Engine Active">
-                        <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="w-3.5 h-3.5 object-contain" />
-                        PREMIUMIZE ⚡
+                      <span className="bg-cyan-500/20 border border-cyan-500/40 p-1 rounded-full shadow-sm flex items-center" title="Premiumize.me 4K Instant Debrid Engine Active">
+                        <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="w-4 h-4 object-contain" />
                       </span>
                     )}
                     {encoder && (
