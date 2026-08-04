@@ -73,7 +73,6 @@ export default function SettingsPanel() {
   const { systemSettings, userSettings, updateSystemSettings, updateUserSettings } = useSettings();
 
   const [tmdbKey, setTmdbKey] = useState(systemSettings.tmdbKey || '');
-  const [torboxApiKey, setTorboxApiKey] = useState(systemSettings.torboxApiKey || '');
   const [premiumizeApiKey, setPremiumizeApiKey] = useState(systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey') || '');
   const [geminiApiKey, setGeminiApiKey] = useState(systemSettings.geminiApiKey || '');
   const [newsApiKey, setNewsApiKey] = useState(systemSettings.newsApiKey || '');
@@ -454,7 +453,6 @@ export default function SettingsPanel() {
 
     await updateSystemSettings({
       tmdbKey,
-      torboxApiKey,
       premiumizeApiKey,
       geminiApiKey,
       newsApiKey,
@@ -770,14 +768,6 @@ export default function SettingsPanel() {
             </div>
 
             <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
-              <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">TorBox API</span>
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${torboxApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`}></span>
-                <span className="text-sm font-semibold text-white">{torboxApiKey ? 'ONLINE' : 'MISSING KEY'}</span>
-              </div>
-            </div>
-
-            <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
               <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">Premiumize</span>
               <div className="flex items-center gap-2">
                 <span className={`w-2.5 h-2.5 rounded-full ${premiumizeApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`}></span>
@@ -803,23 +793,6 @@ export default function SettingsPanel() {
           </div>
           
           <div className="space-y-6">
-            
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">TorBox API Key</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                  <Database className="w-4 h-4" />
-                </span>
-                <input 
-                  type="password"
-                  value={torboxApiKey}
-                  onChange={(e) => setTorboxApiKey(e.target.value)}
-                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
-                  placeholder="Enter TorBox API Key..."
-                />
-              </div>
-              <p className="text-xs text-white/80 mt-2">Required to monitor TorBox download caching status in real-time.</p>
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-white mb-2">Premiumize API Key / Account Code</label>

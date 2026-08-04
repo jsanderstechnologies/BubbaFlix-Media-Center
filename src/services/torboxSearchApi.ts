@@ -1,8 +1,7 @@
 // TorBox Search API client integration
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('torboxApiKey');
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
+  return {};
 };
 
 export interface TorBoxSearchResult {

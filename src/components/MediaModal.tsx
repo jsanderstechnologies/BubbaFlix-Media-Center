@@ -640,49 +640,7 @@ export default function MediaModal({
 
               
               (data || []).forEach((stream) => {
-                  const matchTorrent = activeTorrents.find(t => stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase());
-                  const matchUsenet = activeUsenet.find(u => {
-                      if (!u.name || !stream.name) return false;
-                      const sName = stream.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                      const uName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                      if (uName.length < 10 || sName.length < 10) if (uName !== sName) return false;
-                      const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
-                      let sizeMatch = true;
-                      if (stream.sizeBytes && u.size) sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
-                      else if (uName !== sName) return false;
-                      return nameMatch && sizeMatch;
-                  });
-
-                  let mappedStream = { ...stream };
-                  if (matchTorrent) {
-                      if (matchedTorboxIds.has(matchTorrent.id)) return;
-                      matchedTorboxIds.add(matchTorrent.id);
-                      const progress = Math.round(matchTorrent.progress * 100);
-                      const state = matchTorrent.download_state || '';
-                      mappedStream.downloadState = state;
-                      mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
-                      mappedStream.downloadProgress = progress;
-                      mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
-                      mappedStream.id = matchTorrent.id;
-                      mappedStream.isTorBox = true;
-                      mappedStream.url = getTorrentRequestDlUrl(matchTorrent, apiKey);
-                      updatedData.push(mappedStream);
-                  } else if (matchUsenet) {
-                      if (matchedTorboxIds.has(matchUsenet.id)) return;
-                      matchedTorboxIds.add(matchUsenet.id);
-                      const progress = Math.round(matchUsenet.progress * 100);
-                      const state = matchUsenet.download_state || '';
-                      mappedStream.downloadState = state;
-                      mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || !state);
-                      mappedStream.downloadProgress = progress;
-                      mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
-                      mappedStream.id = matchUsenet.id;
-                      mappedStream.isTorBox = true;
-                      mappedStream.url = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${matchUsenet.id}&zip_link=false&redirect=true`;
-                      updatedData.push(mappedStream);
-                  } else {
-                      updatedData.push(mappedStream);
-                  }
+                  updatedData.push({ ...stream });
               });
 
               const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
@@ -863,60 +821,8 @@ export default function MediaModal({
         }
 
 
-        (data || []).forEach((stream: any) => {
-
-            const matchTorrent = activeTorrents.find(t => {
-                if (stream.hash && t.hash && t.hash.toLowerCase() === stream.hash.toLowerCase()) return true;
-                return false;
-            });
-            const matchUsenet = activeUsenet.find(u => {
-                if (!u.name || !stream.name) return false;
-                const sName = stream.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                const uName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                
-                if (uName.length < 10 || sName.length < 10) {
-                    if (uName !== sName) return false;
-                }
-                
-                const nameMatch = uName === sName || sName.includes(uName) || uName.includes(sName);
-                
-                let sizeMatch = true;
-                if (stream.sizeBytes && u.size) {
-                    sizeMatch = Math.abs(u.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
-                } else {
-                    if (uName !== sName) return false;
-                }
-                
-                return nameMatch && sizeMatch;
-            });
-
-            let mappedStream = { ...stream };
-
-            if (matchTorrent) {
-              matchedTorboxIds.add(matchTorrent.id);
-              const progress = Math.round(matchTorrent.progress * 100);
-              const state = matchTorrent.download_state || '';
-              mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === '');
-              mappedStream.downloadProgress = progress;
-              mappedStream.downloadSpeed = matchTorrent.download_speed || 0;
-              mappedStream.id = matchTorrent.id;
-              mappedStream.isTorBox = true;
-              mappedStream.url = getTorrentRequestDlUrl(matchTorrent, apiKey);
-            } else if (matchUsenet) {
-              matchedTorboxIds.add(matchUsenet.id);
-              const progress = Math.round(matchUsenet.progress * 100);
-              const state = matchUsenet.download_state || '';
-              mappedStream.downloadState = state;
-              mappedStream.isCached = progress >= 100 && (state === 'completed' || state === 'cached' || state === 'downloaded' || state === 'seeding' || state === 'paused' || state === '');
-              mappedStream.downloadProgress = progress;
-              mappedStream.downloadSpeed = matchUsenet.download_speed || 0;
-              mappedStream.id = matchUsenet.id;
-              mappedStream.isTorBox = true;
-              mappedStream.url = `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${matchUsenet.id}&zip_link=false&redirect=true`;
-            }
-
-            updatedData.push(mappedStream);
+        (data || []).forEach((stream) => {
+            updatedData.push({ ...stream });
         });
 
 
@@ -1013,8 +919,8 @@ export default function MediaModal({
           if (s.type === 'local') return 1;         // 1. Network Share
           if (s.type === 'iptv') return 2;          // 2. IPTV Provider
           if (s.isPremiumize) return 3;             // 3. Premiumize Instant Streams
-          if (s.isCached) return 3;                 // 3. TorBox Cached Files
-          return 4;                                 // 4. TorBox Usenet / Torrent Search
+          if (s.isCached) return 3;                 // 3. Cached Streams
+          return 4;                                 // 4. Torrent Search
         };
 
         let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
@@ -1172,281 +1078,45 @@ export default function MediaModal({
                                   if (stream.isAdding) return;
                                   if (stream.downloadProgress !== undefined && stream.downloadProgress < 100) return;
 
-                                  const apiKey = systemSettings.torboxApiKey;
                                   const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
 
-                                  // Handle Premiumize resolution & instant playback
-                                  if (stream.isPremiumize || (pmKey && stream.type === 'torrent' && (stream.url || stream.hash))) {
-                                    setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: true } : s));
-                                    try {
-                                      const magnetLink = stream.url || (stream.hash ? `magnet:?xt=urn:btih:${stream.hash}` : '');
-                                      const pmRes = await fetch('/api/premiumize/transfer/directdl', {
-                                        method: 'POST',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                          'Authorization': `Bearer ${pmKey}`
-                                        },
-                                        body: JSON.stringify({ magnet: magnetLink })
-                                      });
-                                      const pmData = await pmRes.json();
-                                      if (pmData.success && pmData.streamUrl) {
-                                        setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false } : s));
-                                        triggerPlay(pmData.streamUrl, stream);
-                                        return;
-                                      } else if (pmData.error) {
-                                        alert("Premiumize Error: " + (pmData.message || pmData.error));
-                                      }
-                                    } catch (err: any) {
-                                      console.error("Failed to resolve stream on Premiumize:", err);
-                                      alert("Failed to resolve stream on Premiumize: " + (err.message || err));
-                                    }
-                                    setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false } : s));
+                                  if (stream.type === 'local' || stream.type === 'iptv') {
+                                    triggerPlay(stream.url, stream);
                                     return;
                                   }
 
-                                  if (!apiKey && !pmKey && stream.type !== 'local') {
-                                    alert("Please configure your TorBox or Premiumize API Key in Settings to stream.");
+                                  if (!pmKey) {
+                                    alert("Please configure your Premiumize API Key in Settings to stream torrents.");
                                     return;
                                   }
 
-                                  if (stream.isCached) {
-                                    if (stream.id !== 0 || (stream.type === 'usenet' && stream.isCached)) {
-                                      triggerPlay(stream.url, stream);
+                                  // Handle Premiumize resolution & instant playback for all torrents
+                                  setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: true } : s));
+                                  try {
+                                    const magnetLink = stream.url || (stream.hash ? `magnet:?xt=urn:btih:${stream.hash}` : '');
+                                    const pmRes = await fetch('/api/premiumize/transfer/directdl', {
+                                      method: 'POST',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${pmKey}`
+                                      },
+                                      body: JSON.stringify({ magnet: magnetLink })
+                                    });
+                                    const pmData = await pmRes.json();
+                                    if (pmData.success && pmData.streamUrl) {
+                                      setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false } : s));
+                                      triggerPlay(pmData.streamUrl, stream);
+                                      if (!isFavorite) { toggleFavorite(); }
                                       return;
+                                    } else if (pmData.error) {
+                                      alert("Premiumize Error: " + (pmData.message || pmData.error));
                                     }
-
-                                    const dlEndpoint = stream.type === 'usenet' 
-                                      ? `/api/torbox/usenet/list`
-                                      : `/api/torbox/torrents`;
-                                    
-                                    try {
-                                      const res = await fetch(dlEndpoint, {
-                                        headers: { Authorization: `Bearer ${apiKey}` }
-                                      });
-                                      if (res.ok) {
-                                        const result = await res.json();
-                                        const existing = result.data?.find((t: any) => {
-                                          if (stream.type === 'torrent' && stream.hash && t.hash) {
-                                            return t.hash.toLowerCase() === stream.hash.toLowerCase();
-                                          }
-                                          
-                                          const sName = (stream.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
-                                          const tName = (t.name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
-                                          
-                                          const isValidNameMatch = (sName.length > 5 && tName.length > 5) && 
-                                            (tName === sName || sName.includes(tName) || tName.includes(sName));
-                                            
-                                          if (stream.type === 'usenet') {
-                                            const sizeMatch = stream.sizeBytes && t.size && Math.abs(t.size - stream.sizeBytes) < (stream.sizeBytes * 0.05);
-                                            return isValidNameMatch && sizeMatch;
-                                          }
-                                          
-                                          return isValidNameMatch;
-                                        });
-                                        
-                                        if (existing) {
-                                          const dlUrl = stream.type === 'torrent' 
-                                            ? getTorrentRequestDlUrl(existing, apiKey)
-                                            : `https://api.torbox.app/v1/api/usenet/requestdl?token=${apiKey}&usenet_id=${existing.id}&zip_link=false&redirect=true`;
-                                          triggerPlay(dlUrl, stream);
-                                          return;
-                                        }
-                                      }
-
-                                    } catch (err) {
-                                      console.error("Failed to check active downloads", err);
-                                    }
-
-                                    if (stream.type === 'usenet') {
-                                      setStreams(prev => prev.map(s => {
-                                        if (s.id === stream.id) {
-                                          return { ...s, isAdding: true, isCached: false };
-                                        }
-                                        return s;
-                                      }));
-
-                                      try {
-                                        const createRes = await fetch('/api/torbox/usenet/create', {
-                                          method: 'POST',
-                                          headers: { 
-                                            'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${apiKey}` 
-                                          },
-                                          body: JSON.stringify({ link: stream.url })
-                                        });
-                                        const resData = await createRes.json();
-                                        if (resData.success && resData.data) {
-                                          setStreams(prev => prev.map(s => {
-                                            if (s.id === stream.id) {
-                                              const uId = resData.data?.usenet_id || resData.data?.id;
-                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, id: uId || s.id, torboxId: uId };
-                                            }
-                                            return s;
-                                          }));
-                                          setPollingActive(true);
-                                          if (!isFavorite) { toggleFavorite(); }
-                                        } else {
-                                          setStreams(prev => prev.map(s => {
-                                            if (s.id === stream.id) {
-                                              return { ...s, isAdding: false };
-                                            }
-                                            return s;
-                                          }));
-                                          const errMsg = typeof resData.detail === 'object' ? JSON.stringify(resData.detail) : (resData.detail || resData.error || "Unknown error");
-                                          alert("Failed to queue Usenet download: " + errMsg);
-                                        }
-                                      } catch (err: any) {
-                                        setStreams(prev => prev.map(s => {
-                                          if (s.id === stream.id) {
-                                            return { ...s, isAdding: false };
-                                          }
-                                          return s;
-                                        }));
-                                        alert("Error adding Usenet stream: " + err.message);
-                                      }
-                                    } else {
-                                      try {
-                                        const createRes = await fetch('/api/torbox/torrents/create', {
-                                          method: 'POST',
-                                          headers: {
-                                            'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${apiKey}`
-                                          },
-                                          body: JSON.stringify({ magnet: stream.url })
-                                        });
-                                        const resData = await createRes.json();
-                                        if (resData.success) {
-                                          setStreams(prev => prev.map(s => {
-                                            if (s.id === stream.id) {
-                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, torboxId: resData.data.torrent_id };
-                                            }
-                                            return s;
-                                          }));
-                                          setPollingActive(true);
-                                          if (!isFavorite) { toggleFavorite(); }
-                                        } else {
-                                          alert("Failed to add Torrent: " + (resData.detail || "Unknown error"));
-                                        }
-                                      } catch (err: any) {
-                                        alert("Error adding Torrent stream: " + err.message);
-                                      }
-                                    }
-                                  } else {
-                                    // Uncached items: Queue download
-                                    if (stream.type === 'usenet') {
-                                      // Update local state to show 'Adding to provider...' immediately
-                                      setStreams(prev => prev.map(s => {
-                                        if (s.id === stream.id) {
-                                          return { ...s, isAdding: true, isCached: false };
-                                        }
-                                        return s;
-                                      }));
-
-                                      try {
-                                        const createRes = await fetch('/api/torbox/usenet/create', {
-                                          method: 'POST',
-                                          headers: { 
-                                            'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${apiKey}` 
-                                          },
-                                          body: JSON.stringify({ link: stream.url })
-                                        });
-                                        const resData = await createRes.json();
-                                        if (resData.success) {
-                                          setStreams(prev => prev.map(s => {
-                                            if (s.id === stream.id) {
-                                              const uId = resData.data?.usenet_id || resData.data?.id;
-                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, id: uId || s.id, torboxId: uId };
-                                            }
-                                            return s;
-                                          }));
-                                          setPollingActive(true);
-                                        } else {
-                                          setStreams(prev => prev.map(s => {
-                                            if (s.id === stream.id) {
-                                              return { ...s, isAdding: false };
-                                            }
-                                            return s;
-                                          }));
-                                          let errMsg = "Unknown error";
-                                          if (resData.detail) {
-                                              if (typeof resData.detail === 'string') errMsg = resData.detail;
-                                              else if (Array.isArray(resData.detail) && resData.detail.length > 0 && resData.detail[0].msg) errMsg = resData.detail[0].msg;
-                                              else errMsg = JSON.stringify(resData.detail);
-                                          } else if (resData.error) {
-                                              errMsg = resData.error;
-                                          }
-
-                                          if (errMsg.toLowerCase().includes('rate limit')) {
-                                              alert("TorBox Limit Reached: TorBox strictly limits how many Usenet items you can queue in a short period (usually 15-20 per hour). Please wait a few minutes before queuing more Usenet streams.");
-                                          } else {
-                                              alert("Failed to queue Usenet download: " + errMsg);
-                                          }
-                                        }
-                                      } catch (err: any) {
-                                        setStreams(prev => prev.map(s => {
-                                          if (s.id === stream.id) {
-                                            return { ...s, isAdding: false };
-                                          }
-                                          return s;
-                                        }));
-                                        alert("Error queueing Usenet: " + err.message);
-                                      }
-                                    } else {
-                                      // Queue Torrent
-                                      setStreams(prev => prev.map(s => {
-                                        if (s.id === stream.id) {
-                                          return { ...s, isAdding: true, isCached: false };
-                                        }
-                                        return s;
-                                      }));
-
-                                      try {
-                                        const createRes = await fetch('/api/torbox/torrents/create', {
-                                          method: 'POST',
-                                          headers: {
-                                            'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${apiKey}`
-                                          },
-                                          body: JSON.stringify({ magnet: stream.url })
-                                        });
-                                        const resData = await createRes.json();
-                                        if (resData.success) {
-                                          setStreams(prev => prev.map(s => {
-                                            if (s.id === stream.id) {
-                                              return { ...s, isAdding: false, downloadProgress: 0, isCached: false, torboxId: resData.data.torrent_id };
-                                            }
-                                            return s;
-                                          }));
-                                          setPollingActive(true);
-                                        } else {
-                                          setStreams(prev => prev.map(s => {
-                                            if (s.id === stream.id) {
-                                              return { ...s, isAdding: false };
-                                            }
-                                            return s;
-                                          }));
-                                          let errMsg = "Unknown error";
-                                          if (resData.detail) {
-                                              if (typeof resData.detail === 'string') errMsg = resData.detail;
-                                              else if (Array.isArray(resData.detail) && resData.detail.length > 0 && resData.detail[0].msg) errMsg = resData.detail[0].msg;
-                                              else errMsg = JSON.stringify(resData.detail);
-                                          } else if (resData.error) {
-                                              errMsg = resData.error;
-                                          }
-                                          alert("Failed to queue Torrent: " + errMsg);
-                                        }
-                                      } catch (err: any) {
-                                        setStreams(prev => prev.map(s => {
-                                          if (s.id === stream.id) {
-                                            return { ...s, isAdding: false };
-                                          }
-                                          return s;
-                                        }));
-                                        alert("Error queueing Torrent: " + err.message);
-                                      }
-                                    }
+                                  } catch (err: any) {
+                                    console.error("Failed to resolve stream on Premiumize:", err);
+                                    alert("Failed to resolve stream on Premiumize: " + (err.message || err));
                                   }
+                                  setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false } : s));
+                                  return;
                                 };
 
                                 return (

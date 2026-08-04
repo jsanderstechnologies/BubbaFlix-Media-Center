@@ -416,10 +416,6 @@ async function startServer() {
     settings.tmdbKey = process.env.TMDB_KEY;
     settingsChanged = true;
   }
-  if (process.env.TORBOX_API_KEY && settings.torboxApiKey !== process.env.TORBOX_API_KEY) {
-    settings.torboxApiKey = process.env.TORBOX_API_KEY;
-    settingsChanged = true;
-  }
   if ((process.env.PREMIUMIZE_API_KEY || process.env.PM_API_KEY) && settings.premiumizeApiKey !== (process.env.PREMIUMIZE_API_KEY || process.env.PM_API_KEY)) {
     settings.premiumizeApiKey = process.env.PREMIUMIZE_API_KEY || process.env.PM_API_KEY;
     settingsChanged = true;
@@ -686,7 +682,6 @@ async function startServer() {
     const settings = readJson(SETTINGS_FILE);
     res.json({
       tmdbKey: settings.tmdbKey || '',
-      torboxApiKey: settings.torboxApiKey || '',
       premiumizeApiKey: settings.premiumizeApiKey || '',
       geminiApiKey: settings.geminiApiKey || '',
       preferHEVC: settings.preferHEVC !== false,
@@ -950,7 +945,6 @@ async function startServer() {
 
     // Some general settings that any admin can save from SettingsPanel
     if (req.body.tmdbKey !== undefined) settings.tmdbKey = req.body.tmdbKey;
-    if (req.body.torboxApiKey !== undefined) settings.torboxApiKey = req.body.torboxApiKey;
     if (req.body.premiumizeApiKey !== undefined) settings.premiumizeApiKey = req.body.premiumizeApiKey;
     if (req.body.newsApiKey !== undefined) settings.newsApiKey = req.body.newsApiKey;
     if (req.body.gnewsApiKey !== undefined) settings.gnewsApiKey = req.body.gnewsApiKey;
@@ -2516,7 +2510,7 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   }
 
-  app.get("/api/torbox/torrents/search", async (req, res) => {
+  const handleTorrentSearch = async (req: any, res: any) => {
     const { q, imdbId } = req.query;
     if (!q || typeof q !== 'string') {
       return res.status(400).json({ error: "Query 'q' parameter is required." });
@@ -2718,137 +2712,10 @@ app.get('/api/youtube/search', async (req, res) => {
       console.error("[Torrents Search API Error]", err.message);
       res.status(500).json({ error: err.message, success: false, data: [] });
     }
-  });
+  };
 
-  const torboxTorrentListCache = new Map<string, { timestamp: number; data: any }>();
-  const torboxUsenetListCache = new Map<string, { timestamp: number; data: any }>();
-
-  app.get("/api/torbox/torrents", async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "Authorization key is required." });
-    }
-    const cached = torboxTorrentListCache.get(authHeader);
-    const now = Date.now();
-    if (cached && (now - cached.timestamp < 2000)) {
-      return res.json(cached.data);
-    }
-    try {
-      const response = await axios.get("https://api.torbox.app/v1/api/torrents/mylist?bypass_cache=true", {
-        timeout: 7000,
-        headers: { Authorization: authHeader }
-      });
-      torboxTorrentListCache.set(authHeader, { timestamp: now, data: response.data });
-      res.json(response.data);
-    } catch (err: any) {
-      if (cached && cached.data) {
-        console.warn("[TorBox Torrents Proxy] Serving cached list due to upstream error:", err.message);
-        return res.json(cached.data);
-      }
-      res.status(err.response?.status || 500).json({ error: err.message });
-    }
-  });
-
-  app.get("/api/torbox/usenet/list", async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "Authorization key is required." });
-    }
-    const cached = torboxUsenetListCache.get(authHeader);
-    const now = Date.now();
-    if (cached && (now - cached.timestamp < 2000)) {
-      return res.json(cached.data);
-    }
-    try {
-      const response = await axios.get("https://api.torbox.app/v1/api/usenet/mylist?bypass_cache=true", {
-        timeout: 7000,
-        headers: { Authorization: authHeader }
-      });
-      torboxUsenetListCache.set(authHeader, { timestamp: now, data: response.data });
-      res.json(response.data);
-    } catch (err: any) {
-      if (cached && cached.data) {
-        console.warn("[TorBox Usenet Proxy] Serving cached list due to upstream error:", err.message);
-        return res.json(cached.data);
-      }
-      res.status(err.response?.status || 500).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/torbox/usenet/create", async (req, res) => {
-    const authHeader = req.headers.authorization;
-    const { link } = req.body;
-    if (!authHeader) {
-      return res.status(401).json({ error: "Authorization key is required." });
-    }
-    if (!link) {
-      return res.status(400).json({ error: "Usenet NZB link is required." });
-    }
-    let attempt = 0;
-    while (attempt < 3) {
-      try {
-        const FormData = require('form-data');
-        const form = new FormData();
-        form.append('link', link);
-        form.append('post_processing', '-1');
-
-        const response = await axios.post("https://api.torbox.app/v1/api/usenet/createusenetdownload", form, {
-          headers: { 
-            Authorization: authHeader,
-            ...form.getHeaders()
-          }
-        });
-        return res.json(response.data);
-      } catch (err: any) {
-        if (err.response?.status === 429 && attempt < 2) {
-          attempt++;
-          console.warn("[TorBox Usenet Create Proxy] Rate limited (429). Retrying in 2.5s...");
-          await new Promise(r => setTimeout(r, 2500));
-          continue;
-        }
-        console.error("[TorBox Usenet Create Proxy] Failed:", err.response?.data || err.message);
-        return res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
-      }
-    }
-  });
-
-  app.post("/api/torbox/torrents/create", async (req, res) => {
-    const authHeader = req.headers.authorization;
-    const { magnet } = req.body;
-    if (!authHeader) {
-      return res.status(401).json({ error: "Authorization key is required." });
-    }
-    if (!magnet) {
-      return res.status(400).json({ error: "Torrent magnet link is required." });
-    }
-    let attempt = 0;
-    while (attempt < 3) {
-      try {
-        const FormData = require('form-data');
-        const form = new FormData();
-        form.append('magnet', magnet);
-        form.append('seed', '1');
-        form.append('allow_zip', 'false');
-
-        const response = await axios.post("https://api.torbox.app/v1/api/torrents/createtorrent", form, {
-          headers: { 
-            Authorization: authHeader,
-            ...form.getHeaders()
-          }
-        });
-        return res.json(response.data);
-      } catch (err: any) {
-        if (err.response?.status === 429 && attempt < 2) {
-          attempt++;
-          console.warn("[TorBox Torrent Create Proxy] Rate limited (429). Retrying in 2.5s...");
-          await new Promise(r => setTimeout(r, 2500));
-          continue;
-        }
-        console.error("[TorBox Torrent Create Proxy] Failed:", err.response?.data || err.message);
-        return res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
-      }
-    }
-  });
+  app.get("/api/torrents/search", handleTorrentSearch);
+  app.get("/api/torbox/torrents/search", handleTorrentSearch);
 
 
   // --- PREMIUMIZE API PROXIES ---
@@ -2940,25 +2807,54 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
-  // 3. User Active Transfers List on Premiumize
-  app.get("/api/premiumize/transfers", async (req, res) => {
+  // 4. Create Transfer (Queue Uncached Torrent / Magnet) on Premiumize
+  app.post("/api/premiumize/transfer/create", async (req, res) => {
     const token = getPmToken(req);
     if (!token) return res.status(401).json({ error: "Premiumize API Key is required." });
 
-    const cached = pmTransferListCache.get(token);
-    const now = Date.now();
-    if (cached && (now - cached.timestamp < 4000)) {
-      return res.json(cached.data);
-    }
+    const { magnet, src } = req.body;
+    const targetSrc = magnet || src;
+    if (!targetSrc) return res.status(400).json({ error: "Magnet link or source URL is required." });
 
     try {
-      const response = await axios.get(`https://www.premiumize.me/api/transfer/list?apikey=${encodeURIComponent(token)}`, {
-        timeout: 8000
+      const FormData = require('form-data');
+      const form = new FormData();
+      form.append('apikey', token);
+      form.append('src', targetSrc);
+
+      const response = await axios.post("https://www.premiumize.me/api/transfer/create", form, {
+        headers: { ...form.getHeaders() },
+        timeout: 10000
       });
-      pmTransferListCache.set(token, { timestamp: now, data: response.data });
+
       res.json(response.data);
     } catch (err: any) {
-      if (cached && cached.data) return res.json(cached.data);
+      console.error("[Premiumize Create Transfer Error]:", err.response?.data || err.message);
+      res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
+    }
+  });
+
+  // 5. Delete Transfer on Premiumize
+  app.post("/api/premiumize/transfer/delete", async (req, res) => {
+    const token = getPmToken(req);
+    if (!token) return res.status(401).json({ error: "Premiumize API Key is required." });
+
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: "Transfer ID is required." });
+
+    try {
+      const FormData = require('form-data');
+      const form = new FormData();
+      form.append('apikey', token);
+      form.append('id', id);
+
+      const response = await axios.post("https://www.premiumize.me/api/transfer/delete", form, {
+        headers: { ...form.getHeaders() },
+        timeout: 8000
+      });
+
+      res.json(response.data);
+    } catch (err: any) {
       res.status(err.response?.status || 500).json({ error: err.message });
     }
   });
