@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap } from 'lucide-react';
 import { collection, query, where, onSnapshot, setDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
 import { logger } from './lib/logger';
@@ -1247,8 +1247,10 @@ function MainApp() {
               {systemSettings.tmdbKey && (
                 <img src="/images/tmdb-logo.png" alt="TMDB API" className="h-4 object-contain brightness-110" title="TMDB API Active" />
               )}
-              {systemSettings.torboxApiKey && (
-                <img src="/images/torbox-logo.png" alt="TorBox API" className="h-5 object-contain brightness-110" title="TorBox API Active" />
+              {systemSettings.premiumizeApiKey && (
+                <span className="text-[10px] bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm" title="Premiumize.me Instant 4K Debrid Engine Active">
+                  <Zap className="w-3 h-3 text-cyan-400 fill-cyan-400" /> Premiumize ⚡
+                </span>
               )}
               {systemSettings.geminiApiKey && (
                 <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI API" className="h-4 object-contain brightness-110" title="Gemini AI Smart Filtering Active" />

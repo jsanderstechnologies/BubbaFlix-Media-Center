@@ -8,7 +8,7 @@ import {
   getTopRatedTvSeries 
 } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
-import { Play, Info, Flame, Trophy, Film, Tv, Star, Cpu } from 'lucide-react';
+import { Play, Info, Flame, Trophy, Film, Tv, Star, Cpu, Zap } from 'lucide-react';
 
 interface HomePanelProps {
   onSelectMedia: (media: any) => void;
@@ -114,6 +114,12 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                     <span className="text-[9px] bg-red-600/90 text-white font-bold tracking-widest px-2 py-0.5 rounded shadow-sm">
                       TV SHOW SPOTLIGHT
                     </span>
+                    {systemSettings.premiumizeApiKey && (
+                      <span className="text-[9px] bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold tracking-widest px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1" title="Premiumize.me 4K Instant Debrid Engine Active">
+                        <Zap className="w-3 h-3 text-cyan-400 fill-cyan-400" />
+                        PREMIUMIZE ⚡
+                      </span>
+                    )}
                     {encoder && (
                       <span className="text-[9px] bg-slate-800 text-slate-300 font-bold tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1 border border-white/10" title="Active Transcoding Engine">
                         <Cpu className="w-3 h-3" />
@@ -188,6 +194,12 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                     <span className="text-[9px] bg-red-600/90 text-white font-bold tracking-widest px-2 py-0.5 rounded shadow-sm">
                       MOVIE SPOTLIGHT
                     </span>
+                    {systemSettings.premiumizeApiKey && (
+                      <span className="text-[9px] bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold tracking-widest px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1" title="Premiumize.me 4K Instant Debrid Engine Active">
+                        <Zap className="w-3 h-3 text-cyan-400 fill-cyan-400" />
+                        PREMIUMIZE ⚡
+                      </span>
+                    )}
                     {encoder && (
                       <span className="text-[9px] bg-slate-800 text-slate-300 font-bold tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1 border border-white/10" title="Active Transcoding Engine">
                         <Cpu className="w-3 h-3" />
