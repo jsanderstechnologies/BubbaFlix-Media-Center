@@ -1069,6 +1069,42 @@ async function startServer() {
     }
   });
 
+  // Helper function to call Gemini API with model fallback (gemini-2.0-flash -> gemini-1.5-flash -> gemini-1.5-flash-latest)
+  async function callGeminiApi(apiKey: string, prompt: string, options: { responseMimeType?: string; timeout?: number } = {}): Promise<string> {
+    const cleanKey = apiKey.trim();
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+    let lastErr: any = null;
+
+    for (const model of models) {
+      try {
+        const payload: any = { contents: [{ parts: [{ text: prompt }] }] };
+        if (options.responseMimeType) {
+          payload.generationConfig = { temperature: 0.1, responseMimeType: options.responseMimeType };
+        }
+
+        const res = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`,
+          payload,
+          { timeout: options.timeout || 30000, headers: { 'Content-Type': 'application/json' } }
+        );
+
+        const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text !== undefined && text !== null) {
+          return text;
+        }
+      } catch (err: any) {
+        lastErr = err;
+        const status = err.response?.status;
+        if (status === 404) {
+          console.warn(`[Gemini API] Model '${model}' returned 404 Not Found. Trying fallback model...`);
+          continue;
+        }
+        break;
+      }
+    }
+    throw lastErr || new Error("Gemini API request failed across all model fallbacks.");
+  }
+
   // Sports Stream AI Matcher via Gemini API
   app.post('/api/sports/match-channel', async (req, res) => {
     try {
@@ -1137,15 +1173,7 @@ Respond ONLY with a valid JSON object in this exact format, with no markdown cod
 {"matchedIndex": number, "channelName": "string", "confidence": "high"|"medium"|"low"}
 If no channel matches the team names or relevant regional/national network for this game, respond with {"matchedIndex": -1}.`;
 
-        const geminiRes = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
-          {
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
-          }
-        );
-
-        const replyText = geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const replyText = await callGeminiApi(apiKey, prompt, { responseMimeType: "application/json", timeout: 20000 });
         if (replyText) {
           try {
             const parsed = JSON.parse(replyText);
@@ -1268,18 +1296,10 @@ Format:
 If no duplicates are found, return {"groupedChannels": []}.
 Do not include markdown blocks or extra text.`;
 
-      const geminiRes = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
-        {
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+        const replyText = await callGeminiApi(apiKey, prompt, { responseMimeType: "application/json", timeout: 30000 });
+        if (!replyText) {
+          return res.status(500).json({ error: 'Empty response from Gemini AI' });
         }
-      );
-
-      const replyText = geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!replyText) {
-        return res.status(500).json({ error: 'Empty response from Gemini AI' });
-      }
 
       const parsed = JSON.parse(replyText);
       const groupedArray = parsed.groupedChannels || [];
@@ -2471,13 +2491,7 @@ app.get('/api/youtube/search', async (req, res) => {
         prompt = `I am searching for the TV show or Movie "${query}". I have the following list of file result names. Please filter out any results that do not definitively belong to this show/movie, for example if they belong to a different show with a similar name.\n\nCRITICAL: Results may be Usenet archives (.rar, .par2, .nzb), video files (.mkv, .mp4), or contain scene release group names. These ARE VALID matches if the underlying title matches the query. Do not filter out results just because they are archives or split into parts.${animeFilterInstruction}${langInstruction} You must also strictly filter out any music albums, audiobooks, soundtracks, or software/games that happen to share the same name.${hwFilterInstruction} Return ONLY a valid JSON array of indices (0-indexed) of the results that are CORRECT matches. Do not include any markdown formatting, backticks, or other text. Just the JSON array.\n\nList:\n${list}`;
       }
 
-      const res = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${settings.geminiApiKey.trim()}`,
-        { contents: [{ parts: [{ text: prompt }] }] },
-        { timeout: 60000, headers: { 'Content-Type': 'application/json' } }
-      );
-      
-      const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+      const text = await callGeminiApi(settings.geminiApiKey, prompt, { timeout: 45000 });
       const cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
       const indices = JSON.parse(cleanText);
       
@@ -2487,7 +2501,8 @@ app.get('/api/youtube/search', async (req, res) => {
       }
       return candidateItems;
     } catch (err: any) {
-      console.error("[Gemini Filter Error]", err.message);
+      const errMsg = err.response?.data?.error?.message || err.message;
+      console.warn(`[Gemini Filter Warning] (${err.response?.status || 'Network Error'}): ${errMsg}. Bypassing AI filter and returning candidate items.`);
       return candidateItems; // Fallback to HEVC-stripped candidate items if Gemini fails
     }
   }
@@ -3643,21 +3658,10 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
   "Raw Title 2": "Canonical TV Show Name"
 }`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]);
-        }
+      const text = await callGeminiApi(apiKey, prompt, { timeout: 30000 });
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
       }
     } catch (err) {
       console.warn('[Gemini AI TV Normalizer] Failed to normalize TV series titles with Gemini:', err);
