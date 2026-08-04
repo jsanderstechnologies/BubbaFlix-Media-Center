@@ -201,8 +201,9 @@ export default function MediaModal({
 
   useEffect(() => {
     let isActive = true;
+    if (!movie) { setMpaaRating(''); return; }
     const targetId = resolvedTmdbId || (typeof movie.id === 'number' ? movie.id : (movie.realTmdbId ? Number(movie.realTmdbId) : null));
-    if (movie && targetId) {
+    if (targetId) {
       getMpaaRating(targetId, isSeries).then(rating => {
         if (isActive) setMpaaRating(rating);
       });
