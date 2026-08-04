@@ -115,9 +115,7 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                       TV SHOW SPOTLIGHT
                     </span>
                     {systemSettings.premiumizeApiKey && (
-                      <span className="bg-cyan-500/20 border border-cyan-500/40 p-1 rounded-full shadow-sm flex items-center" title="Premiumize.me 4K Instant Debrid Engine Active">
-                        <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="w-4 h-4 object-contain" />
-                      </span>
+                      <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" title="Premiumize.me Active" className="w-5 h-5 object-contain" />
                     )}
                     {encoder && (
                       <span className="text-[9px] bg-slate-800 text-slate-300 font-bold tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1 border border-white/10" title="Active Transcoding Engine">
@@ -194,9 +192,7 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                       MOVIE SPOTLIGHT
                     </span>
                     {systemSettings.premiumizeApiKey && (
-                      <span className="bg-cyan-500/20 border border-cyan-500/40 p-1 rounded-full shadow-sm flex items-center" title="Premiumize.me 4K Instant Debrid Engine Active">
-                        <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="w-4 h-4 object-contain" />
-                      </span>
+                      <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" title="Premiumize.me Active" className="w-5 h-5 object-contain" />
                     )}
                     {encoder && (
                       <span className="text-[9px] bg-slate-800 text-slate-300 font-bold tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1 border border-white/10" title="Active Transcoding Engine">
