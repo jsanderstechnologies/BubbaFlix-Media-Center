@@ -25,6 +25,8 @@ export interface CustomChannelConfig {
 export interface SystemSettings {
   tmdbKey?: string;
   geminiApiKey?: string;
+  groqApiKey?: string;
+  openRouterApiKey?: string;
   preferHEVC?: boolean;
   hevcMode?: 'prefer' | 'allow' | 'exclude';
   maxResults?: string;
