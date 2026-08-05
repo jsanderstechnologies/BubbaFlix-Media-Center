@@ -1087,133 +1087,137 @@ export default function MediaModal({
   if (!movie) return null;
 
   const renderStream = (stream: any) => {
-                                const handleStreamClick = async () => {
-                                  if (stream.isAdding) return;
-                                  if (stream.downloadProgress !== undefined && stream.downloadProgress < 100) return;
+    if (!stream) return null;
 
-                                  const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
+    const handleStreamClick = async () => {
+      if (stream.isAdding) return;
+      if (stream.downloadProgress !== undefined && stream.downloadProgress < 100) return;
 
-                                  if (stream.type === 'local' || stream.type === 'iptv') {
-                                    triggerPlay(stream.url, stream);
-                                    return;
-                                  }
-                                  if (stream.type === 'premiumize_cloud') {
-                                    if (stream.url) {
-                                      triggerPlay(stream.url, stream);
-                                    }
-                                    return;
-                                  }
+      const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
 
-                                  if (!pmKey) {
-                                    alert("Please configure your Premiumize API Key in Settings to stream torrents.");
-                                    return;
-                                  }
+      if (stream.type === 'local' || stream.type === 'iptv') {
+        triggerPlay(stream.url, stream);
+        return;
+      }
+      if (stream.type === 'premiumize_cloud') {
+        if (stream.url) {
+          triggerPlay(stream.url, stream);
+        }
+        return;
+      }
 
-                                  const isSameStream = (a: any, b: any) => {
-                                     if (!a || !b) return false;
-                                     if (a.id && b.id) return a.id === b.id;
-                                     if (a.hash && b.hash) return a.hash.toLowerCase() === b.hash.toLowerCase();
-                                     if (a.url && b.url) return a.url === b.url;
-                                     return false;
-                                   };
+      if (!pmKey) {
+        alert("Please configure your Premiumize API Key in Settings to stream torrents.");
+        return;
+      }
 
-                                   // Handle Premiumize resolution & instant playback for all torrents
-                                   setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: true } : s));
-                                   try {
-                                     const magnetLink = stream.url || (stream.hash ? `magnet:?xt=urn:btih:${stream.hash}` : '');
-                                     const pmRes = await fetch('/api/premiumize/transfer/directdl', {
-                                       method: 'POST',
-                                       headers: {
-                                         'Content-Type': 'application/json',
-                                         'Authorization': `Bearer ${pmKey}`
-                                       },
-                                       body: JSON.stringify({ magnet: magnetLink })
-                                     });
-                                     
-                                     const contentType = pmRes.headers.get('content-type') || '';
-                                     let pmData: any = {};
-                                     if (contentType.includes('application/json')) {
-                                       pmData = await pmRes.json();
-                                     } else {
-                                       const errTxt = await pmRes.text();
-                                       console.error("Non-JSON Premiumize response:", errTxt);
-                                       pmData = { error: `Server error (${pmRes.status}). Please check Premiumize API Key in Settings.` };
-                                     }
+      const isSameStream = (a: any, b: any) => {
+        if (!a || !b) return false;
+        if (a.id && b.id) return a.id === b.id;
+        if (a.hash && b.hash) return a.hash.toLowerCase() === b.hash.toLowerCase();
+        if (a.url && b.url) return a.url === b.url;
+        return false;
+      };
 
-                                     if (pmData.success && pmData.streamUrl) {
-                                       setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: false, isPremiumize: true, inPersonalCloud: true } : s));
-                                       triggerPlay(pmData.streamUrl, { ...stream, isPremiumize: true, inPersonalCloud: true });
-                                       if (!isFavorite) { toggleFavorite(); }
-                                       return;
-                                     } else if (pmData.error) {
-                                       alert("Premiumize Error: " + (pmData.message || pmData.error));
-                                     }
-                                   } catch (err: any) {
-                                     console.error("Failed to resolve stream on Premiumize:", err);
-                                     alert("Failed to resolve stream on Premiumize: " + (err.message || err));
-                                   }
-                                   setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: false } : s));
-                                  return;
-                                };
+      // Handle Premiumize resolution & instant playback for all torrents
+      setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: true } : s));
+      try {
+        const magnetLink = stream.url || (stream.hash ? `magnet:?xt=urn:btih:${stream.hash}` : '');
+        const pmRes = await fetch('/api/premiumize/transfer/directdl', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${pmKey}`
+          },
+          body: JSON.stringify({ magnet: magnetLink })
+        });
+        
+        const contentType = pmRes.headers.get('content-type') || '';
+        let pmData: any = {};
+        if (contentType.includes('application/json')) {
+          pmData = await pmRes.json();
+        } else {
+          const errTxt = await pmRes.text();
+          console.error("Non-JSON Premiumize response:", errTxt);
+          pmData = { error: `Server error (${pmRes.status}). Please check Premiumize API Key in Settings.` };
+        }
 
-                                return (
-                                  <div 
-                                    key={stream.id} 
-                                    tabIndex={0}
-                                    className="focusable flex flex-col p-3.5 bg-white/5 border border-white/10 rounded-xl hover:bg-red-950/10 hover:border-red-500/20 transition-all cursor-pointer group focus:bg-red-950/20 focus:border-red-500/50 focus:outline-none focus:scale-[1.02]" 
-                                    onClick={handleStreamClick}
-                                  >
-                                      <div className="flex items-start justify-between gap-3">
-                                        <div className="flex flex-col min-w-0">
-                                            <div className="flex items-center gap-2">
-                                              {(stream.type === 'premiumize_cloud' || stream.inPersonalCloud) && (
-                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-bold shrink-0 shadow-sm" title="Located in Premiumize Cloud">
-                                                  <Cloud className="w-3 h-3 text-cyan-300 fill-cyan-400/20" /> Cloud
-                                                </span>
-                                              )}
-                                              <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                              <span className="text-[10px] text-white/60 font-mono">Size: {stream.size || stream.sizeStr || 'Unknown'}</span>
-                                              {stream.source && (
-                                                <span className="text-[10px] text-white/60 font-mono flex items-center gap-1">
-                                                  <Database className="w-3 h-3" /> Source: {stream.source}
-                                                </span>
-                                              )}
-                                              {stream.downloadProgress !== undefined && stream.downloadProgress < 100 && stream.downloadSpeed !== undefined && (
-                                                <span className="text-[10px] text-indigo-400 font-mono font-semibold flex items-center gap-1">
-                                                  <Download className="w-3 h-3" /> {(stream.downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s
-                                                </span>
-                                              )}
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2 shrink-0">
-                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase flex items-center gap-1 ${(stream.type === 'premiumize_cloud' || stream.inPersonalCloud) ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm' : (stream.isPremiumize ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : (stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'))))}`}>
-                                              {(stream.type === 'premiumize_cloud' || stream.inPersonalCloud) && <Cloud className="w-3 h-3 text-cyan-300" />}
-                                              {(stream.type === 'premiumize_cloud' || stream.inPersonalCloud)
-                                                ? 'Premiumize Cloud ⚡'
-                                                : (stream.isPremiumize
-                                                  ? 'Premiumize ⚡'
-                                                  : (stream.isCached 
-                                                    ? 'Instant Stream' 
-                                                    : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 
-                                                      ? 'Processing...' 
-                                                      : (stream.isAdding 
-                                                        ? 'Adding...' 
-                                                        : (stream.downloadProgress !== undefined 
-                                                          ? `${stream.downloadProgress}%` 
-                                                          : 'Torrent')))))}
-                                          </div>
-                                          <div className="px-2 py-0.5 bg-indigo-600/10 text-indigo-400 text-[10px] font-bold rounded border border-indigo-500/20 whitespace-nowrap uppercase">
-                                              {stream.type}
-                                          </div>
-                                          <div className="px-2 py-0.5 bg-red-600/10 text-red-400 text-[10px] font-bold rounded border border-red-500/20 whitespace-nowrap uppercase">
-                                              {stream.quality}
-                                          </div>
-                                        </div>
-                                      </div>
-                                  </div>
-                                );
+        if (pmData.success && pmData.streamUrl) {
+          setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: false, isPremiumize: true, inPersonalCloud: true } : s));
+          triggerPlay(pmData.streamUrl, { ...stream, isPremiumize: true, inPersonalCloud: true });
+          if (!isFavorite) { toggleFavorite(); }
+          return;
+        } else if (pmData.error) {
+          alert("Premiumize Error: " + (pmData.message || pmData.error));
+        }
+      } catch (err: any) {
+        console.error("Failed to resolve stream on Premiumize:", err);
+        alert("Failed to resolve stream on Premiumize: " + (err.message || err));
+      }
+      setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: false } : s));
+      return;
+    };
+
+    return (
+      <div 
+        key={stream.id} 
+        tabIndex={0}
+        className="focusable flex flex-col p-3.5 bg-white/5 border border-white/10 rounded-xl hover:bg-red-950/10 hover:border-red-500/20 transition-all cursor-pointer group focus:bg-red-950/20 focus:border-red-500/50 focus:outline-none focus:scale-[1.02]" 
+        onClick={handleStreamClick}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-2">
+              {(stream.type === 'premiumize_cloud' || stream.inPersonalCloud) && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-bold shrink-0 shadow-sm" title="Located in Premiumize Cloud">
+                  <Cloud className="w-3 h-3 text-cyan-300 fill-cyan-400/20" /> Cloud
+                </span>
+              )}
+              <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] text-white/60 font-mono">Size: {stream.size || stream.sizeStr || 'Unknown'}</span>
+              {stream.source && (
+                <span className="text-[10px] text-white/60 font-mono flex items-center gap-1">
+                  <Database className="w-3 h-3" /> Source: {stream.source}
+                </span>
+              )}
+              {stream.downloadProgress !== undefined && stream.downloadProgress < 100 && stream.downloadSpeed !== undefined && (
+                <span className="text-[10px] text-indigo-400 font-mono font-semibold flex items-center gap-1">
+                  <Download className="w-3 h-3" /> {(stream.downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase flex items-center gap-1 ${(stream.type === 'premiumize_cloud' || stream.inPersonalCloud) ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm' : (stream.isPremiumize ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : (stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'))))}`}>
+              {(stream.type === 'premiumize_cloud' || stream.inPersonalCloud) && <Cloud className="w-3 h-3 text-cyan-300" />}
+              {(stream.type === 'premiumize_cloud' || stream.inPersonalCloud)
+                ? 'Premiumize Cloud ⚡'
+                : (stream.isPremiumize
+                  ? 'Premiumize ⚡'
+                  : (stream.isCached 
+                    ? 'Instant Stream' 
+                    : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 
+                      ? 'Processing...' 
+                      : (stream.isAdding 
+                        ? 'Adding...' 
+                        : (stream.downloadProgress !== undefined 
+                          ? `${stream.downloadProgress}%` 
+                          : 'Torrent')))))}
+            </div>
+            {stream.type !== 'torrent' && (
+              <div className="px-2 py-0.5 bg-indigo-600/10 text-indigo-400 text-[10px] font-bold rounded border border-indigo-500/20 whitespace-nowrap uppercase">
+                {stream.type}
+              </div>
+            )}
+            <div className="px-2 py-0.5 bg-red-600/10 text-red-400 text-[10px] font-bold rounded border border-red-500/20 whitespace-nowrap uppercase">
+              {stream.quality}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -1457,7 +1461,8 @@ export default function MediaModal({
                   };
 
                   const activeStreams = streams.filter(isReadyOrActive);
-                  const availableStreams = streams.filter(s => !isReadyOrActive(s));
+                  // Filter out un-cached plain torrents when Premiumize filtering is active so only Premiumize-cached streams are displayed
+                  const availableStreams = streams.filter(s => !isReadyOrActive(s) && (s.isPremiumize || s.type === 'premiumize_cloud' || s.inPersonalCloud || s.isCached || s.magnet || s.url));
 
                   return (
                     <div className="flex flex-col flex-1 min-h-0 gap-6">
