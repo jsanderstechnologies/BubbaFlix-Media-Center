@@ -369,6 +369,7 @@ async function startServer() {
   const DB_FILE = path.join(DATA_DIR, 'db.json');
   const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
   const SCANNED_LIBRARY_FILE = path.join(DATA_DIR, 'scanned_library.json');
+  const PM_RETENTION_FILE = path.join(DATA_DIR, 'pm_retention.json');
 
 
 
@@ -409,6 +410,79 @@ async function startServer() {
       try { if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile); } catch (err) {}
     }
   };
+  // Helper: Track Premiumize transfer with 7-day expiration
+  const trackPmRetention = (transferId: string, magnet?: string) => {
+    if (!transferId) return;
+    const list = readJson(PM_RETENTION_FILE, []);
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const expiresAt = now + SEVEN_DAYS_MS;
+
+    const existingIdx = list.findIndex((item: any) => String(item.id) === String(transferId) || (magnet && item.magnet === magnet));
+    if (existingIdx >= 0) {
+      list[existingIdx].expiresAt = expiresAt; // Reset 7-day retention clock
+    } else {
+      list.push({ id: String(transferId), magnet: magnet || '', addedAt: now, expiresAt });
+    }
+    writeJson(PM_RETENTION_FILE, list);
+    console.log(`[Premiumize 7-Day Retention] Tracked transfer "${transferId}" — scheduled for auto-purge on ${new Date(expiresAt).toISOString()}`);
+  };
+
+  // Helper: Auto-purge expired Premiumize transfers after 7 days
+  const runPmRetentionCleanup = async () => {
+    try {
+      const currentSettings = readJson(SETTINGS_FILE);
+      const token = currentSettings.premiumizeApiKey || process.env.PREMIUMIZE_API_KEY || process.env.PM_API_KEY;
+      if (!token) return;
+
+      const list = readJson(PM_RETENTION_FILE, []);
+      if (!Array.isArray(list) || list.length === 0) return;
+
+      const now = Date.now();
+      const remaining: any[] = [];
+
+      for (const item of list) {
+        if (now >= item.expiresAt) {
+          console.log(`[Premiumize Retention] 7-day retention period expired for transfer "${item.id}". Deleting from Premiumize cloud...`);
+          try {
+            const FormData = require('form-data');
+            const form = new FormData();
+            form.append('apikey', token);
+            form.append('id', item.id);
+            const delRes = await axios.post("https://www.premiumize.me/api/transfer/delete", form, {
+              headers: { ...form.getHeaders() },
+              timeout: 8000
+            });
+            if (delRes.data?.status === 'success') {
+              console.log(`[Premiumize Retention] Successfully deleted transfer "${item.id}" from Premiumize Cloud.`);
+            } else {
+              const itemForm = new FormData();
+              itemForm.append('apikey', token);
+              itemForm.append('id', item.id);
+              await axios.post("https://www.premiumize.me/api/item/delete", itemForm, {
+                headers: { ...itemForm.getHeaders() },
+                timeout: 8000
+              }).catch(() => null);
+            }
+          } catch (err: any) {
+            console.warn(`[Premiumize Retention Warning] Failed to delete expired transfer "${item.id}":`, err?.message || err);
+          }
+        } else {
+          remaining.push(item);
+        }
+      }
+
+      if (remaining.length !== list.length) {
+        writeJson(PM_RETENTION_FILE, remaining);
+      }
+    } catch (err: any) {
+      console.error('[Premiumize Retention Cleanup Error]:', err?.message || err);
+    }
+  };
+
+  // Run Premiumize retention cleanup on boot and every 4 hours
+  setTimeout(runPmRetentionCleanup, 10000);
+  setInterval(runPmRetentionCleanup, 4 * 60 * 60 * 1000);
 
 
   // Sync Docker Compose Env Configuration Keys directly to settings on boot
@@ -2794,7 +2868,7 @@ app.get('/api/youtube/search', async (req, res) => {
         timeout: 12000
       });
 
-      // Automatically queue / save torrent transfer into user's Premiumize Cloud account
+      // Automatically queue / save torrent transfer into user's Premiumize Cloud account with 7-Day Retention
       try {
         const createForm = new FormData();
         createForm.append('apikey', token);
@@ -2804,7 +2878,9 @@ app.get('/api/youtube/search', async (req, res) => {
           timeout: 10000
         }).then((cRes) => {
           if (cRes.data?.status === 'success') {
-            console.log(`[Premiumize Cloud] Automatically added torrent to user cloud storage: ${cRes.data.name || cRes.data.id || 'OK'}`);
+            const trId = cRes.data.id || cRes.data.name;
+            if (trId) trackPmRetention(trId, magnet);
+            console.log(`[Premiumize Cloud] Automatically added torrent to user cloud storage (7-Day Retention): ${trId || 'OK'}`);
           }
         }).catch((err) => {
           console.warn('[Premiumize Auto-Transfer Warning]:', err?.response?.data?.message || err?.message);
@@ -2858,11 +2934,22 @@ app.get('/api/youtube/search', async (req, res) => {
         timeout: 10000
       });
 
+      if (response.data?.status === 'success') {
+        const trId = response.data.id || response.data.name;
+        if (trId) trackPmRetention(trId, targetSrc);
+      }
+
       res.json(response.data);
     } catch (err: any) {
       console.error("[Premiumize Create Transfer Error]:", err.response?.data || err.message);
       res.status(err.response?.status || 500).json({ error: err.message, detail: err.response?.data });
     }
+  });
+
+  // 4b. Get Active Premiumize 7-Day Retention Status
+  app.get("/api/premiumize/retention/list", (req, res) => {
+    const list = readJson(PM_RETENTION_FILE, []);
+    res.json({ success: true, retentionDays: 7, count: list.length, items: list });
   });
 
   // 5. Delete Transfer on Premiumize
