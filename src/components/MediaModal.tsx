@@ -505,11 +505,14 @@ export default function MediaModal({
 
           if (movie.isNetworkShare || movie.streamUrl || movie.filePath) {
             const locUrl = movie.streamUrl || `/api/local-media/stream?path=${encodeURIComponent(movie.filePath)}`;
+            const locPath = movie.filePath || movie.title || movie.name || '';
+            const is4k = /4k|2160p|2160|uhd|ultra\s*hd/i.test(locPath);
+            const is720 = /720p|720|sd|480p/i.test(locPath);
             initialData.unshift({
               name: `⚡ Local Network Share: ${movie.title || movie.name}`,
               title: movie.title || movie.name,
               fullDescription: `Direct Local Playback (${movie.filePath || 'Local Storage'})`,
-              quality: '1080p',
+              quality: is4k ? '4K' : (is720 ? '720p' : '1080p'),
               sizeStr: 'Local Storage',
               type: 'local',
               url: locUrl,
@@ -739,12 +742,15 @@ export default function MediaModal({
       if (movie.isNetworkShare || localPath || localStreamUrl) {
         const locUrl = localStreamUrl || (localPath ? `/api/local-media/stream?path=${encodeURIComponent(localPath)}` : null);
         if (locUrl) {
+          const locStr = (localPath || '') + ' ' + (movie.title || '');
+          const is4k = /4k|2160p|2160|uhd|ultra\s*hd/i.test(locStr);
+          const is720 = /720p|720|sd|480p/i.test(locStr);
           initialData.unshift({
             id: `local_ep_${selectedSeason}_${selectedEpisode}`,
             name: `⚡ Local Network Share: ${movie.title || movie.name} S${String(selectedSeason).padStart(2, '0')}E${String(selectedEpisode).padStart(2, '0')}`,
             title: `${movie.title || movie.name} S${String(selectedSeason).padStart(2, '0')}E${String(selectedEpisode).padStart(2, '0')}`,
             fullDescription: `Direct Local Playback (${localPath || 'Local Storage'})`,
-            quality: '1080p',
+            quality: is4k ? '4K' : (is720 ? '720p' : '1080p'),
             sizeStr: 'Local Storage',
             type: 'local',
             url: locUrl,

@@ -2982,6 +2982,14 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
+  // Helper function to accurately detect video resolution (4K, 1080p, 720p) for IPTV & local media
+  function detectStreamQuality(name: string): string {
+    const n = (name || '').toLowerCase();
+    if (/4k|2160p|2160|uhd|ultra\s*hd/i.test(n)) return '4K';
+    if (/1080p|1080|fhd|full\s*hd|fullhd/i.test(n)) return '1080p';
+    if (/720p|720|sd|480p|480/i.test(n)) return '720p';
+    return '1080p'; // Default modern IPTV VOD & Direct streams to 1080p Full HD
+  }
 
   // API Route: Search IPTV Provider for VOD Movie and TV Series Streams
   app.get("/api/iptv/vod/search", async (req, res) => {
@@ -3022,11 +3030,12 @@ app.get('/api/youtube/search', async (req, res) => {
                   if (ep && (ep.id || ep.stream_id)) {
                     const epId = ep.id || ep.stream_id;
                     const ext = ep.container_extension || ep.extension || 'mp4';
+                    const streamName = `${matchSeries.name || title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} ${ep.title ? '- ' + ep.title : ''}`;
                     results.push({
                       id: `iptv_series_${epId}`,
-                      name: `IPTV Direct Stream - ${matchSeries.name || title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} ${ep.title ? '- ' + ep.title : ''}`,
+                      name: `IPTV Direct Stream - ${streamName}`,
                       title: ep.title || title,
-                      quality: (ep.title || '').includes('4K') || (ep.title || '').includes('2160p') ? '4K' : '1080p',
+                      quality: detectStreamQuality(streamName),
                       sizeStr: 'IPTV Stream',
                       type: 'iptv',
                       source: 'IPTV Provider',
@@ -3047,11 +3056,12 @@ app.get('/api/youtube/search', async (req, res) => {
               const mName = (m.name || m.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
               if (mName.includes(normalizedTitle) || normalizedTitle.includes(mName)) {
                 const ext = m.container_extension || 'mp4';
+                const streamName = m.name || m.title || '';
                 results.push({
                   id: `iptv_movie_${m.stream_id}`,
-                  name: `IPTV Direct Stream - ${m.name || m.title}`,
-                  title: m.name || m.title,
-                  quality: (m.name || '').includes('4K') || (m.name || '').includes('2160p') ? '4K' : ((m.name || '').includes('1080p') ? '1080p' : '720p'),
+                  name: `IPTV Direct Stream - ${streamName}`,
+                  title: streamName,
+                  quality: detectStreamQuality(streamName),
                   sizeStr: 'IPTV Stream',
                   type: 'iptv',
                   source: 'IPTV Provider',
@@ -3099,7 +3109,7 @@ app.get('/api/youtube/search', async (req, res) => {
                   id: `iptv_m3u_${results.length}`,
                   name: `IPTV Direct Stream - ${channelName || title}`,
                   title: channelName || title,
-                  quality: channelName.includes('4K') ? '4K' : (channelName.includes('1080p') ? '1080p' : '720p'),
+                  quality: detectStreamQuality(channelName),
                   sizeStr: 'IPTV Stream',
                   type: 'iptv',
                   source: 'IPTV Provider',
