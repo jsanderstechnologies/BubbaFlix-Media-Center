@@ -2813,12 +2813,12 @@ app.get('/api/youtube/search', async (req, res) => {
         });
       }
 
-      // Sort by seeds descending before filtering
-      mappedTorrents.sort((a, b) => (b.seeds || 0) - (a.seeds || 0));
+      // Filter to enforce magnet links only (Premiumize compatibility) and sort by seeds
+      const magnetOnlyTorrents = mappedTorrents.filter(t => t.magnet && t.magnet.startsWith('magnet:?xt=urn:btih:') && t.hash);
+      magnetOnlyTorrents.sort((a, b) => (b.seeds || 0) - (a.seeds || 0));
 
-      // Read settings was removed here due to TDZ error
       const isMusic = req.query.category === 'music';
-      const filteredTorrents = await filterWithGemini(q as string, mappedTorrents, settings, isMusic);
+      const filteredTorrents = await filterWithGemini(q as string, magnetOnlyTorrents, settings, isMusic);
 
       res.json({ success: true, data: filteredTorrents });
     } catch (err: any) {
