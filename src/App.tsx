@@ -1384,7 +1384,7 @@ function MainApp() {
 
             </>
           ) : activeTab === 'music' ? (
-            <MusicPanel initialQuery={musicSearchQuery} />
+            <MusicPanel initialQuery={musicSearchQuery} onSelectMedia={setSelectedMovie} />
           ) : activeTab === 'weather' ? (
             <WeatherPanel />
           ) : activeTab === 'news' ? (
