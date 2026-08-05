@@ -1248,9 +1248,7 @@ function MainApp() {
                 <img src="/images/tmdb-logo.png" alt="TMDB API" className="h-4 object-contain brightness-110" title="TMDB API Active" />
               )}
               {systemSettings.premiumizeApiKey && (
-                <span className="text-[10px] bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm" title="Premiumize.me Instant 4K Debrid Engine Active">
-                  <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="w-3.5 h-3.5 object-contain" /> Premiumize ⚡
-                </span>
+                <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="h-4 object-contain brightness-110" title="Premiumize.me Instant 4K Debrid Engine Active" />
               )}
               {systemSettings.geminiApiKey && (
                 <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI API" className="h-4 object-contain brightness-110" title="Gemini AI Smart Filtering Active" />
