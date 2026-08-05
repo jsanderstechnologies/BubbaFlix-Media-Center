@@ -75,6 +75,8 @@ export default function SettingsPanel() {
   const [tmdbKey, setTmdbKey] = useState(systemSettings.tmdbKey || '');
   const [premiumizeApiKey, setPremiumizeApiKey] = useState(systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey') || '');
   const [geminiApiKey, setGeminiApiKey] = useState(systemSettings.geminiApiKey || '');
+  const [groqApiKey, setGroqApiKey] = useState(systemSettings.groqApiKey || '');
+  const [openRouterApiKey, setOpenRouterApiKey] = useState(systemSettings.openRouterApiKey || '');
   const [newsApiKey, setNewsApiKey] = useState(systemSettings.newsApiKey || '');
   const [gnewsApiKey, setGnewsApiKey] = useState(systemSettings.gnewsApiKey || '');
   const [preferHEVC, setPreferHEVC] = useState(systemSettings.preferHEVC !== false);
@@ -455,6 +457,8 @@ export default function SettingsPanel() {
       tmdbKey,
       premiumizeApiKey,
       geminiApiKey,
+      groqApiKey,
+      openRouterApiKey,
       newsApiKey,
       gnewsApiKey,
       preferHEVC: hevcMode !== 'exclude',
@@ -825,7 +829,41 @@ export default function SettingsPanel() {
                   placeholder="Enter Gemini API Key..."
                 />
               </div>
-              <p className="text-xs text-white/80 mt-2">Used by the backend to smartly filter out honeypot torrents and incorrect search results.</p>
+              <p className="text-xs text-white/80 mt-2">Primary AI provider. Used by backend for search filtering, sports matching, and deduplication.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Groq API Key (Optional Free AI Fallback)</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
+                  <Database className="w-4 h-4" />
+                </span>
+                <input 
+                  type="password"
+                  value={groqApiKey}
+                  onChange={(e) => setGroqApiKey(e.target.value)}
+                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
+                  placeholder="Enter Groq API Key (Optional)..."
+                />
+              </div>
+              <p className="text-xs text-white/80 mt-2">100% Free ultra-fast AI fallback if Gemini encounters rate limits (429). Get free key at <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-indigo-400 underline hover:text-indigo-300">console.groq.com</a></p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">OpenRouter API Key (Optional Free AI Fallback)</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
+                  <Database className="w-4 h-4" />
+                </span>
+                <input 
+                  type="password"
+                  value={openRouterApiKey}
+                  onChange={(e) => setOpenRouterApiKey(e.target.value)}
+                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
+                  placeholder="Enter OpenRouter API Key (Optional)..."
+                />
+              </div>
+              <p className="text-xs text-white/80 mt-2">Secondary free AI fallback supporting Llama 3.2 & Gemma 2 free models. Get key at <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" className="text-indigo-400 underline hover:text-indigo-300">openrouter.ai/keys</a></p>
             </div>
 
             <div>

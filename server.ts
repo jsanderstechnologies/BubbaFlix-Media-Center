@@ -685,6 +685,8 @@ async function startServer() {
       tmdbKey: settings.tmdbKey || '',
       premiumizeApiKey: settings.premiumizeApiKey || '',
       geminiApiKey: settings.geminiApiKey || '',
+      groqApiKey: settings.groqApiKey || '',
+      openRouterApiKey: settings.openRouterApiKey || '',
       preferHEVC: settings.preferHEVC !== false,
       hevcMode: settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer'),
       maxResults: settings.maxResults || null,
@@ -933,6 +935,8 @@ async function startServer() {
     if (usenetUsername !== undefined) settings.usenetUsername = usenetUsername;
     if (usenetPassword !== undefined) settings.usenetPassword = usenetPassword;
     if (geminiApiKey !== undefined) settings.geminiApiKey = geminiApiKey;
+    if (req.body.groqApiKey !== undefined) settings.groqApiKey = req.body.groqApiKey;
+    if (req.body.openRouterApiKey !== undefined) settings.openRouterApiKey = req.body.openRouterApiKey;
     if (req.body.disableLogin !== undefined) settings.disableLogin = req.body.disableLogin;
     if (req.body.enableUsenetSearch !== undefined) settings.enableUsenetSearch = req.body.enableUsenetSearch;
     if (req.body.enableTorrentSearch !== undefined) settings.enableTorrentSearch = req.body.enableTorrentSearch;
@@ -1064,45 +1068,148 @@ async function startServer() {
     }
   });
 
-  // Helper function to call Gemini API with model fallback (gemini-2.0-flash -> gemini-1.5-flash -> gemini-1.5-flash-latest)
-  async function callGeminiApi(apiKey: string, prompt: string, options: { responseMimeType?: string; timeout?: number } = {}): Promise<string> {
-    const cleanKey = apiKey.trim();
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
-    let lastErr: any = null;
+  // Helper function to call AI APIs with automatic multi-provider fallback:
+  // Gemini API -> Groq API (Free Tier) -> OpenRouter Free API -> Local Ollama
+  async function callAiWithFallback(passedApiKey: string, prompt: string, options: { responseMimeType?: string; timeout?: number } = {}): Promise<string> {
+    const settings = readJson(SETTINGS_FILE);
+    const geminiKey = (passedApiKey || settings.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+    const groqKey = (settings.groqApiKey || process.env.GROQ_API_KEY || '').trim();
+    const openRouterKey = (settings.openRouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
+    const timeoutMs = options.timeout || 30000;
 
-    for (const model of models) {
-      try {
-        const payload: any = { contents: [{ parts: [{ text: prompt }] }] };
-        if (options.responseMimeType) {
-          payload.generationConfig = { temperature: 0.1, responseMimeType: options.responseMimeType };
+    const errors: string[] = [];
+
+    // 1. PRIMARY PROVIDER: GOOGLE GEMINI API
+    if (geminiKey) {
+      const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+      for (const model of models) {
+        try {
+          const payload: any = { contents: [{ parts: [{ text: prompt }] }] };
+          if (options.responseMimeType) {
+            payload.generationConfig = { temperature: 0.1, responseMimeType: options.responseMimeType };
+          }
+
+          const res = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+            payload,
+            { timeout: timeoutMs, headers: { 'Content-Type': 'application/json' } }
+          );
+
+          const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text !== undefined && text !== null) {
+            return text;
+          }
+        } catch (err: any) {
+          const status = err.response?.status;
+          if (status === 429) {
+            console.warn(`[AI System] Gemini API rate limited / quota exceeded (429). Cascading to fallback AI provider...`);
+            errors.push('Gemini 429 Rate Limit');
+            break;
+          }
+          if (status === 404) {
+            console.warn(`[AI System] Gemini model '${model}' returned 404. Trying next model...`);
+            continue;
+          }
+          errors.push(`Gemini: ${err.message}`);
+          break;
         }
+      }
+    }
 
+    // 2. SECONDARY PROVIDER: GROQ API (100% Free High-Speed LPU Tier)
+    if (groqKey) {
+      const groqModels = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'mixtral-8x7b-32768'];
+      for (const gModel of groqModels) {
+        try {
+          const res = await axios.post(
+            'https://api.groq.com/openai/v1/chat/completions',
+            {
+              model: gModel,
+              messages: [{ role: 'user', content: prompt }],
+              temperature: 0.1,
+              ...(options.responseMimeType === 'application/json' ? { response_format: { type: 'json_object' } } : {})
+            },
+            {
+              timeout: timeoutMs,
+              headers: {
+                'Authorization': `Bearer ${groqKey}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          const text = res.data?.choices?.[0]?.message?.content;
+          if (text) {
+            console.log(`[AI System] Obtained response from Groq AI Fallback (${gModel})`);
+            return text;
+          }
+        } catch (err: any) {
+          errors.push(`Groq (${gModel}): ${err.response?.data?.error?.message || err.message}`);
+        }
+      }
+    }
+
+    // 3. TERTIARY PROVIDER: OPENROUTER FREE API (Public Open Access Tier)
+    const openRouterAuthKey = openRouterKey || 'pk-free-open-access';
+    const openRouterModels = [
+      'meta-llama/llama-3.2-3b-instruct:free',
+      'google/gemma-2-9b-it:free',
+      'qwen/qwen-2.5-72b-instruct:free',
+      'deepseek/deepseek-r1:free'
+    ];
+
+    for (const orModel of openRouterModels) {
+      try {
         const res = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`,
-          payload,
-          { timeout: options.timeout || 30000, headers: { 'Content-Type': 'application/json' } }
+          'https://openrouter.ai/api/v1/chat/completions',
+          {
+            model: orModel,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.1
+          },
+          {
+            timeout: timeoutMs,
+            headers: {
+              'Authorization': `Bearer ${openRouterAuthKey}`,
+              'HTTP-Referer': 'https://bubbaflix.app',
+              'X-Title': 'BubbaFlix Media Center',
+              'Content-Type': 'application/json'
+            }
+          }
         );
-
-        const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text !== undefined && text !== null) {
+        const text = res.data?.choices?.[0]?.message?.content;
+        if (text) {
+          console.log(`[AI System] Obtained response from OpenRouter Free AI Fallback (${orModel})`);
           return text;
         }
       } catch (err: any) {
-        lastErr = err;
-        const status = err.response?.status;
-        if (status === 429) {
-          console.warn(`[Gemini API] Quota / Rate limit reached (HTTP 429 Too Many Requests). Bypassing AI call.`);
-          throw new Error("Gemini API Rate Limit / Quota Exceeded (429)");
-        }
-        if (status === 404) {
-          console.warn(`[Gemini API] Model '${model}' returned 404 Not Found. Trying fallback model...`);
-          continue;
-        }
-        break;
+        errors.push(`OpenRouter (${orModel}): ${err.response?.data?.error?.message || err.message}`);
       }
     }
-    throw lastErr || new Error("Gemini API request failed across all model fallbacks.");
+
+    // 4. QUATERNARY PROVIDER: LOCAL OLLAMA API (If running locally)
+    try {
+      const ollamaUrl = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
+      const res = await axios.post(
+        `${ollamaUrl}/v1/chat/completions`,
+        {
+          model: 'llama3.2',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1
+        },
+        { timeout: 10000 }
+      );
+      const text = res.data?.choices?.[0]?.message?.content;
+      if (text) {
+        console.log(`[AI System] Obtained response from Local Ollama AI`);
+        return text;
+      }
+    } catch (e) {}
+
+    throw new Error(`All AI Providers Failed or Unconfigured: [${errors.join('; ')}]`);
   }
+
+  // Alias callGeminiApi to callAiWithFallback for full backward compatibility
+  const callGeminiApi = callAiWithFallback;
 
   // Sports Stream AI Matcher via Gemini API
   app.post('/api/sports/match-channel', async (req, res) => {
@@ -2312,7 +2419,7 @@ app.get('/api/youtube/search', async (req, res) => {
       console.log(`[HEVC Filter: Prefer] Prioritized HEVC/x265 streams to top for "${query}"`);
     }
 
-    if (!settings.geminiApiKey || candidateItems.length === 0) return candidateItems;
+    if (candidateItems.length === 0) return candidateItems;
     
     try {
       const list = candidateItems.map((t, i) => `${i}: ${t.name || t.title}`).join('\n');
