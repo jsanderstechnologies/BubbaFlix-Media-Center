@@ -170,6 +170,9 @@ function MainApp() {
 
   const [isIdle, setIsIdle] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [movieSearchQuery, setMovieSearchQuery] = useState<string>('');
+  const [seriesSearchQuery, setSeriesSearchQuery] = useState<string>('');
+  const [musicSearchQuery, setMusicSearchQuery] = useState<string>('');
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('home');
   const [sortOption, setSortOption] = useState<string>('newest');
@@ -1216,32 +1219,7 @@ function MainApp() {
               )}
             </div>
 
-            <div 
-              tabIndex={0}
-              className="bg-white/5 border border-white/10 px-4 py-2 rounded-full flex items-center gap-3 w-48 sm:w-64 cursor-pointer hover:bg-white/10 transition-colors relative focus:bg-white/10 focus:outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20"
-              onClick={() => { setActiveTab('search'); setIsKeyboardOpen(true); }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  setActiveTab('search');
-                  setIsKeyboardOpen(true);
-                }
-              }}
-            >
-              <Search className="w-4 h-4 text-white/50 shrink-0" />
-              <input 
-                type="text" 
-                tabIndex={-1}
-                readOnly
-                placeholder="Search Catalog..." 
-                className="bg-transparent border-none outline-none text-sm text-white w-full pr-6 placeholder-white/30 cursor-pointer pointer-events-none"
-                value={searchQuery}
-                onFocus={() => { setActiveTab('search'); }}
-              />
-              {searchQuery && (
-                <button type="button" onClick={(e) => { e.stopPropagation(); setSearchQuery(''); }} className="absolute right-3 p-1 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer z-10"><X className="w-3.5 h-3.5" /></button>
-              )}
-            </div>
+
 
             {/* API Integrations Active Icons */}
             <div className="flex items-center gap-3 opacity-70 shrink-0 mx-2 hidden sm:flex">
@@ -1276,79 +1254,115 @@ function MainApp() {
             <HomePanel onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} />
           ) : activeTab === 'catalog' ? (
             <>
-              <div className="flex items-center justify-end shrink-0 gap-2">
-                {showFilters && (
-                  <div className="flex gap-2 mr-2">
-                    <select 
-                      value={filterGenre} 
-                      onChange={(e) => setFilterGenre(Number(e.target.value))}
-                      className="bg-black/40 border border-white/10 text-white text-xs rounded px-2 py-1.5 outline-none"
-                    >
-                      <option value={0} className="bg-slate-900 text-white">All Genres</option>
-                      {MOVIE_GENRES.map(g => (
-                        <option key={g.id} value={g.id} className="bg-slate-900 text-white">{g.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <button 
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-1.5 rounded text-xs font-bold tracking-wider transition-colors ${showFilters ? 'bg-indigo-600' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
-                >
-                  FILTERS
-                </button>
-                <select 
-                  value={sortOption} 
-                  onChange={(e) => setSortOption(e.target.value)}
-                  className="px-4 py-1.5 bg-white/5 rounded text-xs font-bold tracking-wider border border-white/10 outline-none appearance-none cursor-pointer hover:bg-white/10"
-                >
-                  <option value="default" className="bg-slate-900 text-white">SORT: DEFAULT</option>
-                  <option value="newest" className="bg-slate-900 text-white">SORT: NEWEST</option>
-                  <option value="oldest" className="bg-slate-900 text-white">SORT: OLDEST</option>
-                  <option value="rating_high" className="bg-slate-900 text-white">SORT: RATING (HIGH)</option>
-                  <option value="rating_low" className="bg-slate-900 text-white">SORT: RATING (LOW)</option>
-                </select>
+              <div className="flex flex-wrap items-center justify-between shrink-0 gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
+                <div className="relative flex-1 min-w-[200px] max-w-md">
+                  <Search className="w-4 h-4 text-white/50 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={movieSearchQuery}
+                    onChange={(e) => setMovieSearchQuery(e.target.value)}
+                    placeholder="Search Movies..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-9 py-2 text-sm text-white placeholder-white/40 outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20 transition-all"
+                  />
+                  {movieSearchQuery && (
+                    <button onClick={() => setMovieSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {showFilters && (
+                    <div className="flex gap-2 mr-2">
+                      <select 
+                        value={filterGenre} 
+                        onChange={(e) => setFilterGenre(Number(e.target.value))}
+                        className="bg-black/40 border border-white/10 text-white text-xs rounded px-2 py-1.5 outline-none"
+                      >
+                        <option value={0} className="bg-slate-900 text-white">All Genres</option>
+                        {MOVIE_GENRES.map(g => (
+                          <option key={g.id} value={g.id} className="bg-slate-900 text-white">{g.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`px-4 py-1.5 rounded text-xs font-bold tracking-wider transition-colors ${showFilters ? 'bg-indigo-600' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
+                  >
+                    FILTERS
+                  </button>
+                  <select 
+                    value={sortOption} 
+                    onChange={(e) => setSortOption(e.target.value)}
+                    className="px-4 py-1.5 bg-white/5 rounded text-xs font-bold tracking-wider border border-white/10 outline-none appearance-none cursor-pointer hover:bg-white/10"
+                  >
+                    <option value="default" className="bg-slate-900 text-white">SORT: DEFAULT</option>
+                    <option value="newest" className="bg-slate-900 text-white">SORT: NEWEST</option>
+                    <option value="oldest" className="bg-slate-900 text-white">SORT: OLDEST</option>
+                    <option value="rating_high" className="bg-slate-900 text-white">SORT: RATING (HIGH)</option>
+                    <option value="rating_low" className="bg-slate-900 text-white">SORT: RATING (LOW)</option>
+                  </select>
+                </div>
               </div>
 
-              <CatalogGrid onSelectMovie={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery="" sortOption={sortOption} filterGenre={filterGenre} />
+              <CatalogGrid onSelectMovie={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={movieSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
             </>
           ) : activeTab === 'series' ? (
             <>
-              <div className="flex items-center justify-end shrink-0 gap-2">
-                {showFilters && (
-                  <div className="flex gap-2 mr-2">
-                    <select 
-                      value={filterGenre} 
-                      onChange={(e) => setFilterGenre(Number(e.target.value))}
-                      className="bg-black/40 border border-white/10 text-white text-xs rounded px-2 py-1.5 outline-none"
-                    >
-                      <option value={0} className="bg-slate-900 text-white">All Genres</option>
-                      {TV_GENRES.map(g => (
-                        <option key={g.id} value={g.id} className="bg-slate-900 text-white">{g.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <button 
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-1.5 rounded text-xs font-bold tracking-wider transition-colors ${showFilters ? 'bg-indigo-600' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
-                >
-                  FILTERS
-                </button>
-                <select 
-                  value={sortOption} 
-                  onChange={(e) => setSortOption(e.target.value)}
-                  className="px-4 py-1.5 bg-white/5 rounded text-xs font-bold tracking-wider border border-white/10 outline-none appearance-none cursor-pointer hover:bg-white/10"
-                >
-                  <option value="default" className="bg-slate-900 text-white">SORT: DEFAULT</option>
-                  <option value="newest" className="bg-slate-900 text-white">SORT: NEWEST</option>
-                  <option value="oldest" className="bg-slate-900 text-white">SORT: OLDEST</option>
-                  <option value="rating_high" className="bg-slate-900 text-white">SORT: RATING (HIGH)</option>
-                  <option value="rating_low" className="bg-slate-900 text-white">SORT: RATING (LOW)</option>
-                </select>
+              <div className="flex flex-wrap items-center justify-between shrink-0 gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
+                <div className="relative flex-1 min-w-[200px] max-w-md">
+                  <Search className="w-4 h-4 text-white/50 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={seriesSearchQuery}
+                    onChange={(e) => setSeriesSearchQuery(e.target.value)}
+                    placeholder="Search TV Series..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-9 py-2 text-sm text-white placeholder-white/40 outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20 transition-all"
+                  />
+                  {seriesSearchQuery && (
+                    <button onClick={() => setSeriesSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {showFilters && (
+                    <div className="flex gap-2 mr-2">
+                      <select 
+                        value={filterGenre} 
+                        onChange={(e) => setFilterGenre(Number(e.target.value))}
+                        className="bg-black/40 border border-white/10 text-white text-xs rounded px-2 py-1.5 outline-none"
+                      >
+                        <option value={0} className="bg-slate-900 text-white">All Genres</option>
+                        {TV_GENRES.map(g => (
+                          <option key={g.id} value={g.id} className="bg-slate-900 text-white">{g.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`px-4 py-1.5 rounded text-xs font-bold tracking-wider transition-colors ${showFilters ? 'bg-indigo-600' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
+                  >
+                    FILTERS
+                  </button>
+                  <select 
+                    value={sortOption} 
+                    onChange={(e) => setSortOption(e.target.value)}
+                    className="px-4 py-1.5 bg-white/5 rounded text-xs font-bold tracking-wider border border-white/10 outline-none appearance-none cursor-pointer hover:bg-white/10"
+                  >
+                    <option value="default" className="bg-slate-900 text-white">SORT: DEFAULT</option>
+                    <option value="newest" className="bg-slate-900 text-white">SORT: NEWEST</option>
+                    <option value="oldest" className="bg-slate-900 text-white">SORT: OLDEST</option>
+                    <option value="rating_high" className="bg-slate-900 text-white">SORT: RATING (HIGH)</option>
+                    <option value="rating_low" className="bg-slate-900 text-white">SORT: RATING (LOW)</option>
+                  </select>
+                </div>
               </div>
 
-              <TvSeriesGrid onSelectSeries={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery="" sortOption={sortOption} filterGenre={filterGenre} />
+              <TvSeriesGrid onSelectSeries={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={seriesSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
             </>
           ) : activeTab === 'search' ? (
             <SearchPanel 
@@ -1370,7 +1384,7 @@ function MainApp() {
 
             </>
           ) : activeTab === 'music' ? (
-            <MusicPanel initialQuery={searchQuery} />
+            <MusicPanel initialQuery={musicSearchQuery} />
           ) : activeTab === 'weather' ? (
             <WeatherPanel />
           ) : activeTab === 'news' ? (
