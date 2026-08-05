@@ -671,6 +671,10 @@ export default function MediaModal({
   useEffect(() => {
     let isActive = true;
     if (isSeries && selectedSeason !== null && movie) {
+      // Clear the old season's episodes immediately so stale data isn't shown
+      // while the async TMDB fetch for the new season is in flight.
+      setEpisodes([]);
+
       (async () => {
         let targetTmdbId = resolvedTmdbId || movie.realTmdbId || movie.tmdbId;
         
@@ -720,11 +724,11 @@ export default function MediaModal({
         const finalEpisodes = Array.from(epMap.values()).sort((a, b) => a.episode_number - b.episode_number);
         setEpisodes(finalEpisodes);
 
+        // Always reset to episode 1 of the new season — never carry over the
+        // episode number from another season, since different seasons have
+        // different episode counts and this caused ghost episodes to appear.
         if (finalEpisodes.length > 0) {
-          setSelectedEpisode(prevEp => {
-            const epExists = finalEpisodes.some((e: any) => e.episode_number === prevEp);
-            return epExists ? prevEp : finalEpisodes[0].episode_number;
-          });
+          setSelectedEpisode(finalEpisodes[0].episode_number);
         }
       })();
     }
