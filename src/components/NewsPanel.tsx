@@ -207,12 +207,12 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
 
     switch (tab) {
       case 'local':
-        newsApiParams = `q=${encodeURIComponent(currentCity)}`;
-        gnewsParams = `q=${encodeURIComponent(currentCity)}`;
+        newsApiParams = `q=${encodeURIComponent(currentCity + ' NOT sports NOT game NOT score NOT espn')}`;
+        gnewsParams = `q=${encodeURIComponent(currentCity + ' -sports -game -score -espn')}`;
         break;
       case 'regional':
-        newsApiParams = `q=${encodeURIComponent(currentState)}`;
-        gnewsParams = `q=${encodeURIComponent(currentState)}`;
+        newsApiParams = `q=${encodeURIComponent(currentState + ' NOT sports NOT game NOT score')}`;
+        gnewsParams = `q=${encodeURIComponent(currentState + ' -sports -game -score')}`;
         break;
       case 'national':
         newsApiParams = `country=us&category=general`;
@@ -237,8 +237,14 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
 
     const seenUrls = new Set<string>();
     const uniqueArticles: Article[] = [];
+    const SPORTS_REGEX = /\b(nfl|nba|mlb|nhl|espn|touchdown|quarterback|head coach|playoffs|score|game|athlete|halftime|first round|draft pick|super bowl|lakers|yankees|cowboys|patriots|stadium)\b/i;
+
     for (const art of articles) {
       if (!art.title || art.title.includes('[Removed]')) continue;
+      // Exclude sports articles from local and regional news tabs
+      if ((tab === 'local' || tab === 'regional') && (SPORTS_REGEX.test(art.title) || SPORTS_REGEX.test(art.description || ''))) {
+        continue;
+      }
       const cleanUrl = art.url.split('?')[0];
       if (!seenUrls.has(cleanUrl)) {
         seenUrls.add(cleanUrl);
