@@ -1370,16 +1370,29 @@ export default function MediaModal({
                         <div className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Season</label>
-                                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
-                                    {seasons.map(s => (
-                                        <button 
-                                            key={s.season_number} 
-                                            onClick={() => { setStreams([]); setSelectedSeason(s.season_number); setSelectedEpisode(null); setEpisodes([]); }}
-                                            className={`focusable shrink-0 px-4 py-2 rounded-lg text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${selectedSeason === s.season_number ? 'bg-red-600 text-white' : 'bg-[#12121a] text-white/70 hover:bg-white/10'}`}
-                                        >
-                                            Season {s.season_number}
-                                        </button>
-                                    ))}
+                                <div className="relative">
+                                    <select
+                                        value={selectedSeason ?? ''}
+                                        onChange={(e) => {
+                                            const sNum = parseInt(e.target.value, 10);
+                                            if (!isNaN(sNum)) {
+                                                setStreams([]);
+                                                setSelectedSeason(sNum);
+                                                setSelectedEpisode(null);
+                                                setEpisodes([]);
+                                            }
+                                        }}
+                                        className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
+                                    >
+                                        {seasons.map(s => (
+                                            <option key={s.season_number} value={s.season_number} className="bg-[#12121a] text-white">
+                                                Season {s.season_number} ({s.episode_count || s.episodes?.length || 0} Episodes)
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+                                        ▼
+                                    </div>
                                 </div>
                             </div>
                             {episodes.length > 0 && (
