@@ -1168,7 +1168,9 @@ async function startServer() {
       if (topic) {
         url += `top-headlines?category=${encodeURIComponent(String(topic))}&apikey=${apiKey}&max=${max}&lang=en`;
       } else if (q) {
-        url += `search?q=${encodeURIComponent(String(q))}&apikey=${apiKey}&max=${max}&lang=en`;
+        // Sanitize GNews query to prevent syntax errors
+        const cleanQ = String(q).trim().replace(/[-–—]+/g, ' ').replace(/\s+/g, ' ');
+        url += `search?q=${encodeURIComponent(cleanQ)}&apikey=${apiKey}&max=${max}&lang=en`;
       } else {
         url += `top-headlines?category=general&apikey=${apiKey}&max=${max}&lang=en`;
       }
@@ -1179,7 +1181,8 @@ async function startServer() {
       res.json(response.data);
     } catch (err: any) {
       console.error('[GNews Proxy Error]', err?.response?.data || err?.message || err);
-      res.status(err?.response?.status || 500).json({ error: err?.response?.data?.errors?.[0] || err?.message || 'Failed to fetch from GNews' });
+      // Return empty articles instead of crashing or breaking UI
+      res.json({ articles: [] });
     }
   });
 

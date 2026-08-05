@@ -208,11 +208,11 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
     switch (tab) {
       case 'local':
         newsApiParams = `q=${encodeURIComponent(currentCity + ' NOT sports NOT game NOT score NOT espn')}`;
-        gnewsParams = `q=${encodeURIComponent(currentCity + ' -sports -game -score -espn')}`;
+        gnewsParams = `q=${encodeURIComponent(currentCity + ' NOT sports')}`;
         break;
       case 'regional':
         newsApiParams = `q=${encodeURIComponent(currentState + ' NOT sports NOT game NOT score')}`;
-        gnewsParams = `q=${encodeURIComponent(currentState + ' -sports -game -score')}`;
+        gnewsParams = `q=${encodeURIComponent(currentState + ' NOT sports')}`;
         break;
       case 'national':
         newsApiParams = `country=us&category=general`;
