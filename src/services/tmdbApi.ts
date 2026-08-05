@@ -113,10 +113,22 @@ export const searchMovies = async (query: string) => {
   try {
     // 1. Search movies by title
     const pages = await Promise.all([
-      fetch(`${BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()),
-      fetch(`${BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=2`).then(r => r.json())
+      fetch(`${BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=2`).then(r => r.json()).catch(() => ({}))
     ]);
-    let movieResults = pages.flatMap(p => p.results || []);
+    let movieResults = pages.flatMap(p => p?.results || []);
+
+    // 2. Also search if query is an actor/person name to return movies starring that person
+    try {
+      const personRes = await fetch(`${BASE_URL}/search/person?api_key=${apiKey}&query=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => ({}));
+      if (personRes?.results && personRes.results.length > 0) {
+        const topPersonId = personRes.results[0].id;
+        const creditsRes = await fetch(`${BASE_URL}/person/${topPersonId}/movie_credits?api_key=${apiKey}`).then(r => r.json()).catch(() => ({}));
+        if (creditsRes?.cast && Array.isArray(creditsRes.cast)) {
+          movieResults = [...movieResults, ...creditsRes.cast];
+        }
+      }
+    } catch (e) {}
 
     // Apply filters (pass isSearch = true so preferredLanguage filter does not hide title search matches)
     let combined = applyFilters(movieResults, true);
@@ -234,10 +246,22 @@ export const searchTvSeries = async (query: string) => {
   try {
     // 1. Search TV by title
     const pages = await Promise.all([
-      fetch(`${BASE_URL}/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()),
-      fetch(`${BASE_URL}/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=2`).then(r => r.json())
+      fetch(`${BASE_URL}/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=2`).then(r => r.json()).catch(() => ({}))
     ]);
-    let tvResults = pages.flatMap(p => p.results || []);
+    let tvResults = pages.flatMap(p => p?.results || []);
+
+    // 2. Also search if query is an actor/person name to return TV series starring that person
+    try {
+      const personRes = await fetch(`${BASE_URL}/search/person?api_key=${apiKey}&query=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => ({}));
+      if (personRes?.results && personRes.results.length > 0) {
+        const topPersonId = personRes.results[0].id;
+        const creditsRes = await fetch(`${BASE_URL}/person/${topPersonId}/tv_credits?api_key=${apiKey}`).then(r => r.json()).catch(() => ({}));
+        if (creditsRes?.cast && Array.isArray(creditsRes.cast)) {
+          tvResults = [...tvResults, ...creditsRes.cast];
+        }
+      }
+    } catch (e) {}
 
     // Apply filters (pass isSearch = true so preferredLanguage filter does not hide title search matches)
     let combined = applyFilters(tvResults, true);
