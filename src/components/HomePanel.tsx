@@ -121,14 +121,10 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                       <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI" title="Gemini AI Active" className="w-4 h-4 object-contain" />
                     )}
                     {systemSettings.groqApiKey && (
-                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center gap-1 font-mono tracking-wider" title="Groq AI Active">
-                        <Bot className="w-3 h-3 text-orange-400" /> GROQ
-                      </span>
+                      <img src="https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-avatar/avatars/groq.webp" alt="Groq AI" title="Groq High-Speed LPU AI Engine Active" className="w-4 h-4 object-contain rounded-full" />
                     )}
                     {systemSettings.openRouterApiKey && (
-                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 font-mono tracking-wider" title="OpenRouter AI Active">
-                        <Bot className="w-3 h-3 text-purple-300" /> OPENROUTER
-                      </span>
+                      <img src="https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/openrouter-color.png" alt="OpenRouter AI" title="OpenRouter AI Engine Active" className="w-4 h-4 object-contain" />
                     )}
                     {encoder && (
                       <span className="text-[9px] bg-slate-800 text-slate-300 font-bold tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1 border border-white/10" title="Active Transcoding Engine">
@@ -211,14 +207,10 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                       <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI" title="Gemini AI Active" className="w-4 h-4 object-contain" />
                     )}
                     {systemSettings.groqApiKey && (
-                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center gap-1 font-mono tracking-wider" title="Groq AI Active">
-                        <Bot className="w-3 h-3 text-orange-400" /> GROQ
-                      </span>
+                      <img src="https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-avatar/avatars/groq.webp" alt="Groq AI" title="Groq High-Speed LPU AI Engine Active" className="w-4 h-4 object-contain rounded-full" />
                     )}
                     {systemSettings.openRouterApiKey && (
-                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 font-mono tracking-wider" title="OpenRouter AI Active">
-                        <Bot className="w-3 h-3 text-purple-300" /> OPENROUTER
-                      </span>
+                      <img src="https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/openrouter-color.png" alt="OpenRouter AI" title="OpenRouter AI Engine Active" className="w-4 h-4 object-contain" />
                     )}
                     {encoder && (
                       <span className="text-[9px] bg-slate-800 text-slate-300 font-bold tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1 border border-white/10" title="Active Transcoding Engine">

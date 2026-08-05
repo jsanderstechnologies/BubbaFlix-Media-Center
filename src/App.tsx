@@ -1254,14 +1254,10 @@ function MainApp() {
                 <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI API" className="h-4 object-contain brightness-110" title="Gemini AI Smart Filtering Active" />
               )}
               {systemSettings.groqApiKey && (
-                <span className="px-1.5 py-0.5 text-[10px] font-black rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center gap-1 font-mono tracking-wider" title="Groq High-Speed LPU AI Engine Active">
-                  <Bot className="w-3.5 h-3.5 text-orange-400" /> GROQ
-                </span>
+                <img src="https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-avatar/avatars/groq.webp" alt="Groq AI" className="h-4 object-contain brightness-110 rounded-full" title="Groq High-Speed LPU AI Engine Active" />
               )}
               {systemSettings.openRouterApiKey && (
-                <span className="px-1.5 py-0.5 text-[10px] font-black rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 font-mono tracking-wider" title="OpenRouter AI Engine Active">
-                  <Bot className="w-3.5 h-3.5 text-purple-300" /> OPENROUTER
-                </span>
+                <img src="https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/openrouter-color.png" alt="OpenRouter AI" className="h-4 object-contain brightness-110" title="OpenRouter AI Engine Active" />
               )}
               {systemSettings.intelTranscoding === true && (
                 <img src="/images/intel-logo.png" alt="Intel QSV" className="h-4 object-contain brightness-110" title="Intel Quick Sync Hardware Transcoding Active" />
