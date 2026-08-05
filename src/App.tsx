@@ -1023,89 +1023,89 @@ function MainApp() {
       )}
 
       {/* Sidebar */}
-      <div id="sidebar-nav" className="w-20 bg-black/60 border-r border-white/10 flex flex-col items-center py-10 gap-10 z-20 shrink-0">
+      <div id="sidebar-nav" className="w-20 bg-black/60 border-r border-white/10 flex flex-col items-center py-6 gap-6 z-20 shrink-0">
         <div className="select-none cursor-pointer flex items-center justify-center hover:scale-110 transition-transform duration-300" title="BUBBAFLIX">
-          <img src="https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg" alt="BubbaFlix Icon" className="w-10 h-10 drop-shadow-lg" />
+          <img src="https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg" alt="BubbaFlix Icon" className="w-9 h-9 drop-shadow-lg" />
         </div>
-        <div className="flex flex-col gap-8 text-white/60 w-full px-2">
+        <div className="flex flex-col gap-3.5 text-white/60 w-full px-2">
           <div 
             id="nav-tab-home"
             tabIndex={0}
             onClick={() => { setActiveTab('home'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'home' ? 'text-red-500' : ''}`}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'home' ? 'text-red-500' : ''}`}
             title="Home"
           >
-            <Home className="w-6 h-6" />
+            <Home className="w-5 h-5" />
             <span className="text-[9px] uppercase tracking-wider font-medium">Home</span>
           </div>
           <div 
             id="nav-tab-tv"
             tabIndex={0}
             onClick={() => { setActiveTab('tv'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'tv' ? 'text-red-500' : ''}`}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'tv' ? 'text-red-500' : ''}`}
             title="Live TV"
           >
-            <MonitorPlay className="w-6 h-6" />
+            <MonitorPlay className="w-5 h-5" />
             <span className="text-[9px] uppercase tracking-wider font-medium">Live</span>
           </div>
           <div 
             id="nav-tab-series"
             tabIndex={0}
             onClick={() => { setActiveTab('series'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'series' ? 'text-red-500' : ''}`}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'series' ? 'text-red-500' : ''}`}
             title="TV Series"
           >
-            <Tv className="w-6 h-6" />
+            <Tv className="w-5 h-5" />
             <span className="text-[9px] uppercase tracking-wider font-medium">Series</span>
           </div>
           <div 
             id="nav-tab-catalog"
             tabIndex={0}
             onClick={() => { setActiveTab('catalog'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'catalog' ? 'text-red-500' : ''}`}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'catalog' ? 'text-red-500' : ''}`}
             title="Movies"
           >
-            <Clapperboard className="w-6 h-6" />
+            <Clapperboard className="w-5 h-5" />
             <span className="text-[9px] uppercase tracking-wider font-medium">Movies</span>
           </div>
           <div 
             id="nav-tab-music"
             tabIndex={0}
             onClick={() => { setActiveTab('music'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'music' ? 'text-red-500' : ''}`}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'music' ? 'text-red-500' : ''}`}
             title="Music Search"
           >
-            <Music className="w-6 h-6" />
+            <Music className="w-5 h-5" />
             <span className="text-[9px] uppercase tracking-wider font-medium">Music</span>
           </div>
           <div 
             id="nav-tab-library"
             tabIndex={0}
             onClick={() => { setActiveTab('library'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'library' ? 'text-red-500' : ''}`}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'library' ? 'text-red-500' : ''}`}
             title="Library / Favorites"
           >
-            <Bookmark className="w-6 h-6" />
+            <Bookmark className="w-5 h-5" />
             <span className="text-[9px] uppercase tracking-wider font-medium">Library</span>
           </div>
           <div 
             id="nav-tab-weather"
             tabIndex={0}
             onClick={() => { setActiveTab('weather'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'weather' ? 'text-red-500' : ''}`}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'weather' ? 'text-red-500' : ''}`}
             title="Weather & Radar"
           >
-            <CloudSun className="w-6 h-6" />
+            <CloudSun className="w-5 h-5" />
             <span className="text-[9px] uppercase tracking-wider font-medium">Weather</span>
           </div>
           <div 
             id="nav-tab-news"
             tabIndex={0}
             onClick={() => { setActiveTab('news'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'news' ? 'text-red-500' : ''}`}
+            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'news' ? 'text-red-500' : ''}`}
             title="News & Sports"
           >
-            <Newspaper className="w-6 h-6" />
+            <Newspaper className="w-5 h-5" />
             <span className="text-[9px] uppercase tracking-wider font-medium">News</span>
           </div>
           {user?.role === 'admin' && (
@@ -1113,10 +1113,10 @@ function MainApp() {
               id="nav-tab-settings"
               tabIndex={0}
               onClick={() => { setActiveTab('settings'); setSearchQuery(''); }}
-              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1.5 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-2 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
+              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
               title="Settings"
             >
-              <Settings className="w-6 h-6" />
+              <Settings className="w-5 h-5" />
               <span className="text-[9px] uppercase tracking-wider font-medium">Settings</span>
             </div>
           )}
