@@ -107,6 +107,33 @@ const fetchStreamsForTvSeries = async (title: string, season?: number, episode?:
   return [];
 };
 
+const fetchStreamsForMusic = async (title: string, artist?: string, album?: string): Promise<any[]> => {
+  try {
+    const q = `${artist ? `${artist} ` : ''}${album ? `${album} ` : ''}${title}`.trim();
+    const url = `/api/torrents/search?q=${encodeURIComponent(q)}&category=music`;
+    const res = await fetch(url).then(r => r.json());
+    if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+      return res.data.map((t: any, idx: number) => ({
+        id: t.id || t.hash || `torrent_music_${idx}_${(t.name || '').replace(/[^a-z0-9]/g, '')}`,
+        name: t.name,
+        title: t.name,
+        type: 'torrent',
+        hash: t.hash,
+        magnet: t.magnet || t.link,
+        url: t.magnet || t.link,
+        seeds: t.seeds || 0,
+        peers: t.peers || 0,
+        sizeStr: t.size ? `${(t.size / (1024 * 1024)).toFixed(1)} MB` : 'Unknown',
+        quality: /flac|lossless/i.test(t.name) ? 'FLAC' : /320/i.test(t.name) ? '320kbps' : 'AUDIO',
+        source: t.source || 'Music Torrent'
+      }));
+    }
+  } catch (e) {
+    console.error('Error fetching torrent streams for music:', e);
+  }
+  return [];
+};
+
 export default function MediaModal({ 
   movie, 
   onClose, 
@@ -588,8 +615,12 @@ export default function MediaModal({
               }).then(r => r.json()).catch(() => null)
             : Promise.resolve(null);
 
+          const torrentSearchPromise = movie.type === 'music'
+            ? fetchStreamsForMusic(movie.title || movie.name, movie.artist, movie.album)
+            : fetchStreamsForMovie(movie.title || movie.name, movie.year, extraDetails?.imdbId || undefined);
+
           Promise.all([
-            fetchStreamsForMovie(movie.title || movie.name, movie.year, extraDetails?.imdbId || undefined),
+            torrentSearchPromise,
             iptvPromise,
             localMediaPromise,
             pmCloudPromise

@@ -707,13 +707,13 @@ export default function MusicPanel({ initialQuery = '', onSelectMedia }: MusicPa
 
   return (
     <div className="space-y-8 animate-fadeIn pb-24">
-      {/* Music Search Input Bar & Torrent Search */}
+      {/* Music Search Input Bar */}
       <div className="bg-[#12121a] border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 shadow-lg max-w-3xl">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
           <input 
             type="text"
-            placeholder="Search music tracks, albums, artists, or torrents..."
+            placeholder="Search music tracks, albums, or artists..."
             className={`w-full pl-11 pr-4 py-3 bg-white/5 border rounded-xl text-sm text-white placeholder-white/30 outline-none transition-colors
               ${isMonochrome 
                 ? 'border-white/5 focus:border-white' 
@@ -722,27 +722,6 @@ export default function MusicPanel({ initialQuery = '', onSelectMedia }: MusicPa
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        {query && (
-          <button 
-            onClick={() => {
-              if (onSelectMedia) {
-                onSelectMedia({
-                  id: `music_torrent_${query.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
-                  title: query,
-                  name: query,
-                  type: 'music',
-                  poster: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&q=80',
-                  year: new Date().getFullYear().toString()
-                });
-              }
-            }}
-            className="px-5 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold tracking-wider uppercase transition-all shrink-0 cursor-pointer flex items-center justify-center gap-2 shadow-lg"
-            title="Search torrents to add music to cloud"
-          >
-            <Sparkles className="w-4 h-4" />
-            Torrent Search
-          </button>
-        )}
         {query && (
           <button 
             onClick={() => setQuery('')}
@@ -1057,18 +1036,43 @@ export default function MusicPanel({ initialQuery = '', onSelectMedia }: MusicPa
                   <div className="flex-1">
                     <h3 className="text-3xl font-black text-white">{selectedAlbum}</h3>
                     <p className="text-white/60 mb-4">{selectedArtist}</p>
-                    <button 
-                      onClick={() => {
-                        const albumTracks = tracksToRender.filter(t => t.album === selectedAlbum);
-                        setAudioQueue(albumTracks);
-                        playTrack(albumTracks[0]);
-                      }}
-                      className={`px-6 py-2.5 rounded-full font-bold transition-all shadow-lg hover:scale-105 active:scale-95 flex items-center gap-2
-                        ${isMonochrome ? 'bg-white text-black' : 'bg-red-600 text-white'}`}
-                    >
-                      <Play className={`w-4 h-4 ${isMonochrome ? 'fill-black' : 'fill-white'}`} />
-                      Play Album
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button 
+                        onClick={() => {
+                          const albumTracks = tracksToRender.filter(t => t.album === selectedAlbum);
+                          setAudioQueue(albumTracks);
+                          playTrack(albumTracks[0]);
+                        }}
+                        className={`px-6 py-2.5 rounded-full font-bold transition-all shadow-lg hover:scale-105 active:scale-95 flex items-center gap-2 cursor-pointer
+                          ${isMonochrome ? 'bg-white text-black' : 'bg-red-600 text-white'}`}
+                      >
+                        <Play className={`w-4 h-4 ${isMonochrome ? 'fill-black' : 'fill-white'}`} />
+                        Play Album
+                      </button>
+
+                      {onSelectMedia && (
+                        <button 
+                          onClick={() => {
+                            const albumArt = tracksToRender.find(t => t.album === selectedAlbum)?.artwork || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&q=80';
+                            onSelectMedia({
+                              id: `music_torrent_${(selectedArtist || '').toLowerCase().replace(/[^a-z0-9]/g, '_')}_${(selectedAlbum || '').toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+                              title: `${selectedArtist || ''} - ${selectedAlbum || ''}`.trim(),
+                              name: `${selectedArtist || ''} - ${selectedAlbum || ''}`.trim(),
+                              artist: selectedArtist || '',
+                              album: selectedAlbum || '',
+                              type: 'music',
+                              poster: albumArt,
+                              year: new Date().getFullYear().toString()
+                            });
+                          }}
+                          className="px-5 py-2.5 rounded-full font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg hover:scale-105 active:scale-95 flex items-center gap-2 cursor-pointer"
+                          title="Search music torrents for this album to add to your cloud"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          Torrent Search Album
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
