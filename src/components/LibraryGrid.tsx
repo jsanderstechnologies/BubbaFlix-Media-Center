@@ -20,9 +20,10 @@ interface Track {
   year?: string;
 }
 
-const omdbRatingCache = new Map<string, string>();
 const tmdbPosterCache = new Map<string, string>();
 const tmdbRatingCache = new Map<string, string>();
+const omdbRatingCache = new Map<string, string>();
+const movieCollectionCache = new Map<string, any>();
 
 function LibraryCardItem({
   item,
@@ -561,31 +562,37 @@ export function LibraryGrid({
       const moviePromises = allMovies.map(async (movie) => {
         let tmdbId = movie.realTmdbId || (typeof movie.id === 'number' ? movie.id : null);
         let colInfo = movie.collectionInfo;
+        const movieKey = movie.realTmdbId || movie.id || movie.title;
+        if (movieCollectionCache.has(movieKey)) {
+          colInfo = movieCollectionCache.get(movieKey);
+          movie.collectionInfo = colInfo;
+        } else {
+          if (!tmdbId && typeof movie.id === 'string' && movie.id.startsWith('local_')) {
+            try {
+              const cleanTitle = (movie.title || movie.name || '').replace(/\b(remastered|extended|uncut|1080p|720p|4k)\b/gi, '').trim();
+              const sRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(cleanTitle)}${movie.year ? `&year=${movie.year}` : ''}`).then(r => r.json()).catch(() => null);
+              if (sRes?.results?.[0]?.id) {
+                tmdbId = sRes.results[0].id;
+                movie.realTmdbId = tmdbId;
+              }
+            } catch (e) {}
+          }
 
-        if (!tmdbId && typeof movie.id === 'string' && movie.id.startsWith('local_')) {
-          try {
-            const cleanTitle = (movie.title || movie.name || '').replace(/\b(remastered|extended|uncut|1080p|720p|4k)\b/gi, '').trim();
-            const sRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(cleanTitle)}${movie.year ? `&year=${movie.year}` : ''}`).then(r => r.json()).catch(() => null);
-            if (sRes?.results?.[0]?.id) {
-              tmdbId = sRes.results[0].id;
-              movie.realTmdbId = tmdbId;
-            }
-          } catch (e) {}
-        }
-
-        if (tmdbId && !colInfo) {
-          try {
-            const details = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${apiKey}`).then(r => r.json()).catch(() => null);
-            if (details?.belongs_to_collection) {
-              const b = details.belongs_to_collection;
-              colInfo = {
-                id: b.id,
-                name: b.name,
-                poster: getCachedImageUrl(b.poster_path) || getCachedImageUrl(b.backdrop_path) || movie.poster
-              };
-              movie.collectionInfo = colInfo;
-            }
-          } catch (e) {}
+          if (tmdbId && !colInfo) {
+            try {
+              const details = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${apiKey}`).then(r => r.json()).catch(() => null);
+              if (details?.belongs_to_collection) {
+                const b = details.belongs_to_collection;
+                colInfo = {
+                  id: b.id,
+                  name: b.name,
+                  poster: getCachedImageUrl(b.poster_path) || getCachedImageUrl(b.backdrop_path) || movie.poster
+                };
+                movie.collectionInfo = colInfo;
+              }
+            } catch (e) {}
+          }
+          movieCollectionCache.set(movieKey, colInfo || null);
         }
 
         if (colInfo && colInfo.name) {
