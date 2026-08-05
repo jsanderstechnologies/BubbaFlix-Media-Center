@@ -3244,6 +3244,73 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
+  // Server-side TVDB API Token Cache
+  let tvdbToken: { token: string; expiry: number } | null = null;
+  const getTvdbToken = async (apiKey: string): Promise<string | null> => {
+    const now = Date.now();
+    if (tvdbToken && tvdbToken.token && now < tvdbToken.expiry) {
+      return tvdbToken.token;
+    }
+    try {
+      const res = await axios.post('https://api4.thetvdb.com/v4/login', { apikey: apiKey }, { timeout: 8000 });
+      if (res.data?.status === 'success' && res.data?.data?.token) {
+        const token = res.data.data.token;
+        // TVDB v4 tokens are valid for 1 month; cache for 24 hours
+        tvdbToken = { token, expiry: now + 24 * 60 * 60 * 1000 };
+        return token;
+      }
+    } catch (e: any) {
+      console.warn('[TVDB Auth Error]:', e?.response?.data || e?.message);
+    }
+    return null;
+  };
+
+  // Endpoint: Proxy TVDB Season Episodes
+  app.get("/api/tvdb/season", async (req, res) => {
+    const { seriesId, season, apiKey } = req.query;
+    const settings = readJson(SETTINGS_FILE);
+    const keyToUse = (typeof apiKey === 'string' && apiKey.trim()) || settings.tvdbApiKey;
+
+    if (!keyToUse) {
+      return res.status(400).json({ success: false, error: "TVDB API key required." });
+    }
+
+    try {
+      const token = await getTvdbToken(keyToUse);
+      if (!token) {
+        return res.status(401).json({ success: false, error: "Failed to authenticate with TVDB API." });
+      }
+
+      // Query TVDB v4 series episodes filtered by season
+      const sNum = parseInt(String(season), 10) || 1;
+      const tvdbUrl = `https://api4.thetvdb.com/v4/series/${seriesId}/episodes/official?season=${sNum}`;
+      const epRes = await axios.get(tvdbUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000
+      });
+
+      if (epRes.data?.status === 'success' && Array.isArray(epRes.data?.data?.episodes)) {
+        const rawEpisodes = epRes.data.data.episodes;
+        const formattedEpisodes = rawEpisodes.map((e: any) => ({
+          id: e.id,
+          episode_number: e.number,
+          season_number: e.seasonNumber,
+          name: e.name || `Episode ${e.number}`,
+          overview: e.overview || '',
+          still_path: e.image ? e.image : null,
+          air_date: e.aired || ''
+        })).sort((a: any, b: any) => a.episode_number - b.episode_number);
+
+        return res.json({ success: true, episodes: formattedEpisodes });
+      }
+
+      res.status(404).json({ success: false, episodes: [] });
+    } catch (err: any) {
+      console.error('[TVDB Fetch Season Error]:', err?.response?.data || err?.message);
+      res.status(500).json({ success: false, error: err.message, episodes: [] });
+    }
+  });
+
   // Helper function to accurately detect video resolution (4K, 1080p, 720p) for IPTV & local media
   function detectStreamQuality(name: string): string {
     const n = (name || '').toLowerCase();

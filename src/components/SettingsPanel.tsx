@@ -73,6 +73,7 @@ export default function SettingsPanel() {
   const { systemSettings, userSettings, updateSystemSettings, updateUserSettings } = useSettings();
 
   const [tmdbKey, setTmdbKey] = useState(systemSettings.tmdbKey || '');
+  const [tvdbApiKey, setTvdbApiKey] = useState(systemSettings.tvdbApiKey || '');
   const [premiumizeApiKey, setPremiumizeApiKey] = useState(systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey') || '');
   const [geminiApiKey, setGeminiApiKey] = useState(systemSettings.geminiApiKey || '');
   const [groqApiKey, setGroqApiKey] = useState(systemSettings.groqApiKey || '');
@@ -455,6 +456,7 @@ export default function SettingsPanel() {
 
     await updateSystemSettings({
       tmdbKey,
+      tvdbApiKey,
       premiumizeApiKey,
       geminiApiKey,
       groqApiKey,
@@ -975,6 +977,23 @@ export default function SettingsPanel() {
                 />
               </div>
               <p className="text-xs text-white/80 mt-2">Required to fetch movie metadata, posters, and trending lists.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">TVDB API Key</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
+                  <Database className="w-4 h-4 text-emerald-400" />
+                </span>
+                <input 
+                  type="password"
+                  value={tvdbApiKey}
+                  onChange={(e) => setTvdbApiKey(e.target.value)}
+                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
+                  placeholder="Enter TVDB API Key..."
+                />
+              </div>
+              <p className="text-xs text-white/80 mt-2">Optional TVDB API key for enhanced TV Series season and episode metadata.</p>
             </div>
           </div>
           </div>

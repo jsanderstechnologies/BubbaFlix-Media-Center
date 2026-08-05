@@ -153,6 +153,18 @@ export const getTvSeriesDetails = async (seriesId: number) => {
 
 export const getTvSeasonDetails = async (seriesId: number, seasonNumber: number) => {
   const apiKey = getApiKey();
+  const tvdbApiKey = (typeof window !== 'undefined' && (localStorage.getItem('tvdbApiKey') || '')) || '';
+
+  // If TVDB API Key is configured, attempt TVDB lookup first for enhanced season/episode metadata
+  if (tvdbApiKey) {
+    try {
+      const tvdbRes = await fetch(`/api/tvdb/season?seriesId=${seriesId}&season=${seasonNumber}&apiKey=${encodeURIComponent(tvdbApiKey)}`).then(r => r.json()).catch(() => null);
+      if (tvdbRes?.success && Array.isArray(tvdbRes.episodes) && tvdbRes.episodes.length > 0) {
+        return tvdbRes;
+      }
+    } catch (e) {}
+  }
+
   if (!apiKey) return null;
   try {
     const res = await fetch(`${BASE_URL}/tv/${seriesId}/season/${seasonNumber}?api_key=${apiKey}`);

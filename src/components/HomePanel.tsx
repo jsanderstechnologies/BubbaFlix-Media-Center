@@ -117,6 +117,9 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                     {systemSettings.premiumizeApiKey && (
                       <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" title="Premiumize.me Active" className="w-5 h-5 object-contain" />
                     )}
+                    {systemSettings.tvdbApiKey && (
+                      <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/tvdb.svg" alt="TVDB" title="TVDB API Active" className="w-4 h-4 object-contain" />
+                    )}
                     {systemSettings.geminiApiKey && (
                       <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI" title="Gemini AI Active" className="w-4 h-4 object-contain" />
                     )}
