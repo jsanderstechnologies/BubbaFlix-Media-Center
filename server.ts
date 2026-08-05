@@ -2900,6 +2900,7 @@ app.get('/api/youtube/search', async (req, res) => {
               trackPmRetention(trId, magnet);
             }
             clearPmTransferHistory(token);
+            invalidatePmCloudCache(token);
             console.log(`[Premiumize Cloud] Automatically added torrent to user cloud storage (7-Day Retention, History Cleared): ${trId || 'OK'}`);
           }
         }).catch((err) => {
@@ -2964,6 +2965,7 @@ app.get('/api/youtube/search', async (req, res) => {
           trackPmRetention(trId, targetSrc);
         }
         clearPmTransferHistory(token);
+        invalidatePmCloudCache(token);
       }
 
       res.json(response.data);
@@ -3017,13 +3019,23 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
+  // Cache for Premiumize Cloud file listings (per token, 2-minute TTL)
+  // This prevents a new full recursive scan on every episode selection change.
+  const pmCloudCache = new Map<string, { files: any[]; expiry: number }>();
+
   // Helper: Recursive folder scanner for all files in user's Premiumize Cloud storage
   const fetchPmCloudFiles = async (token: string): Promise<any[]> => {
+    const now = Date.now();
+    const cached = pmCloudCache.get(token);
+    if (cached && now < cached.expiry) {
+      return cached.files;
+    }
+
     const allFiles: any[] = [];
     const visitedFolders = new Set<string>();
 
-    const scanFolder = async (folderId?: string, depth = 0) => {
-      if (depth > 4) return;
+    const scanFolder = async (folderId?: string, depth = 0): Promise<void> => {
+      if (depth > 3) return; // cap depth at 3 to limit API calls
       const fId = folderId || 'root';
       if (visitedFolders.has(fId)) return;
       visitedFolders.add(fId);
@@ -3032,19 +3044,30 @@ app.get('/api/youtube/search', async (req, res) => {
         const url = `https://www.premiumize.me/api/folder/list?apikey=${encodeURIComponent(token)}${folderId ? `&id=${encodeURIComponent(folderId)}` : ''}`;
         const res = await axios.get(url, { timeout: 8000 }).catch(() => null);
         if (res?.data?.status === 'success' && Array.isArray(res.data.content)) {
+          const subfolders: any[] = [];
           for (const item of res.data.content) {
             if (item.type === 'file') {
               allFiles.push(item);
             } else if (item.type === 'folder' && item.id) {
-              await scanFolder(item.id, depth + 1);
+              subfolders.push(item);
             }
           }
+          // Scan all subfolders in parallel instead of sequentially
+          await Promise.all(subfolders.map((f) => scanFolder(f.id, depth + 1)));
         }
       } catch (e) {}
     };
 
     await scanFolder();
+
+    // Store in cache with 2-minute TTL
+    pmCloudCache.set(token, { files: allFiles, expiry: now + 2 * 60 * 1000 });
     return allFiles;
+  };
+
+  // Invalidate Premiumize cloud cache for a token (called after uploading a new file)
+  const invalidatePmCloudCache = (token: string) => {
+    pmCloudCache.delete(token);
   };
 
   // 6. Search User's Premiumize Cloud HTTPS Directory & Subfolders for matching files
