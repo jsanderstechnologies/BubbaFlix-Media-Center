@@ -4126,7 +4126,8 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
 
         if (match && (match.poster_path || match.backdrop_path)) {
           const imgPath = match.poster_path || match.backdrop_path;
-          item.poster = `https://image.tmdb.org/t/p/w500${imgPath}`;
+          const fullImgUrl = `https://image.tmdb.org/t/p/w500${imgPath}`;
+          item.poster = `/api/image-proxy?url=${encodeURIComponent(fullImgUrl)}`;
           if (match.vote_average && match.vote_average > 0) {
             item.rating = match.vote_average.toFixed(1);
           }
