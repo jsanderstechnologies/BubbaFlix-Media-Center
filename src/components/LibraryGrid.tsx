@@ -19,6 +19,10 @@ interface Track {
   year?: string;
 }
 
+const omdbRatingCache = new Map<string, string>();
+const tmdbPosterCache = new Map<string, string>();
+const tmdbRatingCache = new Map<string, string>();
+
 function LibraryCardItem({
   item,
   itemKey,
@@ -32,79 +36,72 @@ function LibraryCardItem({
   onPlayMedia?: (url: string, logo?: string, resumeTime?: number, context?: any) => void;
   onHoverMedia?: (posterUrl: string) => void;
 }) {
-  const [posterUrl, setPosterUrl] = useState<string>(item.poster || item.backupPoster || '');
+  const rawTitle = item.title || item.name || '';
+  const cleanTitle = rawTitle.replace(/\b(remastered|extended|uncut|1080p|720p|4k|bluray)\b/gi, '').trim();
+
+  const [posterUrl, setPosterUrl] = useState<string>(() => {
+    if (item.poster) return item.poster;
+    if (item.backupPoster) return item.backupPoster;
+    if (cleanTitle && tmdbPosterCache.has(cleanTitle)) return tmdbPosterCache.get(cleanTitle) || '';
+    return '';
+  });
   const [imgFailed, setImgFailed] = useState(false);
-  const [isFetchingTmdb, setIsFetchingTmdb] = useState(false);
-  const [rating, setRating] = useState<string>(item.rating || '');
+  const [rating, setRating] = useState<string>(() => {
+    if (item.rating) return item.rating;
+    if (cleanTitle && omdbRatingCache.has(cleanTitle)) return omdbRatingCache.get(cleanTitle) || '';
+    if (cleanTitle && tmdbRatingCache.has(cleanTitle)) return tmdbRatingCache.get(cleanTitle) || '';
+    return '';
+  });
 
+  // Fetch OMDB rating once if missing
   useEffect(() => {
-    if (!rating || rating === '0' || rating === '0.0' || rating === 'SHARE') {
-      const rawTitle = item.title || item.name || '';
-      const cleanTitle = rawTitle.replace(/\b(remastered|extended|uncut|1080p|720p|4k|bluray)\b/gi, '').trim();
-      if (!cleanTitle || cleanTitle.length < 2) return;
+    if (!cleanTitle || cleanTitle.length < 2) return;
+    if (rating && rating !== '0' && rating !== '0.0' && rating !== 'SHARE') return;
+    if (omdbRatingCache.has(cleanTitle)) return;
 
-      fetch(`https://www.omdbapi.com/?apikey=trilogy&t=${encodeURIComponent(cleanTitle)}${item.year ? `&y=${item.year}` : ''}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data?.imdbRating && data.imdbRating !== 'N/A') {
-            setRating(data.imdbRating);
-            item.rating = data.imdbRating;
-          }
-        })
-        .catch(() => null);
-    }
-  }, [item.title, item.name, rating]);
+    fetch(`https://www.omdbapi.com/?apikey=trilogy&t=${encodeURIComponent(cleanTitle)}${item.year ? `&y=${item.year}` : ''}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data?.imdbRating && data.imdbRating !== 'N/A') {
+          omdbRatingCache.set(cleanTitle, data.imdbRating);
+          setRating(data.imdbRating);
+        }
+      })
+      .catch(() => null);
+  }, [cleanTitle]);
 
+  // Fetch TMDB poster once if missing/failed
   useEffect(() => {
-    // If item poster is empty or failed, dynamically fetch poster from TMDB!
-    if ((!posterUrl || imgFailed) && !isFetchingTmdb) {
-      const rawTitle = item.title || item.name || '';
-      const titleToSearch = rawTitle.replace(/\b(remastered|extended|uncut|1080p|720p|4k|bluray)\b/gi, '').trim();
-      if (!titleToSearch || titleToSearch.length < 2) return;
-
-      setIsFetchingTmdb(true);
-      const apiKey = localStorage.getItem('tmdbKey') || '841059f71aab310b4d4c4f3a7e28328e';
-      const endpoint = item.type === 'series' ? 'tv' : 'movie';
-      
-      fetch(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(titleToSearch)}`)
-        .then(r => r.json())
-        .then(data => {
-          const match = data.results?.find((r: any) => r.poster_path || r.backdrop_path);
-          if (match) {
-            const pPath = match.poster_path || match.backdrop_path;
-            const fullUrl = `https://image.tmdb.org/t/p/w500${pPath}`;
-            setPosterUrl(fullUrl);
-            setImgFailed(false);
-            item.poster = fullUrl;
-            if (match.vote_average && !item.rating) {
-              const rStr = match.vote_average.toFixed(1);
-              setRating(rStr);
-              item.rating = rStr;
-            }
-          } else {
-            return fetch(`https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(titleToSearch)}`)
-              .then(r => r.json())
-              .then(multiData => {
-                const multiMatch = multiData.results?.find((r: any) => r.poster_path || r.backdrop_path);
-                if (multiMatch) {
-                  const pPath = multiMatch.poster_path || multiMatch.backdrop_path;
-                  const fullUrl = `https://image.tmdb.org/t/p/w500${pPath}`;
-                  setPosterUrl(fullUrl);
-                  setImgFailed(false);
-                  item.poster = fullUrl;
-                  if (multiMatch.vote_average && !item.rating) {
-                    const rStr = multiMatch.vote_average.toFixed(1);
-                    setRating(rStr);
-                    item.rating = rStr;
-                  }
-                }
-              });
-          }
-        })
-        .catch(console.warn)
-        .finally(() => setIsFetchingTmdb(false));
+    if (!cleanTitle || cleanTitle.length < 2) return;
+    if (posterUrl && !imgFailed) return;
+    if (tmdbPosterCache.has(cleanTitle)) {
+      const cached = tmdbPosterCache.get(cleanTitle);
+      if (cached) setPosterUrl(cached);
+      return;
     }
-  }, [item.title, item.name, posterUrl, imgFailed]);
+
+    const apiKey = localStorage.getItem('tmdbKey') || '841059f71aab310b4d4c4f3a7e28328e';
+    const endpoint = item.type === 'series' ? 'tv' : 'movie';
+    
+    fetch(`https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(cleanTitle)}`)
+      .then(r => r.json())
+      .then(data => {
+        const match = data.results?.find((r: any) => r.poster_path || r.backdrop_path);
+        if (match) {
+          const pPath = match.poster_path || match.backdrop_path;
+          const fullUrl = `https://image.tmdb.org/t/p/w500${pPath}`;
+          tmdbPosterCache.set(cleanTitle, fullUrl);
+          setPosterUrl(fullUrl);
+          setImgFailed(false);
+          if (match.vote_average) {
+            const rStr = match.vote_average.toFixed(1);
+            tmdbRatingCache.set(cleanTitle, rStr);
+            setRating(rStr);
+          }
+        }
+      })
+      .catch(() => null);
+  }, [cleanTitle, imgFailed]);
 
   return (
     <div 
@@ -654,6 +651,11 @@ export function LibraryGrid({
     return () => unsubscribe();
   }, [user]);
 
+  const selectedPlaylistRef = useRef(selectedPlaylist);
+  useEffect(() => {
+    selectedPlaylistRef.current = selectedPlaylist;
+  }, [selectedPlaylist]);
+
   // Listen to Playlists
   useEffect(() => {
     if (!user) {
@@ -667,8 +669,8 @@ export function LibraryGrid({
       setPlaylists(items);
       
       // Update currently viewed playlist if it changed
-      if (selectedPlaylist) {
-        const updated = items.find(p => p.id === selectedPlaylist.id);
+      if (selectedPlaylistRef.current) {
+        const updated = items.find(p => p.id === selectedPlaylistRef.current?.id);
         if (updated) {
           setSelectedPlaylist(updated);
         } else {
@@ -680,7 +682,7 @@ export function LibraryGrid({
     });
 
     return () => unsubscribe();
-  }, [user, selectedPlaylist]);
+  }, [user]);
 
   const handleUnfollowArtist = async (artistId: string) => {
     if (!user) return;
@@ -811,9 +813,17 @@ export function LibraryGrid({
   const alphabetList = ['ALL', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
   const availableLetters = new Set(filteredMedia.map(getItemFirstChar));
 
+  const [displayCount, setDisplayCount] = useState(60);
+
+  useEffect(() => {
+    setDisplayCount(60);
+  }, [activeTab, selectedLetter]);
+
   const displayMedia = selectedLetter && selectedLetter !== 'ALL'
     ? filteredMedia.filter(item => getItemFirstChar(item) === selectedLetter)
     : filteredMedia;
+
+  const visibleMedia = displayMedia.slice(0, displayCount);
 
   const movieCount = networkShareItems.filter(i => isMatchMovie(i)).length + favorites.filter(i => isMatchMovie(i)).length;
   const seriesCount = networkShareItems.filter(i => isMatchSeries(i)).length + favorites.filter(i => isMatchSeries(i)).length;
@@ -961,19 +971,30 @@ export function LibraryGrid({
               {selectedLetter ? `No ${activeTab === 'movies' ? 'movies' : 'TV series'} found starting with "${selectedLetter}".` : `Your ${activeTab === 'movies' ? 'movies' : 'TV series'} library is empty. Add a network share folder in Settings or bookmark media!`}
             </div>
           ) : (
-            <section key={activeTab} className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
-
-              {displayMedia.map((item: any, idx: number) => (
-                <LibraryCardItem
-                  key={getItemKey(item, idx)}
-                  item={item}
-                  itemKey={getItemKey(item, idx)}
-                  onSelectMedia={onSelectMedia}
-                  onPlayMedia={onPlayMedia}
-                  onHoverMedia={onHoverMedia}
-                />
-              ))}
-            </section>
+            <>
+              <section key={activeTab} className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
+                {visibleMedia.map((item: any, idx: number) => (
+                  <LibraryCardItem
+                    key={getItemKey(item, idx)}
+                    item={item}
+                    itemKey={getItemKey(item, idx)}
+                    onSelectMedia={onSelectMedia}
+                    onPlayMedia={onPlayMedia}
+                    onHoverMedia={onHoverMedia}
+                  />
+                ))}
+              </section>
+              {displayMedia.length > displayCount && (
+                <div className="mt-8 text-center">
+                  <button
+                    onClick={() => setDisplayCount(prev => prev + 60)}
+                    className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg hover:scale-105 cursor-pointer"
+                  >
+                    Load More ({displayMedia.length - displayCount} Remaining)
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
