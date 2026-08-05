@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud } from 'lucide-react';
 
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from '../lib/localDb';
 import { db } from '../lib/localDb';
@@ -1104,7 +1104,14 @@ export default function MediaModal({
                                   >
                                       <div className="flex items-start justify-between gap-3">
                                         <div className="flex flex-col min-w-0">
-                                            <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
+                                            <div className="flex items-center gap-2">
+                                              {(stream.type === 'premiumize_cloud' || stream.isPremiumize) && (
+                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-bold shrink-0 shadow-sm" title="Located in Premiumize Cloud">
+                                                  <Cloud className="w-3 h-3 text-cyan-300 fill-cyan-400/20" /> Cloud
+                                                </span>
+                                              )}
+                                              <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
+                                            </div>
                                             <div className="flex items-center gap-2 mt-1">
                                               <span className="text-[10px] text-white/60 font-mono">Size: {stream.size || stream.sizeStr || 'Unknown'}</span>
                                               {stream.source && (
@@ -1120,7 +1127,8 @@ export default function MediaModal({
                                             </div>
                                         </div>
                                         <div className="flex gap-2 shrink-0">
-                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.type === 'premiumize_cloud' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm' : (stream.isPremiumize ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : (stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'))))}`}>
+                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase flex items-center gap-1 ${stream.type === 'premiumize_cloud' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm' : (stream.isPremiumize ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : (stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'))))}`}>
+                                              {(stream.type === 'premiumize_cloud' || stream.isPremiumize) && <Cloud className="w-3 h-3 text-cyan-300" />}
                                               {stream.type === 'premiumize_cloud'
                                                 ? 'Premiumize Cloud ⚡'
                                                 : (stream.isPremiumize
