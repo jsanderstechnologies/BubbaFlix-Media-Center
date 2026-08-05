@@ -526,8 +526,8 @@ export default function MediaModal({
           }
 
           const getStreamPriorityRank = (s: any): number => {
+            if (s.type === 'premiumize_cloud' || s.inPersonalCloud) return 0; // 0. Premiumize Cloud (Top Priority!)
             if (s.type === 'local') return 1;            // 1. Network Share
-            if (s.type === 'premiumize_cloud') return 1; // 1. Premiumize Cloud (Ready to Stream!)
             if (s.type === 'iptv') return 2;             // 2. IPTV Provider
             if (s.isPremiumize) return 3;                // 3. Premiumize Instant Streams
             if (s.isCached) return 3;                    // 3. Cached Streams
@@ -766,6 +766,7 @@ export default function MediaModal({
 
       let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
       const getStreamPriorityRank = (s: any): number => {
+        if (s.type === 'premiumize_cloud' || s.inPersonalCloud) return 0; // 0. Premiumize Cloud (Top Priority!)
         if (s.type === 'local') return 1;         // 1. Network Share
         if (s.type === 'iptv') return 2;          // 2. IPTV Provider
         if (s.isPremiumize) return 3;             // 3. Premiumize Instant Streams

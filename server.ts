@@ -3017,7 +3017,37 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
-  // 6. Search User's Premiumize Cloud HTTPS Directory & Transfers for matching files
+  // Helper: Recursive folder scanner for all files in user's Premiumize Cloud storage
+  const fetchPmCloudFiles = async (token: string): Promise<any[]> => {
+    const allFiles: any[] = [];
+    const visitedFolders = new Set<string>();
+
+    const scanFolder = async (folderId?: string, depth = 0) => {
+      if (depth > 4) return;
+      const fId = folderId || 'root';
+      if (visitedFolders.has(fId)) return;
+      visitedFolders.add(fId);
+
+      try {
+        const url = `https://www.premiumize.me/api/folder/list?apikey=${encodeURIComponent(token)}${folderId ? `&id=${encodeURIComponent(folderId)}` : ''}`;
+        const res = await axios.get(url, { timeout: 8000 }).catch(() => null);
+        if (res?.data?.status === 'success' && Array.isArray(res.data.content)) {
+          for (const item of res.data.content) {
+            if (item.type === 'file') {
+              allFiles.push(item);
+            } else if (item.type === 'folder' && item.id) {
+              await scanFolder(item.id, depth + 1);
+            }
+          }
+        }
+      } catch (e) {}
+    };
+
+    await scanFolder();
+    return allFiles;
+  };
+
+  // 6. Search User's Premiumize Cloud HTTPS Directory & Subfolders for matching files
   app.post("/api/premiumize/cloud/search", async (req, res) => {
     const token = getPmToken(req);
     if (!token) return res.status(401).json({ error: "Premiumize API Key is required." });
@@ -3034,70 +3064,37 @@ app.get('/api/youtube/search', async (req, res) => {
       const sStr = sNum !== null ? `s${sNum.toString().padStart(2, '0')}` : '';
       const eStr = eNum !== null ? `e${eNum.toString().padStart(2, '0')}` : '';
 
-      const [transfersRes, folderRes] = await Promise.all([
-        axios.get(`https://www.premiumize.me/api/transfer/list?apikey=${encodeURIComponent(token)}`, { timeout: 7000 }).catch(() => null),
-        axios.get(`https://www.premiumize.me/api/folder/list?apikey=${encodeURIComponent(token)}`, { timeout: 7000 }).catch(() => null)
-      ]);
-
+      const cloudFiles = await fetchPmCloudFiles(token);
       const cloudItems: any[] = [];
+      const seenIds = new Set<string>();
 
-      // Check Transfers (active & finished transfers in Premiumize account)
-      if (transfersRes?.data?.status === 'success' && Array.isArray(transfersRes.data.transfers)) {
-        transfersRes.data.transfers.forEach((t: any) => {
-          const tName = (t.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-          const matchesTitle = tName.includes(cleanTitle);
-          const matchesSeason = !sStr || tName.includes(sStr);
-          const matchesEpisode = !eStr || tName.includes(eStr);
-          
-          if (matchesTitle && matchesSeason && matchesEpisode) {
-            if (t.status === 'finished' && (t.file_id || t.folder_id)) {
-              cloudItems.push({
-                id: `pm_trans_${t.id}`,
-                name: `⚡ Premiumize Cloud: ${t.name}`,
-                title: t.name,
-                type: 'premiumize_cloud',
-                url: t.file_id ? `/api/premiumize/file/stream?file_id=${t.file_id}` : null,
-                file_id: t.file_id,
-                folder_id: t.folder_id,
-                sizeStr: t.size ? `${(t.size / 1e9).toFixed(2)} GB` : 'Cloud Storage',
-                quality: /2160p|4k/i.test(t.name) ? '4K' : /1080p/i.test(t.name) ? '1080p' : 'HD',
-                isPremiumize: true,
-                isCached: true,
-                availability: 'Ready in Premiumize Cloud'
-              });
-            }
-          }
-        });
-      }
+      cloudFiles.forEach((f: any) => {
+        const fName = (f.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const matchesTitle = fName.includes(cleanTitle);
+        const matchesSeason = !sStr || fName.includes(sStr);
+        const matchesEpisode = !eStr || fName.includes(eStr);
 
-      // Check Root Folder / HTTPS Directory
-      if (folderRes?.data?.status === 'success' && Array.isArray(folderRes.data.content)) {
-        folderRes.data.content.forEach((f: any) => {
-          const fName = (f.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-          const matchesTitle = fName.includes(cleanTitle);
-          const matchesSeason = !sStr || fName.includes(sStr);
-          const matchesEpisode = !eStr || fName.includes(eStr);
+        if (matchesTitle && matchesSeason && matchesEpisode && !seenIds.has(String(f.id))) {
+          seenIds.add(String(f.id));
+          const streamUrl = f.stream_link || f.link || `/api/premiumize/file/stream?file_id=${f.id}`;
+          cloudItems.push({
+            id: `pm_file_${f.id}`,
+            name: `⚡ Premiumize Cloud: ${f.name}`,
+            title: f.name,
+            type: 'premiumize_cloud',
+            inPersonalCloud: true,
+            url: streamUrl,
+            file_id: f.id,
+            sizeStr: f.size ? `${(f.size / 1e9).toFixed(2)} GB` : 'Cloud File',
+            quality: /2160p|4k/i.test(f.name) ? '4K' : /1080p/i.test(f.name) ? '1080p' : 'HD',
+            isPremiumize: true,
+            isCached: true,
+            availability: 'Ready in Premiumize Cloud'
+          });
+        }
+      });
 
-          if (matchesTitle && matchesSeason && matchesEpisode) {
-            if (f.type === 'file' && (f.stream_link || f.link)) {
-              cloudItems.push({
-                id: `pm_file_${f.id}`,
-                name: `⚡ Premiumize Cloud: ${f.name}`,
-                title: f.name,
-                type: 'premiumize_cloud',
-                url: f.stream_link || f.link,
-                file_id: f.id,
-                sizeStr: f.size ? `${(f.size / 1e9).toFixed(2)} GB` : 'HTTPS Cloud',
-                quality: /2160p|4k/i.test(f.name) ? '4K' : /1080p/i.test(f.name) ? '1080p' : 'HD',
-                isPremiumize: true,
-                isCached: true,
-                availability: 'Ready in Premiumize Cloud'
-              });
-            }
-          }
-        });
-      }
-
+      console.log(`[Premiumize Cloud Search] Found ${cloudItems.length} matching files in Premiumize Cloud for "${title}"`);
       res.json({ success: true, data: cloudItems });
     } catch (err: any) {
       console.error("[Premiumize Cloud Search Error]:", err.message);
