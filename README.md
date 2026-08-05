@@ -1,6 +1,6 @@
 # <p align="center"><img src="https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/logo.svg?raw=true" width="320" alt="BubbaFlix Logo" /></p>
 
-**BubbaFlix Media Server** is a private, high-performance web-based streaming application and media organizer. It provides user management, content filters, real-time transcoding streams, live TV (M3U/XMLTV), smart TV D-Pad spatial navigation, and administrative tools built on a premium, responsive dark-mode layout.
+**BubbaFlix Media Server** is a private, high-performance web-based streaming application and media organizer. It provides user management, content filters, real-time transcoding streams, live TV (M3U/Xtream), sports scoreboards with AI stream matching, local/regional/world news, smart TV D-Pad spatial navigation, and administrative tools built on a premium, responsive dark-mode layout.
 
 ---
 
@@ -9,15 +9,27 @@
 ### 🎬 Media Aggregation & Streaming
 - **TMDB Integration**: Browse rich metadata for movies and TV shows, complete with cast, crew, trailers, and recommendations.
 - **TorBox Streaming**: Search for Torrents and Usenet files directly through TorBox and stream them instantly without downloading.
-- **AI-Powered Filtering**: Integrated with Google Gemini (`gemini-1.5-flash`) to intelligently filter out non-English results and irrelevant file names, guaranteeing high-quality search results.
-- **Hardware-Accelerated Transcoding**: Support for Intel Quick Sync Video (QSV) to transcode media on the fly via FFmpeg with minimal CPU usage.
-- **Live TV (IPTV) & Direct Play**: Fully integrated M3U and Xtream Codes support with EPG (Electronic Program Guide) parsing, offset customization, and direct native HLS playback for TV clients.
+- **AI-Powered Filtering**: Integrated with Google Gemini (`gemini-2.5-flash` / `gemini-1.5-flash`) to intelligently filter out non-English results, honeypot releases, and irrelevant file names.
+- **Hardware-Accelerated Transcoding**: Support for Intel Quick Sync Video (QSV), NVENC, and AMF to transcode media on the fly via FFmpeg with minimal CPU usage.
 - **Server Stream Pre-Caching**: Optional background media caching for remote streams (TorBox, Usenet, Debrid). Pre-downloads video files progressively to local server storage as they are watched, eliminating CDN rate-limiting, network jitter, and providing instant seeking.
+- **Premiumize VPN & Debrid Gateway**: Dedicated Premiumize integration panel in Settings for managing credentials, checking account status, and configuring VPN server gateways.
 - **Customizable Players**: Native browser playback or automatic spawning of external desktop players like VLC, mpv, or IINA.
+
+### 📺 Live TV (IPTV) & Multi-Provider Architecture
+- **Multi-Provider Management**: Add, edit, toggle, and remove multiple IPTV providers (M3U URLs or Xtream Codes servers) in Admin Settings.
+- **Interactive EPG Grid**: Scrollable timeline program guide with arrow key support, category filtering, channel row selection, and quick playback.
+- **Channel Editor & Visibility Controls**: Comprehensive admin table to edit channel display names, update logos, change categories, and toggle channel visibility (hide/show channels in the IPTV grid).
+- **Gemini AI Channel Deduplication**: Runs background/on-demand AI matching across all active providers to group identical channels and automatically designate Primary vs. Backup streams.
+- **Automatic Silent Stream Failover**: If a live stream drops or fails during playback, the built-in video player automatically switches to the next backup stream seamlessly without any user intervention.
+
+### 📰 News & Sports Hub
+- **Multi-Tab News Engine**: Dedicated News & Sports page with distinct tabs for **Local**, **Regional**, **National**, **World**, **Sports News**, and **Sports Scores**.
+- **ZIP Code Geocoding**: Automatically resolves 5-digit US ZIP codes (via Zippopotam.us & Open-Meteo) to exact city/state names for accurate local and regional news feeds.
+- **Sports Scoreboards**: Real-time scoreboards powered by ESPN API across **NFL**, **NBA**, **MLB**, **NHL**, **NCAAF**, **NCAAB**, and **Soccer (MLS)**.
+- **Gemini AI IPTV Sports Stream Matcher**: Automatically scans all IPTV channels using Gemini AI to match live games to active IPTV broadcast streams and displays a direct **`▶ Watch Live (Channel Name)`** play button on game cards.
 
 ### 📺 Smart TV & Android TV Experience
 - **D-Pad Spatial Navigation**: Built-in `spatial-navigation-js` integration allowing seamless 100% remote control navigation across all menus, video player controls, modal dialogs, and settings.
-- **Interactive EPG Grid**: Scrollable timeline program guide with arrow key support, channel row selection, and quick playback.
 - **Focus Ring Accessibility**: Clear, high-visibility focus indicators designed specifically for 10-foot viewing experiences.
 
 ### 👥 User Administration & Multi-Device Auth
@@ -28,7 +40,7 @@
 - **Auto Admin / Dev Mode**: A handy toggle to completely disable login and boot straight into the administrator dashboard for local development or Android Studio layout inspection.
 
 ### ⚙️ Comprehensive Settings Panel
-- **Sleek Admin Controls**: All system settings are organized into a clean, collapsible UI for managing API keys, Scrapers, IPTV URLs, Developer logs, and more.
+- **Sleek Admin Controls**: All system settings are organized into a clean, collapsible UI for managing API keys (TMDB, Gemini, NewsAPI, GNews, TorBox, Premiumize), Scrapers, IPTV Providers, Developer logs, and more.
 - **Email Configuration**: Exposes a dedicated UI to manage and save credentials (Gmail address, App Password, App Name, App URL) to `data/settings.json`, complete with a "Test Email" button.
 - **Developer Debugging**: View real-time frontend and backend console logs directly within the browser Settings UI.
 
@@ -116,6 +128,7 @@ services:
       - PORT=5150
       - TMDB_KEY=your_tmdb_key_here
       - TORBOX_API_KEY=your_torbox_key_here
+      - GEMINI_API_KEY=your_gemini_key_here
     labels:
       io.casaos.app.icon: "https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg"
       io.casaos.app.title: "BubbaFlix"
@@ -163,4 +176,5 @@ docker compose up -d
 - **Frontend**: React, Tailwind CSS, Vite, Lucide Icons, Spatial Navigation (`spatial-navigation-js`).
 - **Backend**: Node.js, Express, FFmpeg, FFprobe.
 - **Database**: Local JSON-based flat-file database structures (`users.json`, `db.json`, `settings.json`).
+- **External APIs**: TMDB, TorBox, Premiumize, NewsAPI.org, GNews, ESPN Scoreboards, Zippopotam.us, Open-Meteo, Gemini AI.
 - **Email Infrastructure**: `nodemailer` with Google App Passwords support.
