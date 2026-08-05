@@ -8,7 +8,7 @@ import {
   getTopRatedTvSeries 
 } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
-import { Play, Info, Flame, Trophy, Film, Tv, Star, Cpu, Zap } from 'lucide-react';
+import { Play, Info, Flame, Trophy, Film, Tv, Star, Cpu, Zap, Bot } from 'lucide-react';
 
 interface HomePanelProps {
   onSelectMedia: (media: any) => void;
@@ -117,6 +117,19 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                     {systemSettings.premiumizeApiKey && (
                       <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" title="Premiumize.me Active" className="w-5 h-5 object-contain" />
                     )}
+                    {systemSettings.geminiApiKey && (
+                      <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI" title="Gemini AI Active" className="w-4 h-4 object-contain" />
+                    )}
+                    {systemSettings.groqApiKey && (
+                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center gap-1 font-mono tracking-wider" title="Groq AI Active">
+                        <Bot className="w-3 h-3 text-orange-400" /> GROQ
+                      </span>
+                    )}
+                    {systemSettings.openRouterApiKey && (
+                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 font-mono tracking-wider" title="OpenRouter AI Active">
+                        <Bot className="w-3 h-3 text-purple-300" /> OPENROUTER
+                      </span>
+                    )}
                     {encoder && (
                       <span className="text-[9px] bg-slate-800 text-slate-300 font-bold tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1 border border-white/10" title="Active Transcoding Engine">
                         <Cpu className="w-3 h-3" />
@@ -193,6 +206,19 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                     </span>
                     {systemSettings.premiumizeApiKey && (
                       <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" title="Premiumize.me Active" className="w-5 h-5 object-contain" />
+                    )}
+                    {systemSettings.geminiApiKey && (
+                      <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI" title="Gemini AI Active" className="w-4 h-4 object-contain" />
+                    )}
+                    {systemSettings.groqApiKey && (
+                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center gap-1 font-mono tracking-wider" title="Groq AI Active">
+                        <Bot className="w-3 h-3 text-orange-400" /> GROQ
+                      </span>
+                    )}
+                    {systemSettings.openRouterApiKey && (
+                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 font-mono tracking-wider" title="OpenRouter AI Active">
+                        <Bot className="w-3 h-3 text-purple-300" /> OPENROUTER
+                      </span>
                     )}
                     {encoder && (
                       <span className="text-[9px] bg-slate-800 text-slate-300 font-bold tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1 border border-white/10" title="Active Transcoding Engine">

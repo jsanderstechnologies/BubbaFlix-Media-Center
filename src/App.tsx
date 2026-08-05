@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot } from 'lucide-react';
 import { collection, query, where, onSnapshot, setDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
 import { logger } from './lib/logger';
@@ -1252,6 +1252,16 @@ function MainApp() {
               )}
               {systemSettings.geminiApiKey && (
                 <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI API" className="h-4 object-contain brightness-110" title="Gemini AI Smart Filtering Active" />
+              )}
+              {systemSettings.groqApiKey && (
+                <span className="px-1.5 py-0.5 text-[10px] font-black rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center gap-1 font-mono tracking-wider" title="Groq High-Speed LPU AI Engine Active">
+                  <Bot className="w-3.5 h-3.5 text-orange-400" /> GROQ
+                </span>
+              )}
+              {systemSettings.openRouterApiKey && (
+                <span className="px-1.5 py-0.5 text-[10px] font-black rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 font-mono tracking-wider" title="OpenRouter AI Engine Active">
+                  <Bot className="w-3.5 h-3.5 text-purple-300" /> OPENROUTER
+                </span>
               )}
               {systemSettings.intelTranscoding === true && (
                 <img src="/images/intel-logo.png" alt="Intel QSV" className="h-4 object-contain brightness-110" title="Intel Quick Sync Hardware Transcoding Active" />
