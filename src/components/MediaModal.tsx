@@ -1078,7 +1078,17 @@ export default function MediaModal({
                                       },
                                       body: JSON.stringify({ magnet: magnetLink })
                                     });
-                                    const pmData = await pmRes.json();
+                                    
+                                    const contentType = pmRes.headers.get('content-type') || '';
+                                    let pmData: any = {};
+                                    if (contentType.includes('application/json')) {
+                                      pmData = await pmRes.json();
+                                    } else {
+                                      const errTxt = await pmRes.text();
+                                      console.error("Non-JSON Premiumize response:", errTxt);
+                                      pmData = { error: `Server error (${pmRes.status}). Please check Premiumize API Key in Settings.` };
+                                    }
+
                                     if (pmData.success && pmData.streamUrl) {
                                       setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false, isPremiumize: true } : s));
                                       triggerPlay(pmData.streamUrl, { ...stream, isPremiumize: true });

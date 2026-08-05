@@ -428,27 +428,18 @@ async function startServer() {
     console.log(`[Premiumize 7-Day Retention] Tracked transfer "${transferId}" — scheduled for auto-purge on ${new Date(expiresAt).toISOString()}`);
   };
 
-  // Helper: Automatically clear Premiumize transfer history entry after transfer finishes
-  const clearPmTransferHistory = async (token: string, transferId?: string) => {
+  // Helper: Automatically clear finished Premiumize transfer history logs without interrupting active downloads
+  const clearPmTransferHistory = async (token: string) => {
     if (!token) return;
     try {
       const FormData = require('form-data');
-      if (transferId) {
-        const delForm = new FormData();
-        delForm.append('apikey', token);
-        delForm.append('id', transferId);
-        await axios.post("https://www.premiumize.me/api/transfer/delete", delForm, {
-          headers: { ...delForm.getHeaders() },
-          timeout: 8000
-        }).catch(() => null);
-      }
       const clearForm = new FormData();
       clearForm.append('apikey', token);
       await axios.post("https://www.premiumize.me/api/transfer/clear", clearForm, {
         headers: { ...clearForm.getHeaders() },
         timeout: 8000
       }).catch(() => null);
-      console.log(`[Premiumize Cloud] Cleared transfer & download history entry: ${transferId || 'All Finished'}`);
+      console.log(`[Premiumize Cloud] Cleared finished transfer history logs on Premiumize.`);
     } catch (err: any) {
       console.warn('[Premiumize Clear Transfer History Warning]:', err?.message || err);
     }
@@ -2907,8 +2898,8 @@ app.get('/api/youtube/search', async (req, res) => {
             const trId = cRes.data.id || cRes.data.name;
             if (trId) {
               trackPmRetention(trId, magnet);
-              clearPmTransferHistory(token, trId);
             }
+            clearPmTransferHistory(token);
             console.log(`[Premiumize Cloud] Automatically added torrent to user cloud storage (7-Day Retention, History Cleared): ${trId || 'OK'}`);
           }
         }).catch((err) => {
@@ -2971,8 +2962,8 @@ app.get('/api/youtube/search', async (req, res) => {
         const trId = response.data.id || response.data.name;
         if (trId) {
           trackPmRetention(trId, targetSrc);
-          clearPmTransferHistory(token, trId);
         }
+        clearPmTransferHistory(token);
       }
 
       res.json(response.data);
