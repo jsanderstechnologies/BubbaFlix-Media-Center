@@ -785,13 +785,15 @@ export function LibraryGrid({
     return title.trim().replace(/^(the|a|an)\s+/i, '').trim();
   };
 
-  // Deduplicate items by unique key and sort alphabetically ignoring leading articles ("The", "A", "An")
+  // Deduplicate items by unique tmdbId / title / filePath and sort alphabetically
   const rawMedia = [...shareMedia, ...userFavs];
   const seenKeys = new Set<string>();
-  const filteredMedia = rawMedia.filter((item, idx) => {
-    const k = getItemKey(item, idx);
-    if (seenKeys.has(k)) return false;
-    seenKeys.add(k);
+  const filteredMedia = rawMedia.filter((item) => {
+    const normTitle = (item.title || item.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const idKey = item.tmdbId ? `tmdb_${item.tmdbId}` : (item.id ? `id_${item.id}` : (item.filePath ? `path_${item.filePath}` : `title_${normTitle}`));
+    const key = `${item.type || 'media'}_${idKey}_${normTitle}`;
+    if (seenKeys.has(key)) return false;
+    seenKeys.add(key);
     return true;
   });
 

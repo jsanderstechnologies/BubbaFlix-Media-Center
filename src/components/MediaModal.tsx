@@ -913,11 +913,22 @@ export default function MediaModal({
 
       try {
         const targetId = resolvedTmdbId || (typeof movie.id === 'number' ? movie.id : (movie.realTmdbId ? Number(movie.realTmdbId) : movie.id));
-        const q = query(collection(db, 'favorites'), where('userId', '==', user.uid), where('tmdbId', '==', targetId));
+        const q = query(collection(db, 'favorites'), where('userId', '==', user.uid));
         const snapshot = await getDocs(q);
-        if (snapshot.docs.length > 0) {
+
+        const normMovieTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        const matchedDoc = snapshot.docs.find((d: any) => {
+          const data = d.data();
+          if (targetId && data.tmdbId && String(data.tmdbId) === String(targetId)) return true;
+          if (movie.id && data.tmdbId && String(data.tmdbId) === String(movie.id)) return true;
+          const dataTitleNorm = (data.title || data.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          return normMovieTitle && dataTitleNorm && normMovieTitle === dataTitleNorm;
+        });
+
+        if (matchedDoc) {
           setIsFavorite(true);
-          setFavoriteId(snapshot.docs[0].id);
+          setFavoriteId(matchedDoc.id);
         } else {
           setIsFavorite(false);
           setFavoriteId(null);
@@ -938,24 +949,43 @@ export default function MediaModal({
 
     setFavoriteLoading(true);
     try {
-      if (isFavorite && favoriteId) {
-        await deleteDoc(doc(db, 'favorites', favoriteId));
+      const q = query(collection(db, 'favorites'), where('userId', '==', user.uid));
+      const snapshot = await getDocs(q);
+      const targetId = resolvedTmdbId || (typeof movie.id === 'number' ? movie.id : (movie.realTmdbId ? Number(movie.realTmdbId) : movie.id));
+      const normMovieTitle = (movie.title || movie.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      const existingDocs = snapshot.docs.filter((d: any) => {
+        const data = d.data();
+        if (targetId && data.tmdbId && String(data.tmdbId) === String(targetId)) return true;
+        if (movie.id && data.tmdbId && String(data.tmdbId) === String(movie.id)) return true;
+        const dataTitleNorm = (data.title || data.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return normMovieTitle && dataTitleNorm && normMovieTitle === dataTitleNorm;
+      });
+
+      if (isFavorite || existingDocs.length > 0) {
+        // Delete all matching instances to eliminate any existing duplicates
+        for (const docItem of existingDocs) {
+          await deleteDoc(doc(db, 'favorites', docItem.id));
+        }
+        if (favoriteId && !existingDocs.some(d => d.id === favoriteId)) {
+          await deleteDoc(doc(db, 'favorites', favoriteId)).catch(() => null);
+        }
         setIsFavorite(false);
         setFavoriteId(null);
       } else {
         const type = movie.type || (movie.first_air_date ? 'series' : 'movie');
         const bestStream = streams.length > 0 ? streams[0] : null;
-        const targetId = resolvedTmdbId || (typeof movie.id === 'number' ? movie.id : (movie.realTmdbId ? Number(movie.realTmdbId) : movie.id));
 
         const docRef = await addDoc(collection(db, 'favorites'), {
           userId: user.uid,
           tmdbId: targetId,
           type: type,
-          title: movie.title,
-          poster: movie.poster || null,
-          year: movie.year || null,
+          title: movie.title || movie.name,
+          poster: movie.poster || movie.backupPoster || null,
+          year: movie.year || (movie.release_date ? movie.release_date.split('-')[0] : null),
           rating: movie.rating || null,
           resolution: movie.resolution || null,
+          overview: movie.overview || '',
           addedAt: serverTimestamp(),
           streamInfo: bestStream ? {
              name: bestStream.name,
