@@ -3099,13 +3099,44 @@ app.get('/api/youtube/search', async (req, res) => {
       const cloudItems: any[] = [];
       const seenIds = new Set<string>();
 
-      cloudFiles.forEach((f: any) => {
-        const fName = (f.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const matchesTitle = fName.includes(cleanTitle);
-        const matchesSeason = !sStr || fName.includes(sStr);
-        const matchesEpisode = !eStr || fName.includes(eStr);
+      const VIDEO_EXTS = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.ts', '.webm', '.flv'];
 
-        if (matchesTitle && matchesSeason && matchesEpisode && !seenIds.has(String(f.id))) {
+      cloudFiles.forEach((f: any) => {
+        const originalName = f.name || '';
+        const ext = path.extname(originalName).toLowerCase();
+        
+        // 1. Filter out non-video files (.nfo, .txt, .srt, .jpg, .png, .zip, etc.)
+        if (!VIDEO_EXTS.includes(ext)) {
+          return;
+        }
+
+        const rawName = originalName.toLowerCase();
+        const fNameClean = rawName.replace(/[^a-z0-9]/g, '');
+
+        // 2. Title matching
+        const matchesTitle = fNameClean.includes(cleanTitle);
+        if (!matchesTitle) return;
+
+        // 3. Strict Season matching: check regex for S19 / Season 19 / 19x
+        if (sNum !== null) {
+          const seasonRegex = new RegExp(`\\b(s0*${sNum}|season\\s*0*${sNum}|0*${sNum}x)\\b`, 'i');
+          // Also allow s19e01 pattern
+          const sFormatted = `s${sNum.toString().padStart(2, '0')}`;
+          if (!seasonRegex.test(rawName) && !rawName.includes(sFormatted)) {
+            return;
+          }
+        }
+
+        // 4. Strict Episode matching: check regex for E01 / Episode 01 / x01
+        if (eNum !== null) {
+          const episodeRegex = new RegExp(`\\b(e0*${eNum}|ep0*${eNum}|episode\\s*0*${eNum}|x0*${eNum})\\b`, 'i');
+          const eFormatted = `e${eNum.toString().padStart(2, '0')}`;
+          if (!episodeRegex.test(rawName) && !rawName.includes(eFormatted)) {
+            return;
+          }
+        }
+
+        if (!seenIds.has(String(f.id))) {
           seenIds.add(String(f.id));
           const streamUrl = f.stream_link || f.link || `/api/premiumize/file/stream?file_id=${f.id}`;
           cloudItems.push({
