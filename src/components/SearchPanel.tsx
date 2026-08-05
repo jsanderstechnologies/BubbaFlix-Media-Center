@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { searchMovies, searchTvSeries, searchActors } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
-import { Play, Pause, Music, Info, Film, Tv, Users, Search, Sparkles, ExternalLink, Disc, Loader2, Volume2, SkipBack, SkipForward, Video, X } from 'lucide-react';
+import { Play, Pause, Music, Info, Film, Tv, Users, Search, Sparkles, ExternalLink, Disc, Loader2, Volume2, SkipBack, SkipForward, Video, X, ArrowLeft } from 'lucide-react';
 
 interface SearchPanelProps {
   query: string;
@@ -11,6 +11,7 @@ interface SearchPanelProps {
   onSelectSuggestion: (term: string) => void;
   onActorSearchClick: (actorName: string) => void;
   onSelectMusic?: (id: string, type?: 'album' | 'artist' | 'playlist') => void;
+  onBack?: () => void;
 }
 
 export default function SearchPanel({ 
@@ -19,7 +20,8 @@ export default function SearchPanel({
   onHoverMedia, 
   onSelectSuggestion,
   onActorSearchClick,
-  onSelectMusic
+  onSelectMusic,
+  onBack
 }: SearchPanelProps) {
   const { systemSettings } = useSettings();
 
@@ -406,7 +408,29 @@ export default function SearchPanel({
   }
 
   return (
-    <div className={`space-y-12 animate-fadeIn ${playingTrack ? 'pb-36' : 'pb-16'}`}>
+    <div className={`space-y-8 animate-fadeIn ${playingTrack ? 'pb-36' : 'pb-16'}`}>
+      {/* Top Header Navigation for Search / Actor View */}
+      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button 
+              onClick={onBack}
+              className="focusable p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 transition-all flex items-center gap-2 cursor-pointer text-xs font-bold uppercase tracking-wider"
+              title="Go Back"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+          )}
+          <div className="flex items-center gap-2">
+            <Search className="w-5 h-5 text-red-500" />
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Results for <span className="text-red-500 font-medium italic">"{query}"</span>
+            </h2>
+          </div>
+        </div>
+      </div>
+
       {isLoading && (
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-white">
           <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>

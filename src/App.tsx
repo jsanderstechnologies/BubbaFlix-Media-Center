@@ -1377,6 +1377,10 @@ function MainApp() {
                 setSearchQuery(actorName);
                 setActiveTab('search');
               }}
+              onBack={() => {
+                setSearchQuery('');
+                setActiveTab('home');
+              }}
             />
           ) : activeTab === 'library' ? (
             <>
