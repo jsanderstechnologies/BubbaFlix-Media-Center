@@ -267,7 +267,6 @@ export default function MediaModal({
   useEffect(() => {
     let isActive = true;
     if (movie) {
-      setStreams([]);
       setExtraLoading(true);
       const targetId = resolvedTmdbId || (typeof movie.id === 'number' ? movie.id : (movie.realTmdbId ? Number(movie.realTmdbId) : null));
       if (targetId) {
@@ -543,6 +542,7 @@ export default function MediaModal({
               });
 
               const filtered = uniqueStreams.filter(s => {
+                  if (s.type === 'local') return true;
                   const desc = (s.name || '') + ' ' + (s.fullDescription || '');
                   if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
                   if (desc.includes('1080p')) return allowedRes.includes('1080p');
@@ -731,6 +731,72 @@ export default function MediaModal({
       setLoading(true);
       setStreams([]);
 
+      const currentEp = episodes.find(e => e.episode_number === selectedEpisode);
+      const initialData: any[] = [];
+      const localPath = currentEp?.filePath || (selectedSeason === 1 && selectedEpisode === 1 ? movie.filePath : null);
+      const localStreamUrl = currentEp?.streamUrl || movie.streamUrl;
+
+      if (movie.isNetworkShare || localPath || localStreamUrl) {
+        const locUrl = localStreamUrl || (localPath ? `/api/local-media/stream?path=${encodeURIComponent(localPath)}` : null);
+        if (locUrl) {
+          initialData.unshift({
+            id: `local_ep_${selectedSeason}_${selectedEpisode}`,
+            name: `⚡ Local Network Share: ${movie.title || movie.name} S${String(selectedSeason).padStart(2, '0')}E${String(selectedEpisode).padStart(2, '0')}`,
+            title: `${movie.title || movie.name} S${String(selectedSeason).padStart(2, '0')}E${String(selectedEpisode).padStart(2, '0')}`,
+            fullDescription: `Direct Local Playback (${localPath || 'Local Storage'})`,
+            quality: '1080p',
+            sizeStr: 'Local Storage',
+            type: 'local',
+            url: locUrl,
+            isCached: true,
+            availability: 'Instant Direct Stream'
+          });
+        }
+      }
+
+      let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
+      const getStreamPriorityRank = (s: any): number => {
+        if (s.type === 'local') return 1;         // 1. Network Share
+        if (s.type === 'iptv') return 2;          // 2. IPTV Provider
+        if (s.isPremiumize) return 3;             // 3. Premiumize Instant Streams
+        if (s.isCached) return 3;                 // 3. Cached Streams
+        return 4;                                 // 4. Torrent Search
+      };
+
+      const filterAndSortTvStreams = (streamsToFilter: any[]) => {
+        const seenUrls = new Set<string>();
+        const uniqueData = streamsToFilter.filter((s: any) => {
+          if (!s || !s.url) return false;
+          let normUrl = (s.url || '').toLowerCase().trim();
+          try {
+            normUrl = decodeURIComponent(s.url).toLowerCase().trim();
+          } catch (e) {}
+          if (seenUrls.has(normUrl)) return false;
+          seenUrls.add(normUrl);
+          return true;
+        });
+
+        let filteredData = uniqueData.filter((s: any) => {
+          if (s.type === 'local') return true;
+          const desc = (s.name || '') + ' ' + (s.fullDescription || '');
+          if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
+          if (desc.includes('1080p')) return allowedRes.includes('1080p');
+          if (desc.includes('720p')) return allowedRes.includes('720p');
+          return true;
+        });
+
+        return filteredData.sort((a: any, b: any) => {
+          const rankA = getStreamPriorityRank(a);
+          const rankB = getStreamPriorityRank(b);
+          if (rankA !== rankB) return rankA - rankB;
+          return (b.seeds || 0) - (a.seeds || 0);
+        });
+      };
+
+      if (initialData.length > 0) {
+        setStreams(filterAndSortTvStreams(initialData));
+      }
+
       const iptvPromise = fetch(`/api/iptv/vod/search?title=${encodeURIComponent(movie.title || movie.name)}&type=series&season=${selectedSeason}&episode=${selectedEpisode}`)
         .then(r => r.json())
         .catch(() => null);
@@ -756,7 +822,7 @@ export default function MediaModal({
       ]).then(async ([data, iptvRes, localRes, pmCloudRes]) => {
         if (!isActive) return;
         
-        const updatedData: any[] = [];
+        const updatedData: any[] = [...initialData];
 
         if (pmCloudRes?.success && Array.isArray(pmCloudRes.data)) {
           pmCloudRes.data.forEach((pmStream: any) => {
@@ -813,42 +879,7 @@ export default function MediaModal({
           }
         }
 
-        const getStreamPriorityRank = (s: any): number => {
-          if (s.type === 'local') return 1;         // 1. Network Share
-          if (s.type === 'iptv') return 2;          // 2. IPTV Provider
-          if (s.isPremiumize) return 3;             // 3. Premiumize Instant Streams
-          if (s.isCached) return 3;                 // 3. Cached Streams
-          return 4;                                 // 4. Torrent Search
-        };
-
-        let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
-        const seenUrls = new Set<string>();
-        const uniqueData = updatedData.filter((s: any) => {
-          if (!s || !s.url) return false;
-          let normUrl = (s.url || '').toLowerCase().trim();
-          try {
-            normUrl = decodeURIComponent(s.url).toLowerCase().trim();
-          } catch (e) {}
-          if (seenUrls.has(normUrl)) return false;
-          seenUrls.add(normUrl);
-          return true;
-        });
-
-        let filteredData = uniqueData.filter((s: any) => {
-            const desc = (s.name || '') + ' ' + (s.fullDescription || '');
-            if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
-            if (desc.includes('1080p')) return allowedRes.includes('1080p');
-            if (desc.includes('720p')) return allowedRes.includes('720p');
-            return true;
-        });
-
-        filteredData.sort((a: any, b: any) => {
-          const rankA = getStreamPriorityRank(a);
-          const rankB = getStreamPriorityRank(b);
-          if (rankA !== rankB) return rankA - rankB;
-          return (b.seeds || 0) - (a.seeds || 0);
-        });
-
+        const filteredData = filterAndSortTvStreams(updatedData);
 
         if (!isActive) return;
         setStreams(filteredData);
