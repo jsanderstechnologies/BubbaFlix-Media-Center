@@ -2979,8 +2979,7 @@ app.get('/api/youtube/search', async (req, res) => {
     if (!token) return res.status(401).json({ error: "Premiumize API Key is required." });
 
     try {
-      const { id } = req.body;
-      await clearPmTransferHistory(token, id);
+      await clearPmTransferHistory(token);
       res.json({ success: true, message: "Transfer history cleared from Premiumize." });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
