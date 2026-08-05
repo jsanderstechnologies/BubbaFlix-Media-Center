@@ -520,11 +520,12 @@ export default function MediaModal({
           }
 
           const getStreamPriorityRank = (s: any): number => {
-            if (s.type === 'local') return 1; // 1. Network Share
-            if (s.type === 'iptv') return 2;  // 2. IPTV Provider
-            if (s.isPremiumize) return 3;     // 3. Premiumize Instant Streams
-            if (s.isCached) return 3;         // 3. Cached Streams
-            return 4;
+            if (s.type === 'local') return 1;            // 1. Network Share
+            if (s.type === 'premiumize_cloud') return 1; // 1. Premiumize Cloud (Ready to Stream!)
+            if (s.type === 'iptv') return 2;             // 2. IPTV Provider
+            if (s.isPremiumize) return 3;                // 3. Premiumize Instant Streams
+            if (s.isCached) return 3;                    // 3. Cached Streams
+            return 4;                                    // 4. Torrent Search
           };
 
           let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
@@ -571,14 +572,30 @@ export default function MediaModal({
             .then(r => r.json())
             .catch(() => null);
 
+          const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
+          const pmCloudPromise = pmKey
+            ? fetch('/api/premiumize/cloud/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pmKey}` },
+                body: JSON.stringify({ title: movie.title || movie.name, year: movie.year })
+              }).then(r => r.json()).catch(() => null)
+            : Promise.resolve(null);
+
           Promise.all([
             fetchStreamsForMovie(movie.title || movie.name, movie.year, extraDetails?.imdbId || undefined),
             iptvPromise,
-            localMediaPromise
-          ]).then(async ([data, iptvRes, localRes]) => {
+            localMediaPromise,
+            pmCloudPromise
+          ]).then(async ([data, iptvRes, localRes, pmCloudRes]) => {
               if (!isActive) return;
               
               const updatedData = [...initialData];
+
+              if (pmCloudRes?.success && Array.isArray(pmCloudRes.data)) {
+                pmCloudRes.data.forEach((pmStream: any) => {
+                  updatedData.unshift(pmStream);
+                });
+              }
 
               if (localRes?.success && Array.isArray(localRes.data)) {
                 localRes.data.forEach((localStream: any) => {
@@ -722,15 +739,30 @@ export default function MediaModal({
         .then(r => r.json())
         .catch(() => null);
 
+      const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
+      const pmCloudPromise = pmKey
+        ? fetch('/api/premiumize/cloud/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pmKey}` },
+            body: JSON.stringify({ title: movie.title || movie.name, season: selectedSeason, episode: selectedEpisode })
+          }).then(r => r.json()).catch(() => null)
+        : Promise.resolve(null);
+
       Promise.all([
         fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode, extraDetails?.imdbId || undefined),
         iptvPromise,
-        localMediaPromise
-      ]).then(async ([data, iptvRes, localRes]) => {
+        localMediaPromise,
+        pmCloudPromise
+      ]).then(async ([data, iptvRes, localRes, pmCloudRes]) => {
         if (!isActive) return;
-              if (!isActive) return;
         
         const updatedData: any[] = [];
+
+        if (pmCloudRes?.success && Array.isArray(pmCloudRes.data)) {
+          pmCloudRes.data.forEach((pmStream: any) => {
+            updatedData.unshift(pmStream);
+          });
+        }
 
         if (localRes?.success && Array.isArray(localRes.data)) {
           localRes.data.forEach((localStream: any) => {
@@ -955,6 +987,12 @@ export default function MediaModal({
                                     triggerPlay(stream.url, stream);
                                     return;
                                   }
+                                  if (stream.type === 'premiumize_cloud') {
+                                    if (stream.url) {
+                                      triggerPlay(stream.url, stream);
+                                    }
+                                    return;
+                                  }
 
                                   if (!pmKey) {
                                     alert("Please configure your Premiumize API Key in Settings to stream torrents.");
@@ -1015,18 +1053,20 @@ export default function MediaModal({
                                             </div>
                                         </div>
                                         <div className="flex gap-2 shrink-0">
-                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.isPremiumize ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : (stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20')))}`}>
-                                              {stream.isPremiumize
-                                                ? 'Premiumize ⚡'
-                                                : stream.isCached 
-                                                  ? 'Instant Cached' 
-                                                  : stream.isAdding 
-                                                    ? 'Resolving Stream...' 
-                                                    : stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100
-                                                      ? `Processing (${stream.downloadState})`
-                                                      : stream.downloadProgress !== undefined 
-                                                        ? `Downloading ${stream.downloadProgress}%` 
-                                                        : 'Stream Video'}
+                                          <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase ${stream.type === 'premiumize_cloud' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm' : (stream.isPremiumize ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : (stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'))))}`}>
+                                              {stream.type === 'premiumize_cloud'
+                                                ? 'Premiumize Cloud ⚡'
+                                                : (stream.isPremiumize
+                                                  ? 'Premiumize ⚡'
+                                                  : (stream.isCached 
+                                                    ? 'Instant Stream' 
+                                                    : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 
+                                                      ? 'Processing...' 
+                                                      : (stream.isAdding 
+                                                        ? 'Adding...' 
+                                                        : (stream.downloadProgress !== undefined 
+                                                          ? `${stream.downloadProgress}%` 
+                                                          : 'Torrent')))))}
                                           </div>
                                           <div className="px-2 py-0.5 bg-indigo-600/10 text-indigo-400 text-[10px] font-bold rounded border border-indigo-500/20 whitespace-nowrap uppercase">
                                               {stream.type}
