@@ -13,7 +13,7 @@ const fetchStreamsForMovie = async (title: string, year?: string, imdbId?: strin
     const q = `${title}${year ? ` ${year}` : ''}`;
     const url = `/api/torrents/search?q=${encodeURIComponent(q)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
     const res = await fetch(url).then(r => r.json());
-    if (res?.success && Array.isArray(res.data)) {
+    if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
       return res.data.map((t: any) => ({
         name: t.name,
         title: t.name,
@@ -28,6 +28,26 @@ const fetchStreamsForMovie = async (title: string, year?: string, imdbId?: strin
         source: t.source || 'Torrent'
       }));
     }
+    // Fallback: search title without year if year query returned empty
+    if (year) {
+      const fallbackUrl = `/api/torrents/search?q=${encodeURIComponent(title)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
+      const fallbackRes = await fetch(fallbackUrl).then(r => r.json()).catch(() => null);
+      if (fallbackRes?.success && Array.isArray(fallbackRes.data)) {
+        return fallbackRes.data.map((t: any) => ({
+          name: t.name,
+          title: t.name,
+          type: 'torrent',
+          hash: t.hash,
+          magnet: t.magnet || t.link,
+          url: t.magnet || t.link,
+          seeds: t.seeds || 0,
+          peers: t.peers || 0,
+          sizeStr: t.size ? `${(t.size / 1e9).toFixed(2)} GB` : 'Unknown',
+          quality: /2160p|4k/i.test(t.name) ? '4K' : /1080p/i.test(t.name) ? '1080p' : /720p/i.test(t.name) ? '720p' : 'HD',
+          source: t.source || 'Torrent'
+        }));
+      }
+    }
   } catch (e) {
     console.error('Error fetching torrent streams for movie:', e);
   }
@@ -41,7 +61,7 @@ const fetchStreamsForTvSeries = async (title: string, season?: number, episode?:
     const q = `${title} ${sStr}${eStr}`.trim();
     const url = `/api/torrents/search?q=${encodeURIComponent(q)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
     const res = await fetch(url).then(r => r.json());
-    if (res?.success && Array.isArray(res.data)) {
+    if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
       return res.data.map((t: any) => ({
         name: t.name,
         title: t.name,
@@ -55,6 +75,27 @@ const fetchStreamsForTvSeries = async (title: string, season?: number, episode?:
         quality: /2160p|4k/i.test(t.name) ? '4K' : /1080p/i.test(t.name) ? '1080p' : /720p/i.test(t.name) ? '720p' : 'HD',
         source: t.source || 'Torrent'
       }));
+    }
+    // Fallback: search Season pack (e.g. "Game of Thrones S01")
+    if (season) {
+      const seasonQuery = `${title} ${sStr}`.trim();
+      const fallbackUrl = `/api/torrents/search?q=${encodeURIComponent(seasonQuery)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
+      const fallbackRes = await fetch(fallbackUrl).then(r => r.json()).catch(() => null);
+      if (fallbackRes?.success && Array.isArray(fallbackRes.data)) {
+        return fallbackRes.data.map((t: any) => ({
+          name: t.name,
+          title: t.name,
+          type: 'torrent',
+          hash: t.hash,
+          magnet: t.magnet || t.link,
+          url: t.magnet || t.link,
+          seeds: t.seeds || 0,
+          peers: t.peers || 0,
+          sizeStr: t.size ? `${(t.size / 1e9).toFixed(2)} GB` : 'Unknown',
+          quality: /2160p|4k/i.test(t.name) ? '4K' : /1080p/i.test(t.name) ? '1080p' : /720p/i.test(t.name) ? '720p' : 'HD',
+          source: t.source || 'Torrent'
+        }));
+      }
     }
   } catch (e) {
     console.error('Error fetching torrent streams for TV:', e);
@@ -491,7 +532,10 @@ export default function MediaModal({
               const seenUrls = new Set<string>();
               const uniqueStreams = streams.filter(s => {
                 if (!s || !s.url) return false;
-                const normUrl = decodeURIComponent(s.url).toLowerCase().trim();
+                let normUrl = (s.url || '').toLowerCase().trim();
+                try {
+                  normUrl = decodeURIComponent(s.url).toLowerCase().trim();
+                } catch (e) {}
                 if (seenUrls.has(normUrl)) return false;
                 seenUrls.add(normUrl);
                 return true;
@@ -749,7 +793,10 @@ export default function MediaModal({
         const seenUrls = new Set<string>();
         const uniqueData = updatedData.filter((s: any) => {
           if (!s || !s.url) return false;
-          const normUrl = decodeURIComponent(s.url).toLowerCase().trim();
+          let normUrl = (s.url || '').toLowerCase().trim();
+          try {
+            normUrl = decodeURIComponent(s.url).toLowerCase().trim();
+          } catch (e) {}
           if (seenUrls.has(normUrl)) return false;
           seenUrls.add(normUrl);
           return true;
