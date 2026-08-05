@@ -8,6 +8,12 @@ const getApiKey = () => {
 };
 const BASE_URL = 'https://api.themoviedb.org/3';
 
+export const getCachedImageUrl = (pathOrUrl: string | null | undefined): string | null => {
+  if (!pathOrUrl) return null;
+  const fullUrl = pathOrUrl.startsWith('http') ? pathOrUrl : `https://image.tmdb.org/t/p/w500${pathOrUrl}`;
+  return `/api/image-proxy?url=${encodeURIComponent(fullUrl)}`;
+};
+
 
 const applyFilters = (results: any[], isSearch: boolean = false) => {
   // Deduplicate results by ID to avoid React duplicate key warnings
@@ -84,7 +90,7 @@ export const getTrendingMovies = async (genreId: number = 0) => {
       year: m.release_date?.substring(0, 4) || 'N/A',
       rating: m.vote_average?.toFixed(1) || '0.0',
       resolution: '4K', // TMDB doesn't have stream info, so we mock it
-      poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+      poster: getCachedImageUrl(m.poster_path),
       overview: m.overview,
       genres: m.genre_ids || [],
       type: 'movie'
@@ -121,7 +127,7 @@ export const searchMovies = async (query: string) => {
       year: (m.release_date || m.first_air_date)?.substring(0, 4) || 'N/A',
       rating: m.vote_average?.toFixed(1) || '0.0',
       resolution: '4K',
-      poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+      poster: getCachedImageUrl(m.poster_path),
       overview: m.overview,
       genres: m.genre_ids || [],
       type: 'movie'
@@ -194,7 +200,7 @@ export const getTrendingTvSeries = async (genreId: number = 0) => {
       year: m.first_air_date?.substring(0, 4) || 'N/A',
       rating: m.vote_average?.toFixed(1) || '0.0',
       resolution: '4K',
-      poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+      poster: getCachedImageUrl(m.poster_path),
       overview: m.overview,
       genres: m.genre_ids || [],
       type: 'series'
@@ -230,7 +236,7 @@ export const searchTvSeries = async (query: string) => {
       year: (m.first_air_date || m.release_date)?.substring(0, 4) || 'N/A',
       rating: m.vote_average?.toFixed(1) || '0.0',
       resolution: '4K',
-      poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+      poster: getCachedImageUrl(m.poster_path),
       overview: m.overview,
       genres: m.genre_ids || [],
       type: 'series'
@@ -454,7 +460,7 @@ export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) =
       id: member.id,
       name: member.name,
       character: member.character,
-      profilePath: member.profile_path ? `https://image.tmdb.org/t/p/w185${member.profile_path}` : null
+      profilePath: getCachedImageUrl(member.profile_path)
     }));
 
     return {
@@ -500,7 +506,7 @@ export const searchActors = async (query: string) => {
       id: p.id,
       name: p.name,
       knownFor: p.known_for?.map((m: any) => m.title || m.name).join(', ') || 'N/A',
-      profilePath: p.profile_path ? `https://image.tmdb.org/t/p/w185${p.profile_path}` : null
+      profilePath: getCachedImageUrl(p.profile_path)
     }));
   } catch (e) {
     console.error("[Frontend] Error searching actors:", e);

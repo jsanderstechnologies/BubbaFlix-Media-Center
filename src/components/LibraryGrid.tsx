@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { collection, query, where, getDocs, onSnapshot, addDoc, deleteDoc, doc, updateDoc, arrayRemove, serverTimestamp } from '../lib/localDb';
 import { db } from '../lib/localDb';
+import { getCachedImageUrl } from '../services/tmdbApi';
 import { useAuth } from './Auth';
 import { Music, Plus, Play, Pause, Trash2, ChevronLeft, Disc, Volume2, ListMusic, Users, Check } from 'lucide-react';
 
@@ -89,7 +90,7 @@ function LibraryCardItem({
         const match = data.results?.find((r: any) => r.poster_path || r.backdrop_path);
         if (match) {
           const pPath = match.poster_path || match.backdrop_path;
-          const fullUrl = `https://image.tmdb.org/t/p/w500${pPath}`;
+          const fullUrl = getCachedImageUrl(pPath) || `https://image.tmdb.org/t/p/w500${pPath}`;
           tmdbPosterCache.set(cleanTitle, fullUrl);
           setPosterUrl(fullUrl);
           setImgFailed(false);
@@ -292,8 +293,8 @@ export function LibraryGrid({
               title: part.title || part.name,
               name: part.title || part.name,
               year: partYear,
-              poster: part.poster_path ? `https://image.tmdb.org/t/p/w500${part.poster_path}` : '',
-              backdrop: part.backdrop_path ? `https://image.tmdb.org/t/p/w500${part.backdrop_path}` : '',
+              poster: getCachedImageUrl(part.poster_path) || '',
+              backdrop: getCachedImageUrl(part.backdrop_path) || '',
               rating: part.vote_average ? part.vote_average.toFixed(1) : '',
               overview: part.overview || '',
               type: 'movie'
@@ -580,7 +581,7 @@ export function LibraryGrid({
               colInfo = {
                 id: b.id,
                 name: b.name,
-                poster: b.poster_path ? `https://image.tmdb.org/t/p/w500${b.poster_path}` : (b.backdrop_path ? `https://image.tmdb.org/t/p/w500${b.backdrop_path}` : movie.poster)
+                poster: getCachedImageUrl(b.poster_path) || getCachedImageUrl(b.backdrop_path) || movie.poster
               };
               movie.collectionInfo = colInfo;
             }

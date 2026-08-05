@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails } from '../services/tmdbApi';
+import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
 import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud } from 'lucide-react';
 
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from '../lib/localDb';
@@ -368,7 +368,7 @@ export default function MediaModal({
             const isTv = r.media_type === 'tv' || r.first_air_date || (r.name && !r.title);
             const titleStr = r.title || r.name || 'Untitled';
             const imgPath = r.poster_path || r.backdrop_path;
-            const posterUrl = imgPath ? `https://image.tmdb.org/t/p/w500${imgPath}` : '';
+            const posterUrl = getCachedImageUrl(imgPath) || '';
             return {
               tmdbId: r.id,
               title: titleStr,

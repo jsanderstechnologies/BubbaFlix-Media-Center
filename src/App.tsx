@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
 import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot } from 'lucide-react';
+import { searchMovies, searchTvSeries, searchMulti, getTrendingMovies, getTrendingTvSeries, getTvSeasonDetails, getCachedImageUrl } from './services/tmdbApi';
 import { collection, query, where, onSnapshot, setDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
 import { logger } from './lib/logger';
@@ -348,7 +349,7 @@ function MainApp() {
           .then(data => {
             const logo = data.logos?.find((l: any) => l.iso_639_1 === 'en') || data.logos?.[0];
             if (logo) {
-              setLogoUrl(`https://image.tmdb.org/t/p/w500${logo.file_path}`);
+              setLogoUrl(getCachedImageUrl(logo.file_path) || '');
             } else {
               setLogoUrl(selectedMovie.poster || selectedMovie.backupPoster || '');
             }

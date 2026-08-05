@@ -370,6 +370,14 @@ async function startServer() {
   const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
   const SCANNED_LIBRARY_FILE = path.join(DATA_DIR, 'scanned_library.json');
   const PM_RETENTION_FILE = path.join(DATA_DIR, 'pm_retention.json');
+  const CACHE_IMG_DIR = path.join(DATA_DIR, 'cached_images');
+
+  if (!fs.existsSync(CACHE_IMG_DIR)) {
+    fs.mkdirSync(CACHE_IMG_DIR, { recursive: true });
+  }
+
+  // Serve persistent cached metadata images (posters, backdrops, profile photos) directly from server storage
+  app.use('/api/images', express.static(CACHE_IMG_DIR, { maxAge: '30d' }));
 
 
 
@@ -3147,14 +3155,45 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
-  // Helper function to accurately detect video resolution (4K, 1080p, 720p) for IPTV & local media
-  function detectStreamQuality(name: string): string {
-    const n = (name || '').toLowerCase();
-    if (/4k|2160p|2160|uhd|ultra\s*hd/i.test(n)) return '4K';
-    if (/1080p|1080|fhd|full\s*hd|fullhd/i.test(n)) return '1080p';
-    if (/720p|720|sd|480p|480/i.test(n)) return '720p';
-    return '1080p'; // Default modern IPTV VOD & Direct streams to 1080p Full HD
-  }
+  // Endpoint: Local Persistent Image Proxy & Caching for metadata, backdrops, posters, and cast photos
+  app.get("/api/image-proxy", async (req, res) => {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') {
+      return res.status(400).send("Missing image url");
+    }
+
+    try {
+      // Generate a deterministic local filename hash from the source URL
+      const urlHash = crypto.createHash('md5').update(url).digest('hex');
+      const ext = path.extname(new URL(url).pathname) || '.jpg';
+      const fileName = `${urlHash}${ext}`;
+      const filePath = path.join(CACHE_IMG_DIR, fileName);
+
+      // 1. If file is already cached on local server disk, serve it immediately with heavy browser cache headers
+      if (fs.existsSync(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        return res.sendFile(filePath);
+      }
+
+      // 2. Fetch image from remote host (TMDB / OMDB / Fanart / etc.)
+      const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+      const contentType = response.headers['content-type'] || 'image/jpeg';
+      const buffer = Buffer.from(response.data);
+
+      // 3. Persist to local server disk asynchronously
+      fs.writeFile(filePath, buffer, (err) => {
+        if (err) console.error(`[Image Cache Error] Failed to write image ${fileName}:`, err.message);
+      });
+
+      // 4. Return image response immediately
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.send(buffer);
+    } catch (err: any) {
+      // Fallback redirect if fetch fails
+      res.redirect(url);
+    }
+  });
 
   // API Route: Search IPTV Provider for VOD Movie and TV Series Streams
   app.get("/api/iptv/vod/search", async (req, res) => {
