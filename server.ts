@@ -3155,6 +3155,9 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
+  // Active in-flight image requests map to prevent duplicate simultaneous downloads for the same URL
+  const inFlightImageRequests = new Map<string, Promise<Buffer>>();
+
   // Endpoint: Local Persistent Image Proxy & Caching for metadata, backdrops, posters, and cast photos
   app.get("/api/image-proxy", async (req, res) => {
     const { url } = req.query;
@@ -3163,35 +3166,50 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     try {
+      let targetUrl: URL;
+      try {
+        targetUrl = new URL(url);
+      } catch (e) {
+        return res.status(400).send("Invalid image URL");
+      }
+
       // Generate a deterministic local filename hash from the source URL
       const urlHash = crypto.createHash('md5').update(url).digest('hex');
-      const ext = path.extname(new URL(url).pathname) || '.jpg';
+      const ext = path.extname(targetUrl.pathname) || '.jpg';
       const fileName = `${urlHash}${ext}`;
       const filePath = path.join(CACHE_IMG_DIR, fileName);
 
-      // 1. If file is already cached on local server disk, serve it immediately with heavy browser cache headers
+      // 1. If file is already cached on local server disk, serve it immediately
       if (fs.existsSync(filePath)) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         return res.sendFile(filePath);
       }
 
-      // 2. Fetch image from remote host (TMDB / OMDB / Fanart / etc.)
-      const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
-      const contentType = (typeof response.headers['content-type'] === 'string' ? response.headers['content-type'] : 'image/jpeg');
-      const buffer = Buffer.from(response.data);
+      // 2. Prevent duplicate simultaneous network downloads of the same image URL
+      if (!inFlightImageRequests.has(url)) {
+        const fetchPromise = (async () => {
+          const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 12000 });
+          const buffer = Buffer.from(response.data);
+          // Persist to local server disk
+          fs.writeFile(filePath, buffer, (err) => {
+            if (err) console.error(`[Image Cache Error] Failed writing ${fileName}:`, err.message);
+          });
+          return buffer;
+        })();
 
-      // 3. Persist to local server disk asynchronously
-      fs.writeFile(filePath, buffer, (err) => {
-        if (err) console.error(`[Image Cache Error] Failed to write image ${fileName}:`, err.message);
-      });
+        inFlightImageRequests.set(url, fetchPromise);
+        fetchPromise.finally(() => inFlightImageRequests.delete(url));
+      }
 
-      // 4. Return image response immediately
-      res.setHeader('Content-Type', contentType);
+      const imageBuffer = await inFlightImageRequests.get(url)!;
+      res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-      res.send(buffer);
+      res.send(imageBuffer);
     } catch (err: any) {
-      // Fallback redirect if fetch fails
-      res.redirect(url);
+      // Return 404 or redirect safely if fetch fails without crashing
+      if (!res.headersSent) {
+        res.status(404).send("Image not found");
+      }
     }
   });
 
