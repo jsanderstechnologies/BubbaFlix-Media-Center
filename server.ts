@@ -3177,7 +3177,7 @@ app.get('/api/youtube/search', async (req, res) => {
 
       // 2. Fetch image from remote host (TMDB / OMDB / Fanart / etc.)
       const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
-      const contentType = response.headers['content-type'] || 'image/jpeg';
+      const contentType = (typeof response.headers['content-type'] === 'string' ? response.headers['content-type'] : 'image/jpeg');
       const buffer = Buffer.from(response.data);
 
       // 3. Persist to local server disk asynchronously
@@ -3194,6 +3194,15 @@ app.get('/api/youtube/search', async (req, res) => {
       res.redirect(url);
     }
   });
+
+  // Helper function to accurately detect video resolution (4K, 1080p, 720p) for IPTV & local media
+  function detectStreamQuality(name: string): string {
+    const n = (name || '').toLowerCase();
+    if (/4k|2160p|2160|uhd|ultra\s*hd/i.test(n)) return '4K';
+    if (/1080p|1080|fhd|full\s*hd|fullhd/i.test(n)) return '1080p';
+    if (/720p|720|sd|480p|480/i.test(n)) return '720p';
+    return '1080p'; // Default modern IPTV VOD & Direct streams to 1080p Full HD
+  }
 
   // API Route: Search IPTV Provider for VOD Movie and TV Series Streams
   app.get("/api/iptv/vod/search", async (req, res) => {
