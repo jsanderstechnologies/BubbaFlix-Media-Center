@@ -551,23 +551,54 @@ async function startServer() {
 
 
     const html = `
-      <div style="font-family:sans-serif;max-width:440px;margin:0 auto;background:#0a0a0a;color:#fff;border-radius:12px;overflow:hidden;border:1px solid #222;">
-        <div style="background:linear-gradient(135deg,#000000,#111111);padding:24px 32px;text-align:center;border-bottom:1px solid #222;">
-          ${logoSvg}
-        </div>
-        <div style="padding:28px 32px;">
-          <h2 style="color:#fff;margin-top:0;font-size:18px;font-weight:bold;text-align:center;">Welcome, ${username}!</h2>
-          <p style="color:#aaa;line-height:1.5;font-size:13px;text-align:center;">Your account has been approved. Here are your login credentials:</p>
-          <div style="background:#141414;border:1px solid #2a2a2a;border-radius:8px;padding:16px;margin:20px 0;text-align:center;">
-            <p style="margin:0 0 2px;color:#666;font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Username</p>
-            <p style="margin:0 0 14px;font-size:14px;font-weight:bold;color:#fff;font-family:monospace;">${username}</p>
-            <p style="margin:0 0 4px;color:#666;font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Password</p>
-            <p style="margin:0;font-size:14px;font-weight:700;color:#ef4444;letter-spacing:1px;font-family:monospace;background:#222;padding:6px 14px;border-radius:6px;display:inline-block;">${password}</p>
-          </div>
-          ${appUrl ? `<p style="text-align:center;margin-top:24px;"><a href="${appUrl}" style="background:#dc2626;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:13px;">Sign In to ${appName}</a></p>` : ''}
-          <p style="color:#444;font-size:10px;margin-top:24px;text-align:center;line-height:1.4;">For your security, we recommend changing your password after your first login.</p>
-        </div>
-      </div>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body, html { margin:0; padding:0; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+        </style>
+      </head>
+      <body style="margin:0;padding:0;background-color:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0a;padding:20px 10px;">
+          <tr>
+            <td align="center">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:380px;background:#141417;border:1px solid #27272a;border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:20px;text-align:center;background:#09090b;border-bottom:1px solid #27272a;">
+                    ${logoSvg}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:24px 20px;text-align:center;">
+                    <h2 style="color:#ffffff;margin:0 0 8px;font-size:16px;font-weight:700;-webkit-text-size-adjust:100%;">Welcome, ${username}!</h2>
+                    <p style="color:#a1a1aa;margin:0 0 16px;font-size:12px;line-height:1.4;-webkit-text-size-adjust:100%;">Your account has been approved. Credentials below:</p>
+                    
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#09090b;border:1px solid #27272a;border-radius:8px;margin:12px 0;">
+                      <tr>
+                        <td style="padding:12px;text-align:center;">
+                          <div style="font-size:9px;color:#71717a;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px;-webkit-text-size-adjust:100%;">Username</div>
+                          <div style="font-size:12px;font-weight:700;color:#ffffff;font-family:'Courier New',Courier,monospace;-webkit-text-size-adjust:100%;">${username}</div>
+                          
+                          <div style="height:1px;background:#27272a;margin:10px auto;width:80%;"></div>
+                          
+                          <div style="font-size:9px;color:#71717a;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px;-webkit-text-size-adjust:100%;">Password</div>
+                          <div style="font-size:12px;font-weight:700;color:#ef4444;font-family:'Courier New',Courier,monospace;letter-spacing:1px;-webkit-text-size-adjust:100%;">${password}</div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    ${appUrl ? `<div style="margin-top:20px;"><a href="${appUrl}" style="background:#dc2626;color:#ffffff;padding:9px 20px;border-radius:6px;text-decoration:none;font-weight:700;display:inline-block;font-size:12px;-webkit-text-size-adjust:100%;">Sign In to ${appName}</a></div>` : ''}
+                    <p style="color:#52525b;font-size:9px;margin:20px 0 0;line-height:1.4;-webkit-text-size-adjust:100%;">For security, please change your password after your first login.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
     `;
     await transporter.sendMail({
       from: `"${appName}" <${emailCfg.gmailUser}>`,
@@ -591,19 +622,44 @@ async function startServer() {
       auth: { user: emailCfg.gmailUser, pass: emailCfg.gmailAppPassword },
     });
     const html = `
-      <div style="font-family:sans-serif;background-color:#111;color:#eee;padding:32px 16px;">
-        <div style="max-width:440px;margin:0 auto;background:#18181b;border:1px solid #27272a;border-radius:12px;padding:28px;">
-          <h1 style="color:#ef4444;margin-top:0;font-size:18px;font-weight:bold;text-align:center;">Password Reset</h1>
-          <p style="font-size:13px;line-height:1.5;">Hi <b>${username}</b>,</p>
-          <p style="font-size:13px;line-height:1.5;color:#a1a1aa;">An administrator has reset your password for ${appName}. Your new password is below.</p>
-          <div style="background:#09090b;padding:16px;border:1px solid #27272a;border-radius:8px;margin:20px 0;text-align:center;">
-            <p style="margin:0;font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">New Password</p>
-            <p style="margin:0;font-size:14px;font-weight:700;font-family:monospace;color:#ef4444;letter-spacing:1px;background:#18181b;padding:6px 14px;border-radius:6px;display:inline-block;">${password}</p>
-          </div>
-          ${appUrl ? `<p style="text-align:center;margin-top:24px;"><a href="${appUrl}" style="background:#dc2626;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:13px;">Sign In to ${appName}</a></p>` : ''}
-          <p style="color:#52525b;font-size:10px;margin-top:24px;text-align:center;line-height:1.4;">For your security, we recommend changing your password after your next login.</p>
-        </div>
-      </div>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body, html { margin:0; padding:0; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+        </style>
+      </head>
+      <body style="margin:0;padding:0;background-color:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0a;padding:20px 10px;">
+          <tr>
+            <td align="center">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:380px;background:#141417;border:1px solid #27272a;border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:24px 20px;text-align:center;">
+                    <h2 style="color:#ef4444;margin:0 0 8px;font-size:16px;font-weight:700;-webkit-text-size-adjust:100%;">Password Reset</h2>
+                    <p style="color:#a1a1aa;margin:0 0 16px;font-size:12px;line-height:1.4;-webkit-text-size-adjust:100%;">Hi <b>${username}</b>, your password has been reset.</p>
+                    
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#09090b;border:1px solid #27272a;border-radius:8px;margin:12px 0;">
+                      <tr>
+                        <td style="padding:12px;text-align:center;">
+                          <div style="font-size:9px;color:#71717a;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px;-webkit-text-size-adjust:100%;">New Password</div>
+                          <div style="font-size:12px;font-weight:700;color:#ef4444;font-family:'Courier New',Courier,monospace;letter-spacing:1px;-webkit-text-size-adjust:100%;">${password}</div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    ${appUrl ? `<div style="margin-top:20px;"><a href="${appUrl}" style="background:#dc2626;color:#ffffff;padding:9px 20px;border-radius:6px;text-decoration:none;font-weight:700;display:inline-block;font-size:12px;-webkit-text-size-adjust:100%;">Sign In to ${appName}</a></div>` : ''}
+                    <p style="color:#52525b;font-size:9px;margin:20px 0 0;line-height:1.4;-webkit-text-size-adjust:100%;">For security, please change your password after logging in.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
     `;
     await transporter.sendMail({
       from: `"${appName}" <${emailCfg.gmailUser}>`,
