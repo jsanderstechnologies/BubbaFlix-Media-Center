@@ -3219,13 +3219,18 @@ app.get('/api/youtube/search', async (req, res) => {
       // 2. Prevent duplicate simultaneous network downloads of the same image URL
       if (!inFlightImageRequests.has(url)) {
         const fetchPromise = (async () => {
-          const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 12000 });
-          const buffer = Buffer.from(response.data);
-          // Persist to local server disk
-          fs.writeFile(filePath, buffer, (err) => {
-            if (err) console.error(`[Image Cache Error] Failed writing ${fileName}:`, err.message);
-          });
-          return buffer;
+          try {
+            const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 7000 });
+            const buffer = Buffer.from(response.data);
+            // Persist to local server disk
+            fs.writeFile(filePath, buffer, (err) => {
+              if (err) console.error(`[Image Cache Error] Failed writing ${fileName}:`, err.message);
+            });
+            return buffer;
+          } catch (e: any) {
+            console.warn(`[Image Proxy Warning] Timeout or unreachable fetching ${url}:`, e.message);
+            return null;
+          }
         })();
 
         inFlightImageRequests.set(url, fetchPromise);
@@ -3233,6 +3238,9 @@ app.get('/api/youtube/search', async (req, res) => {
       }
 
       const imageBuffer = await inFlightImageRequests.get(url)!;
+      if (!imageBuffer) {
+        return res.status(404).send("Image unavailable");
+      }
       res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       res.send(imageBuffer);
