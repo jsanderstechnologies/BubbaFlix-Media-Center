@@ -14,7 +14,8 @@ const fetchStreamsForMovie = async (title: string, year?: string, imdbId?: strin
     const url = `/api/torrents/search?q=${encodeURIComponent(q)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
     const res = await fetch(url).then(r => r.json());
     if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
-      return res.data.map((t: any) => ({
+      return res.data.map((t: any, idx: number) => ({
+        id: t.id || t.hash || `torrent_movie_${idx}_${(t.name || '').replace(/[^a-z0-9]/g, '')}`,
         name: t.name,
         title: t.name,
         type: 'torrent',
@@ -33,7 +34,8 @@ const fetchStreamsForMovie = async (title: string, year?: string, imdbId?: strin
       const fallbackUrl = `/api/torrents/search?q=${encodeURIComponent(title)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
       const fallbackRes = await fetch(fallbackUrl).then(r => r.json()).catch(() => null);
       if (fallbackRes?.success && Array.isArray(fallbackRes.data)) {
-        return fallbackRes.data.map((t: any) => ({
+        return fallbackRes.data.map((t: any, idx: number) => ({
+          id: t.id || t.hash || `torrent_movie_fb_${idx}_${(t.name || '').replace(/[^a-z0-9]/g, '')}`,
           name: t.name,
           title: t.name,
           type: 'torrent',
@@ -62,7 +64,8 @@ const fetchStreamsForTvSeries = async (title: string, season?: number, episode?:
     const url = `/api/torrents/search?q=${encodeURIComponent(q)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
     const res = await fetch(url).then(r => r.json());
     if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
-      return res.data.map((t: any) => ({
+      return res.data.map((t: any, idx: number) => ({
+        id: t.id || t.hash || `torrent_tv_${idx}_${(t.name || '').replace(/[^a-z0-9]/g, '')}`,
         name: t.name,
         title: t.name,
         type: 'torrent',
@@ -82,7 +85,8 @@ const fetchStreamsForTvSeries = async (title: string, season?: number, episode?:
       const fallbackUrl = `/api/torrents/search?q=${encodeURIComponent(seasonQuery)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
       const fallbackRes = await fetch(fallbackUrl).then(r => r.json()).catch(() => null);
       if (fallbackRes?.success && Array.isArray(fallbackRes.data)) {
-        return fallbackRes.data.map((t: any) => ({
+        return fallbackRes.data.map((t: any, idx: number) => ({
+          id: t.id || t.hash || `torrent_tv_fb_${idx}_${(t.name || '').replace(/[^a-z0-9]/g, '')}`,
           name: t.name,
           title: t.name,
           type: 'torrent',
@@ -1066,42 +1070,50 @@ export default function MediaModal({
                                     return;
                                   }
 
-                                  // Handle Premiumize resolution & instant playback for all torrents
-                                  setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: true } : s));
-                                  try {
-                                    const magnetLink = stream.url || (stream.hash ? `magnet:?xt=urn:btih:${stream.hash}` : '');
-                                    const pmRes = await fetch('/api/premiumize/transfer/directdl', {
-                                      method: 'POST',
-                                      headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${pmKey}`
-                                      },
-                                      body: JSON.stringify({ magnet: magnetLink })
-                                    });
-                                    
-                                    const contentType = pmRes.headers.get('content-type') || '';
-                                    let pmData: any = {};
-                                    if (contentType.includes('application/json')) {
-                                      pmData = await pmRes.json();
-                                    } else {
-                                      const errTxt = await pmRes.text();
-                                      console.error("Non-JSON Premiumize response:", errTxt);
-                                      pmData = { error: `Server error (${pmRes.status}). Please check Premiumize API Key in Settings.` };
-                                    }
+                                  const isSameStream = (a: any, b: any) => {
+                                     if (!a || !b) return false;
+                                     if (a.id && b.id) return a.id === b.id;
+                                     if (a.hash && b.hash) return a.hash.toLowerCase() === b.hash.toLowerCase();
+                                     if (a.url && b.url) return a.url === b.url;
+                                     return false;
+                                   };
 
-                                    if (pmData.success && pmData.streamUrl) {
-                                      setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false, isPremiumize: true, inPersonalCloud: true } : s));
-                                      triggerPlay(pmData.streamUrl, { ...stream, isPremiumize: true, inPersonalCloud: true });
-                                      if (!isFavorite) { toggleFavorite(); }
-                                      return;
-                                    } else if (pmData.error) {
-                                      alert("Premiumize Error: " + (pmData.message || pmData.error));
-                                    }
-                                  } catch (err: any) {
-                                    console.error("Failed to resolve stream on Premiumize:", err);
-                                    alert("Failed to resolve stream on Premiumize: " + (err.message || err));
-                                  }
-                                  setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false } : s));
+                                   // Handle Premiumize resolution & instant playback for all torrents
+                                   setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: true } : s));
+                                   try {
+                                     const magnetLink = stream.url || (stream.hash ? `magnet:?xt=urn:btih:${stream.hash}` : '');
+                                     const pmRes = await fetch('/api/premiumize/transfer/directdl', {
+                                       method: 'POST',
+                                       headers: {
+                                         'Content-Type': 'application/json',
+                                         'Authorization': `Bearer ${pmKey}`
+                                       },
+                                       body: JSON.stringify({ magnet: magnetLink })
+                                     });
+                                     
+                                     const contentType = pmRes.headers.get('content-type') || '';
+                                     let pmData: any = {};
+                                     if (contentType.includes('application/json')) {
+                                       pmData = await pmRes.json();
+                                     } else {
+                                       const errTxt = await pmRes.text();
+                                       console.error("Non-JSON Premiumize response:", errTxt);
+                                       pmData = { error: `Server error (${pmRes.status}). Please check Premiumize API Key in Settings.` };
+                                     }
+
+                                     if (pmData.success && pmData.streamUrl) {
+                                       setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: false, isPremiumize: true, inPersonalCloud: true } : s));
+                                       triggerPlay(pmData.streamUrl, { ...stream, isPremiumize: true, inPersonalCloud: true });
+                                       if (!isFavorite) { toggleFavorite(); }
+                                       return;
+                                     } else if (pmData.error) {
+                                       alert("Premiumize Error: " + (pmData.message || pmData.error));
+                                     }
+                                   } catch (err: any) {
+                                     console.error("Failed to resolve stream on Premiumize:", err);
+                                     alert("Failed to resolve stream on Premiumize: " + (err.message || err));
+                                   }
+                                   setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: false } : s));
                                   return;
                                 };
 
