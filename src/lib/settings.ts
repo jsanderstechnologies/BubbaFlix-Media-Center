@@ -55,6 +55,7 @@ export interface SystemSettings {
   sportsIptvGroups?: string[];
   enableEztv?: boolean;
   premiumizeApiKey?: string;
+  tvdbApiKey?: string;
 }
 
 export interface UserSettings {
