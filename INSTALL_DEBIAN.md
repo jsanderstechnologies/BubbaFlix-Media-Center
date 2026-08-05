@@ -1,12 +1,70 @@
 # Installing BubbaFlix on Debian/Ubuntu
 
-Follow these steps on your Debian-based machine to install Docker, download the container, and run the BubbaFlix Media Center.
+You can install BubbaFlix on Debian/Ubuntu either **Natively (without Docker)** using Node.js & `systemd`, or inside a **Docker container**.
 
 ---
 
-## 1. Install Docker & Docker Compose
+## ⚡ Option A: Native Installation (No Docker)
 
-Run the following commands to install Docker:
+### 1. Install Node.js (v20 LTS), Git & FFmpeg
+```bash
+# Update package index and install prerequisites
+sudo apt update && sudo apt install -y curl git ffmpeg
+
+# Install Node.js 20 LTS repository
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
+sudo apt install -y nodejs
+```
+
+### 2. Clone & Build BubbaFlix
+```bash
+# Clone repository
+git clone https://github.com/jsanderstechnologies/BubbaFlix-Media-Center.git /opt/bubbaflix
+cd /opt/bubbaflix
+
+# Install dependencies and build production bundles
+npm install
+npm run build
+```
+
+### 3. Create a Systemd Background Service
+```bash
+sudo nano /etc/systemd/system/bubbaflix.service
+```
+
+Paste the following:
+```ini
+[Unit]
+Description=BubbaFlix Media Center Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/bubbaflix
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=5150
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 4. Enable & Start Service
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now bubbaflix
+```
+
+Access BubbaFlix at `http://<your-server-ip>:5150`!
+
+---
+
+## 🐳 Option B: Docker Container Installation
+
+### 1. Install Docker & Docker Compose
 
 ```bash
 # Update package index and install prerequisites
@@ -28,29 +86,15 @@ sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 ```
 
-Verify that Docker is installed:
-```bash
-sudo docker --version
-sudo docker compose version
-```
-
----
-
-## 2. Setup and Run BubbaFlix
-
-Create a directory for the app and save your `docker-compose.yml` there:
+### 2. Setup and Run BubbaFlix
 
 ```bash
 mkdir -p ~/bubbaflix
 cd ~/bubbaflix
-```
-
-Create the `docker-compose.yml` file:
-```bash
 nano docker-compose.yml
 ```
 
-Paste the following configurations (adjust the registry path as needed):
+Paste configuration:
 ```yaml
 services:
   bubbaflix:
@@ -66,22 +110,7 @@ services:
       - PORT=5150
 ```
 
-Start the container in the background:
+Start container:
 ```bash
 sudo docker compose up -d
-```
-
----
-
-## 3. Persistent Data
-The volume map `./data:/app/data` will automatically create a `./data` folder in your `~/bubbaflix` directory on Debian. This persists your users, database records, and settings across updates.
-
-To check logs:
-```bash
-sudo docker compose logs -f
-```
-
-To stop:
-```bash
-sudo docker compose down
 ```

@@ -144,7 +144,54 @@ docker compose up -d
 
 ## 🛠️ Installation Guides
 
-### 🐧 Debian / Ubuntu
+### 🐧 Debian / Ubuntu (Native System Service — No Docker)
+
+BubbaFlix can run natively as a Node.js background service using `systemd`:
+
+1. **Install Node.js 20 LTS & FFmpeg**:
+   ```bash
+   sudo apt update && sudo apt install -y curl git ffmpeg
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
+   sudo apt install -y nodejs
+   ```
+
+2. **Clone & Build**:
+   ```bash
+   git clone https://github.com/jsanderstechnologies/BubbaFlix-Media-Center.git /opt/bubbaflix
+   cd /opt/bubbaflix
+   npm install
+   npm run build
+   ```
+
+3. **Create Systemd Service (`/etc/systemd/system/bubbaflix.service`)**:
+   ```ini
+   [Unit]
+   Description=BubbaFlix Media Center Server
+   After=network.target
+
+   [Service]
+   Type=simple
+   User=root
+   WorkingDirectory=/opt/bubbaflix
+   ExecStart=/usr/bin/npm start
+   Restart=always
+   RestartSec=5
+   Environment=NODE_ENV=production
+   Environment=PORT=5150
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+4. **Enable & Start**:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now bubbaflix
+   ```
+
+---
+
+### 🐳 Debian / Ubuntu (Docker Container)
 1. Install Docker:
    ```bash
    sudo apt update && sudo apt install -y curl
