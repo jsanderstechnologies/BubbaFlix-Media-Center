@@ -534,12 +534,12 @@ async function startServer() {
         </defs>
         <text 
           font-family="'Bebas Neue', Impact, 'Arial Black', sans-serif" 
-          font-size="56" 
+          font-size="42" 
           font-weight="900" 
-          letter-spacing="-1.2"
+          letter-spacing="-1"
           fill="url(#bubbaflix-gradient-email)"
           stroke="url(#bubbaflix-gradient-email)"
-          stroke-width="2.8"
+          stroke-width="2"
           stroke-linejoin="round"
         >
           <textPath href="#bubbaflix-curve-email" startOffset="50%" text-anchor="middle">
@@ -551,22 +551,21 @@ async function startServer() {
 
 
     const html = `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0a0a0a;color:#fff;border-radius:12px;overflow:hidden;border:1px solid #222;">
-        <div style="background:linear-gradient(135deg,#000000,#111111);padding:32px 40px;text-align:center;border-bottom:1px solid #222;">
+      <div style="font-family:sans-serif;max-width:440px;margin:0 auto;background:#0a0a0a;color:#fff;border-radius:12px;overflow:hidden;border:1px solid #222;">
+        <div style="background:linear-gradient(135deg,#000000,#111111);padding:24px 32px;text-align:center;border-bottom:1px solid #222;">
           ${logoSvg}
         </div>
-        <div style="padding:32px 40px;">
-          <h2 style="color:#fff;margin-top:0;font-size:22px;font-weight:bold;text-align:center;">Welcome, ${username}!</h2>
-          <p style="color:#aaa;line-height:1.6;font-size:14px;text-align:center;">Your account has been approved. Here are your login credentials:</p>
-          <div style="background:#141414;border:1px solid #2a2a2a;border-radius:8px;padding:20px;margin:24px 0;text-align:center;">
-            <p style="margin:0 0 4px;color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Username</p>
-            <p style="margin:0 0 20px;font-size:18px;font-weight:bold;color:#fff;font-family:monospace;">${username}</p>
-            <p style="margin:0 0 4px;color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Password</p>
-            <p style="margin:0;font-size:15px;font-weight:900;color:#ef4444;letter-spacing:1.5px;font-family:monospace;background:#222;padding:8px 16px;border-radius:6px;display:inline-block;">${password}</p>
-
+        <div style="padding:28px 32px;">
+          <h2 style="color:#fff;margin-top:0;font-size:18px;font-weight:bold;text-align:center;">Welcome, ${username}!</h2>
+          <p style="color:#aaa;line-height:1.5;font-size:13px;text-align:center;">Your account has been approved. Here are your login credentials:</p>
+          <div style="background:#141414;border:1px solid #2a2a2a;border-radius:8px;padding:16px;margin:20px 0;text-align:center;">
+            <p style="margin:0 0 2px;color:#666;font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Username</p>
+            <p style="margin:0 0 14px;font-size:14px;font-weight:bold;color:#fff;font-family:monospace;">${username}</p>
+            <p style="margin:0 0 4px;color:#666;font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Password</p>
+            <p style="margin:0;font-size:14px;font-weight:700;color:#ef4444;letter-spacing:1px;font-family:monospace;background:#222;padding:6px 14px;border-radius:6px;display:inline-block;">${password}</p>
           </div>
-          ${appUrl ? `<p style="text-align:center;margin-top:28px;"><a href="${appUrl}" style="background:#dc2626;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:14px;">Sign In to ${appName}</a></p>` : ''}
-          <p style="color:#444;font-size:11px;margin-top:32px;text-align:center;line-height:1.4;">For your security, we recommend changing your password after your first login.</p>
+          ${appUrl ? `<p style="text-align:center;margin-top:24px;"><a href="${appUrl}" style="background:#dc2626;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:13px;">Sign In to ${appName}</a></p>` : ''}
+          <p style="color:#444;font-size:10px;margin-top:24px;text-align:center;line-height:1.4;">For your security, we recommend changing your password after your first login.</p>
         </div>
       </div>
     `;
@@ -592,17 +591,17 @@ async function startServer() {
       auth: { user: emailCfg.gmailUser, pass: emailCfg.gmailAppPassword },
     });
     const html = `
-      <div style="font-family:sans-serif;background-color:#111;color:#eee;padding:40px 20px;">
-        <div style="max-width:500px;margin:0 auto;background:#222;border:1px solid #333;border-radius:12px;padding:32px;">
-          <h1 style="color:#ef4444;margin-top:0;font-size:24px;text-align:center;">Password Reset</h1>
-          <p style="font-size:16px;line-height:1.5;">Hi <b>${username}</b>,</p>
-          <p style="font-size:15px;line-height:1.5;color:#bbb;">An administrator has reset your password for ${appName}. Your new password is below.</p>
-          <div style="background:#000;padding:16px;border-radius:8px;margin:24px 0;text-align:center;">
-            <p style="margin:0;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">New Password</p>
-            <p style="margin:0;font-size:24px;font-family:monospace;color:#fff;letter-spacing:2px;">${password}</p>
+      <div style="font-family:sans-serif;background-color:#111;color:#eee;padding:32px 16px;">
+        <div style="max-width:440px;margin:0 auto;background:#18181b;border:1px solid #27272a;border-radius:12px;padding:28px;">
+          <h1 style="color:#ef4444;margin-top:0;font-size:18px;font-weight:bold;text-align:center;">Password Reset</h1>
+          <p style="font-size:13px;line-height:1.5;">Hi <b>${username}</b>,</p>
+          <p style="font-size:13px;line-height:1.5;color:#a1a1aa;">An administrator has reset your password for ${appName}. Your new password is below.</p>
+          <div style="background:#09090b;padding:16px;border:1px solid #27272a;border-radius:8px;margin:20px 0;text-align:center;">
+            <p style="margin:0;font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">New Password</p>
+            <p style="margin:0;font-size:14px;font-weight:700;font-family:monospace;color:#ef4444;letter-spacing:1px;background:#18181b;padding:6px 14px;border-radius:6px;display:inline-block;">${password}</p>
           </div>
-          ${appUrl ? `<p style="text-align:center;margin-top:28px;"><a href="${appUrl}" style="background:#dc2626;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:14px;">Sign In to ${appName}</a></p>` : ''}
-          <p style="color:#444;font-size:11px;margin-top:32px;text-align:center;line-height:1.4;">For your security, we recommend changing your password after your next login.</p>
+          ${appUrl ? `<p style="text-align:center;margin-top:24px;"><a href="${appUrl}" style="background:#dc2626;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:13px;">Sign In to ${appName}</a></p>` : ''}
+          <p style="color:#52525b;font-size:10px;margin-top:24px;text-align:center;line-height:1.4;">For your security, we recommend changing your password after your next login.</p>
         </div>
       </div>
     `;
