@@ -1531,11 +1531,14 @@ If no channel matches the team names or relevant regional/national network for t
         return res.json({ success: true, customChannels: groupedConfigs, message: 'Deduplicated using exact name matching (Add Gemini Key in Settings for AI matching).' });
       }
 
-      // Slice candidate list for token safety
-      const sample = channelSummaries.slice(0, 300);
-      const listStr = sample.map(c => `[ID: ${c.id}] Name: "${c.name}" | Provider: "${c.providerName}" | Group: "${c.group}"`).join('\n');
+      const resultConfigs: Record<string, any> = {};
+      const chunkSize = 250;
+      
+      for (let offset = 0; offset < channelSummaries.length; offset += chunkSize) {
+        const sample = channelSummaries.slice(offset, offset + chunkSize);
+        const listStr = sample.map(c => `[ID: ${c.id}] Name: "${c.name}" | Provider: "${c.providerName}" | Group: "${c.group}"`).join('\n');
 
-      const prompt = `You are an expert IPTV channel deduplication and stream backup manager.
+        const prompt = `You are an expert IPTV channel deduplication and stream backup manager.
 Analyze the following list of IPTV channels from different providers.
 Identify channels that represent the EXACT SAME TV channel (e.g. "HBO East (Provider 1)" and "US: HBO HD (Provider 2)").
 
@@ -1559,29 +1562,31 @@ Format:
 If no duplicates are found, return {"groupedChannels": []}.
 Do not include markdown blocks or extra text.`;
 
-        const replyText = await callGeminiApi(apiKey, prompt, { responseMimeType: "application/json", timeout: 30000 });
-        if (!replyText) {
-          return res.status(500).json({ error: 'Empty response from Gemini AI' });
-        }
+        try {
+          const replyText = await callGeminiApi(apiKey, prompt, { responseMimeType: "application/json", timeout: 35000 });
+          if (replyText) {
+            const parsed = JSON.parse(replyText);
+            const groupedArray = parsed.groupedChannels || [];
 
-      const parsed = JSON.parse(replyText);
-      const groupedArray = parsed.groupedChannels || [];
-      const resultConfigs: Record<string, any> = {};
-
-      for (const item of groupedArray) {
-        if (item.primaryId) {
-          const primaryCh = sample.find(c => c.id === item.primaryId);
-          if (primaryCh) {
-            resultConfigs[item.primaryId] = {
-              id: item.primaryId,
-              name: item.canonicalName || primaryCh.name,
-              group: item.group || primaryCh.group,
-              hidden: false,
-              primaryStreamUrl: item.primaryStreamUrl || primaryCh.url,
-              backupStreamUrls: item.backupStreamUrls || [],
-              primaryProviderName: item.primaryProviderName || primaryCh.providerName
-            };
+            for (const item of groupedArray) {
+              if (item.primaryId) {
+                const primaryCh = sample.find(c => c.id === item.primaryId);
+                if (primaryCh) {
+                  resultConfigs[item.primaryId] = {
+                    id: item.primaryId,
+                    name: item.canonicalName || primaryCh.name,
+                    group: item.group || primaryCh.group,
+                    hidden: false,
+                    primaryStreamUrl: item.primaryStreamUrl || primaryCh.url,
+                    backupStreamUrls: item.backupStreamUrls || [],
+                    primaryProviderName: item.primaryProviderName || primaryCh.providerName
+                  };
+                }
+              }
+            }
           }
+        } catch (e: any) {
+          console.warn(`[IPTV AI Dedupe Warning] Batch ${offset / chunkSize + 1} processing error:`, e.message);
         }
       }
 

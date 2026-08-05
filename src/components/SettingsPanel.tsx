@@ -1319,12 +1319,19 @@ export default function SettingsPanel() {
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-white text-xs outline-none focus:border-indigo-500"
                   />
 
-                  <div className="bg-black/40 border border-white/10 rounded-xl overflow-hidden max-h-96 overflow-y-auto custom-scrollbar">
+                  <div className="flex items-center justify-between text-xs text-white/60 px-1">
+                    <span>Showing {editableChannels.length} channel{editableChannels.length === 1 ? '' : 's'}</span>
+                    {editableChannels.length > 100 && (
+                      <span className="text-[11px] text-amber-400/80 font-mono">Use search above to narrow down specific channels</span>
+                    )}
+                  </div>
+
+                  <div className="bg-black/40 border border-white/10 rounded-xl overflow-hidden max-h-[500px] overflow-y-auto custom-scrollbar">
                     {editableChannels.length === 0 ? (
                       <div className="p-6 text-center text-xs text-white/40">No channels found matching search.</div>
                     ) : (
                       <table className="w-full text-left text-xs">
-                        <thead className="bg-white/5 text-white/60 font-mono uppercase text-[10px] sticky top-0 backdrop-blur-md">
+                        <thead className="bg-white/5 text-white/60 font-mono uppercase text-[10px] sticky top-0 backdrop-blur-md z-10">
                           <tr>
                             <th className="p-3">Visibility</th>
                             <th className="p-3">Channel Name</th>
@@ -1333,7 +1340,7 @@ export default function SettingsPanel() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                          {editableChannels.slice(0, 50).map((ch) => {
+                          {editableChannels.slice(0, 500).map((ch) => {
                             const cfg = customChannels[ch.id] || { id: ch.id, name: ch.title || ch.name, group: ch.group?.title || ch.group || '', hidden: false, primaryStreamUrl: ch.rawUrl || ch.url, backupStreamUrls: [] };
                             return (
                               <tr key={ch.id} className="hover:bg-white/[0.02]">
