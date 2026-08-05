@@ -428,6 +428,32 @@ async function startServer() {
     console.log(`[Premiumize 7-Day Retention] Tracked transfer "${transferId}" — scheduled for auto-purge on ${new Date(expiresAt).toISOString()}`);
   };
 
+  // Helper: Automatically clear Premiumize transfer history entry after transfer finishes
+  const clearPmTransferHistory = async (token: string, transferId?: string) => {
+    if (!token) return;
+    try {
+      const FormData = require('form-data');
+      if (transferId) {
+        const delForm = new FormData();
+        delForm.append('apikey', token);
+        delForm.append('id', transferId);
+        await axios.post("https://www.premiumize.me/api/transfer/delete", delForm, {
+          headers: { ...delForm.getHeaders() },
+          timeout: 8000
+        }).catch(() => null);
+      }
+      const clearForm = new FormData();
+      clearForm.append('apikey', token);
+      await axios.post("https://www.premiumize.me/api/transfer/clear", clearForm, {
+        headers: { ...clearForm.getHeaders() },
+        timeout: 8000
+      }).catch(() => null);
+      console.log(`[Premiumize Cloud] Cleared transfer & download history entry: ${transferId || 'All Finished'}`);
+    } catch (err: any) {
+      console.warn('[Premiumize Clear Transfer History Warning]:', err?.message || err);
+    }
+  };
+
   // Helper: Auto-purge expired Premiumize transfers after 7 days
   const runPmRetentionCleanup = async () => {
     try {
@@ -2879,8 +2905,11 @@ app.get('/api/youtube/search', async (req, res) => {
         }).then((cRes) => {
           if (cRes.data?.status === 'success') {
             const trId = cRes.data.id || cRes.data.name;
-            if (trId) trackPmRetention(trId, magnet);
-            console.log(`[Premiumize Cloud] Automatically added torrent to user cloud storage (7-Day Retention): ${trId || 'OK'}`);
+            if (trId) {
+              trackPmRetention(trId, magnet);
+              clearPmTransferHistory(token, trId);
+            }
+            console.log(`[Premiumize Cloud] Automatically added torrent to user cloud storage (7-Day Retention, History Cleared): ${trId || 'OK'}`);
           }
         }).catch((err) => {
           console.warn('[Premiumize Auto-Transfer Warning]:', err?.response?.data?.message || err?.message);
@@ -2893,6 +2922,9 @@ app.get('/api/youtube/search', async (req, res) => {
         const bestFile = sortedContent[0];
         const streamUrl = bestFile.stream_link || bestFile.link;
 
+        // Clear general transfer history log on Premiumize
+        clearPmTransferHistory(token);
+
         return res.json({
           success: true,
           streamUrl,
@@ -2904,6 +2936,7 @@ app.get('/api/youtube/search', async (req, res) => {
       }
 
       if (data.location) {
+        clearPmTransferHistory(token);
         return res.json({ success: true, streamUrl: data.location, addedToCloud: true });
       }
 
@@ -2936,7 +2969,10 @@ app.get('/api/youtube/search', async (req, res) => {
 
       if (response.data?.status === 'success') {
         const trId = response.data.id || response.data.name;
-        if (trId) trackPmRetention(trId, targetSrc);
+        if (trId) {
+          trackPmRetention(trId, targetSrc);
+          clearPmTransferHistory(token, trId);
+        }
       }
 
       res.json(response.data);
@@ -2946,7 +2982,21 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
-  // 4b. Get Active Premiumize 7-Day Retention Status
+  // 4b. Clear Premiumize Transfer History
+  app.post("/api/premiumize/transfer/clear-history", async (req, res) => {
+    const token = getPmToken(req);
+    if (!token) return res.status(401).json({ error: "Premiumize API Key is required." });
+
+    try {
+      const { id } = req.body;
+      await clearPmTransferHistory(token, id);
+      res.json({ success: true, message: "Transfer history cleared from Premiumize." });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 4c. Get Active Premiumize 7-Day Retention Status
   app.get("/api/premiumize/retention/list", (req, res) => {
     const list = readJson(PM_RETENTION_FILE, []);
     res.json({ success: true, retentionDays: 7, count: list.length, items: list });
