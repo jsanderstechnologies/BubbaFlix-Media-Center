@@ -1398,43 +1398,56 @@ export default function MediaModal({
                 )}
 
 
-                <div className="flex flex-col flex-1 min-h-0 gap-6">
-                    {/* Instant Cached & Active Downloads Container */}
-                    <div className="flex flex-col shrink-0">
-                        <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2">
-                            Ready to Play / Active <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        </h3>
-                        <div className="flex flex-col gap-3">
-                            {streams.filter(s => s.isCached || s.downloadState || s.downloadProgress !== undefined).length > 0 ? (
-                                streams.filter(s => s.isCached || s.downloadState || s.downloadProgress !== undefined).map(stream => renderStream(stream))
+                {(() => {
+                  const isReadyOrActive = (s: any) => {
+                    if (s.type === 'local' || s.type === 'iptv' || s.type === 'premiumize_cloud' || s.inPersonalCloud) return true;
+                    if (s.downloadState || s.downloadProgress !== undefined || s.isAdding) return true;
+                    return false;
+                  };
+
+                  const activeStreams = streams.filter(isReadyOrActive);
+                  const availableStreams = streams.filter(s => !isReadyOrActive(s));
+
+                  return (
+                    <div className="flex flex-col flex-1 min-h-0 gap-6">
+                        {/* Instant Cloud, Local & Active Streams Container */}
+                        <div className="flex flex-col shrink-0">
+                            <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                Ready to Play / Active <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            </h3>
+                            <div className="flex flex-col gap-3">
+                                {activeStreams.length > 0 ? (
+                                    activeStreams.map(stream => renderStream(stream))
+                                ) : (
+                                    <div className="text-white/40 text-xs italic py-2">No active cloud storage items or local streams found.</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Search Results Container */}
+                        <div className="flex flex-col flex-1 min-h-0">
+                            <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2 flex-shrink-0">
+                                Available Stream Sources <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                            </h3>
+                            {loading ? (
+                                <div className="text-white/60 text-xs italic py-4 flex items-center gap-2 bg-white/[0.01] p-4 rounded-xl border border-white/5">
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                  </span>
+                                  <span>Searching Stream Indexers...</span>
+                                </div>
+                            ) : availableStreams.length === 0 ? (
+                                <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5">No indexed streams found.</div>
                             ) : (
-                                <div className="text-white/40 text-xs italic py-2">No active downloads or cached items found.</div>
+                                <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-4">
+                                    {availableStreams.map(stream => renderStream(stream))}
+                                </div>
                             )}
                         </div>
                     </div>
-
-                    {/* Search Results Container */}
-                    <div className="flex flex-col flex-1 min-h-0">
-                        <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2 flex-shrink-0">
-                            Available Stream Sources <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                        </h3>
-                        {loading ? (
-                            <div className="text-white/60 text-xs italic py-4 flex items-center gap-2 bg-white/[0.01] p-4 rounded-xl border border-white/5">
-                              <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                              </span>
-                              <span>Searching Stream Indexers...</span>
-                            </div>
-                        ) : streams.filter(s => !s.isCached && !s.downloadState && s.downloadProgress === undefined).length === 0 ? (
-                            <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5">No indexed streams found.</div>
-                        ) : (
-                            <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-4">
-                                {streams.filter(s => !s.isCached && !s.downloadState && s.downloadProgress === undefined).map(stream => renderStream(stream))}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                  );
+                })()}
             </div>
         </div>
       </div>
