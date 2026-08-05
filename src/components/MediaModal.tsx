@@ -699,7 +699,7 @@ export default function MediaModal({
           try {
             const epRes = await fetch(`/api/local-media/episodes?folderPath=${encodeURIComponent(movie.folderPath || '')}&filePath=${encodeURIComponent(movie.filePath || '')}`).then(r => r.json()).catch(() => null);
             if (epRes?.success && Array.isArray(epRes.seasons)) {
-              const matchedSeason = epRes.seasons.find((s: any) => s.season_number === selectedSeason) || epRes.seasons[0];
+              const matchedSeason = epRes.seasons.find((s: any) => s.season_number === selectedSeason);
               if (matchedSeason && Array.isArray(matchedSeason.episodes)) {
                 localEpisodes = matchedSeason.episodes;
               }
@@ -712,10 +712,13 @@ export default function MediaModal({
         const epMap = new Map<number, any>();
         tmdbEpisodes.forEach(e => epMap.set(e.episode_number, e));
         localEpisodes.forEach(e => {
-          if (!epMap.has(e.episode_number)) {
-            epMap.set(e.episode_number, e);
-          } else {
-            // merge local stream URL into existing TMDB episode object!
+          if (!tmdbEpisodes || tmdbEpisodes.length === 0) {
+            // Only add local files as new standalone episode entries if TMDB returned no episodes
+            if (!epMap.has(e.episode_number)) {
+              epMap.set(e.episode_number, e);
+            }
+          } else if (epMap.has(e.episode_number)) {
+            // Merge local stream URL into existing official TMDB episode object!
             epMap.get(e.episode_number)!.streamUrl = e.streamUrl;
             epMap.get(e.episode_number)!.filePath = e.filePath;
           }
