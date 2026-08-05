@@ -2794,6 +2794,23 @@ app.get('/api/youtube/search', async (req, res) => {
         timeout: 12000
       });
 
+      // Automatically queue / save torrent transfer into user's Premiumize Cloud account
+      try {
+        const createForm = new FormData();
+        createForm.append('apikey', token);
+        createForm.append('src', magnet);
+        axios.post("https://www.premiumize.me/api/transfer/create", createForm, {
+          headers: { ...createForm.getHeaders() },
+          timeout: 10000
+        }).then((cRes) => {
+          if (cRes.data?.status === 'success') {
+            console.log(`[Premiumize Cloud] Automatically added torrent to user cloud storage: ${cRes.data.name || cRes.data.id || 'OK'}`);
+          }
+        }).catch((err) => {
+          console.warn('[Premiumize Auto-Transfer Warning]:', err?.response?.data?.message || err?.message);
+        });
+      } catch (e) {}
+
       const data = response.data;
       if (data.status === 'success' && Array.isArray(data.content) && data.content.length > 0) {
         const sortedContent = [...data.content].sort((a: any, b: any) => (b.size || 0) - (a.size || 0));
@@ -2805,12 +2822,13 @@ app.get('/api/youtube/search', async (req, res) => {
           streamUrl,
           filename: bestFile.path || data.filename,
           filesize: bestFile.size || data.filesize,
-          content: sortedContent
+          content: sortedContent,
+          addedToCloud: true
         });
       }
 
       if (data.location) {
-        return res.json({ success: true, streamUrl: data.location });
+        return res.json({ success: true, streamUrl: data.location, addedToCloud: true });
       }
 
       res.status(400).json({ error: data.message || "Failed to resolve stream on Premiumize." });

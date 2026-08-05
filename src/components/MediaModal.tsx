@@ -1080,8 +1080,8 @@ export default function MediaModal({
                                     });
                                     const pmData = await pmRes.json();
                                     if (pmData.success && pmData.streamUrl) {
-                                      setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false } : s));
-                                      triggerPlay(pmData.streamUrl, stream);
+                                      setStreams(prev => prev.map(s => s.id === stream.id ? { ...s, isAdding: false, isPremiumize: true } : s));
+                                      triggerPlay(pmData.streamUrl, { ...stream, isPremiumize: true });
                                       if (!isFavorite) { toggleFavorite(); }
                                       return;
                                     } else if (pmData.error) {
