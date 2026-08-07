@@ -1530,6 +1530,10 @@ export default function MediaModal({
                 onClick={() => {
                   const isHevcMatch = /hevc|x265|h265|10bit|2160p|4k|hdr|remux/i.test(resumePromptStream || movie?.filePath || movie?.title || '');
                   const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode, isHevc: isHevcMatch };
+                  if (user?.uid && movie?.id) {
+                    deleteDoc({ collectionName: 'user_progress', id: `${user.uid}_${movie.id}` }).catch(() => null);
+                    setSavedProgress(null);
+                  }
                   onPlay(resumePromptStream, undefined, 0, context);
                   setResumePromptStream(null);
                 }}

@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react
 import ReactPlayer from 'react-player';
 import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot } from 'lucide-react';
 import { searchMovies, searchTvSeries, getTrendingMovies, getTrendingTvSeries, getTvSeasonDetails, getCachedImageUrl } from './services/tmdbApi';
-import { collection, query, where, onSnapshot, setDoc, serverTimestamp } from './lib/localDb';
+import { collection, query, where, onSnapshot, setDoc, deleteDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
 import { logger } from './lib/logger';
 import { useSettings } from './lib/settings';
@@ -210,8 +210,8 @@ function MainApp() {
       e.stopPropagation();
 
       // 1. If Video Player is open, exit video player
-      if (playingUrl) {
-        setPlayingUrl('');
+      if (playingUrl || isPlaying) {
+        closePlayer();
         return;
       }
 
@@ -429,31 +429,57 @@ function MainApp() {
     };
   }, [isPlaying, totalDuration]);
 
+  const savePlaybackProgress = (explicitTime?: number) => {
+    if (!playingContext || !user || !playingContext.id || playingContext.isLive) return;
+
+    const currentAbsoluteTime = explicitTime !== undefined 
+      ? explicitTime 
+      : streamOffset + (videoRef.current?.currentTime || 0);
+    const total = totalDuration || 0;
+
+    if (currentAbsoluteTime <= 0) return;
+
+    const progressRef = { collectionName: 'user_progress', id: `${user.uid}_${playingContext.id}` };
+
+    if (total > 0 && (currentAbsoluteTime >= total * 0.95 || currentAbsoluteTime >= total - 15)) {
+      deleteDoc(progressRef).catch(err => console.error("Failed to delete finished progress:", err));
+    } else {
+      setDoc(progressRef, {
+        userId: user.uid,
+        mediaId: playingContext.id,
+        type: playingContext.type,
+        season: playingContext.season || null,
+        episode: playingContext.episode || null,
+        currentTime: currentAbsoluteTime,
+        totalDuration: total,
+        updatedAt: serverTimestamp(),
+        percentage: total > 0 ? (currentAbsoluteTime / total) * 100 : 0
+      }, { merge: true }).catch(err => console.error("Failed to save progress:", err));
+    }
+  };
+
+  const closePlayer = () => {
+    savePlaybackProgress();
+
+    setIsPlaying(false); 
+    setPlayerStatus('STREAM READY'); 
+    setPlayingUrl('');
+    setPlayingContext(null);
+    setStreamOffset(0);
+    setCurrentTime(0);
+    setBufferedSeconds(0);
+    setTotalDuration(0);
+    setSelectedAudioTrack(0);
+    setSelectedSubtitleTrack(null);
+    setMediaInfo(null);
+  };
+
   // Periodically save playback progress
   useEffect(() => {
     if (!isPlaying || !playingContext || !user) return;
     
     const interval = setInterval(() => {
-      const currentAbsoluteTime = streamOffset + (videoRef.current?.currentTime || 0);
-      const total = totalDuration || 0;
-      if (currentAbsoluteTime > 0) {
-        // If total is 0, we can still save time, but percentage will just be 0 or estimated.
-        // Prevent saving if we are at the very end of the video
-        if (total > 0 && currentAbsoluteTime >= total - 5) return;
-        
-        const progressRef = { collectionName: 'user_progress', id: `${user.uid}_${playingContext.id}` };
-        setDoc(progressRef, {
-          userId: user.uid,
-          mediaId: playingContext.id,
-          type: playingContext.type,
-          season: playingContext.season || null,
-          episode: playingContext.episode || null,
-          currentTime: currentAbsoluteTime,
-          totalDuration: total,
-          updatedAt: serverTimestamp(),
-          percentage: total > 0 ? (currentAbsoluteTime / total) * 100 : 0
-        }, { merge: true }).catch(err => console.error("Failed to save progress:", err));
-      }
+      savePlaybackProgress();
     }, 10000); // Save every 10 seconds
 
     return () => clearInterval(interval);
@@ -534,7 +560,6 @@ function MainApp() {
 
   const handlePlayStream = async (url: string, channelLogoUrl?: string, resumeTime?: number, context?: any) => {
     logger.info("Built-in Player: Requesting to play stream", { url });
-    setStreamOffset(resumeTime || 0);
     
     // Auto-detect live streams (IPTV/HLS) if not explicitly set
     let finalContext = context || {};
@@ -542,6 +567,14 @@ function MainApp() {
       finalContext = { ...finalContext, isLive: true };
     }
     setPlayingContext(finalContext);
+
+    // If starting from beginning (resumeTime is 0 or not provided), delete any existing progress record in DB
+    if ((!resumeTime || resumeTime === 0) && finalContext?.id && user?.uid) {
+      const progressRef = { collectionName: 'user_progress', id: `${user.uid}_${finalContext.id}` };
+      deleteDoc(progressRef).catch(err => console.error("Failed to reset progress:", err));
+    }
+
+    setStreamOffset(resumeTime || 0);
 
     // Native Android TV ExoPlayer integration
     if ((window as any).AndroidBridge || (window as any).playNativeMedia) {
@@ -619,19 +652,7 @@ function MainApp() {
           <div className={`absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-[110] bg-gradient-to-b from-black/80 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
             <div className="flex gap-4 pointer-events-auto items-center">
               <button 
-                onClick={() => { 
-                  setIsPlaying(false); 
-                  setPlayerStatus('STREAM READY'); 
-                  setPlayingUrl('');
-                  setPlayingContext(null);
-                  setStreamOffset(0);
-                  setCurrentTime(0);
-                  setBufferedSeconds(0);
-                  setTotalDuration(0);
-                  setSelectedAudioTrack(0);
-                  setSelectedSubtitleTrack(null);
-                  setMediaInfo(null);
-                }}
+                onClick={closePlayer}
                 className="focusable p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors shadow-lg focus:outline-none focus:ring-4 focus:ring-white/50"
                 title="Go Back"
               >
@@ -733,6 +754,7 @@ function MainApp() {
                   onPause={() => { 
                     setIsVideoPlaying(false); 
                   }}
+                  onEnded={closePlayer}
                   onWaiting={() => { 
                     setPlayerStatus("BUFFERING..."); 
                   }}
@@ -770,7 +792,16 @@ function MainApp() {
                   }}
                   onPause={() => { 
                     setIsVideoPlaying(false); 
+                    if (videoRef.current) {
+                      const currentAbs = streamOffset + (videoRef.current.currentTime || 0);
+                      if (currentAbs > 0 && Math.floor(currentAbs) !== streamOffset) {
+                        setStreamOffset(Math.floor(currentAbs));
+                        setCurrentTime(currentAbs - Math.floor(currentAbs));
+                        savePlaybackProgress(currentAbs);
+                      }
+                    }
                   }}
+                  onEnded={closePlayer}
                   onWaiting={() => { 
                     setPlayerStatus("BUFFERING..."); 
                   }}
@@ -834,7 +865,16 @@ function MainApp() {
                   }}
                   onPause={() => { 
                     setIsVideoPlaying(false); 
+                    if (videoRef.current) {
+                      const currentAbs = streamOffset + (videoRef.current.currentTime || 0);
+                      if (currentAbs > 0 && Math.floor(currentAbs) !== streamOffset) {
+                        setStreamOffset(Math.floor(currentAbs));
+                        setCurrentTime(currentAbs - Math.floor(currentAbs));
+                        savePlaybackProgress(currentAbs);
+                      }
+                    }
                   }}
+                  onEnded={closePlayer}
                   onWaiting={() => { 
                     setPlayerStatus("BUFFERING..."); 
                   }}
