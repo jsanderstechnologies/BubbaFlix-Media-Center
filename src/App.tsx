@@ -761,7 +761,7 @@ function MainApp() {
                 />
               ) : selectedSubtitleTrack !== null ? (
                 <video 
-                  key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}-${selectedSubtitleTrack}-${subtitleOffset}`}
+                  key={`${playingUrl}-${selectedAudioTrack}-${selectedSubtitleTrack}-${subtitleOffset}`}
                   ref={videoRef}
                   src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&hevc=${playingContext?.isHevc === true}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}&live=${playingContext?.isLive ? 'true' : 'false'}`}
                   autoPlay
@@ -792,14 +792,7 @@ function MainApp() {
                   }}
                   onPause={() => { 
                     setIsVideoPlaying(false); 
-                    if (videoRef.current) {
-                      const currentAbs = streamOffset + (videoRef.current.currentTime || 0);
-                      if (currentAbs > 0 && Math.floor(currentAbs) !== streamOffset) {
-                        setStreamOffset(Math.floor(currentAbs));
-                        setCurrentTime(currentAbs - Math.floor(currentAbs));
-                        savePlaybackProgress(currentAbs);
-                      }
-                    }
+                    savePlaybackProgress();
                   }}
                   onEnded={closePlayer}
                   onWaiting={() => { 
@@ -816,7 +809,7 @@ function MainApp() {
 
               ) : (
                 <video 
-                  key={`${playingUrl}-${streamOffset}-${selectedAudioTrack}`}
+                  key={`${playingUrl}-${selectedAudioTrack}`}
                   ref={videoRef}
                   src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&hevc=${playingContext?.isHevc === true}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}&live=${playingContext?.isLive ? 'true' : 'false'}`}
                   autoPlay
@@ -865,14 +858,7 @@ function MainApp() {
                   }}
                   onPause={() => { 
                     setIsVideoPlaying(false); 
-                    if (videoRef.current) {
-                      const currentAbs = streamOffset + (videoRef.current.currentTime || 0);
-                      if (currentAbs > 0 && Math.floor(currentAbs) !== streamOffset) {
-                        setStreamOffset(Math.floor(currentAbs));
-                        setCurrentTime(currentAbs - Math.floor(currentAbs));
-                        savePlaybackProgress(currentAbs);
-                      }
-                    }
+                    savePlaybackProgress();
                   }}
                   onEnded={closePlayer}
                   onWaiting={() => { 
