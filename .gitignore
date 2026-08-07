@@ -10,4 +10,8 @@ data/
 .agents/
 .antigravity/
 docker-compose.yml
--player-script.js 
+-player-script.js
+*.hprof
+.gradle/
+.idea/
+local.properties

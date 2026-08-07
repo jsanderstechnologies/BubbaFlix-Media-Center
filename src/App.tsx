@@ -568,6 +568,10 @@ function MainApp() {
     }
     setPlayingContext(finalContext);
 
+    if (finalContext?.movie && !selectedMovie) {
+      setSelectedMovie(finalContext.movie);
+    }
+
     // If starting from beginning (resumeTime is 0 or not provided), delete any existing progress record in DB
     if ((!resumeTime || resumeTime === 0) && finalContext?.id && user?.uid) {
       const progressRef = { collectionName: 'user_progress', id: `${user.uid}_${finalContext.id}` };

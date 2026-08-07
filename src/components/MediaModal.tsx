@@ -340,7 +340,7 @@ export default function MediaModal({
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!user || !movie) return;
+    if (!user || !movie || isHidden) return;
     const q = query(collection(db, 'user_progress'), where('userId', '==', user.uid), where('mediaId', '==', movie.id));
     getDocs(q).then(snapshot => {
       const docs = snapshot.docs.map(d => d.data());
@@ -349,7 +349,7 @@ export default function MediaModal({
       );
       setSavedProgress(prog || null);
     });
-  }, [user, movie, selectedSeason, selectedEpisode, isSeries]);
+  }, [user, movie, selectedSeason, selectedEpisode, isSeries, isHidden]);
   
   const [prevMovieId, setPrevMovieId] = useState(movie?.id);
   if (movie?.id !== prevMovieId) {
