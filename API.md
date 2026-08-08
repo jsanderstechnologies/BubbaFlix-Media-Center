@@ -1,34 +1,86 @@
 # BubbaFlix Media Center - Backend API Documentation
 
-This document provides complete reference instructions for all backend REST API endpoints exposed by the BubbaFlix Media Center server (`server.ts`).
+This document provides complete reference instructions and full endpoint specifications for all backend REST API endpoints exposed by the BubbaFlix Media Center server (`server.ts`).
 
 ---
 
-## Table of Contents
+## All Endpoints Quick Reference Index
 
-- [Overview & Authentication](#overview--authentication)
-- [System & Setup APIs](#system--setup-apis)
-- [Authentication & User Management APIs](#authentication--user-management-apis)
-- [Admin Management & Settings APIs](#admin-management--settings-apis)
-- [Local Database Cache APIs](#local-database-cache-apis)
-- [Media Transcoding, Streaming & Player APIs](#media-transcoding-streaming--player-apis)
-- [Subtitles & OpenSubtitles APIs](#subtitles--opensubtitles-apis)
-- [YouTube & Trailer Streaming APIs](#youtube--trailer-streaming-apis)
-- [Torrent & Debrid (Premiumize) APIs](#torrent--debrid-premiumize-apis)
-- [Image Proxy & Caching API](#image-proxy--caching-api)
-- [IPTV (M3U, EPG & VOD) APIs](#iptv-m3u-epg--vod-apis)
-- [Local & Network Media Library APIs](#local--network-media-library-apis)
-- [News & Sports APIs](#news--sports-apis)
+| # | HTTP Method | Endpoint Path | Auth Required | Description |
+|---|-------------|---------------|---------------|-------------|
+| 1 | `GET` | `/api/system/encoder` | Public | Check available server GPU hardware video encoders |
+| 2 | `GET` | `/api/auth/setup-status` | Public | Check if first-time administrator setup is completed |
+| 3 | `POST` | `/api/auth/setup-init` | Public (First run) | Initialize first admin user account during setup wizard |
+| 4 | `GET` | `/api/auth/config` | Public | Get public authentication configuration and status |
+| 5 | `POST` | `/api/auth/register` | Public | Register new user account |
+| 6 | `POST` | `/api/auth/login` | Public | Authenticate user and receive session token |
+| 7 | `GET` | `/api/auth/me` | Session Token | Fetch current logged-in user session |
+| 8 | `GET` | `/api/user/settings` | `requireAuth` | Retrieve user preferences |
+| 9 | `PUT` | `/api/user/settings` | `requireAuth` | Update user preferences |
+| 10 | `GET` | `/api/admin/users` | `requireAdmin` | List all registered users and approval status |
+| 11 | `GET` | `/api/admin/settings` | `requireAdmin` | Fetch server-wide system configuration settings |
+| 12 | `PUT` | `/api/admin/settings` | `requireAdmin` | Update server-wide system configuration settings |
+| 13 | `GET` | `/api/admin/logs` | `requireAdmin` | Retrieve server application console logs |
+| 14 | `POST` | `/api/admin/test-email` | `requireAdmin` | Test SMTP email configuration |
+| 15 | `POST` | `/api/admin/iptv/ai-dedupe` | `requireAdmin` | AI (Gemini) channel deduplication for IPTV |
+| 16 | `PUT` | `/api/admin/users/:uid/approve` | `requireAdmin` | Approve pending user registration |
+| 17 | `PUT` | `/api/admin/users/:uid/deny` | `requireAdmin` | Deny pending user registration |
+| 18 | `PUT` | `/api/admin/users/:uid/lock` | `requireAdmin` | Lock/suspend user account |
+| 19 | `PUT` | `/api/admin/users/:uid/unlock` | `requireAdmin` | Unlock user account |
+| 20 | `PUT` | `/api/admin/users/:uid/reset-password` | `requireAdmin` | Reset user password |
+| 21 | `POST` | `/api/admin/users` | `requireAdmin` | Create new user account directly |
+| 22 | `PUT` | `/api/admin/users/:uid/role` | `requireAdmin` | Change user role (admin/user) |
+| 23 | `DELETE` | `/api/admin/users/:uid` | `requireAdmin` | Delete user account |
+| 24 | `GET` | `/api/db/get/:collection` | `requireAuth` | Query items from local JSON database cache |
+| 25 | `POST` | `/api/db/post/:collection` | `requireAuth` | Save/update items in local JSON database cache |
+| 26 | `GET` | `/api/media-info` | Public | Analyze video/audio streams with `ffprobe` |
+| 27 | `GET` | `/api/duration` | Public | Get media duration in seconds |
+| 28 | `GET` | `/api/transcode/stream.mp4` | Public | Real-time FFmpeg MP4 transcoding stream |
+| 29 | `GET` | `/api/transcode/subtitle.vtt` | Public | Transcode embedded subtitle track to WebVTT |
+| 30 | `GET` | `/api/music/stream` | Public | Proxy audio stream for music playback |
+| 31 | `POST` | `/api/play` | Public | Trigger external IPC player launch |
+| 32 | `POST` | `/api/log` | Public | Client error logging endpoint |
+| 33 | `GET` | `/api/opensubtitles/search` | Public | Search OpenSubtitles.com by TMDB ID or title |
+| 34 | `GET` | `/api/opensubtitles/download` | Public | Download & convert OpenSubtitles file to WebVTT |
+| 35 | `GET` | `/api/subtitles` | Public | Proxy raw subtitle files |
+| 36 | `GET` | `/api/youtube/search` | Public | Search YouTube videos & trailers using `yt-dlp` |
+| 37 | `GET` | `/api/youtube/stream-url` | Public | Extract direct HLS/MP4 stream URL from YouTube |
+| 38 | `GET` | `/api/torrents/search` | Public | Multi-provider torrent search scraper |
+| 39 | `POST` | `/api/premiumize/cache/check` | Public | Check instant torrent hash caching on Premiumize |
+| 40 | `POST` | `/api/premiumize/transfer/directdl` | Public | Generate direct download link for magnet link |
+| 41 | `POST` | `/api/premiumize/transfer/create` | Public | Create cloud download task on Premiumize |
+| 42 | `POST` | `/api/premiumize/transfer/delete` | Public | Delete cloud transfer on Premiumize |
+| 43 | `POST` | `/api/premiumize/transfer/clear-history` | Public | Clear completed transfer history on Premiumize |
+| 44 | `GET` | `/api/premiumize/retention/list` | Public | Get account storage retention list |
+| 45 | `POST` | `/api/premiumize/cloud/search` | Public | Search files in personal Premiumize cloud storage |
+| 46 | `GET` | `/api/premiumize/file/stream` | Public | Stream file from Premiumize cloud storage |
+| 47 | `GET` | `/api/image-proxy` | Public | Local persistent disk image proxy & cache |
+| 48 | `GET` | `/api/tvdb/season` | Public | Fetch TVDB v4 season episode list |
+| 49 | `GET` | `/api/iptv/vod/search` | Public | Search IPTV provider (Xtream/M3U) for VOD media |
+| 50 | `POST` | `/api/m3u` | Public | Parse and aggregate multi-provider M3U playlists |
+| 51 | `POST` | `/api/epg` | Public | Parse XMLTV EPG guide program data |
+| 52 | `GET` | `/api/local-media/stream` | Public | Stream local/network media file with Range support |
+| 53 | `GET` | `/api/local-media/search` | Public | Search local & SMB network folders for media |
+| 54 | `GET` | `/api/local-media/library` | Public | Retrieve persistent scanned local media library |
+| 55 | `GET` | `/api/local-media/episodes` | Public | Scan TV series folder for seasons & episode files |
+| 56 | `POST` | `/api/local-media/fix-match` | Public | Manually fix/override metadata for local library item |
+| 57 | `POST` | `/api/local-media/scan` | Public | Trigger manual full scan of local & network shares |
+| 58 | `GET` | `/api/news/newsapi` | Public | Fetch headlines from NewsAPI |
+| 59 | `GET` | `/api/news/gnews` | Public | Fetch headlines from GNews API |
+| 60 | `GET` | `/api/sports/scores` | Public | Fetch live sports scores & match schedules |
+| 61 | `POST` | `/api/sports/match-channel` | Public | Match sports event to active IPTV stream channel |
 
 ---
 
-## Overview & Authentication
+## Detailed Endpoint Specifications & Usage Instructions
+
+### Overview & Authentication
 
 - **Default Base URL:** `http://localhost:5150` (or `http://<SERVER_IP>:5150`)
-- **Content-Type:** `application/json` (unless streaming binary data/video/images)
+- **Content-Type:** `application/json` (unless streaming video/images/binary)
 
-### Authentication Headers
-For endpoints requiring authentication (`requireAuth` or `requireAdmin`), pass the session token or User UID in HTTP headers:
+#### Authentication Headers
+For endpoints requiring authentication (`requireAuth` or `requireAdmin`), include headers:
 
 ```http
 Authorization: Bearer <sessionToken>
@@ -39,570 +91,220 @@ x-user-uid: <user_uid>
 
 ## System & Setup APIs
 
-### 1. Get Hardware Video Encoder Info
-Detects available server GPU hardware encoders (Intel VAAPI/QSV, NVIDIA NVENC, AMD AMF, Apple VideoToolbox, or Software libx264).
-
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/system/encoder`
+### 1. `GET /api/system/encoder`
+Detects available GPU hardware video encoders (NVENC, QSV, VAAPI, AMF, VideoToolbox, or Software libx264).
 - **Auth:** Public
 - **Response:**
   ```json
-  {
-    "encoder": "h264_nvenc",
-    "description": "NVIDIA NVENC (GPU)"
-  }
+  { "encoder": "h264_nvenc", "description": "NVIDIA NVENC (GPU)" }
   ```
 
----
-
-### 2. Get Initial Setup Status
-Checks whether the system has completed initial administrator setup.
-
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/auth/setup-status`
+### 2. `GET /api/auth/setup-status`
+Checks if setup wizard is required.
 - **Auth:** Public
-- **Response:**
-  ```json
-  {
-    "isFirstUser": true
-  }
-  ```
+- **Response:** `{ "isFirstUser": true }`
 
----
-
-### 3. Initialize Admin Account
-Creates the initial administrator user during setup wizard.
-
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/auth/setup-init`
+### 3. `POST /api/auth/setup-init`
+Initializes initial admin account.
 - **Auth:** Public (First time only)
-- **Request Body:**
-  ```json
-  {
-    "username": "admin",
-    "password": "SecretPassword123",
-    "email": "admin@example.com"
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "user": {
-      "uid": "usr_admin_12345",
-      "username": "admin",
-      "email": "admin@example.com",
-      "role": "admin",
-      "approved": true
-    }
-  }
-  ```
+- **Body:** `{ "username": "admin", "password": "SecretPassword123", "email": "admin@example.com" }`
 
 ---
 
 ## Authentication & User Management APIs
 
-### 1. Get Server Auth Configuration
-Fetches auth modes and server configuration flags.
+### 4. `GET /api/auth/config`
+Returns public server auth configuration flags.
 
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/auth/config`
-- **Auth:** Public
-- **Response:**
-  ```json
-  {
-    "firebaseEnabled": false,
-    "setupCompleted": true
-  }
-  ```
+### 5. `POST /api/auth/register`
+User registration endpoint.
+- **Body:** `{ "username": "user1", "password": "Pass123!", "email": "user@example.com" }`
 
----
+### 6. `POST /api/auth/login`
+Authenticates credentials and returns user token.
+- **Body:** `{ "username": "user1", "password": "Pass123!" }`
+- **Response:** `{ "success": true, "token": "tok_123", "user": { ... } }`
 
-### 2. User Registration
-Registers a new user account.
+### 7. `GET /api/auth/me`
+Fetch currently logged in user profile.
 
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/auth/register`
-- **Auth:** Public
-- **Request Body:**
-  ```json
-  {
-    "username": "john_doe",
-    "password": "MyPassword123",
-    "email": "john@example.com"
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "message": "Registration submitted. Pending admin approval.",
-    "user": {
-      "uid": "usr_987654321",
-      "username": "john_doe",
-      "email": "john@example.com",
-      "approved": false
-    }
-  }
-  ```
+### 8. `GET /api/user/settings`
+Retrieve user preferences (`audioLanguage`, `ccLanguage`, `autoCC`, `playerPath`).
 
----
-
-### 3. User Login
-Authenticates user credentials and returns user details and session token.
-
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/auth/login`
-- **Auth:** Public
-- **Request Body:**
-  ```json
-  {
-    "username": "john_doe",
-    "password": "MyPassword123"
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "token": "tok_abcdef1234567890",
-    "user": {
-      "uid": "usr_987654321",
-      "username": "john_doe",
-      "role": "user",
-      "approved": true
-    }
-  }
-  ```
-
----
-
-### 4. Get Current User Session
-Returns current session details for the logged-in user.
-
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/auth/me`
-- **Auth:** User Session Token
-- **Response:**
-  ```json
-  {
-    "uid": "usr_987654321",
-    "username": "john_doe",
-    "role": "user",
-    "approved": true
-  }
-  ```
-
----
-
-### 5. Get User Settings
-Retrieves preferences for the authenticated user.
-
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/user/settings`
-- **Auth:** `requireAuth`
-- **Response:**
-  ```json
-  {
-    "audioLanguage": "eng",
-    "ccLanguage": "eng",
-    "autoCC": true,
-    "playerPath": "builtin"
-  }
-  ```
-
----
-
-### 6. Update User Settings
-Updates user preferences.
-
-- **HTTP Method:** `PUT`
-- **Endpoint:** `/api/user/settings`
-- **Auth:** `requireAuth`
-- **Request Body:**
-  ```json
-  {
-    "audioLanguage": "eng",
-    "ccLanguage": "spa",
-    "autoCC": false
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "settings": { ... }
-  }
-  ```
+### 9. `PUT /api/user/settings`
+Update user preferences.
 
 ---
 
 ## Admin Management & Settings APIs
 
-*(All endpoints in this section require Admin role (`requireAdmin`))*
+*(Requires `requireAdmin`)*
 
-### 1. List Users
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/admin/users`
-- **Response:** Array of user records including pending approval status.
-
-### 2. Get Admin Server Settings
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/admin/settings`
-- **Response:** Global system settings (IPTV providers, Debrid API keys, Gemini keys, network folders).
-
-### 3. Update Admin Server Settings
-- **HTTP Method:** `PUT`
-- **Endpoint:** `/api/admin/settings`
-- **Request Body:** System configuration object.
-
-### 4. Fetch Server Logs
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/admin/logs`
-- **Response:** Server application console logs.
-
-### 5. Test SMTP Email Settings
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/admin/test-email`
-- **Request Body:** `{ "to": "admin@example.com" }`
-
-### 6. User Account Administration
-- `PUT /api/admin/users/:uid/approve` - Approve pending account registration.
-- `PUT /api/admin/users/:uid/deny` - Deny registration.
-- `PUT /api/admin/users/:uid/lock` - Lock user account.
-- `PUT /api/admin/users/:uid/unlock` - Unlock user account.
-- `PUT /api/admin/users/:uid/reset-password` - Set new password for user (`{ "newPassword": "..." }`).
-- `PUT /api/admin/users/:uid/role` - Update role (`{ "role": "admin" }`).
-- `DELETE /api/admin/users/:uid` - Delete user account.
-- `POST /api/admin/users` - Create user account directly.
+### 10. `GET /api/admin/users` - List all users and pending approvals
+### 11. `GET /api/admin/settings` - Fetch server settings (providers, API keys, shares)
+### 12. `PUT /api/admin/settings` - Update server configuration
+### 13. `GET /api/admin/logs` - Retrieve server console logs
+### 14. `POST /api/admin/test-email` - Send test email (`{ "to": "..." }`)
+### 15. `POST /api/admin/iptv/ai-dedupe` - Gemini AI deduplication for IPTV channels
+### 16-23. User Account Actions:
+- `PUT /api/admin/users/:uid/approve` - Approve registration
+- `PUT /api/admin/users/:uid/deny` - Deny registration
+- `PUT /api/admin/users/:uid/lock` - Lock user account
+- `PUT /api/admin/users/:uid/unlock` - Unlock user account
+- `PUT /api/admin/users/:uid/reset-password` - Reset password (`{ "newPassword": "..." }`)
+- `POST /api/admin/users` - Create user
+- `PUT /api/admin/users/:uid/role` - Update role (`{ "role": "admin" }`)
+- `DELETE /api/admin/users/:uid` - Delete user account
 
 ---
 
 ## Local Database Cache APIs
 
-Local persistent JSON database storage (handles offline database collections such as `user_progress`, `favorites`, `history`).
+### 24. `GET /api/db/get/:collection`
+Query items from local JSON database collections (`user_progress`, `favorites`, `history`).
 
-### 1. Get Collection Items
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/db/get/:collection`
-- **Auth:** `requireAuth`
-- **Example:** `/api/db/get/user_progress`
-
-### 2. Save Collection Items
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/db/post/:collection`
-- **Auth:** `requireAuth`
-- **Request Body:** Array of collection documents or object updates.
+### 25. `POST /api/db/post/:collection`
+Save/update items in local JSON database collections.
 
 ---
 
 ## Media Transcoding, Streaming & Player APIs
 
-### 1. Get Media Info (ffprobe)
-Extracts container information, video codec, audio tracks, and embedded subtitle streams using `ffprobe`.
+### 26. `GET /api/media-info?url=<URL>`
+Analyze video/audio container, resolution, bitrate, audio tracks, and subtitle streams using `ffprobe`.
 
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/media-info?url=<ENCODED_URL>`
-- **Auth:** Public
-- **Query Params:**
-  - `url` (required): Target media URL or local path.
-- **Response Example:**
-  ```json
-  {
-    "format": { "duration": "7200.50", "bit_rate": "8500000" },
-    "streams": [
-      { "codec_type": "video", "codec_name": "hevc", "width": 3840, "height": 2160 },
-      { "codec_type": "audio", "codec_name": "aac", "language": "eng", "index": 1 },
-      { "codec_type": "subtitle", "codec_name": "subrip", "language": "eng", "index": 2 }
-    ]
-  }
-  ```
+### 27. `GET /api/duration?url=<URL>`
+Fetch media duration in seconds.
 
----
+### 28. `GET /api/transcode/stream.mp4`
+Real-time FFmpeg MP4 video transcode stream supporting `-ss` start offset, HEVC conversion, hardware acceleration, audio track selection, and volume normalization.
+- **Params:** `url`, `start` (seek seconds), `hevc` (true/false), `audio` (track index/lang), `sub` (lang), `intel` (VAAPI/QSV), `leveling` (true/false).
 
-### 2. Real-time Transcode Stream (MP4)
-Pipes real-time FFmpeg MP4 video transcode output supporting start offsets, audio track selection, and GPU hardware acceleration.
+### 29. `GET /api/transcode/subtitle.vtt`
+Extract and transcode embedded container subtitle track to WebVTT format.
+- **Params:** `url`, `track` (stream index), `start` (seconds), `delay` (offset).
 
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/transcode/stream.mp4`
-- **Auth:** Public
-- **Query Params:**
-  - `url` (required): Target stream or local file path.
-  - `start` (optional): Seek offset in seconds (e.g. `start=600`).
-  - `hevc` (optional): `true` to force HEVC -> H.264 transcoding.
-  - `audio` (optional): Audio track index or ISO language code (`audio=eng` or `audio=1`).
-  - `sub` (optional): Subtitle language code (`sub=eng`).
-  - `leveling` (optional): `true` to enable dynamic audio volume leveling (`dynaudnorm`).
-  - `intel` (optional): `true` to enable Intel GPU hardware acceleration (VAAPI/QSV).
-  - `live` (optional): `true` for IPTV live streams.
+### 30. `GET /api/music/stream?url=<URL>`
+Proxy audio stream for music playback.
 
----
+### 31. `POST /api/play`
+Trigger external IPC player launch.
 
-### 3. Get Media Duration
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/duration?url=<ENCODED_URL>`
-- **Response:** `{ "duration": 7200.5 }`
-
----
-
-### 4. Transcode Embedded Subtitle to WebVTT
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/transcode/subtitle.vtt?url=<URL>&track=<INDEX>&start=<SECONDS>&delay=<OFFSET>`
-- **Response:** `text/vtt` WebVTT subtitle file stream.
+### 32. `POST /api/log`
+Client error logging endpoint.
 
 ---
 
 ## Subtitles & OpenSubtitles APIs
 
-### 1. Search OpenSubtitles
-Search OpenSubtitles.com for subtitles by TMDB ID, title, season, and episode.
+### 33. `GET /api/opensubtitles/search`
+Search OpenSubtitles.com by TMDB ID, title, season, and episode.
+- **Params:** `tmdb_id`, `type` (`movie` or `tv`), `title`, `season`, `episode`.
 
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/opensubtitles/search`
-- **Query Params:**
-  - `tmdb_id`: TMDB ID of movie or show.
-  - `type`: `movie` or `tv`.
-  - `title`: Title string.
-  - `season`: Season number.
-  - `episode`: Episode number.
-- **Response:**
-  ```json
-  {
-    "subtitles": [
-      {
-        "id": "123456",
-        "language": "en",
-        "release": "1080p.WEB-DL",
-        "url": "https://..."
-      }
-    ]
-  }
-  ```
+### 34. `GET /api/opensubtitles/download`
+Download and convert OpenSubtitles file to WebVTT format with optional timing offset delay.
 
----
-
-### 2. Download OpenSubtitles WebVTT
-Downloads and converts an OpenSubtitles subtitle file into WebVTT format with optional timing offset delay.
-
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/opensubtitles/download?url=<ENCODED_SUB_URL>&start=<SECS>&delay=<DELAY_SECS>`
-- **Response:** `text/vtt` WebVTT stream.
+### 35. `GET /api/subtitles`
+Proxy subtitle file directly.
 
 ---
 
 ## YouTube & Trailer Streaming APIs
 
-### 1. Extract YouTube Direct Stream URL
-Extracts direct playable HLS/MP4 URL from YouTube video or trailer links using `yt-dlp`.
+### 36. `GET /api/youtube/search?q=<QUERY>`
+Search YouTube videos and trailers via `yt-dlp`.
 
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/youtube/stream-url?url=<YOUTUBE_URL>`
-- **Response:** `{ "streamUrl": "https://..." }`
-
----
-
-### 2. Search YouTube
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/youtube/search?q=<QUERY>`
-- **Response:** `{ "results": [...] }`
+### 37. `GET /api/youtube/stream-url?url=<YOUTUBE_URL>`
+Extract direct playable HLS/MP4 stream URL from YouTube video.
 
 ---
 
 ## Torrent & Debrid (Premiumize) APIs
 
-### 1. Multi-Provider Torrent Search
-Scrapes multiple torrent providers (PirateBay, YTS, EZTV, 1337x, LimeTorrents, etc.) with AI filtering.
+### 38. `GET /api/torrents/search?title=<TITLE>&type=<movie|series>&season=<S>&episode=<E>`
+Scrape multi-provider torrent sources (PirateBay, YTS, EZTV, 1337x, LimeTorrents) with AI filtering.
 
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/torrents/search?title=<TITLE>&type=<movie|series>&season=<S>&episode=<E>`
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "results": [
-      {
-        "title": "Movie.Title.2024.1080p.WEB-DL.x264",
-        "seeds": 150,
-        "peers": 12,
-        "size": "2.4 GB",
-        "magnet": "magnet:?xt=urn:btih:...",
-        "hash": "abcdef1234567890..."
-      }
-    ]
-  }
-  ```
+### 39. `POST /api/premiumize/cache/check`
+Check instant torrent hash caching on Premiumize (`{ "hashes": [...] }`).
 
----
+### 40. `POST /api/premiumize/transfer/directdl`
+Generate direct download link for magnet link (`{ "src": "magnet:?..." }`).
 
-### 2. Premiumize Instant Cache Check
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/premiumize/cache/check`
-- **Request Body:** `{ "hashes": ["hash1", "hash2"] }`
-- **Response:** `{ "response": [true, false] }`
+### 41. `POST /api/premiumize/transfer/create`
+Create cloud transfer task on Premiumize.
 
----
+### 42. `POST /api/premiumize/transfer/delete`
+Delete cloud transfer on Premiumize (`{ "id": "transfer_id" }`).
 
-### 3. Premiumize Direct Download Link Generator
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/premiumize/transfer/directdl`
-- **Request Body:** `{ "src": "magnet:?xt=urn:btih:..." }`
-- **Response:** `{ "status": "success", "location": "https://..." }`
+### 43. `POST /api/premiumize/transfer/clear-history`
+Clear completed transfer history on Premiumize.
 
----
+### 44. `GET /api/premiumize/retention/list`
+Get account retention list.
 
-### 4. Premiumize Cloud Management
-- `POST /api/premiumize/transfer/create` - Start cloud download task.
-- `POST /api/premiumize/transfer/delete` - Delete transfer (`{ "id": "transfer_id" }`).
-- `POST /api/premiumize/transfer/clear-history` - Clear completed transfers.
-- `POST /api/premiumize/cloud/search` - Search personal Premiumize cloud files.
-- `GET /api/premiumize/file/stream?id=<FILE_ID>` - Stream cloud file.
+### 45. `POST /api/premiumize/cloud/search`
+Search files in personal Premiumize cloud storage.
+
+### 46. `GET /api/premiumize/file/stream?id=<FILE_ID>`
+Stream file directly from Premiumize cloud storage.
 
 ---
 
 ## Image Proxy & Caching API
 
-### Local Persistent Disk Image Proxy
-Proxies and caches remote images (posters, backdrops, cast photos) locally on server disk to eliminate CORS issues and network latency.
-
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/image-proxy?url=<IMAGE_URL>`
-- **Auth:** Public
-- **Headers Returned:** `Cache-Control: public, max-age=31536000, immutable`
+### 47. `GET /api/image-proxy?url=<IMAGE_URL>`
+Proxies and caches remote images (posters, backdrops, cast photos) locally on server disk to eliminate CORS issues and network latency. Returned with 1-year browser cache headers.
 
 ---
 
 ## IPTV (M3U, EPG & VOD) APIs
 
-### 1. Multi-Provider M3U Playlist Aggregator
-Parses and merges M3U playlists across all configured IPTV providers, applying custom channel renames, logos, and backup stream URLs.
+### 48. `GET /api/tvdb/season?seriesId=<ID>&season=<N>`
+Fetch TVDB v4 season episode list.
 
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/m3u`
-- **Request Body (Optional):** `{ "url": "http://provider.com/playlist.m3u" }`
-- **Response:**
-  ```json
-  {
-    "items": [
-      {
-        "id": "ch-101",
-        "name": "HBO HD",
-        "url": "http://live.stream/101.ts",
-        "backupUrls": ["http://backup.stream/101.ts"],
-        "group": { "title": "USA Entertainment" }
-      }
-    ]
-  }
-  ```
+### 49. `GET /api/iptv/vod/search?title=<TITLE>&type=<movie|series>&season=<S>&episode=<E>`
+Search IPTV provider (Xtream Codes API / M3U playlist) for VOD movie and show streams.
 
----
+### 50. `POST /api/m3u`
+Parse and aggregate multi-provider M3U playlists with custom channel renames, logos, and backup stream URLs.
 
-### 2. Search IPTV VOD Streams
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/iptv/vod/search?title=<TITLE>&type=<movie|series>&season=<S>&episode=<E>`
-- **Response:** Array of available VOD streams from Xtream Codes or M3U playlists.
-
----
-
-### 3. XMLTV EPG Parser
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/epg`
-- **Request Body (Optional):** `{ "url": "http://provider.com/epg.xml" }`
-- **Response:** `{ "channels": [...], "programs": [...] }`
+### 51. `POST /api/epg`
+Parse XMLTV EPG program guide data across configured IPTV providers.
 
 ---
 
 ## Local & Network Media Library APIs
 
-### 1. Stream Local / Network Share File
-Streams local video or SMB/UNC network share file with HTTP Range support (`bytes=N-`).
+### 52. `GET /api/local-media/stream?path=<ENCODED_FILE_PATH>`
+Stream local video file or SMB/UNC network share file with HTTP Range (`bytes=N-`) support.
 
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/local-media/stream?path=<ENCODED_FILE_PATH>`
-- **Auth:** Public
-- **Headers Supported:** `Range: bytes=start-end`
+### 53. `GET /api/local-media/search?title=<TITLE>&type=<movie|series>&year=<YEAR>`
+Search local folders and SMB network shares for matching movie or episode files.
 
----
+### 54. `GET /api/local-media/library?rescan=<true|false>`
+Retrieve persistent scanned local media library catalog with TMDB posters and metadata.
 
-### 2. Search Local Media Folders
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/local-media/search?title=<TITLE>&type=<movie|series>&year=<YEAR>`
-- **Response:** `{ "success": true, "data": [...] }`
+### 55. `GET /api/local-media/episodes?folderPath=<DIR_PATH>`
+Scan TV show directory for seasons and episode files.
 
----
+### 56. `POST /api/local-media/fix-match`
+Manually override title, TMDB ID, poster, or metadata for a local library item.
 
-### 3. Get Scanned Persistent Library
-Retrieves the persistent catalog of local and network shared movies and TV shows.
-
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/local-media/library?rescan=<true|false>`
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "data": [
-      {
-        "id": "local_lib_a1b2c3d4",
-        "title": "Inception",
-        "year": "2010",
-        "type": "movie",
-        "poster": "/api/image-proxy?url=...",
-        "filePath": "\\\\NAS\\Movies\\Inception (2010)\\Inception.mkv"
-      }
-    ]
-  }
-  ```
-
----
-
-### 4. Get TV Show Seasons & Episodes
-Scans TV series directory for seasons and episode files.
-
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/local-media/episodes?folderPath=<DIR_PATH>`
-- **Response:** Array of seasons and structured episode list.
-
----
-
-### 5. Trigger Full Library Folder Scan
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/local-media/scan`
-- **Request Body:** `{ "folderPath": "\\\\NAS\\Movies", "mediaType": "movie" }`
-- **Response:** Summary of discovered movies and TV series counts.
-
----
-
-### 6. Fix Metadata Match for Local Media Item
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/local-media/fix-match`
-- **Request Body:**
-  ```json
-  {
-    "id": "local_lib_a1b2c3d4",
-    "title": "Interstellar",
-    "year": "2014",
-    "realTmdbId": 157336,
-    "poster": "https://..."
-  }
-  ```
-- **Response:** `{ "success": true, "item": { ... } }`
+### 57. `POST /api/local-media/scan`
+Trigger manual full background scan of configured local folders and network shares.
 
 ---
 
 ## News & Sports APIs
 
-### 1. Fetch News Headlines
-- `GET /api/news/newsapi` - Query headlines from NewsAPI.
-- `GET /api/news/gnews` - Query headlines from GNews API.
+### 58. `GET /api/news/newsapi`
+Query news headlines from NewsAPI.
 
-### 2. Fetch Live Sports Scores
-- **HTTP Method:** `GET`
-- **Endpoint:** `/api/sports/scores`
-- **Response:** Live scores and upcoming game schedules.
+### 59. `GET /api/news/gnews`
+Query news headlines from GNews API.
 
-### 3. Match Live Sports Event to IPTV Channel
-Matches live sports fixture with active IPTV stream channel.
+### 60. `GET /api/sports/scores`
+Fetch live sports scores & match schedules (ESPN / Sports API).
 
-- **HTTP Method:** `POST`
-- **Endpoint:** `/api/sports/match-channel`
-- **Request Body:** `{ "homeTeam": "Lakers", "awayTeam": "Celtics", "sport": "basketball" }`
-- **Response:** `{ "matched": true, "channelUrl": "http://..." }`
+### 61. `POST /api/sports/match-channel`
+Match live sports fixture with active IPTV stream channel (`{ "homeTeam": "Lakers", "awayTeam": "Celtics", "sport": "basketball" }`).
