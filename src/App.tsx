@@ -71,7 +71,29 @@ function MainApp() {
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
   const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const [isIdle, setIsIdle] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [movieSearchQuery, setMovieSearchQuery] = useState<string>('');
+  const [seriesSearchQuery, setSeriesSearchQuery] = useState<string>('');
+  const [musicSearchQuery, setMusicSearchQuery] = useState<string>('');
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('home');
+  const [sortOption, setSortOption] = useState<string>('newest');
+  const [filterGenre, setFilterGenre] = useState<number>(0);
+  const [showFilters, setShowFilters] = useState(false);
+
+  const [favorites, setFavorites] = useState<any[]>([]);
+  const [backgroundPoster, setBackgroundPoster] = useState<string>('');
+  const [hoveredPoster, setHoveredPoster] = useState<string>('');
+  const [firstAdminPassword, setFirstAdminPassword] = useState<string | null>(
+    () => sessionStorage.getItem('firstAdminPassword')
+  );
+
   const [activeWeatherAlert, setActiveWeatherAlert] = useState<WeatherAlert | null>(null);
+  const [hasModalOpen, setHasModalOpen] = useState(false);
 
   // Monitor National Weather Service alerts for user location every 3 minutes
   useEffect(() => {
@@ -114,8 +136,6 @@ function MainApp() {
       clearInterval(interval);
     };
   }, [userSettings.weatherLocation]);
-
-  const [hasModalOpen, setHasModalOpen] = useState(false);
 
   useEffect(() => {
     const checkModals = () => {
@@ -207,27 +227,6 @@ function MainApp() {
       SpatialNavigation.uninit();
     };
   }, []);
-
-  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  const [isIdle, setIsIdle] = useState(false);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [movieSearchQuery, setMovieSearchQuery] = useState<string>('');
-  const [seriesSearchQuery, setSeriesSearchQuery] = useState<string>('');
-  const [musicSearchQuery, setMusicSearchQuery] = useState<string>('');
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('home');
-  const [sortOption, setSortOption] = useState<string>('newest');
-  const [filterGenre, setFilterGenre] = useState<number>(0);
-  const [showFilters, setShowFilters] = useState(false);
-
-  const [favorites, setFavorites] = useState<any[]>([]);
-  const [backgroundPoster, setBackgroundPoster] = useState<string>('');
-  const [hoveredPoster, setHoveredPoster] = useState<string>('');
-  const [firstAdminPassword, setFirstAdminPassword] = useState<string | null>(
-    () => sessionStorage.getItem('firstAdminPassword')
-  );
 
   // Exit Toast state for Remote Back button handler
   const [showExitToast, setShowExitToast] = useState(false);
