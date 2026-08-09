@@ -4,7 +4,7 @@ const getApiKey = () => {
     const localKey = localStorage.getItem('tmdbKey');
     if (localKey) return localKey;
   }
-  return (import.meta as any).env.VITE_TMDB_API_KEY || '';
+  return (import.meta as any).env.VITE_TMDB_API_KEY || '841059f71aab310b4d4c4f3a7e28328e';
 };
 const BASE_URL = 'https://api.themoviedb.org/3';
 
