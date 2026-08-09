@@ -5,8 +5,6 @@ import SpatialNavigation from 'spatial-navigation-js';
 
 import { useSettings } from '../lib/settings';
 
-// Removed exported interfaces since they are now in lib/settings
-
 interface UserSettingsModalProps {
   onClose: () => void;
 }
@@ -22,7 +20,7 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ensure focus stays within the modal for all navigation keys
       if (modalRef.current && !modalRef.current.contains(document.activeElement)) {
-        const firstFocusable = modalRef.current.querySelector('button, input, select, [tabindex="0"]') as HTMLElement;
+        const firstFocusable = modalRef.current.querySelector('.focusable, button, input, select') as HTMLElement;
         if (firstFocusable) firstFocusable.focus();
       }
     };
@@ -40,7 +38,8 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
     SpatialNavigation.add('settings-modal', {
       selector: '#user-settings-modal .focusable, #user-settings-modal button, #user-settings-modal input, #user-settings-modal select, #user-settings-modal [tabindex="0"]',
       restrict: 'self-only',
-      enterTo: 'last-focused'
+      enterTo: 'last-focused',
+      straightOnly: false
     });
 
     const focusTimeout = setTimeout(() => {
@@ -51,7 +50,7 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
 
       // Auto-focus first input/button inside modal
       if (modalRef.current) {
-        const firstElement = modalRef.current.querySelector('button, input, select') as HTMLElement;
+        const firstElement = modalRef.current.querySelector('.focusable, button, input, select') as HTMLElement;
         if (firstElement) firstElement.focus();
       }
     }, 50);
@@ -81,6 +80,12 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
     }));
   };
 
+  const handleFocusCapture = (e: React.FocusEvent) => {
+    if (e.target && typeof (e.target as HTMLElement).scrollIntoView === 'function') {
+      (e.target as HTMLElement).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  };
+
   return createPortal(
     <div 
       id="user-settings-modal" 
@@ -106,6 +111,7 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
             </div>
           </div>
           <button 
+            type="button"
             tabIndex={0}
             onClick={onClose}
             className="focusable p-2 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors focus:bg-white/20 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -114,7 +120,10 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto space-y-8 flex-1">
+        <div 
+          className="p-6 overflow-y-auto space-y-8 flex-1"
+          onFocusCapture={handleFocusCapture}
+        >
           {/* Zoom Setting */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Display Options</h3>
@@ -136,9 +145,25 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                     e.preventDefault();
                     e.stopPropagation();
                     setLocalZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))));
+                  } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const focusables = Array.from(modalRef.current?.querySelectorAll('.focusable, button, input, select') || []);
+                    const idx = focusables.indexOf(e.currentTarget);
+                    if (idx >= 0 && idx < focusables.length - 1) {
+                      (focusables[idx + 1] as HTMLElement).focus();
+                    }
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const focusables = Array.from(modalRef.current?.querySelectorAll('.focusable, button, input, select') || []);
+                    const idx = focusables.indexOf(e.currentTarget);
+                    if (idx > 0) {
+                      (focusables[idx - 1] as HTMLElement).focus();
+                    }
                   }
                 }}
-                className="focusable w-full accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 rounded-lg"
+                className="focusable w-full accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-900 rounded-lg cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-white/40">
                 <span>Smaller</span>
@@ -154,18 +179,19 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
             <p className="text-xs text-white/40 leading-relaxed mb-4">Select which video qualities you want to see in the stream results.</p>
             <div className="flex gap-3">
               {['4K', '1080p', '720p'].map(res => (
-                <label key={res} className="flex-1 cursor-pointer group">
-                  <div 
-                    tabIndex={0}
-                    onClick={() => toggleResolution(res)}
-                    className={`focusable flex items-center justify-center p-3 rounded-xl border transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
+                <button 
+                  key={res}
+                  type="button"
+                  tabIndex={0}
+                  onClick={() => toggleResolution(res)}
+                  className={`focusable flex-1 flex items-center justify-center p-3 rounded-xl border transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-emerald-500/20 ${
                     settings.resolutions?.includes(res) 
                       ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
-                      : 'bg-black/50 border-white/5 text-white/40 group-hover:border-white/20'
-                  }`}>
-                    <span className="font-bold">{res}</span>
-                  </div>
-                </label>
+                      : 'bg-black/50 border-white/5 text-white/40 hover:border-white/20'
+                  }`}
+                >
+                  <span className="font-bold">{res}</span>
+                </button>
               ))}
             </div>
           </div>
@@ -180,7 +206,7 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                 type="text" 
                 value={settings.audioLanguage}
                 onChange={e => setSettings({...settings, audioLanguage: e.target.value.toLowerCase()})}
-                className="focusable w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none"
+                className="focusable w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400 focus:bg-black/80 outline-none transition-all"
                 placeholder="eng"
               />
             </div>
@@ -191,7 +217,7 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                 type="text" 
                 value={settings.ccLanguage}
                 onChange={e => setSettings({...settings, ccLanguage: e.target.value.toLowerCase()})}
-                className="focusable w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none"
+                className="focusable w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400 focus:bg-black/80 outline-none transition-all"
                 placeholder="eng"
               />
             </div>
@@ -207,7 +233,7 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                 type="text" 
                 value={settings.weatherLocation || ''}
                 onChange={e => setSettings({...settings, weatherLocation: e.target.value})}
-                className="focusable w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 outline-none"
+                className="focusable w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400 focus:bg-black/80 outline-none transition-all"
                 placeholder="e.g. Chicago, IL or 60601"
               />
             </div>
@@ -219,7 +245,7 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                   type="button"
                   tabIndex={0}
                   onClick={() => setSettings({...settings, temperatureUnit: 'F'})}
-                  className={`focusable flex-1 py-2.5 rounded-xl border text-xs font-bold font-mono transition-all ${settings.temperatureUnit === 'F' || !settings.temperatureUnit ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}
+                  className={`focusable flex-1 py-2.5 rounded-xl border text-xs font-bold font-mono transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-emerald-500/20 ${settings.temperatureUnit === 'F' || !settings.temperatureUnit ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}
                 >
                   Fahrenheit (°F)
                 </button>
@@ -227,7 +253,7 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                   type="button"
                   tabIndex={0}
                   onClick={() => setSettings({...settings, temperatureUnit: 'C'})}
-                  className={`focusable flex-1 py-2.5 rounded-xl border text-xs font-bold font-mono transition-all ${settings.temperatureUnit === 'C' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}
+                  className={`focusable flex-1 py-2.5 rounded-xl border text-xs font-bold font-mono transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-emerald-500/20 ${settings.temperatureUnit === 'C' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}
                 >
                   Celsius (°C)
                 </button>
@@ -238,10 +264,11 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
           {/* Auto CC */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Playback Options</h3>
-            <div 
+            <button 
+              type="button"
               tabIndex={0}
               onClick={() => setSettings({...settings, autoCC: !settings.autoCC})}
-              className="focusable flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              className="focusable w-full flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-emerald-500/20 text-left"
             >
               <div className="flex-1 pr-2">
                 <div className="text-sm font-medium text-white">Auto-enable Subtitles</div>
@@ -250,12 +277,13 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
               <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${settings.autoCC ? 'bg-emerald-500' : 'bg-white/10'}`}>
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform ${settings.autoCC ? 'translate-x-4' : 'translate-x-0'}`} />
               </div>
-            </div>
+            </button>
 
-            <div 
+            <button 
+              type="button"
               tabIndex={0}
               onClick={() => setSettings({...settings, enableAudioLeveling: !settings.enableAudioLeveling})}
-              className="focusable flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              className="focusable w-full flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-emerald-500/20 text-left"
             >
               <div className="flex-1 pr-2">
                 <div className="text-sm font-medium text-white">Dynamic Audio Leveling</div>
@@ -264,14 +292,14 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
               <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${settings.enableAudioLeveling ? 'bg-emerald-500' : 'bg-white/10'}`}>
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform ${settings.enableAudioLeveling ? 'translate-x-4' : 'translate-x-0'}`} />
               </div>
-            </div>
+            </button>
           </div>
           
         </div>
 
-
         <div className="p-6 border-t border-white/10 shrink-0">
           <button 
+            type="button"
             tabIndex={0}
             onClick={handleSave}
             className="focusable w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-3 px-4 rounded-xl hover:bg-white/90 transition-colors focus:outline-none focus:ring-4 focus:ring-emerald-500/50"
