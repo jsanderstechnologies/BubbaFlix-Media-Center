@@ -570,11 +570,18 @@ export function AuthButton() {
     return (
       <>
         <div
+          id="auth-user-button"
           ref={avatarRef}
           tabIndex={0}
-          className="w-10 h-10 rounded-full border border-emerald-500/30 bg-emerald-900/20 flex items-center justify-center text-emerald-300 font-bold shrink-0 cursor-pointer hover:bg-emerald-800/30 transition-colors select-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:scale-110"
-          title={user.username || user.email || 'User'}
+          className="focusable w-10 h-10 rounded-full border border-emerald-500/30 bg-emerald-900/20 flex items-center justify-center text-emerald-300 font-bold shrink-0 cursor-pointer hover:bg-emerald-800/30 transition-colors select-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-emerald-500/30 focus:scale-110"
+          title={user.username || user.email || 'User Profile & Settings'}
           onClick={openDropdown}
+          onKeyDown={(e) => {
+            if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) {
+              e.preventDefault();
+              openDropdown();
+            }
+          }}
         >
           {(user.username || user.email || 'U')[0].toUpperCase()}
         </div>

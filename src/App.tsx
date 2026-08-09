@@ -165,7 +165,10 @@ function MainApp() {
   useEffect(() => {
     SpatialNavigation.init();
     SpatialNavigation.add({
-      selector: 'button, a, input, select, textarea, [tabindex="0"]'
+      selector: 'button, a, input, select, textarea, .focusable, [tabindex="0"]',
+      straightOnly: false,
+      rememberSource: true,
+      enterTo: 'last-focused'
     });
     SpatialNavigation.makeFocusable();
     SpatialNavigation.focus();
@@ -183,10 +186,61 @@ function MainApp() {
 
       const topOverlay = playerEl || userSettingsEl || authModalEl || resumeModalEl || (mediaModalEl && !mediaModalEl.classList.contains('hidden') ? mediaModalEl : null);
 
-      if (topOverlay && !topOverlay.contains(document.activeElement)) {
-        const focusable = topOverlay.querySelector('.focusable, button, input, select, [tabindex="0"]') as HTMLElement;
-        if (focusable) {
-          focusable.focus();
+      if (topOverlay) {
+        if (!topOverlay.contains(document.activeElement)) {
+          const focusable = topOverlay.querySelector('.focusable, button, input, select, [tabindex="0"]') as HTMLElement;
+          if (focusable) {
+            focusable.focus();
+          }
+        }
+        return;
+      }
+
+      // Check D-Pad navigation between Sidebar and Main Content View
+      const activeEl = document.activeElement as HTMLElement;
+      const sidebarEl = document.getElementById('sidebar-nav');
+      const isInsideSidebar = sidebarEl && activeEl && sidebarEl.contains(activeEl);
+
+      if (isInsideSidebar) {
+        if (e.key === 'ArrowUp') {
+          // If at top of sidebar tabs (Home tab or first tab), move up to User Avatar button
+          if (activeEl.id === 'nav-tab-home' || activeEl === sidebarEl.querySelector('.focusable, [tabindex="0"]')) {
+            const userAvatarEl = document.getElementById('auth-user-button');
+            if (userAvatarEl) {
+              e.preventDefault();
+              e.stopPropagation();
+              userAvatarEl.focus();
+            }
+          }
+        } else if (e.key === 'ArrowRight') {
+          // Move from sidebar directly back into current active screen main content
+          const mainViewEl = document.getElementById('main-content-view');
+          if (mainViewEl) {
+            const firstMainFocusable = mainViewEl.querySelector('.focusable, button, input, select, [tabindex="0"]') as HTMLElement;
+            if (firstMainFocusable) {
+              e.preventDefault();
+              e.stopPropagation();
+              firstMainFocusable.focus();
+            }
+          }
+        }
+      } else {
+        // Currently inside main content view
+        if (e.key === 'ArrowLeft') {
+          const mainViewEl = document.getElementById('main-content-view');
+          if (mainViewEl && activeEl && mainViewEl.contains(activeEl)) {
+            const activeRect = activeEl.getBoundingClientRect();
+            const mainRect = mainViewEl.getBoundingClientRect();
+            // If focused item is on leftmost edge of main view (within 60px of container left)
+            if (activeRect.left - mainRect.left < 60) {
+              const currentTabEl = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
+              if (currentTabEl) {
+                e.preventDefault();
+                e.stopPropagation();
+                currentTabEl.focus();
+              }
+            }
+          }
         }
       }
 
@@ -226,7 +280,7 @@ function MainApp() {
       window.removeEventListener('focus', handleGlobalFocus, true);
       SpatialNavigation.uninit();
     };
-  }, []);
+  }, [activeTab]);
 
   // Exit Toast state for Remote Back button handler
   const [showExitToast, setShowExitToast] = useState(false);
@@ -1109,7 +1163,8 @@ function MainApp() {
               id="nav-tab-home"
               tabIndex={0}
               onClick={() => { setActiveTab('home'); setSearchQuery(''); }}
-              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'home' ? 'text-red-500' : ''}`}
+              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('home'); setSearchQuery(''); } }}
+              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'home' ? 'text-red-500' : ''}`}
               title="Home"
             >
               <Home className="w-5 h-5" />
@@ -1119,7 +1174,8 @@ function MainApp() {
               id="nav-tab-tv"
               tabIndex={0}
               onClick={() => { setActiveTab('tv'); setSearchQuery(''); }}
-              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'tv' ? 'text-red-500' : ''}`}
+              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('tv'); setSearchQuery(''); } }}
+              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'tv' ? 'text-red-500' : ''}`}
               title="Live TV"
             >
               <MonitorPlay className="w-5 h-5" />
@@ -1129,7 +1185,8 @@ function MainApp() {
               id="nav-tab-series"
               tabIndex={0}
               onClick={() => { setActiveTab('series'); setSearchQuery(''); }}
-              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'series' ? 'text-red-500' : ''}`}
+              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('series'); setSearchQuery(''); } }}
+              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'series' ? 'text-red-500' : ''}`}
               title="TV Series"
             >
               <Tv className="w-5 h-5" />
@@ -1139,7 +1196,8 @@ function MainApp() {
               id="nav-tab-catalog"
               tabIndex={0}
               onClick={() => { setActiveTab('catalog'); setSearchQuery(''); }}
-              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'catalog' ? 'text-red-500' : ''}`}
+              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('catalog'); setSearchQuery(''); } }}
+              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'catalog' ? 'text-red-500' : ''}`}
               title="Movies"
             >
               <Clapperboard className="w-5 h-5" />
@@ -1149,7 +1207,8 @@ function MainApp() {
               id="nav-tab-music"
               tabIndex={0}
               onClick={() => { setActiveTab('music'); setSearchQuery(''); }}
-              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'music' ? 'text-red-500' : ''}`}
+              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('music'); setSearchQuery(''); } }}
+              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'music' ? 'text-red-500' : ''}`}
               title="Music Search"
             >
               <Music className="w-5 h-5" />
@@ -1159,7 +1218,8 @@ function MainApp() {
               id="nav-tab-library"
               tabIndex={0}
               onClick={() => { setActiveTab('library'); setSearchQuery(''); }}
-              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'library' ? 'text-red-500' : ''}`}
+              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('library'); setSearchQuery(''); } }}
+              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'library' ? 'text-red-500' : ''}`}
               title="Library / Favorites"
             >
               <Bookmark className="w-5 h-5" />
@@ -1169,7 +1229,8 @@ function MainApp() {
               id="nav-tab-weather"
               tabIndex={0}
               onClick={() => { setActiveTab('weather'); setSearchQuery(''); }}
-              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'weather' ? 'text-red-500' : ''}`}
+              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('weather'); setSearchQuery(''); } }}
+              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'weather' ? 'text-red-500' : ''}`}
               title="Weather & Radar"
             >
               <CloudSun className="w-5 h-5" />
@@ -1179,7 +1240,8 @@ function MainApp() {
               id="nav-tab-news"
               tabIndex={0}
               onClick={() => { setActiveTab('news'); setSearchQuery(''); }}
-              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'news' ? 'text-red-500' : ''}`}
+              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('news'); setSearchQuery(''); } }}
+              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'news' ? 'text-red-500' : ''}`}
               title="News & Sports"
             >
               <Newspaper className="w-5 h-5" />
@@ -1190,7 +1252,8 @@ function MainApp() {
                 id="nav-tab-settings"
                 tabIndex={0}
                 onClick={() => { setActiveTab('settings'); setSearchQuery(''); }}
-                className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
+                onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('settings'); setSearchQuery(''); } }}
+                className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
                 title="Settings"
               >
                 <Settings className="w-5 h-5" />
@@ -1201,7 +1264,7 @@ function MainApp() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col h-full bg-[#050507] overflow-hidden relative z-0">
+        <div id="main-content-view" className="flex-1 flex flex-col h-full bg-[#050507] overflow-hidden relative z-0">
           {activePoster && (
             <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
               <div 

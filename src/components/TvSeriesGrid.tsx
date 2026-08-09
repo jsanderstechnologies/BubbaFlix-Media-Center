@@ -63,12 +63,18 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
       {processedSeries?.map((item: any) => (
         <div 
           key={item.id} 
-          className="group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl" 
+          className="focusable group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 focus:scale-105 rounded-xl transition-all duration-200" 
           onClick={() => onSelectSeries(item)}
           onMouseEnter={() => onHoverMedia?.(item.poster)}
           onMouseLeave={() => onHoverMedia?.('')}
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter') onSelectSeries(item); }}
+          onKeyDown={(e) => {
+            if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) {
+              e.preventDefault();
+              e.stopPropagation();
+              onSelectSeries(item);
+            }
+          }}
         >
           <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
             {item.poster ? (

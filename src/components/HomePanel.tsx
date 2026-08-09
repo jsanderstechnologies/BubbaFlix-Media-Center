@@ -129,17 +129,16 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                     {tvHeroItem.overview}
                   </p>
                 )}
-
                 <div className="flex flex-wrap gap-2.5 pt-1">
                   <button 
                     onClick={() => onSelectMedia(tvHeroItem)}
-                    className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full flex items-center gap-1.5 text-xs shadow-lg hover:shadow-red-600/20 active:scale-95 transition-all duration-300"
+                    className="focusable px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full flex items-center gap-1.5 text-xs shadow-lg hover:shadow-red-600/20 active:scale-95 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-400"
                   >
                     <Play className="w-3.5 h-3.5 fill-white" /> Play
                   </button>
                   <button 
                     onClick={() => onSelectMedia(tvHeroItem)}
-                    className="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-full flex items-center gap-1.5 text-xs active:scale-95 transition-all duration-300"
+                    className="focusable px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-full flex items-center gap-1.5 text-xs active:scale-95 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-400"
                   >
                     <Info className="w-3.5 h-3.5" /> Details
                   </button>
@@ -176,7 +175,8 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                     referrerPolicy="no-referrer"
                   />
                 </div>
-              )}               {/* Title & Info */}
+              )}
+              {/* Title & Info */}
               <div className="flex-1 text-left space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[9px] bg-red-600/90 text-white font-bold tracking-widest px-2 py-0.5 rounded shadow-sm">
@@ -201,13 +201,13 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                 <div className="flex flex-wrap gap-2.5 pt-1">
                   <button 
                     onClick={() => onSelectMedia(movieHeroItem)}
-                    className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full flex items-center gap-1.5 text-xs shadow-lg hover:shadow-red-600/20 active:scale-95 transition-all duration-300"
+                    className="focusable px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full flex items-center gap-1.5 text-xs shadow-lg hover:shadow-red-600/20 active:scale-95 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-400"
                   >
                     <Play className="w-3.5 h-3.5 fill-white" /> Play
                   </button>
                   <button 
                     onClick={() => onSelectMedia(movieHeroItem)}
-                    className="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-full flex items-center gap-1.5 text-xs active:scale-95 transition-all duration-300"
+                    className="focusable px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-full flex items-center gap-1.5 text-xs active:scale-95 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-400"
                   >
                     <Info className="w-3.5 h-3.5" /> Details
                   </button>
@@ -237,12 +237,18 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                   {sec.items.map((item) => (
                     <div 
                       key={item.id} 
-                      className="w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl"
+                      className="focusable w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 focus:scale-105 rounded-xl transition-all duration-200"
                       onClick={() => onSelectMedia(item)}
                       onMouseEnter={() => onHoverMedia?.(item.poster)}
                       onMouseLeave={() => onHoverMedia?.('')}
                       tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia(item); }}
+                      onKeyDown={(e) => {
+                        if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onSelectMedia(item);
+                        }
+                      }}
                     >
                       <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
                         {item.poster ? (

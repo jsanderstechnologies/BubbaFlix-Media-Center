@@ -455,12 +455,18 @@ export default function SearchPanel({
                   {movies.map((item: any) => (
                     <div 
                       key={item.id} 
-                      className="w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl"
+                      className="focusable w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:scale-105 rounded-xl transition-all duration-200"
                       onClick={() => onSelectMedia(item)}
                       onMouseEnter={() => onHoverMedia?.(item.poster)}
                       onMouseLeave={() => onHoverMedia?.('')}
                       tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia(item); }}
+                      onKeyDown={(e) => {
+                        if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onSelectMedia(item);
+                        }
+                      }}
                     >
                       <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
                         {item.poster ? (
@@ -512,12 +518,18 @@ export default function SearchPanel({
                   {tvSeries.map((item: any) => (
                     <div 
                       key={item.id} 
-                      className="w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-xl"
+                      className="focusable w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:scale-105 rounded-xl transition-all duration-200"
                       onClick={() => onSelectMedia({ ...item, type: 'series' })}
                       onMouseEnter={() => onHoverMedia?.(item.poster)}
                       onMouseLeave={() => onHoverMedia?.('')}
                       tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter') onSelectMedia({ ...item, type: 'series' }); }}
+                      onKeyDown={(e) => {
+                        if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onSelectMedia({ ...item, type: 'series' });
+                        }
+                      }}
                     >
                       <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-indigo-500 group-hover:ring-2 group-hover:ring-indigo-500/50 transition-all duration-500">
                         {item.poster ? (
