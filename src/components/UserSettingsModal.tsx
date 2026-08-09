@@ -42,8 +42,15 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
       straightOnly: false
     });
 
+    const mediaModalEl = document.getElementById('media-modal');
+    if (mediaModalEl) {
+      mediaModalEl.setAttribute('inert', 'true');
+    }
+
     const focusTimeout = setTimeout(() => {
       SpatialNavigation.disable('');
+      SpatialNavigation.disable('media-modal');
+      SpatialNavigation.disable('auth-modal');
       SpatialNavigation.disable('auth-dropdown');
       SpatialNavigation.makeFocusable('settings-modal');
       SpatialNavigation.focus('settings-modal');
@@ -57,10 +64,18 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
 
     return () => {
       clearTimeout(focusTimeout);
+      if (mediaModalEl) {
+        mediaModalEl.removeAttribute('inert');
+      }
       SpatialNavigation.remove('settings-modal');
-      SpatialNavigation.enable('');
-      SpatialNavigation.makeFocusable();
-      SpatialNavigation.focus('');
+      const hasMediaModal = document.getElementById('media-modal') && !document.getElementById('media-modal')?.classList.contains('hidden');
+      if (hasMediaModal) {
+        SpatialNavigation.enable('media-modal');
+        SpatialNavigation.focus('media-modal');
+      } else {
+        SpatialNavigation.enable('');
+        SpatialNavigation.focus('');
+      }
     };
   }, []);
 

@@ -115,6 +115,33 @@ function MainApp() {
     };
   }, [userSettings.weatherLocation]);
 
+  const [hasModalOpen, setHasModalOpen] = useState(false);
+
+  useEffect(() => {
+    const checkModals = () => {
+      const isPlayerActive = !!(isPlaying && playingUrl);
+      const isMediaModalActive = !!selectedMovie;
+      const isUserSettingsActive = !!document.getElementById('user-settings-modal');
+      const isAuthModalActive = !!document.getElementById('auth-modal');
+      const isKeyboardActive = isKeyboardOpen;
+      
+      const active = isPlayerActive || isMediaModalActive || isUserSettingsActive || isAuthModalActive || isKeyboardActive;
+      setHasModalOpen(active);
+
+      if (active) {
+        SpatialNavigation.disable('');
+      } else {
+        SpatialNavigation.enable('');
+      }
+    };
+
+    checkModals();
+    const observer = new MutationObserver(checkModals);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'id'] });
+
+    return () => observer.disconnect();
+  }, [isPlaying, playingUrl, selectedMovie, isKeyboardOpen]);
+
   useEffect(() => {
     SpatialNavigation.init();
     SpatialNavigation.add({
@@ -127,6 +154,22 @@ function MainApp() {
     const handleKeyDown = (e: KeyboardEvent) => { 
       isUsingKeyboard = true; 
       
+      // Top-level focus guard: Ensure focus stays strictly inside the top-most active modal / overlay / player
+      const playerEl = document.getElementById('player-container');
+      const userSettingsEl = document.getElementById('user-settings-modal');
+      const authModalEl = document.getElementById('auth-modal');
+      const resumeModalEl = document.getElementById('resume-modal');
+      const mediaModalEl = document.getElementById('media-modal');
+
+      const topOverlay = playerEl || userSettingsEl || authModalEl || resumeModalEl || (mediaModalEl && !mediaModalEl.classList.contains('hidden') ? mediaModalEl : null);
+
+      if (topOverlay && !topOverlay.contains(document.activeElement)) {
+        const focusable = topOverlay.querySelector('.focusable, button, input, select, [tabindex="0"]') as HTMLElement;
+        if (focusable) {
+          focusable.focus();
+        }
+      }
+
       // Global fix for input type="range" trapping Android TV D-Pad Up/Down keys
       if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && document.activeElement?.tagName === 'INPUT') {
         const input = document.activeElement as HTMLInputElement;
@@ -1056,390 +1099,392 @@ function MainApp() {
         </div>
       )}
 
-      {/* Sidebar */}
-      <div id="sidebar-nav" className="w-20 bg-black/60 border-r border-white/10 flex flex-col items-center py-6 gap-6 z-20 shrink-0">
-        <div className="select-none cursor-pointer flex items-center justify-center hover:scale-110 transition-transform duration-300" title="BUBBAFLIX">
-          <img src="https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg" alt="BubbaFlix Icon" className="w-9 h-9 drop-shadow-lg" />
-        </div>
-        <div className="flex flex-col gap-3.5 text-white/60 w-full px-2">
-          <div 
-            id="nav-tab-home"
-            tabIndex={0}
-            onClick={() => { setActiveTab('home'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'home' ? 'text-red-500' : ''}`}
-            title="Home"
-          >
-            <Home className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider font-medium">Home</span>
+      <div id="app-main-content" inert={hasModalOpen ? true : undefined} className="flex-1 flex w-full h-full overflow-hidden relative">
+        {/* Sidebar */}
+        <div id="sidebar-nav" className="w-20 bg-black/60 border-r border-white/10 flex flex-col items-center py-6 gap-6 z-20 shrink-0">
+          <div className="select-none cursor-pointer flex items-center justify-center hover:scale-110 transition-transform duration-300" title="BUBBAFLIX">
+            <img src="https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg" alt="BubbaFlix Icon" className="w-9 h-9 drop-shadow-lg" />
           </div>
-          <div 
-            id="nav-tab-tv"
-            tabIndex={0}
-            onClick={() => { setActiveTab('tv'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'tv' ? 'text-red-500' : ''}`}
-            title="Live TV"
-          >
-            <MonitorPlay className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider font-medium">Live</span>
-          </div>
-          <div 
-            id="nav-tab-series"
-            tabIndex={0}
-            onClick={() => { setActiveTab('series'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'series' ? 'text-red-500' : ''}`}
-            title="TV Series"
-          >
-            <Tv className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider font-medium">Series</span>
-          </div>
-          <div 
-            id="nav-tab-catalog"
-            tabIndex={0}
-            onClick={() => { setActiveTab('catalog'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'catalog' ? 'text-red-500' : ''}`}
-            title="Movies"
-          >
-            <Clapperboard className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider font-medium">Movies</span>
-          </div>
-          <div 
-            id="nav-tab-music"
-            tabIndex={0}
-            onClick={() => { setActiveTab('music'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'music' ? 'text-red-500' : ''}`}
-            title="Music Search"
-          >
-            <Music className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider font-medium">Music</span>
-          </div>
-          <div 
-            id="nav-tab-library"
-            tabIndex={0}
-            onClick={() => { setActiveTab('library'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'library' ? 'text-red-500' : ''}`}
-            title="Library / Favorites"
-          >
-            <Bookmark className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider font-medium">Library</span>
-          </div>
-          <div 
-            id="nav-tab-weather"
-            tabIndex={0}
-            onClick={() => { setActiveTab('weather'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'weather' ? 'text-red-500' : ''}`}
-            title="Weather & Radar"
-          >
-            <CloudSun className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider font-medium">Weather</span>
-          </div>
-          <div 
-            id="nav-tab-news"
-            tabIndex={0}
-            onClick={() => { setActiveTab('news'); setSearchQuery(''); }}
-            className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'news' ? 'text-red-500' : ''}`}
-            title="News & Sports"
-          >
-            <Newspaper className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider font-medium">News</span>
-          </div>
-          {user?.role === 'admin' && (
+          <div className="flex flex-col gap-3.5 text-white/60 w-full px-2">
             <div 
-              id="nav-tab-settings"
+              id="nav-tab-home"
               tabIndex={0}
-              onClick={() => { setActiveTab('settings'); setSearchQuery(''); }}
-              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
-              title="Settings"
+              onClick={() => { setActiveTab('home'); setSearchQuery(''); }}
+              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'home' ? 'text-red-500' : ''}`}
+              title="Home"
             >
-              <Settings className="w-5 h-5" />
-              <span className="text-[9px] uppercase tracking-wider font-medium">Settings</span>
+              <Home className="w-5 h-5" />
+              <span className="text-[9px] uppercase tracking-wider font-medium">Home</span>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full bg-[#050507] overflow-hidden relative z-0">
-        {activePoster && (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
             <div 
-              className="absolute inset-0 bg-cover bg-center transition-all duration-700 ease-in-out scale-100"
-              style={{ backgroundImage: `url(${activePoster})`, opacity: 0.45 }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050507] via-[#050507]/60 to-black/30" />
-          </div>
-        )}
-        {!activePoster && (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0c0c12] to-[#050507] pointer-events-none -z-10" />
-        )}
-        
-        {/* Header */}
-        <header className="h-20 shrink-0 flex items-center justify-between px-10 border-b border-white/5 bg-black/80 backdrop-blur-md z-10">
-          <div className="flex items-center gap-5">
-            <svg 
-              viewBox="0 0 320 70" 
-              className="w-44 h-12 select-none cursor-pointer hover:scale-105 transition-transform duration-300 drop-shadow-[0_0_15px_rgba(229,9,20,0.25)]" 
-              onClick={() => setActiveTab('home')}
+              id="nav-tab-tv"
+              tabIndex={0}
+              onClick={() => { setActiveTab('tv'); setSearchQuery(''); }}
+              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'tv' ? 'text-red-500' : ''}`}
+              title="Live TV"
             >
-              <defs>
-                <path id="bubbaflix-curve" d="M 12,56 Q 160,20 308,56" fill="none" />
-                <linearGradient id="bubbaflix-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#ff4d4d" />
-                  <stop offset="35%" stopColor="#e50914" />
-                  <stop offset="75%" stopColor="#b30000" />
-                  <stop offset="100%" stopColor="#7a0000" />
-                </linearGradient>
-                <filter id="bubbaflix-glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.95"/>
-                  <feDropShadow dx="0" dy="0" stdDeviation="5.5" floodColor="#e50914" floodOpacity="0.45"/>
-                </filter>
-              </defs>
-              <text 
-                fontFamily="'Bebas Neue', 'Impact', sans-serif" 
-                fontSize="56" 
-                fontWeight="900" 
-                fill="url(#bubbaflix-gradient)" 
-                stroke="url(#bubbaflix-gradient)" 
-                strokeWidth="2.8" 
-                strokeLinejoin="round"
-                letterSpacing="-1.2"
-                filter="url(#bubbaflix-glow)"
+              <MonitorPlay className="w-5 h-5" />
+              <span className="text-[9px] uppercase tracking-wider font-medium">Live</span>
+            </div>
+            <div 
+              id="nav-tab-series"
+              tabIndex={0}
+              onClick={() => { setActiveTab('series'); setSearchQuery(''); }}
+              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'series' ? 'text-red-500' : ''}`}
+              title="TV Series"
+            >
+              <Tv className="w-5 h-5" />
+              <span className="text-[9px] uppercase tracking-wider font-medium">Series</span>
+            </div>
+            <div 
+              id="nav-tab-catalog"
+              tabIndex={0}
+              onClick={() => { setActiveTab('catalog'); setSearchQuery(''); }}
+              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'catalog' ? 'text-red-500' : ''}`}
+              title="Movies"
+            >
+              <Clapperboard className="w-5 h-5" />
+              <span className="text-[9px] uppercase tracking-wider font-medium">Movies</span>
+            </div>
+            <div 
+              id="nav-tab-music"
+              tabIndex={0}
+              onClick={() => { setActiveTab('music'); setSearchQuery(''); }}
+              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'music' ? 'text-red-500' : ''}`}
+              title="Music Search"
+            >
+              <Music className="w-5 h-5" />
+              <span className="text-[9px] uppercase tracking-wider font-medium">Music</span>
+            </div>
+            <div 
+              id="nav-tab-library"
+              tabIndex={0}
+              onClick={() => { setActiveTab('library'); setSearchQuery(''); }}
+              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'library' ? 'text-red-500' : ''}`}
+              title="Library / Favorites"
+            >
+              <Bookmark className="w-5 h-5" />
+              <span className="text-[9px] uppercase tracking-wider font-medium">Library</span>
+            </div>
+            <div 
+              id="nav-tab-weather"
+              tabIndex={0}
+              onClick={() => { setActiveTab('weather'); setSearchQuery(''); }}
+              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'weather' ? 'text-red-500' : ''}`}
+              title="Weather & Radar"
+            >
+              <CloudSun className="w-5 h-5" />
+              <span className="text-[9px] uppercase tracking-wider font-medium">Weather</span>
+            </div>
+            <div 
+              id="nav-tab-news"
+              tabIndex={0}
+              onClick={() => { setActiveTab('news'); setSearchQuery(''); }}
+              className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'news' ? 'text-red-500' : ''}`}
+              title="News & Sports"
+            >
+              <Newspaper className="w-5 h-5" />
+              <span className="text-[9px] uppercase tracking-wider font-medium">News</span>
+            </div>
+            {user?.role === 'admin' && (
+              <div 
+                id="nav-tab-settings"
+                tabIndex={0}
+                onClick={() => { setActiveTab('settings'); setSearchQuery(''); }}
+                className={`hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
+                title="Settings"
               >
-                <textPath href="#bubbaflix-curve" startOffset="50%" textAnchor="middle">
-                  BUBBAFLIX
-                </textPath>
-              </text>
-            </svg>
-            <div className="w-px h-6 bg-white/10 hidden sm:block" />
-            <div className="flex items-center gap-4">
-              {activeTab === 'home' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Home</span></h1>}
-              {activeTab === 'search' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Search</span></h1>}
-              {activeTab === 'catalog' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Movie <span className="text-red-500 font-medium italic">Catalog</span></h1>}
-              {activeTab === 'series' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">TV <span className="text-red-500 font-medium italic">Series</span></h1>}
-              {activeTab === 'music' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Music <span className="text-red-500 font-medium italic">Search</span></h1>}
-              {activeTab === 'library' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">My <span className="text-red-500 font-medium italic">Library</span></h1>}
-              {activeTab === 'tv' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Live <span className="text-emerald-400 font-medium italic">TV Guide</span></h1>}
-              {activeTab === 'settings' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Settings</span></h1>}
-            </div>
+                <Settings className="w-5 h-5" />
+                <span className="text-[9px] uppercase tracking-wider font-medium">Settings</span>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              {isPlaying && (
-                <div 
-                  className={`flex items-center gap-2 bg-black/40 border px-3 py-1.5 rounded-full select-none transition-all duration-300 ${
-                    playerStatus.includes('BUFFERING') 
-                      ? 'border-red-500/20 text-red-400 bg-red-950/10' 
-                      : 'border-emerald-500/20 text-emerald-400 bg-emerald-950/10'
-                  }`}
-                >
-                  <span className="relative flex h-2 w-2">
-                    {playerStatus.includes('BUFFERING') && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${playerStatus.includes('BUFFERING') ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
-                  </span>
-                  <span className="text-[10px] font-mono font-semibold tracking-widest uppercase">{playerStatus.includes('BUFFERING') ? 'STREAM BUFFERING' : 'STREAM PLAYING'}</span>
-                </div>
-              )}
-              {isPageLoading && (
-                <div className="flex items-center gap-2 bg-black/40 border border-indigo-500/20 px-3 py-1.5 rounded-full select-none text-indigo-400 bg-indigo-950/10 transition-all duration-300">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                  </span>
-                  <span className="text-[10px] font-mono font-semibold tracking-widest uppercase animate-pulse">LOADING CONTENT</span>
-                </div>
-              )}
-            </div>
+        </div>
 
-
-
-            {/* API Integrations Active Icons */}
-            <div className="flex items-center gap-3 opacity-70 shrink-0 mx-2 hidden sm:flex">
-              {systemSettings.tmdbKey && (
-                <img src="/images/tmdb-logo.png" alt="TMDB API" className="h-4 object-contain brightness-110" title="TMDB API Active" />
-              )}
-              {systemSettings.premiumizeApiKey && (
-                <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="h-4 object-contain brightness-110" title="Premiumize.me Instant 4K Debrid Engine Active" />
-              )}
-              {systemSettings.geminiApiKey && (
-                <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI API" className="h-4 object-contain brightness-110" title="Gemini AI Smart Filtering Active" />
-              )}
-              {systemSettings.groqApiKey && (
-                <img src="https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-avatar/avatars/groq.webp" alt="Groq AI" className="h-4 object-contain brightness-110 rounded-full" title="Groq High-Speed LPU AI Engine Active" />
-              )}
-              {systemSettings.openRouterApiKey && (
-                <img src="https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/openrouter-color.png" alt="OpenRouter AI" className="h-4 object-contain brightness-110" title="OpenRouter AI Engine Active" />
-              )}
-              {systemSettings.intelTranscoding === true && (
-                <img src="/images/intel-logo.png" alt="Intel QSV" className="h-4 object-contain brightness-110" title="Intel Quick Sync Hardware Transcoding Active" />
-              )}
-            </div>
-
-            <AuthButton />
-          </div>
-        </header>
-
-        {/* Main View */}
-        <main className={`flex-1 min-h-0 p-6 sm:p-10 overflow-y-auto flex flex-col gap-8 custom-scrollbar ${isKeyboardOpen ? 'pb-80' : ''}`}>
-          
-          {activeTab === 'home' ? (
-            <HomePanel onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} />
-          ) : activeTab === 'catalog' ? (
-            <>
-              <div className="flex flex-wrap items-center justify-between shrink-0 gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
-                <div className="relative flex-1 min-w-[200px] max-w-md">
-                  <Search className="w-4 h-4 text-white/50 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={movieSearchQuery}
-                    onChange={(e) => setMovieSearchQuery(e.target.value)}
-                    placeholder="Search Movies..."
-                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-9 py-2 text-sm text-white placeholder-white/40 outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20 transition-all"
-                  />
-                  {movieSearchQuery && (
-                    <button onClick={() => setMovieSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {showFilters && (
-                    <div className="flex gap-2 mr-2">
-                      <select 
-                        value={filterGenre} 
-                        onChange={(e) => setFilterGenre(Number(e.target.value))}
-                        className="bg-black/40 border border-white/10 text-white text-xs rounded px-2 py-1.5 outline-none"
-                      >
-                        <option value={0} className="bg-slate-900 text-white">All Genres</option>
-                        {MOVIE_GENRES.map(g => (
-                          <option key={g.id} value={g.id} className="bg-slate-900 text-white">{g.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <button 
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`px-4 py-1.5 rounded text-xs font-bold tracking-wider transition-colors ${showFilters ? 'bg-indigo-600' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
-                  >
-                    FILTERS
-                  </button>
-                  <select 
-                    value={sortOption} 
-                    onChange={(e) => setSortOption(e.target.value)}
-                    className="px-4 py-1.5 bg-white/5 rounded text-xs font-bold tracking-wider border border-white/10 outline-none appearance-none cursor-pointer hover:bg-white/10"
-                  >
-                    <option value="default" className="bg-slate-900 text-white">SORT: DEFAULT</option>
-                    <option value="newest" className="bg-slate-900 text-white">SORT: NEWEST</option>
-                    <option value="oldest" className="bg-slate-900 text-white">SORT: OLDEST</option>
-                    <option value="rating_high" className="bg-slate-900 text-white">SORT: RATING (HIGH)</option>
-                    <option value="rating_low" className="bg-slate-900 text-white">SORT: RATING (LOW)</option>
-                  </select>
-                </div>
-              </div>
-
-              <CatalogGrid onSelectMovie={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={movieSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
-            </>
-          ) : activeTab === 'series' ? (
-            <>
-              <div className="flex flex-wrap items-center justify-between shrink-0 gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
-                <div className="relative flex-1 min-w-[200px] max-w-md">
-                  <Search className="w-4 h-4 text-white/50 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={seriesSearchQuery}
-                    onChange={(e) => setSeriesSearchQuery(e.target.value)}
-                    placeholder="Search TV Series..."
-                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-9 py-2 text-sm text-white placeholder-white/40 outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20 transition-all"
-                  />
-                  {seriesSearchQuery && (
-                    <button onClick={() => setSeriesSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {showFilters && (
-                    <div className="flex gap-2 mr-2">
-                      <select 
-                        value={filterGenre} 
-                        onChange={(e) => setFilterGenre(Number(e.target.value))}
-                        className="bg-black/40 border border-white/10 text-white text-xs rounded px-2 py-1.5 outline-none"
-                      >
-                        <option value={0} className="bg-slate-900 text-white">All Genres</option>
-                        {TV_GENRES.map(g => (
-                          <option key={g.id} value={g.id} className="bg-slate-900 text-white">{g.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <button 
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`px-4 py-1.5 rounded text-xs font-bold tracking-wider transition-colors ${showFilters ? 'bg-indigo-600' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
-                  >
-                    FILTERS
-                  </button>
-                  <select 
-                    value={sortOption} 
-                    onChange={(e) => setSortOption(e.target.value)}
-                    className="px-4 py-1.5 bg-white/5 rounded text-xs font-bold tracking-wider border border-white/10 outline-none appearance-none cursor-pointer hover:bg-white/10"
-                  >
-                    <option value="default" className="bg-slate-900 text-white">SORT: DEFAULT</option>
-                    <option value="newest" className="bg-slate-900 text-white">SORT: NEWEST</option>
-                    <option value="oldest" className="bg-slate-900 text-white">SORT: OLDEST</option>
-                    <option value="rating_high" className="bg-slate-900 text-white">SORT: RATING (HIGH)</option>
-                    <option value="rating_low" className="bg-slate-900 text-white">SORT: RATING (LOW)</option>
-                  </select>
-                </div>
-              </div>
-
-              <TvSeriesGrid onSelectSeries={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={seriesSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
-            </>
-          ) : activeTab === 'search' ? (
-            <SearchPanel 
-              query={searchQuery}
-              onSelectMedia={setSelectedMovie}
-              onHoverMedia={setHoveredPoster}
-              onSelectSuggestion={(term) => {
-                setSearchQuery(term);
-                setActiveTab('search');
-              }}
-              onActorSearchClick={(actorName) => {
-                setSearchQuery(actorName);
-                setActiveTab('search');
-              }}
-              onBack={() => {
-                setSearchQuery('');
-                setActiveTab('home');
-              }}
-            />
-          ) : activeTab === 'library' ? (
-            <>
-              <LibraryGrid onSelectMedia={setSelectedMovie} onPlayMedia={handlePlayStream} onHoverMedia={setHoveredPoster} />
-
-            </>
-          ) : activeTab === 'music' ? (
-            <MusicPanel initialQuery={musicSearchQuery} onSelectMedia={setSelectedMovie} />
-          ) : activeTab === 'weather' ? (
-            <WeatherPanel />
-          ) : activeTab === 'news' ? (
-            <NewsPanel onPlayStream={handlePlayStream} />
-          ) : activeTab === 'tv' ? (
-            <IptvGuide onPlayStream={handlePlayStream} />
-          ) : activeTab === 'settings' ? (
-            user?.role === 'admin' ? <SettingsPanel /> : null
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-              <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
-                <Tv className="w-10 h-10 text-white/50" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-light tracking-tight text-white capitalize">{activeTab}</h2>
-                <p className="text-white/60 text-sm mt-2">This section is not yet implemented.</p>
-              </div>
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col h-full bg-[#050507] overflow-hidden relative z-0">
+          {activePoster && (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+              <div 
+                className="absolute inset-0 bg-cover bg-center transition-all duration-700 ease-in-out scale-100"
+                style={{ backgroundImage: `url(${activePoster})`, opacity: 0.45 }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050507] via-[#050507]/60 to-black/30" />
             </div>
           )}
+          {!activePoster && (
+            <div className="absolute inset-0 bg-gradient-to-br from-[#0c0c12] to-[#050507] pointer-events-none -z-10" />
+          )}
+          
+          {/* Header */}
+          <header className="h-20 shrink-0 flex items-center justify-between px-10 border-b border-white/5 bg-black/80 backdrop-blur-md z-10">
+            <div className="flex items-center gap-5">
+              <svg 
+                viewBox="0 0 320 70" 
+                className="w-44 h-12 select-none cursor-pointer hover:scale-105 transition-transform duration-300 drop-shadow-[0_0_15px_rgba(229,9,20,0.25)]" 
+                onClick={() => setActiveTab('home')}
+              >
+                <defs>
+                  <path id="bubbaflix-curve" d="M 12,56 Q 160,20 308,56" fill="none" />
+                  <linearGradient id="bubbaflix-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#ff4d4d" />
+                    <stop offset="35%" stopColor="#e50914" />
+                    <stop offset="75%" stopColor="#b30000" />
+                    <stop offset="100%" stopColor="#7a0000" />
+                  </linearGradient>
+                  <filter id="bubbaflix-glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.95"/>
+                    <feDropShadow dx="0" dy="0" stdDeviation="5.5" floodColor="#e50914" floodOpacity="0.45"/>
+                  </filter>
+                </defs>
+                <text 
+                  fontFamily="'Bebas Neue', 'Impact', sans-serif" 
+                  fontSize="56" 
+                  fontWeight="900" 
+                  fill="url(#bubbaflix-gradient)" 
+                  stroke="url(#bubbaflix-gradient)" 
+                  strokeWidth="2.8" 
+                  strokeLinejoin="round"
+                  letterSpacing="-1.2"
+                  filter="url(#bubbaflix-glow)"
+                >
+                  <textPath href="#bubbaflix-curve" startOffset="50%" textAnchor="middle">
+                    BUBBAFLIX
+                  </textPath>
+                </text>
+              </svg>
+              <div className="w-px h-6 bg-white/10 hidden sm:block" />
+              <div className="flex items-center gap-4">
+                {activeTab === 'home' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Home</span></h1>}
+                {activeTab === 'search' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Search</span></h1>}
+                {activeTab === 'catalog' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Movie <span className="text-red-500 font-medium italic">Catalog</span></h1>}
+                {activeTab === 'series' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">TV <span className="text-red-500 font-medium italic">Series</span></h1>}
+                {activeTab === 'music' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Music <span className="text-red-500 font-medium italic">Search</span></h1>}
+                {activeTab === 'library' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">My <span className="text-red-500 font-medium italic">Library</span></h1>}
+                {activeTab === 'tv' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Live <span className="text-emerald-400 font-medium italic">TV Guide</span></h1>}
+                {activeTab === 'settings' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Settings</span></h1>}
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                {isPlaying && (
+                  <div 
+                    className={`flex items-center gap-2 bg-black/40 border px-3 py-1.5 rounded-full select-none transition-all duration-300 ${
+                      playerStatus.includes('BUFFERING') 
+                        ? 'border-red-500/20 text-red-400 bg-red-950/10' 
+                        : 'border-emerald-500/20 text-emerald-400 bg-emerald-950/10'
+                    }`}
+                  >
+                    <span className="relative flex h-2 w-2">
+                      {playerStatus.includes('BUFFERING') && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${playerStatus.includes('BUFFERING') ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
+                    </span>
+                    <span className="text-[10px] font-mono font-semibold tracking-widest uppercase">{playerStatus.includes('BUFFERING') ? 'STREAM BUFFERING' : 'STREAM PLAYING'}</span>
+                  </div>
+                )}
+                {isPageLoading && (
+                  <div className="flex items-center gap-2 bg-black/40 border border-indigo-500/20 px-3 py-1.5 rounded-full select-none text-indigo-400 bg-indigo-950/10 transition-all duration-300">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                    </span>
+                    <span className="text-[10px] font-mono font-semibold tracking-widest uppercase animate-pulse">LOADING CONTENT</span>
+                  </div>
+                )}
+              </div>
 
-        </main>
+
+
+              {/* API Integrations Active Icons */}
+              <div className="flex items-center gap-3 opacity-70 shrink-0 mx-2 hidden sm:flex">
+                {systemSettings.tmdbKey && (
+                  <img src="/images/tmdb-logo.png" alt="TMDB API" className="h-4 object-contain brightness-110" title="TMDB API Active" />
+                )}
+                {systemSettings.premiumizeApiKey && (
+                  <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="h-4 object-contain brightness-110" title="Premiumize.me Instant 4K Debrid Engine Active" />
+                )}
+                {systemSettings.geminiApiKey && (
+                  <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini AI API" className="h-4 object-contain brightness-110" title="Gemini AI Smart Filtering Active" />
+                )}
+                {systemSettings.groqApiKey && (
+                  <img src="https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-avatar/avatars/groq.webp" alt="Groq AI" className="h-4 object-contain brightness-110 rounded-full" title="Groq High-Speed LPU AI Engine Active" />
+                )}
+                {systemSettings.openRouterApiKey && (
+                  <img src="https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/openrouter-color.png" alt="OpenRouter AI" className="h-4 object-contain brightness-110" title="OpenRouter AI Engine Active" />
+                )}
+                {systemSettings.intelTranscoding === true && (
+                  <img src="/images/intel-logo.png" alt="Intel QSV" className="h-4 object-contain brightness-110" title="Intel Quick Sync Hardware Transcoding Active" />
+                )}
+              </div>
+
+              <AuthButton />
+            </div>
+          </header>
+
+          {/* Main View */}
+          <main className={`flex-1 min-h-0 p-6 sm:p-10 overflow-y-auto flex flex-col gap-8 custom-scrollbar ${isKeyboardOpen ? 'pb-80' : ''}`}>
+            
+            {activeTab === 'home' ? (
+              <HomePanel onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} />
+            ) : activeTab === 'catalog' ? (
+              <>
+                <div className="flex flex-wrap items-center justify-between shrink-0 gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
+                  <div className="relative flex-1 min-w-[200px] max-w-md">
+                    <Search className="w-4 h-4 text-white/50 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={movieSearchQuery}
+                      onChange={(e) => setMovieSearchQuery(e.target.value)}
+                      placeholder="Search Movies..."
+                      className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-9 py-2 text-sm text-white placeholder-white/40 outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20 transition-all"
+                    />
+                    {movieSearchQuery && (
+                      <button onClick={() => setMovieSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {showFilters && (
+                      <div className="flex gap-2 mr-2">
+                        <select 
+                          value={filterGenre} 
+                          onChange={(e) => setFilterGenre(Number(e.target.value))}
+                          className="bg-black/40 border border-white/10 text-white text-xs rounded px-2 py-1.5 outline-none"
+                        >
+                          <option value={0} className="bg-slate-900 text-white">All Genres</option>
+                          {MOVIE_GENRES.map(g => (
+                            <option key={g.id} value={g.id} className="bg-slate-900 text-white">{g.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`px-4 py-1.5 rounded text-xs font-bold tracking-wider transition-colors ${showFilters ? 'bg-indigo-600' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
+                    >
+                      FILTERS
+                    </button>
+                    <select 
+                      value={sortOption} 
+                      onChange={(e) => setSortOption(e.target.value)}
+                      className="px-4 py-1.5 bg-white/5 rounded text-xs font-bold tracking-wider border border-white/10 outline-none appearance-none cursor-pointer hover:bg-white/10"
+                    >
+                      <option value="default" className="bg-slate-900 text-white">SORT: DEFAULT</option>
+                      <option value="newest" className="bg-slate-900 text-white">SORT: NEWEST</option>
+                      <option value="oldest" className="bg-slate-900 text-white">SORT: OLDEST</option>
+                      <option value="rating_high" className="bg-slate-900 text-white">SORT: RATING (HIGH)</option>
+                      <option value="rating_low" className="bg-slate-900 text-white">SORT: RATING (LOW)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <CatalogGrid onSelectMovie={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={movieSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
+              </>
+            ) : activeTab === 'series' ? (
+              <>
+                <div className="flex flex-wrap items-center justify-between shrink-0 gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
+                  <div className="relative flex-1 min-w-[200px] max-w-md">
+                    <Search className="w-4 h-4 text-white/50 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={seriesSearchQuery}
+                      onChange={(e) => setSeriesSearchQuery(e.target.value)}
+                      placeholder="Search TV Series..."
+                      className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-9 py-2 text-sm text-white placeholder-white/40 outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20 transition-all"
+                    />
+                    {seriesSearchQuery && (
+                      <button onClick={() => setSeriesSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {showFilters && (
+                      <div className="flex gap-2 mr-2">
+                        <select 
+                          value={filterGenre} 
+                          onChange={(e) => setFilterGenre(Number(e.target.value))}
+                          className="bg-black/40 border border-white/10 text-white text-xs rounded px-2 py-1.5 outline-none"
+                        >
+                          <option value={0} className="bg-slate-900 text-white">All Genres</option>
+                          {TV_GENRES.map(g => (
+                            <option key={g.id} value={g.id} className="bg-slate-900 text-white">{g.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`px-4 py-1.5 rounded text-xs font-bold tracking-wider transition-colors ${showFilters ? 'bg-indigo-600' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
+                    >
+                      FILTERS
+                    </button>
+                    <select 
+                      value={sortOption} 
+                      onChange={(e) => setSortOption(e.target.value)}
+                      className="px-4 py-1.5 bg-white/5 rounded text-xs font-bold tracking-wider border border-white/10 outline-none appearance-none cursor-pointer hover:bg-white/10"
+                    >
+                      <option value="default" className="bg-slate-900 text-white">SORT: DEFAULT</option>
+                      <option value="newest" className="bg-slate-900 text-white">SORT: NEWEST</option>
+                      <option value="oldest" className="bg-slate-900 text-white">SORT: OLDEST</option>
+                      <option value="rating_high" className="bg-slate-900 text-white">SORT: RATING (HIGH)</option>
+                      <option value="rating_low" className="bg-slate-900 text-white">SORT: RATING (LOW)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <TvSeriesGrid onSelectSeries={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={seriesSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
+              </>
+            ) : activeTab === 'search' ? (
+              <SearchPanel 
+                query={searchQuery}
+                onSelectMedia={setSelectedMovie}
+                onHoverMedia={setHoveredPoster}
+                onSelectSuggestion={(term) => {
+                  setSearchQuery(term);
+                  setActiveTab('search');
+                }}
+                onActorSearchClick={(actorName) => {
+                  setSearchQuery(actorName);
+                  setActiveTab('search');
+                }}
+                onBack={() => {
+                  setSearchQuery('');
+                  setActiveTab('home');
+                }}
+              />
+            ) : activeTab === 'library' ? (
+              <>
+                <LibraryGrid onSelectMedia={setSelectedMovie} onPlayMedia={handlePlayStream} onHoverMedia={setHoveredPoster} />
+
+              </>
+            ) : activeTab === 'music' ? (
+              <MusicPanel initialQuery={musicSearchQuery} onSelectMedia={setSelectedMovie} />
+            ) : activeTab === 'weather' ? (
+              <WeatherPanel />
+            ) : activeTab === 'news' ? (
+              <NewsPanel onPlayStream={handlePlayStream} />
+            ) : activeTab === 'tv' ? (
+              <IptvGuide onPlayStream={handlePlayStream} />
+            ) : activeTab === 'settings' ? (
+              user?.role === 'admin' ? <SettingsPanel /> : null
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
+                  <Tv className="w-10 h-10 text-white/50" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-light tracking-tight text-white capitalize">{activeTab}</h2>
+                  <p className="text-white/60 text-sm mt-2">This section is not yet implemented.</p>
+                </div>
+              </div>
+            )}
+
+          </main>
+        </div>
       </div>
 
       <MediaModal 

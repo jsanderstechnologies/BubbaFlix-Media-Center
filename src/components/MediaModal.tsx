@@ -1222,7 +1222,7 @@ export default function MediaModal({
 
   return (
     <div id="media-modal" className={`fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn ${isHidden ? 'hidden' : ''}`}>
-      <div className="bg-[#0c0c12] border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
+      <div inert={resumePromptStream ? true : undefined} className="bg-[#0c0c12] border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
         <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 shrink-0">
             {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-35" referrerPolicy="no-referrer" />}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/60 to-transparent"></div>
