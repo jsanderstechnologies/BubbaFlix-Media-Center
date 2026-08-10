@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle } from 'lucide-react';
 
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, setDoc, serverTimestamp, onSnapshot } from '../lib/localDb';
 import { db } from '../lib/localDb';
@@ -350,6 +350,8 @@ export default function MediaModal({
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
   const [watchedDocs, setWatchedDocs] = useState<Record<string, boolean>>({});
+  const [showTrailerModal, setShowTrailerModal] = useState(false);
+  const [selectedTrailerKey, setSelectedTrailerKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !movie || isHidden) return;
@@ -1423,6 +1425,20 @@ export default function MediaModal({
                       {isFavorite ? 'In Library' : 'Add To Library'}
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const key = (extraDetails as any)?.trailerKey;
+                      setSelectedTrailerKey(key || 'search');
+                      setShowTrailerModal(true);
+                    }}
+                    className="focusable flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 transition-colors shrink-0 cursor-pointer"
+                    title="Watch Official YouTube Trailer"
+                  >
+                    <Video className="w-4 h-4 text-red-400" />
+                    Watch Trailer
+                  </button>
                 </div>
             </div>
         </div>
@@ -1874,7 +1890,72 @@ export default function MediaModal({
           </div>
         </div>
       )}
-    </div>
 
+      {/* YouTube Trailer Modal */}
+      {showTrailerModal && (
+        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-8 animate-fadeIn">
+          <div className="bg-[#0f0f18] border border-white/10 w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/[0.02]">
+              <div className="flex items-center gap-3">
+                <Video className="w-5 h-5 text-red-500" />
+                <h3 className="text-sm font-bold text-white tracking-wide truncate">
+                  {movie.title || movie.name} - Official Trailer
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTrailerModal(false)}
+                className="focusable p-2 text-white/60 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* YouTube IFrame Player */}
+            <div className="aspect-video w-full bg-black relative">
+              {selectedTrailerKey && selectedTrailerKey !== 'search' ? (
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${selectedTrailerKey}?autoplay=1&rel=0`}
+                  title="YouTube Trailer"
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent((movie.title || movie.name) + ' official trailer')}&autoplay=1`}
+                  title="YouTube Trailer Search"
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
+            </div>
+
+            {/* Multiple Trailers Selector List */}
+            {(extraDetails as any)?.trailers && (extraDetails as any).trailers.length > 1 && (
+              <div className="p-4 border-t border-white/10 bg-white/[0.02] flex items-center gap-2 overflow-x-auto custom-scrollbar">
+                <span className="text-xs font-bold text-white/50 shrink-0 uppercase tracking-wider">More Trailers:</span>
+                {(extraDetails as any).trailers.map((t: any, idx: number) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedTrailerKey(t.key)}
+                    className={`focusable text-xs font-semibold px-3 py-1.5 rounded-lg border shrink-0 transition-all cursor-pointer ${
+                      selectedTrailerKey === t.key
+                        ? 'bg-red-600 text-white border-red-500 shadow'
+                        : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {t.name || `${t.type} ${idx + 1}`}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

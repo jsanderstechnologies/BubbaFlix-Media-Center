@@ -539,13 +539,29 @@ export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) =
 
   try {
     const type = isSeries ? 'tv' : 'movie';
-    const [detailsRes, creditsRes] = await Promise.all([
+    const [detailsRes, creditsRes, videosRes] = await Promise.all([
       fetch(`${BASE_URL}/${type}/${id}?api_key=${apiKey}`),
-      fetch(`${BASE_URL}/${type}/${id}/credits?api_key=${apiKey}`)
+      fetch(`${BASE_URL}/${type}/${id}/credits?api_key=${apiKey}`),
+      fetch(`${BASE_URL}/${type}/${id}/videos?api_key=${apiKey}`)
     ]);
 
     const details = detailsRes.ok ? await detailsRes.json() : {};
     const credits = creditsRes.ok ? await creditsRes.json() : { cast: [], crew: [] };
+    const videos = videosRes.ok ? await videosRes.json() : { results: [] };
+
+    const youtubeVideos = (videos.results || []).filter((v: any) => v.site === 'YouTube');
+    const trailerObj = youtubeVideos.find((v: any) => v.type === 'Trailer' && v.official) ||
+                       youtubeVideos.find((v: any) => v.type === 'Trailer') ||
+                       youtubeVideos.find((v: any) => v.type === 'Teaser') ||
+                       youtubeVideos[0];
+
+    const trailerKey = trailerObj ? trailerObj.key : null;
+    const trailers = youtubeVideos.map((v: any) => ({
+      name: v.name,
+      key: v.key,
+      type: v.type,
+      site: v.site
+    }));
 
     const directors: string[] = [];
     const producers: string[] = [];
@@ -594,7 +610,9 @@ export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) =
       cast,
       genres: details.genres?.map((g: any) => g.name) || [],
       tagline: details.tagline || '',
-      imdbId: details.imdb_id || details.external_ids?.imdb_id || null
+      imdbId: details.imdb_id || details.external_ids?.imdb_id || null,
+      trailerKey,
+      trailers
     };
   } catch (error) {
     console.error("[Frontend] Error fetching media credits and details:", error);
@@ -602,7 +620,9 @@ export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) =
       directors: [],
       producers: [],
       releaseDate: 'N/A',
-      cast: []
+      cast: [],
+      trailerKey: null,
+      trailers: []
     };
   }
 };
