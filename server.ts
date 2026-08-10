@@ -1239,17 +1239,13 @@ async function startServer() {
     const errors: string[] = [];
 
     // 1. PRIMARY PROVIDER: GOOGLE GEMINI API
-    const isGeminiKeyFormatValid = rawGeminiKey.startsWith('AIzaSy');
     const isGeminiInCooldown = Date.now() < geminiCooldownUntil;
 
-    if (rawGeminiKey && !isGeminiKeyFormatValid) {
-      console.warn(`[AI System Warning] Provided Gemini API Key ('${rawGeminiKey.substring(0, 8)}...') is NOT a valid Google AI Studio key (must start with 'AIzaSy'). Get a valid key from https://aistudio.google.com/app/apikey. Skipping Gemini and cascading to fallback AI providers.`);
-      errors.push('Invalid Gemini Key format (must start with AIzaSy)');
-    } else if (rawGeminiKey && isGeminiInCooldown) {
+    if (rawGeminiKey && isGeminiInCooldown) {
       const remainingSec = Math.ceil((geminiCooldownUntil - Date.now()) / 1000);
       console.warn(`[AI System] Gemini API is currently in rate-limit cooldown (${remainingSec}s remaining). Cascading to fallback AI provider...`);
       errors.push('Gemini 429 Rate Limit Cooldown Active');
-    } else if (rawGeminiKey && isGeminiKeyFormatValid) {
+    } else if (rawGeminiKey) {
       const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
       for (const model of models) {
         try {
