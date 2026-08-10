@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar } from 'lucide-react';
 
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from '../lib/localDb';
+import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, setDoc, serverTimestamp } from '../lib/localDb';
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
 import { useSettings } from '../lib/settings';
@@ -338,6 +338,93 @@ export default function MediaModal({
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
+  const [watchedDocs, setWatchedDocs] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!user || !movie || isHidden) return;
+    const q = query(
+      collection(db, 'user_watched'),
+      where('userId', '==', user.uid),
+      where('mediaId', '==', movie.id)
+    );
+    getDocs(q).then(snapshot => {
+      const docsMap: Record<string, boolean> = {};
+      snapshot.docs.forEach(d => {
+        const data = d.data();
+        if (data.watched !== false) {
+          if (data.type === 'tv' && data.season !== undefined && data.episode !== undefined) {
+            docsMap[`s${data.season}_e${data.episode}`] = true;
+          } else if (data.type === 'movie') {
+            docsMap['movie'] = true;
+          }
+        }
+      });
+      setWatchedDocs(docsMap);
+    }).catch(err => console.error("Error fetching user_watched status:", err));
+  }, [user, movie, isHidden]);
+
+  // Auto-populate the next unwatched season and episode when opening TV Series
+  useEffect(() => {
+    if (!isSeries || seasons.length === 0 || isHidden) return;
+    if (selectedSeason !== null) return;
+
+    let targetSeason = seasons[0].season_number;
+    let targetEpisode = 1;
+    let foundUnwatched = false;
+
+    for (const s of seasons) {
+      const sNum = s.season_number;
+      const epCount = s.episode_count || s.episodes?.length || 0;
+      for (let eNum = 1; eNum <= epCount; eNum++) {
+        const key = `s${sNum}_e${eNum}`;
+        if (!watchedDocs[key]) {
+          targetSeason = sNum;
+          targetEpisode = eNum;
+          foundUnwatched = true;
+          break;
+        }
+      }
+      if (foundUnwatched) break;
+    }
+
+    setSelectedSeason(targetSeason);
+    setSelectedEpisode(targetEpisode);
+  }, [isSeries, seasons, watchedDocs, selectedSeason, isHidden]);
+
+  const toggleWatched = async (type: 'tv' | 'movie', seasonNum?: number, episodeNum?: number) => {
+    if (!user || !movie) return;
+
+    const docId = type === 'tv' 
+      ? `${user.uid}_${movie.id}_s${seasonNum}_e${episodeNum}`
+      : `${user.uid}_${movie.id}`;
+    
+    const key = type === 'tv' ? `s${seasonNum}_e${episodeNum}` : 'movie';
+    const currentlyWatched = !!watchedDocs[key];
+    const newWatchedState = !currentlyWatched;
+
+    setWatchedDocs(prev => ({ ...prev, [key]: newWatchedState }));
+
+    const docRef = { collectionName: 'user_watched', id: docId };
+
+    try {
+      if (newWatchedState) {
+        await setDoc(docRef, {
+          userId: user.uid,
+          mediaId: movie.id,
+          type,
+          season: seasonNum ?? null,
+          episode: episodeNum ?? null,
+          watched: true,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } else {
+        await deleteDoc(docRef);
+      }
+    } catch (err) {
+      console.error("Failed to update watched status:", err);
+      setWatchedDocs(prev => ({ ...prev, [key]: currentlyWatched }));
+    }
+  };
 
   useEffect(() => {
     if (!user || !movie || isHidden) return;
@@ -762,7 +849,10 @@ export default function MediaModal({
         // episode number from another season, since different seasons have
         // different episode counts and this caused ghost episodes to appear.
         if (finalEpisodes.length > 0) {
-          setSelectedEpisode(finalEpisodes[0].episode_number);
+          if (selectedEpisode === null || !finalEpisodes.some(e => e.episode_number === selectedEpisode)) {
+            const firstUnwatched = finalEpisodes.find(e => !watchedDocs[`s${selectedSeason}_e${e.episode_number}`]);
+            setSelectedEpisode(firstUnwatched ? firstUnwatched.episode_number : finalEpisodes[0].episode_number);
+          }
         }
       })();
     }
@@ -1247,22 +1337,42 @@ export default function MediaModal({
                           <BookmarkCheck className="w-3 h-3 text-emerald-400" /> In Library
                         </span>
                       )}
+                      {!isSeries && watchedDocs['movie'] && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 border border-emerald-500/40 rounded text-[11px] font-bold text-emerald-400 font-mono leading-none tracking-wide uppercase bg-emerald-950/40">
+                          <CheckCircle className="w-3 h-3 text-emerald-400 fill-emerald-400/20" /> Watched
+                        </span>
+                      )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button 
                     onClick={handleOpenFixMatch}
-                    className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors bg-white/5 text-white/90 border border-white/10 hover:bg-white/10 hover:text-white"
+                    className="focusable flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors bg-white/5 text-white/90 border border-white/10 hover:bg-white/10 hover:text-white"
                     title="Correct title, poster and TMDB match"
                   >
                     <Sparkles className="w-4 h-4 text-red-500" />
                     Fix Match
                   </button>
+                  {user && !isSeries && (
+                    <button 
+                      type="button"
+                      onClick={() => toggleWatched('movie')}
+                      className={`focusable flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0 ${
+                        watchedDocs['movie']
+                          ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-600/30'
+                          : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'
+                      }`}
+                      title={watchedDocs['movie'] ? 'Mark Movie Unwatched' : 'Mark Movie Watched'}
+                    >
+                      <CheckCircle className={`w-4 h-4 ${watchedDocs['movie'] ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/60'}`} />
+                      {watchedDocs['movie'] ? 'Watched' : 'Mark Watched'}
+                    </button>
+                  )}
                   {user && (
                     <button 
                       onClick={toggleFavorite}
                       disabled={favoriteLoading}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0
+                      className={`focusable flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0
                         ${isFavorite 
                           ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30' 
                           : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'}`}
@@ -1432,18 +1542,57 @@ export default function MediaModal({
                             </div>
                             {episodes.length > 0 && (
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Episode</label>
-                                    <div className="flex flex-wrap items-center gap-2 pb-2">
-                                        {episodes.map(ep => (
-                                            <button 
-                                                key={ep.episode_number} 
-                                                onClick={() => { setStreams([]); setSelectedEpisode(ep.episode_number); }}
-                                                className={`focusable shrink-0 flex flex-col items-center justify-center min-w-[80px] px-3 py-2 rounded-lg text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${selectedEpisode === ep.episode_number ? 'bg-red-600 text-white' : 'bg-[#12121a] text-white/70 hover:bg-white/10'}`}
-                                            >
-                                                <span>Ep {ep.episode_number}</span>
-                                                <span className="text-[9px] opacity-70 mt-0.5 max-w-[100px] truncate">{ep.name}</span>
-                                            </button>
-                                        ))}
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Episode</label>
+                                      {selectedEpisode !== null && (
+                                        <span className="text-[10px] font-mono text-white/50 flex items-center gap-1">
+                                          <Calendar className="w-3 h-3 text-white/40" />
+                                          {episodes.find(e => e.episode_number === selectedEpisode)?.air_date ? `Aired: ${episodes.find(e => e.episode_number === selectedEpisode)?.air_date}` : 'Air date N/A'}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="relative flex-1">
+                                          <select
+                                              value={selectedEpisode ?? ''}
+                                              onChange={(e) => {
+                                                  const eNum = parseInt(e.target.value, 10);
+                                                  if (!isNaN(eNum)) {
+                                                      setStreams([]);
+                                                      setSelectedEpisode(eNum);
+                                                  }
+                                              }}
+                                              className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
+                                          >
+                                              {episodes.map(ep => {
+                                                  const isEpWatched = !!watchedDocs[`s${selectedSeason}_e${ep.episode_number}`];
+                                                  const airStr = ep.air_date ? ` (Aired: ${ep.air_date})` : '';
+                                                  return (
+                                                      <option key={ep.episode_number} value={ep.episode_number} className="bg-[#12121a] text-white">
+                                                          {isEpWatched ? '✓ ' : ''}E{ep.episode_number} - {ep.name || `Episode ${ep.episode_number}`}{airStr}
+                                                      </option>
+                                                  );
+                                              })}
+                                          </select>
+                                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+                                              ▼
+                                          </div>
+                                      </div>
+                                      {user && selectedSeason !== null && selectedEpisode !== null && (
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleWatched('tv', selectedSeason, selectedEpisode)}
+                                          className={`focusable shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                                            watchedDocs[`s${selectedSeason}_e${selectedEpisode}`]
+                                              ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/50 hover:bg-emerald-900/60'
+                                              : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                                          }`}
+                                          title={watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'Mark Episode Unwatched' : 'Mark Episode Watched'}
+                                        >
+                                          <CheckCircle className={`w-4 h-4 ${watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/40'}`} />
+                                          <span>{watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'Watched' : 'Mark Watched'}</span>
+                                        </button>
+                                      )}
                                     </div>
                                 </div>
                             )}

@@ -537,8 +537,20 @@ function MainApp() {
 
     const progressRef = { collectionName: 'user_progress', id: `${user.uid}_${playingContext.id}` };
 
-    if (total > 0 && (currentAbsoluteTime >= total * 0.95 || currentAbsoluteTime >= total - 15)) {
+    if (total > 0 && (currentAbsoluteTime >= total * 0.90 || currentAbsoluteTime >= total - 15)) {
       deleteDoc(progressRef).catch(err => console.error("Failed to delete finished progress:", err));
+      const watchedId = playingContext.type === 'tv'
+        ? `${user.uid}_${playingContext.id}_s${playingContext.season}_e${playingContext.episode}`
+        : `${user.uid}_${playingContext.id}`;
+      setDoc({ collectionName: 'user_watched', id: watchedId }, {
+        userId: user.uid,
+        mediaId: playingContext.id,
+        type: playingContext.type,
+        season: playingContext.season || null,
+        episode: playingContext.episode || null,
+        watched: true,
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(err => console.error("Failed to save watched status:", err));
     } else {
       setDoc(progressRef, {
         userId: user.uid,
