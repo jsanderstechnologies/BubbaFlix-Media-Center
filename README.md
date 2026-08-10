@@ -8,10 +8,14 @@
 
 ### 🎬 Media Aggregation & Streaming
 - **TMDB Integration**: Browse rich metadata for movies and TV shows, complete with cast, crew, trailers, and recommendations.
-- **TorBox Streaming**: Search for Torrents and Usenet files directly through TorBox and stream them instantly without downloading.
-- **AI-Powered Filtering**: Integrated with Google Gemini (`gemini-2.5-flash` / `gemini-1.5-flash`) to intelligently filter out non-English results, honeypot releases, and irrelevant file names.
+- **Premiumize & Debrid Streaming**: Search for Torrents, Usenet, and Debrid streams directly through Premiumize and stream them instantly without local downloading.
+- **TV Series Episode Dropdown & Air Dates**: Interactive `<select>` episode selector showing episode numbers, episode titles, air dates, and watched checkmarks.
+- **Auto-Select Next Unwatched Episode**: Automatically queries per-user watch history and opens show detail screens on the first unwatched season and episode.
+- **Per-User Watch History**: Independent per-user watch tracking for movies and TV episodes with manual "Watched / Mark Watched" toggle buttons and automatic 90%+ progress completion marking.
+- **TMDB Backdrop Player Background**: Displays the item's TMDB backdrop image as a blurred, atmospheric background overlay with a glowing loader until video frames render.
+- **AI-Powered Filtering & Fallback Engine**: Integrated with Google Gemini API, Groq, and OpenRouter for smart filtering with 5-minute 429 rate limit circuit breaking.
 - **Hardware-Accelerated Transcoding**: Support for Intel Quick Sync Video (QSV), NVENC, and AMF to transcode media on the fly via FFmpeg with minimal CPU usage.
-- **Server Stream Pre-Caching**: Optional background media caching for remote streams (TorBox, Usenet, Debrid). Pre-downloads video files progressively to local server storage as they are watched, eliminating CDN rate-limiting, network jitter, and providing instant seeking.
+- **Server Stream Pre-Caching**: Optional background media caching for remote streams (Premiumize, Usenet, Debrid). Pre-downloads video files progressively to local server storage as they are watched, eliminating CDN rate-limiting, network jitter, and providing instant seeking.
 - **Premiumize VPN & Debrid Gateway**: Dedicated Premiumize integration panel in Settings for managing credentials, checking account status, and configuring VPN server gateways.
 - **Customizable Players**: Native browser playback or automatic spawning of external desktop players like VLC, mpv, or IINA.
 
@@ -29,8 +33,8 @@
 - **Gemini AI IPTV Sports Stream Matcher**: Automatically scans all IPTV channels using Gemini AI to match live games to active IPTV broadcast streams and displays a direct **`▶ Watch Live (Channel Name)`** play button on game cards.
 
 ### 📺 Smart TV & Android TV Experience
-- **D-Pad Spatial Navigation**: Built-in `spatial-navigation-js` integration allowing seamless 100% remote control navigation across all menus, video player controls, modal dialogs, and settings.
-- **Focus Ring Accessibility**: Clear, high-visibility focus indicators designed specifically for 10-foot viewing experiences.
+- **D-Pad Spatial Navigation**: Built-in 2D spatial navigation allowing 100% remote control operation across all cards, menus, sidebar tabs, video player controls, modal dialogs, and user avatar settings.
+- **Focus Ring Accessibility**: Clear, high-visibility focus indicators designed specifically for 10-foot viewing experiences without poster clipping.
 
 ### 👥 User Administration & Multi-Device Auth
 - **Multi-Device Token Sessions**: Support for simultaneous device logins without revoking credentials or admin access.
@@ -40,7 +44,7 @@
 - **Auto Admin / Dev Mode**: A handy toggle to completely disable login and boot straight into the administrator dashboard for local development or Android Studio layout inspection.
 
 ### ⚙️ Comprehensive Settings Panel
-- **Sleek Admin Controls**: All system settings are organized into a clean, collapsible UI for managing API keys (TMDB, Gemini, NewsAPI, GNews, TorBox, Premiumize), Scrapers, IPTV Providers, Developer logs, and more.
+- **Sleek Admin Controls**: All system settings are organized into a clean, collapsible UI for managing API keys (TMDB, Gemini, NewsAPI, GNews, Premiumize), Scrapers, IPTV Providers, Developer logs, and more.
 - **Email Configuration**: Exposes a dedicated UI to manage and save credentials (Gmail address, App Password, App Name, App URL) to `data/settings.json`, complete with a "Test Email" button.
 - **Developer Debugging**: View real-time frontend and backend console logs directly within the browser Settings UI.
 
@@ -127,8 +131,8 @@ services:
       - NODE_ENV=production
       - PORT=5150
       - TMDB_KEY=your_tmdb_key_here
-      - TORBOX_API_KEY=your_torbox_key_here
       - GEMINI_API_KEY=your_gemini_key_here
+      - PREMIUMIZE_API_KEY=your_premiumize_key_here
     labels:
       io.casaos.app.icon: "https://raw.githubusercontent.com/jsanderstechnologies/BubbaFlix-Media-Center/main/public/icon.svg"
       io.casaos.app.title: "BubbaFlix"
@@ -223,5 +227,5 @@ BubbaFlix can run natively as a Node.js background service using `systemd`:
 - **Frontend**: React, Tailwind CSS, Vite, Lucide Icons, Spatial Navigation (`spatial-navigation-js`).
 - **Backend**: Node.js, Express, FFmpeg, FFprobe.
 - **Database**: Local JSON-based flat-file database structures (`users.json`, `db.json`, `settings.json`).
-- **External APIs**: TMDB, TorBox, Premiumize, NewsAPI.org, GNews, ESPN Scoreboards, Zippopotam.us, Open-Meteo, Gemini AI.
+- **External APIs**: TMDB, Premiumize, NewsAPI.org, GNews, ESPN Scoreboards, Zippopotam.us, Open-Meteo, Gemini AI.
 - **Email Infrastructure**: `nodemailer` with Google App Passwords support.
