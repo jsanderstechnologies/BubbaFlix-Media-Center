@@ -233,7 +233,7 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
 
               {/* Scrolling Strip */}
               <div className="relative">
-                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20 scroll-smooth px-1">
+                <div className="flex gap-4 overflow-x-auto pt-3 pb-4 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20 scroll-smooth px-2">
                   {sec.items.map((item) => (
                     <div 
                       key={item.id} 

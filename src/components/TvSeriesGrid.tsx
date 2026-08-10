@@ -59,7 +59,7 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
   }
 
   return (
-    <section className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
+    <section className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6 py-2 px-1">
       {processedSeries?.map((item: any) => (
         <div 
           key={item.id} 
