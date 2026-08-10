@@ -34,12 +34,24 @@ const applyFilters = (results: any[], isSearch: boolean = false) => {
 
   return uniqueResults.filter(m => {
     if (hideUnreleasedMedia) {
-      const releaseDate = m.release_date || m.first_air_date;
-      if (releaseDate && releaseDate > today) {
-        return false;
-      }
-      if (m.status && ['Rumored', 'Planned', 'In Production', 'Post Production', 'Upcoming'].includes(m.status)) {
-        return false;
+      const isTv = !!(m.first_air_date || m.name);
+      if (isTv) {
+        // TV Series: Only filter out if first air date is in the future, or if status is Rumored/Planned without a past air date
+        if (m.first_air_date && m.first_air_date > today) {
+          return false;
+        }
+        if (m.status && ['Rumored', 'Planned'].includes(m.status) && (!m.first_air_date || m.first_air_date > today)) {
+          return false;
+        }
+      } else {
+        // Movies: Filter out if release date is in the future or in production/upcoming
+        const releaseDate = m.release_date;
+        if (releaseDate && releaseDate > today) {
+          return false;
+        }
+        if (m.status && ['Rumored', 'Planned', 'In Production', 'Post Production', 'Upcoming'].includes(m.status)) {
+          return false;
+        }
       }
     }
     if (filterAnime && m.original_language === 'ja' && (m.genre_ids?.includes(16) || m.genre_ids?.includes(10759))) {
