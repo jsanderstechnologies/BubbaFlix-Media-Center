@@ -448,6 +448,62 @@ export default function MediaModal({
     }
   };
 
+  const isSeasonFullyWatched = (seasonNum: number): boolean => {
+    const epCount = episodes.length > 0 && selectedSeason === seasonNum
+      ? episodes.length
+      : (seasons.find(s => s.season_number === seasonNum)?.episode_count || 0);
+
+    if (epCount === 0) return false;
+
+    for (let eNum = 1; eNum <= epCount; eNum++) {
+      if (!watchedDocs[`s${seasonNum}_e${eNum}`]) return false;
+    }
+    return true;
+  };
+
+  const toggleSeasonWatched = async (seasonNum: number) => {
+    if (!user || !movie) return;
+    const targetId = resolvedTmdbId || movie.realTmdbId || movie.tmdbId || movie.id;
+    const isFullyWatched = isSeasonFullyWatched(seasonNum);
+    const targetState = !isFullyWatched;
+
+    const epCount = episodes.length > 0 && selectedSeason === seasonNum
+      ? episodes.length
+      : (seasons.find(s => s.season_number === seasonNum)?.episode_count || 1);
+
+    const updatedDocsMap = { ...watchedDocs };
+    const promises: Promise<any>[] = [];
+
+    for (let eNum = 1; eNum <= epCount; eNum++) {
+      const key = `s${seasonNum}_e${eNum}`;
+      updatedDocsMap[key] = targetState;
+      const docId = `${user.uid}_${targetId}_s${seasonNum}_e${eNum}`;
+      const docRef = { collectionName: 'user_watched', id: docId };
+
+      if (targetState) {
+        promises.push(setDoc(docRef, {
+          userId: user.uid,
+          mediaId: targetId,
+          title: movie.title || movie.name,
+          type: 'tv',
+          season: seasonNum,
+          episode: eNum,
+          watched: true,
+          updatedAt: serverTimestamp()
+        }, { merge: true }));
+      } else {
+        promises.push(deleteDoc(docRef));
+      }
+    }
+
+    setWatchedDocs(updatedDocsMap);
+    try {
+      await Promise.all(promises);
+    } catch (err) {
+      console.error("Error toggling season watched status:", err);
+    }
+  };
+
   useEffect(() => {
     if (!user || !movie || isHidden) return;
     const targetId = resolvedTmdbId || movie.realTmdbId || movie.tmdbId || movie.id;
@@ -1572,7 +1628,24 @@ export default function MediaModal({
                     ) : (
                         <div className="flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Season</label>
+                                <div className="flex items-center justify-between">
+                                  <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Season</label>
+                                  {user && selectedSeason !== null && (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleSeasonWatched(selectedSeason)}
+                                      className={`focusable text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                                        isSeasonFullyWatched(selectedSeason)
+                                          ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/60'
+                                          : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                                      }`}
+                                      title={isSeasonFullyWatched(selectedSeason) ? 'Mark Season Unwatched' : 'Mark All Episodes in Season Watched'}
+                                    >
+                                      <CheckCircle className={`w-3.5 h-3.5 ${isSeasonFullyWatched(selectedSeason) ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/40'}`} />
+                                      <span>{isSeasonFullyWatched(selectedSeason) ? 'Season Watched' : 'Mark Season Watched'}</span>
+                                    </button>
+                                  )}
+                                </div>
                                 <div className="relative">
                                     <select
                                         value={selectedSeason ?? ''}
