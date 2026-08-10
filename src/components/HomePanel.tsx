@@ -233,11 +233,11 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
 
               {/* Scrolling Strip */}
               <div className="relative">
-                <div className="flex gap-4 overflow-x-auto pt-3 pb-4 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20 scroll-smooth px-2">
+                <div className="flex gap-4 overflow-x-auto pt-5 pb-5 px-3 -mt-2 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20 scroll-smooth">
                   {sec.items.map((item) => (
                     <div 
                       key={item.id} 
-                      className="focusable w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 focus:scale-105 rounded-xl transition-all duration-200"
+                      className="focusable w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 focus:scale-105 hover:scale-105 rounded-xl transition-transform duration-300"
                       onClick={() => onSelectMedia(item)}
                       onMouseEnter={() => onHoverMedia?.(item.poster)}
                       onMouseLeave={() => onHoverMedia?.('')}
@@ -250,7 +250,7 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                         }
                       }}
                     >
-                      <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
+                      <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-300">
                         {item.poster ? (
                           <img 
                             src={item.poster} 
