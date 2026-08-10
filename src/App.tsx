@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot, Calendar as CalendarIcon, Film } from 'lucide-react';
 import { searchMovies, searchTvSeries, getTrendingMovies, getTrendingTvSeries, getTvSeasonDetails, getCachedImageUrl } from './services/tmdbApi';
 import { collection, query, where, onSnapshot, setDoc, deleteDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
@@ -29,6 +29,7 @@ import WeatherAlertModal from './components/WeatherAlertModal';
 import { fetchActiveWeatherAlerts, WeatherAlert } from './lib/weatherAlerts';
 import SpatialNavigation from 'spatial-navigation-js';
 import { detectDeviceCapabilities } from './lib/deviceDetection';
+import UpcomingCalendar from './components/UpcomingCalendar';
 
 
 const queryClient = new QueryClient();
@@ -86,6 +87,8 @@ function MainApp() {
   const [sortOption, setSortOption] = useState<string>('newest');
   const [filterGenre, setFilterGenre] = useState<number>(0);
   const [showFilters, setShowFilters] = useState(false);
+  const [movieViewMode, setMovieViewMode] = useState<'grid' | 'calendar'>('grid');
+  const [seriesViewMode, setSeriesViewMode] = useState<'grid' | 'calendar'>('grid');
 
   const [favorites, setFavorites] = useState<any[]>([]);
   const [backgroundPoster, setBackgroundPoster] = useState<string>('');
@@ -1471,6 +1474,28 @@ function MainApp() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 bg-black/40 border border-white/10 p-1 rounded-xl mr-2">
+                      <button
+                        type="button"
+                        onClick={() => setMovieViewMode('grid')}
+                        className={`focusable px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                          movieViewMode === 'grid' ? 'bg-red-600 text-white shadow' : 'text-white/70 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        Movies Catalog
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMovieViewMode('calendar')}
+                        className={`focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                          movieViewMode === 'calendar' ? 'bg-red-600 text-white shadow' : 'text-white/70 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <CalendarIcon className="w-3.5 h-3.5" />
+                        Release Calendar
+                      </button>
+                    </div>
+
                     {showFilters && (
                       <div className="flex gap-2 mr-2">
                         <select 
@@ -1505,7 +1530,11 @@ function MainApp() {
                   </div>
                 </div>
 
-                <CatalogGrid onSelectMovie={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={movieSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
+                {movieViewMode === 'grid' ? (
+                  <CatalogGrid onSelectMovie={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={movieSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
+                ) : (
+                  <UpcomingCalendar defaultType="movie" onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
+                )}
               </>
             ) : activeTab === 'series' ? (
               <>
@@ -1527,6 +1556,28 @@ function MainApp() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 bg-black/40 border border-white/10 p-1 rounded-xl mr-2">
+                      <button
+                        type="button"
+                        onClick={() => setSeriesViewMode('grid')}
+                        className={`focusable px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                          seriesViewMode === 'grid' ? 'bg-red-600 text-white shadow' : 'text-white/70 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        TV Series
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSeriesViewMode('calendar')}
+                        className={`focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                          seriesViewMode === 'calendar' ? 'bg-red-600 text-white shadow' : 'text-white/70 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <CalendarIcon className="w-3.5 h-3.5" />
+                        Airings Calendar
+                      </button>
+                    </div>
+
                     {showFilters && (
                       <div className="flex gap-2 mr-2">
                         <select 
@@ -1561,7 +1612,11 @@ function MainApp() {
                   </div>
                 </div>
 
-                <TvSeriesGrid onSelectSeries={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={seriesSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
+                {seriesViewMode === 'grid' ? (
+                  <TvSeriesGrid onSelectSeries={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={seriesSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
+                ) : (
+                  <UpcomingCalendar defaultType="tv" onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
+                )}
               </>
             ) : activeTab === 'search' ? (
               <SearchPanel 

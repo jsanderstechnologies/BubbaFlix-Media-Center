@@ -247,6 +247,80 @@ export const getTrendingTvSeries = async (genreId: number = 0) => {
   }
 };
 
+export const getUpcomingMovies = async (genreId: number = 0) => {
+  const apiKey = getApiKey();
+  const today = new Date().toISOString().split('T')[0];
+  if (!apiKey) return [];
+
+  try {
+    const endpoint = `${BASE_URL}/discover/movie?api_key=${apiKey}&primary_release_date.gte=${today}&sort_by=primary_release_date.asc${genreId > 0 ? `&with_genres=${genreId}` : ''}`;
+    const pages = await Promise.all([
+      fetch(`${endpoint}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${endpoint}&page=2`).then(r => r.json()).catch(() => ({}))
+    ]);
+    const results = pages.flatMap(p => p.results || []).filter(m => m && m.id && m.release_date && m.release_date >= today);
+    const seen = new Set();
+    const unique = results.filter(m => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
+
+    return unique.slice(0, 50).map((m: any) => ({
+      id: m.id,
+      title: m.title,
+      year: m.release_date?.substring(0, 4) || 'N/A',
+      releaseDate: m.release_date,
+      rating: m.vote_average?.toFixed(1) || '0.0',
+      poster: getCachedImageUrl(m.poster_path),
+      backdrop: getCachedImageUrl(m.backdrop_path),
+      overview: m.overview,
+      genres: m.genre_ids || [],
+      type: 'movie'
+    }));
+  } catch (err) {
+    console.error("[Frontend] TMDB Upcoming Movies Error:", err);
+    return [];
+  }
+};
+
+export const getUpcomingTvSeries = async (genreId: number = 0) => {
+  const apiKey = getApiKey();
+  const today = new Date().toISOString().split('T')[0];
+  if (!apiKey) return [];
+
+  try {
+    const pages = await Promise.all([
+      fetch(`${BASE_URL}/tv/on_the_air?api_key=${apiKey}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/discover/tv?api_key=${apiKey}&first_air_date.gte=${today}&sort_by=first_air_date.asc${genreId > 0 ? `&with_genres=${genreId}` : ''}&page=1`).then(r => r.json()).catch(() => ({}))
+    ]);
+    const results = pages.flatMap(p => p.results || []).filter(m => m && m.id);
+    const seen = new Set();
+    const unique = results.filter(m => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
+
+    return unique.slice(0, 50).map((m: any) => ({
+      id: m.id,
+      title: m.name,
+      year: (m.first_air_date || m.next_episode_to_air?.air_date)?.substring(0, 4) || 'N/A',
+      releaseDate: m.next_episode_to_air?.air_date || m.first_air_date || today,
+      nextEpisode: m.next_episode_to_air ? `S${m.next_episode_to_air.season_number}E${m.next_episode_to_air.episode_number}` : undefined,
+      rating: m.vote_average?.toFixed(1) || '0.0',
+      poster: getCachedImageUrl(m.poster_path),
+      backdrop: getCachedImageUrl(m.backdrop_path),
+      overview: m.overview,
+      genres: m.genre_ids || [],
+      type: 'series'
+    }));
+  } catch (err) {
+    console.error("[Frontend] TMDB Upcoming TV Series Error:", err);
+    return [];
+  }
+};
+
 export const searchTvSeries = async (query: string) => {
   const apiKey = getApiKey();
   if (!apiKey) {
