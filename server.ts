@@ -2571,11 +2571,16 @@ app.get('/api/youtube/search', async (req, res) => {
     const hevcMode = settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer');
     const hevcRegex = /(^|[^a-z0-9])(hevc|x265|h\.?265|265|10-?bit|10b|hdr|hdr10|hdr10\+|dv|dolby\s*vision|main10)([^a-z0-9]|$)/i;
 
-    let candidateItems = [...items];
+    // 0. FILTER OUT LOW-QUALITY RELEASES (TELESYNC, CAM, TELECINE, SCREENER, ETC.)
+    const initialCount = items.length;
+    let candidateItems = items.filter(t => !isLowQualityRelease(t.name || t.title || ''));
+    if (candidateItems.length < initialCount) {
+      console.log(`[Quality Filter] Filtered out ${initialCount - candidateItems.length} low-quality (Telesync/CAM/SCR) streams for "${query}"`);
+    }
 
     if (hevcMode === 'exclude') {
       // Exclude all HEVC/x265/10-bit releases
-      candidateItems = items.filter(t => {
+      candidateItems = candidateItems.filter(t => {
         const name = (t.name || t.title || '').toLowerCase();
         return !hevcRegex.test(name);
       });
@@ -3048,49 +3053,64 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
-  // Cache for Premiumize Cloud file listings (per token, 2-minute TTL)
-  // This prevents a new full recursive scan on every episode selection change.
+  // Helper: Filter out low-quality releases (CAM, Telesync/TS, Telecine/TC, Screener/SCR, Workprint, etc.)
+  const isLowQualityRelease = (titleName: string): boolean => {
+    if (!titleName) return false;
+    const nameLower = titleName.toLowerCase();
+    
+    // Explicit bad quality keywords
+    const lowQualityRegex = /\b(telesync|hd-?ts|ts-?rip|cam|cam-?rip|hd-?cam|telecine|hd-?tc|tc-?rip|screener|dvd-?scr|scr|workprint|wp|r5|line\.?audio|hc|hardcoded|vhs-?rip|pdvd|clean\.audio)\b/i;
+    
+    // Check standalone TS / CAM / TC / SCR tags enclosed in brackets, dots, hyphens, or spaces
+    const badTagRegex = /[\.\_\s\-\[\(](TS|CAM|TC|SCR|HDCAM|HDTS|TELESYNC|TELECINE|DVDSCR|WORKPRINT)[\.\_\s\-\]\)]/i;
+
+    return lowQualityRegex.test(nameLower) || badTagRegex.test(titleName);
+  };
+
+  // Cache for Premiumize Cloud file listings (per token, 30-second TTL)
   const pmCloudCache = new Map<string, { files: any[]; expiry: number }>();
 
   // Helper: Recursive folder scanner for all files in user's Premiumize Cloud storage
-  const fetchPmCloudFiles = async (token: string): Promise<any[]> => {
+  const fetchPmCloudFiles = async (token: string, forceRefresh = false): Promise<any[]> => {
     const now = Date.now();
     const cached = pmCloudCache.get(token);
-    if (cached && now < cached.expiry) {
+    if (!forceRefresh && cached && now < cached.expiry) {
       return cached.files;
     }
 
     const allFiles: any[] = [];
     const visitedFolders = new Set<string>();
 
-    const scanFolder = async (folderId?: string, depth = 0): Promise<void> => {
-      if (depth > 3) return; // cap depth at 3 to limit API calls
+    const scanFolder = async (folderId?: string, folderName = '', depth = 0): Promise<void> => {
+      if (depth > 6) return; // Traverse up to 6 subfolder levels deep
       const fId = folderId || 'root';
       if (visitedFolders.has(fId)) return;
       visitedFolders.add(fId);
 
       try {
         const url = `https://www.premiumize.me/api/folder/list?apikey=${encodeURIComponent(token)}${folderId ? `&id=${encodeURIComponent(folderId)}` : ''}`;
-        const res = await axios.get(url, { timeout: 8000 }).catch(() => null);
+        const res = await axios.get(url, { timeout: 10000 }).catch(() => null);
         if (res?.data?.status === 'success' && Array.isArray(res.data.content)) {
           const subfolders: any[] = [];
           for (const item of res.data.content) {
             if (item.type === 'file') {
-              allFiles.push(item);
+              allFiles.push({
+                ...item,
+                parentFolderName: folderName
+              });
             } else if (item.type === 'folder' && item.id) {
               subfolders.push(item);
             }
           }
-          // Scan all subfolders in parallel instead of sequentially
-          await Promise.all(subfolders.map((f) => scanFolder(f.id, depth + 1)));
+          await Promise.all(subfolders.map((f) => scanFolder(f.id, f.name || folderName, depth + 1)));
         }
       } catch (e) {}
     };
 
     await scanFolder();
 
-    // Store in cache with 2-minute TTL
-    pmCloudCache.set(token, { files: allFiles, expiry: now + 2 * 60 * 1000 });
+    // Store in cache with 30-second TTL
+    pmCloudCache.set(token, { files: allFiles, expiry: now + 30 * 1000 });
     return allFiles;
   };
 
@@ -3104,19 +3124,31 @@ app.get('/api/youtube/search', async (req, res) => {
     const token = getPmToken(req);
     if (!token) return res.status(401).json({ error: "Premiumize API Key is required." });
 
-    const { title, year, season, episode } = req.body;
+    const { title, year, season, episode, refresh } = req.body;
     if (!title || typeof title !== 'string') {
       return res.status(400).json({ error: "Title parameter is required." });
     }
 
     try {
-      const cleanTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (refresh === true) {
+        invalidatePmCloudCache(token);
+      }
+
+      // Extract core title tokens for flexible matching
+      const coreTitle = title
+        .toLowerCase()
+        .replace(/\b(19|20)\d{2}\b/g, '') // strip year like 2022
+        .replace(/\b(us|uk|au|ca)\b/gi, '') // strip country codes
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .trim();
+      
+      const titleTokens = coreTitle.split(/\s+/).filter(w => w.length > 1 && !['the', 'a', 'an', 'and', 'or', 'of'].includes(w));
+      const cleanTitle = coreTitle.replace(/\s+/g, '');
+
       const sNum = season !== undefined && season !== null ? parseInt(String(season), 10) : null;
       const eNum = episode !== undefined && episode !== null ? parseInt(String(episode), 10) : null;
-      const sStr = sNum !== null ? `s${sNum.toString().padStart(2, '0')}` : '';
-      const eStr = eNum !== null ? `e${eNum.toString().padStart(2, '0')}` : '';
 
-      const cloudFiles = await fetchPmCloudFiles(token);
+      const cloudFiles = await fetchPmCloudFiles(token, refresh === true);
       const cloudItems: any[] = [];
       const seenIds = new Set<string>();
 
@@ -3124,6 +3156,10 @@ app.get('/api/youtube/search', async (req, res) => {
 
       cloudFiles.forEach((f: any) => {
         const originalName = f.name || '';
+        const parentFolder = f.parentFolderName || '';
+        const combinedPath = `${parentFolder} ${originalName}`.toLowerCase();
+        const combinedClean = combinedPath.replace(/[^a-z0-9]/g, '');
+
         const ext = path.extname(originalName).toLowerCase();
         
         // 1. Filter out non-video files (.nfo, .txt, .srt, .jpg, .png, .zip, etc.)
@@ -3131,28 +3167,33 @@ app.get('/api/youtube/search', async (req, res) => {
           return;
         }
 
-        const rawName = originalName.toLowerCase();
-        const fNameClean = rawName.replace(/[^a-z0-9]/g, '');
+        // 2. Filter out Telesync / CAM / TS / SCR releases
+        if (isLowQualityRelease(originalName) || isLowQualityRelease(parentFolder)) {
+          return;
+        }
 
-        // 2. Title matching
-        const matchesTitle = fNameClean.includes(cleanTitle);
-        if (!matchesTitle) return;
+        // 3. Flexible Title matching: either cleaned string match or tokenized match
+        const matchesCleanTitle = cleanTitle.length > 0 && combinedClean.includes(cleanTitle);
+        const matchesTokens = titleTokens.length > 0 && titleTokens.every(tok => combinedPath.includes(tok));
 
-        // 3. Strict Season matching: check regex for S19 / Season 19 / 19x
+        if (!matchesCleanTitle && !matchesTokens) {
+          return;
+        }
+
+        // 4. Season matching against file name or parent folder
         if (sNum !== null) {
           const seasonRegex = new RegExp(`\\b(s0*${sNum}|season\\s*0*${sNum}|0*${sNum}x)\\b`, 'i');
-          // Also allow s19e01 pattern
           const sFormatted = `s${sNum.toString().padStart(2, '0')}`;
-          if (!seasonRegex.test(rawName) && !rawName.includes(sFormatted)) {
+          if (!seasonRegex.test(combinedPath) && !combinedPath.includes(sFormatted)) {
             return;
           }
         }
 
-        // 4. Strict Episode matching: check regex for E01 / Episode 01 / x01
+        // 5. Episode matching against file name or parent folder
         if (eNum !== null) {
           const episodeRegex = new RegExp(`\\b(e0*${eNum}|ep0*${eNum}|episode\\s*0*${eNum}|x0*${eNum})\\b`, 'i');
           const eFormatted = `e${eNum.toString().padStart(2, '0')}`;
-          if (!episodeRegex.test(rawName) && !rawName.includes(eFormatted)) {
+          if (!episodeRegex.test(combinedPath) && !combinedPath.includes(eFormatted)) {
             return;
           }
         }
