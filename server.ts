@@ -1225,11 +1225,13 @@ async function startServer() {
     }
   });
 
+  let geminiCooldownUntil = 0;
+
   // Helper function to call AI APIs with automatic multi-provider fallback:
   // Gemini API -> Groq API (Free Tier) -> OpenRouter Free API -> Local Ollama
   async function callAiWithFallback(passedApiKey: string, prompt: string, options: { responseMimeType?: string; timeout?: number } = {}): Promise<string> {
     const settings = readJson(SETTINGS_FILE);
-    const geminiKey = (passedApiKey || settings.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
+    const rawGeminiKey = (passedApiKey || settings.geminiApiKey || process.env.GEMINI_API_KEY || '').trim();
     const groqKey = (settings.groqApiKey || process.env.GROQ_API_KEY || '').trim();
     const openRouterKey = (settings.openRouterApiKey || process.env.OPENROUTER_API_KEY || '').trim();
     const timeoutMs = options.timeout || 30000;
@@ -1237,8 +1239,18 @@ async function startServer() {
     const errors: string[] = [];
 
     // 1. PRIMARY PROVIDER: GOOGLE GEMINI API
-    if (geminiKey) {
-      const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+    const isGeminiKeyFormatValid = rawGeminiKey.startsWith('AIzaSy');
+    const isGeminiInCooldown = Date.now() < geminiCooldownUntil;
+
+    if (rawGeminiKey && !isGeminiKeyFormatValid) {
+      console.warn(`[AI System Warning] Provided Gemini API Key ('${rawGeminiKey.substring(0, 8)}...') is NOT a valid Google AI Studio key (must start with 'AIzaSy'). Get a valid key from https://aistudio.google.com/app/apikey. Skipping Gemini and cascading to fallback AI providers.`);
+      errors.push('Invalid Gemini Key format (must start with AIzaSy)');
+    } else if (rawGeminiKey && isGeminiInCooldown) {
+      const remainingSec = Math.ceil((geminiCooldownUntil - Date.now()) / 1000);
+      console.warn(`[AI System] Gemini API is currently in rate-limit cooldown (${remainingSec}s remaining). Cascading to fallback AI provider...`);
+      errors.push('Gemini 429 Rate Limit Cooldown Active');
+    } else if (rawGeminiKey && isGeminiKeyFormatValid) {
+      const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
       for (const model of models) {
         try {
           const payload: any = { contents: [{ parts: [{ text: prompt }] }] };
@@ -1247,7 +1259,7 @@ async function startServer() {
           }
 
           const res = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${rawGeminiKey}`,
             payload,
             { timeout: timeoutMs, headers: { 'Content-Type': 'application/json' } }
           );
@@ -1259,7 +1271,8 @@ async function startServer() {
         } catch (err: any) {
           const status = err.response?.status;
           if (status === 429) {
-            console.warn(`[AI System] Gemini API rate limited / quota exceeded (429). Cascading to fallback AI provider...`);
+            geminiCooldownUntil = Date.now() + 5 * 60 * 1000; // 5-minute circuit breaker
+            console.warn(`[AI System] Gemini API rate limited / quota exceeded (429). Setting 5-minute cooldown and cascading to fallback AI provider...`);
             errors.push('Gemini 429 Rate Limit');
             break;
           }
