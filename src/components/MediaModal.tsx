@@ -217,6 +217,17 @@ export default function MediaModal({
 
 
 
+  const isFutureAirDate = (airDateStr?: string): boolean => {
+    if (!airDateStr || typeof airDateStr !== 'string') return false;
+    const parts = airDateStr.split('-').map(p => parseInt(p, 10));
+    if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return false;
+
+    const epDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59);
+    const now = new Date();
+
+    return epDate.getTime() > now.getTime();
+  };
+
   const isSeries = movie?.type === 'series' || movie?.type === 'tv' || movie?.type === 'show' || movie?.type === 'tvseries' || !!movie?.first_air_date;
   const [resolvedTmdbId, setResolvedTmdbId] = useState<number | null>(null);
 
@@ -936,6 +947,12 @@ export default function MediaModal({
         setStreams(filterAndSortTvStreams(initialData));
       }
 
+      if (currentEp?.air_date && isFutureAirDate(currentEp.air_date)) {
+        console.log(`[Episode Streams] Skipping stream searches for S${selectedSeason}E${selectedEpisode} - episode air date (${currentEp.air_date}) is in the future.`);
+        setLoading(false);
+        return;
+      }
+
       const iptvPromise = fetch(`/api/iptv/vod/search?title=${encodeURIComponent(movie.title || movie.name)}&type=series&season=${selectedSeason}&episode=${selectedEpisode}`)
         .then(r => r.json())
         .catch(() => null);
@@ -1615,6 +1632,17 @@ export default function MediaModal({
 
                   return (
                     <div className="flex flex-col flex-1 min-h-0 gap-6">
+                        {isSeries && isFutureAirDate(episodes.find(e => e.episode_number === selectedEpisode)?.air_date) && (
+                          <div className="flex items-center gap-3 p-4 rounded-xl bg-purple-950/40 border border-purple-500/30 text-purple-200 text-xs mb-2">
+                            <Calendar className="w-5 h-5 text-purple-400 shrink-0" />
+                            <div>
+                              <p className="font-bold text-white">Upcoming Episode — Not Aired Yet</p>
+                              <p className="text-purple-300/80 mt-0.5">
+                                Episode {selectedEpisode} is scheduled to air on <span className="font-mono font-bold text-purple-200">{episodes.find(e => e.episode_number === selectedEpisode)?.air_date}</span>. External stream searches are skipped.
+                              </p>
+                            </div>
+                          </div>
+                        )}
                         {/* Instant Cloud, Local & Active Streams Container */}
                         <div className="flex flex-col shrink-0">
                             <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2">
