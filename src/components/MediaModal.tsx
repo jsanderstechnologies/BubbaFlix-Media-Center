@@ -1329,10 +1329,23 @@ export default function MediaModal({
 
   return (
     <div id="media-modal" className={`fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn ${isHidden ? 'hidden' : ''}`}>
-      <div inert={resumePromptStream ? true : undefined} className="bg-[#0c0c12] border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
-        <div className="relative h-32 sm:h-40 md:h-48 bg-slate-800 shrink-0">
-            {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-35" referrerPolicy="no-referrer" />}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/60 to-transparent"></div>
+      {/* Full-Screen TMDB Backdrop Image overlay with glassmorphic transparency */}
+      {(movie.backdrop || movie.poster || movie.backupPoster) && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <img 
+            src={movie.backdrop || movie.poster || movie.backupPoster} 
+            alt="" 
+            className="w-full h-full object-cover opacity-30 blur-lg scale-105 transition-all duration-700" 
+            referrerPolicy="no-referrer" 
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12]/90 via-[#0c0c12]/70 to-[#0c0c12]/60"></div>
+        </div>
+      )}
+
+      <div inert={resumePromptStream ? true : undefined} className="relative z-10 bg-[#0c0c12]/75 backdrop-blur-2xl border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
+        <div className="relative h-32 sm:h-40 md:h-48 shrink-0">
+            {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-30 blur-sm" referrerPolicy="no-referrer" />}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12]/90 via-[#0c0c12]/40 to-transparent"></div>
             <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer">
                 <X className="w-5 h-5" />
             </button>
