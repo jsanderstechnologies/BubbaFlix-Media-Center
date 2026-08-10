@@ -72,6 +72,7 @@ function MainApp() {
   const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
+  const [isVideoLoaded, setIsVideoLoaded] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [isIdle, setIsIdle] = useState(false);
@@ -570,6 +571,7 @@ function MainApp() {
     savePlaybackProgress();
 
     setIsPlaying(false); 
+    setIsVideoLoaded(false);
     setPlayerStatus('STREAM READY'); 
     setPlayingUrl('');
     setPlayingContext(null);
@@ -581,6 +583,12 @@ function MainApp() {
     setSelectedSubtitleTrack(null);
     setMediaInfo(null);
   };
+
+  useEffect(() => {
+    if (isPlaying) {
+      setIsVideoLoaded(false);
+    }
+  }, [isPlaying, playingUrl]);
 
   // Periodically save playback progress
   useEffect(() => {
@@ -821,8 +829,36 @@ function MainApp() {
                 </div>
               )}
           </div>
-          <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black">
-            
+          <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black overflow-hidden">
+            {/* TMDB Backdrop Image Displayed Until Video Starts Playing */}
+            {(!isVideoLoaded || playerStatus.includes('BUFFERING') || playerStatus.includes('READY') || playerStatus.includes('SWITCHING')) && (
+              <div className="absolute inset-0 z-[105] pointer-events-none transition-opacity duration-700 overflow-hidden bg-black flex flex-col items-center justify-center">
+                {activePoster ? (
+                  <img 
+                    src={activePoster} 
+                    alt="Backdrop" 
+                    className="w-full h-full object-cover opacity-35 filter blur-sm scale-105 transition-all duration-1000 animate-pulse" 
+                    referrerPolicy="no-referrer" 
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-slate-900 via-black to-slate-950 opacity-90" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/70" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center p-6 z-10">
+                  <Loader2 className="w-14 h-14 text-red-500 animate-spin drop-shadow-[0_0_20px_rgba(239,68,68,0.6)]" />
+                  <span className="text-white/90 font-mono font-bold tracking-widest text-xs uppercase animate-pulse">
+                    {playerStatus || 'Loading Stream...'}
+                  </span>
+                  {selectedMovie && (
+                    <div className="flex flex-col items-center gap-1 mt-2 max-w-lg">
+                      <span className="text-white text-xl font-bold tracking-tight truncate drop-shadow-lg">{selectedMovie.title || selectedMovie.name}</span>
+                      {selectedMovie.year && <span className="text-white/60 text-xs font-mono">{selectedMovie.year}</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
           {playingUrl ? (
             <>
               {playingContext?.isLive ? (
@@ -861,7 +897,11 @@ function MainApp() {
                   }}
                   onPlay={() => { 
                     setIsVideoPlaying(true); 
+                    setIsVideoLoaded(true);
                     setPlayerStatus(""); // Clear buffering text when playing
+                  }}
+                  onCanPlay={() => {
+                    setIsVideoLoaded(true);
                   }}
                   onPause={() => { 
                     setIsVideoPlaying(false); 
@@ -879,6 +919,7 @@ function MainApp() {
                   autoPlay
                   className="w-full h-full object-contain absolute top-0 left-0"
                   onTimeUpdate={(e) => {
+                    if (e.currentTarget.currentTime > 0) setIsVideoLoaded(true);
                     setCurrentTime(e.currentTarget.currentTime);
                     if (e.currentTarget.buffered.length > 0) {
                       setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
@@ -900,7 +941,11 @@ function MainApp() {
                   }}
                   onPlay={() => { 
                     setIsVideoPlaying(true); 
+                    setIsVideoLoaded(true);
                     setPlayerStatus("PLAYING 4K HDR"); 
+                  }}
+                  onCanPlay={() => {
+                    setIsVideoLoaded(true);
                   }}
                   onPause={() => { 
                     setIsVideoPlaying(false); 
@@ -927,6 +972,7 @@ function MainApp() {
                   autoPlay
                   className="w-full h-full object-contain absolute top-0 left-0"
                   onTimeUpdate={(e) => {
+                    if (e.currentTarget.currentTime > 0) setIsVideoLoaded(true);
                     setCurrentTime(e.currentTarget.currentTime);
                     if (e.currentTarget.buffered.length > 0) {
                       setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
@@ -966,7 +1012,11 @@ function MainApp() {
                   }}
                   onPlay={() => { 
                     setIsVideoPlaying(true); 
+                    setIsVideoLoaded(true);
                     setPlayerStatus("PLAYING 4K HDR"); 
+                  }}
+                  onCanPlay={() => {
+                    setIsVideoLoaded(true);
                   }}
                   onPause={() => { 
                     setIsVideoPlaying(false); 
