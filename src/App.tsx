@@ -28,6 +28,7 @@ import NewsPanel from './components/NewsPanel';
 import WeatherAlertModal from './components/WeatherAlertModal';
 import { fetchActiveWeatherAlerts, WeatherAlert } from './lib/weatherAlerts';
 import SpatialNavigation from 'spatial-navigation-js';
+import { detectDeviceCapabilities } from './lib/deviceDetection';
 
 
 const queryClient = new QueryClient();
@@ -806,7 +807,7 @@ function MainApp() {
                     <button onClick={() => setShowMediaInfo(false)} className="focusable text-white/40 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"><X className="w-5 h-5"/></button>
                   </div>
                   <div className="flex flex-col gap-3 text-sm">
-                    <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Transcoder</span> <span className="text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-xs font-bold">{mediaInfo.activeTranscoder || (playingContext?.isHevc ? (systemSettings.intelTranscoding ? 'Intel VAAPI (GPU)' : 'FFmpeg (CPU)') : 'Direct Stream Pass-through')}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Transcoder</span> <span className="text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-xs font-bold">{mediaInfo.activeTranscoder || (detectDeviceCapabilities().canDirectPlay ? `Direct Play (${detectDeviceCapabilities().deviceName})` : (playingContext?.isHevc ? (systemSettings.intelTranscoding ? 'Intel VAAPI (GPU)' : 'FFmpeg (CPU)') : 'Direct Stream Pass-through'))}</span></div>
                     <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Container</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{(mediaInfo.format?.format_name || '').split(',')[0].toUpperCase()}</span></div>
                     <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Bitrate</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{Math.round((mediaInfo.format?.bit_rate || 0)/1000)} kbps</span></div>
                     {mediaInfo.streams?.filter((s: any) => s.codec_type === 'video')[0] && (
@@ -823,30 +824,30 @@ function MainApp() {
                       <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Subtitles</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.filter((s: any) => s.codec_type === 'subtitle').length}</span></div>
                     )}
                   {bufferedSeconds > 0 && (
-                    <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Local Client Buffer</span> <span className="text-emerald-400 font-mono bg-white/5 px-2 py-1 rounded">{Math.round(Math.max(0, bufferedSeconds - currentTime))}s ahead</span></div>
+                    <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Stream Buffer</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{Math.round(bufferedSeconds)}s</span></div>
                   )}
                   </div>
                 </div>
               )}
           </div>
           <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black overflow-hidden">
-            {/* TMDB Backdrop Image Displayed Until Video Starts Playing */}
-            {(!isVideoLoaded || playerStatus.includes('BUFFERING') || playerStatus.includes('READY') || playerStatus.includes('SWITCHING')) && (
-              <div className="absolute inset-0 z-[105] pointer-events-none transition-opacity duration-700 overflow-hidden bg-black flex flex-col items-center justify-center">
-                {activePoster ? (
-                  <img 
-                    src={activePoster} 
-                    alt="Backdrop" 
-                    className="w-full h-full object-cover opacity-35 filter blur-sm scale-105 transition-all duration-1000 animate-pulse" 
-                    referrerPolicy="no-referrer" 
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-slate-900 via-black to-slate-950 opacity-90" />
+            {/* Glowing Loader & TMDB Backdrop Player Overlay while video is loading/buffering */}
+            {!isVideoLoaded && (
+              <div className="absolute inset-0 z-40 bg-[#06060a] flex flex-col items-center justify-center pointer-events-none">
+                {playingContext?.activePoster && (
+                  <div className="absolute inset-0 overflow-hidden opacity-35">
+                    <img 
+                      src={playingContext.activePoster} 
+                      alt="" 
+                      className="w-full h-full object-cover blur-sm scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#06060a] via-[#06060a]/60 to-[#06060a]/80"></div>
+                  </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/70" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center p-6 z-10">
-                  <Loader2 className="w-14 h-14 text-red-500 animate-spin drop-shadow-[0_0_20px_rgba(239,68,68,0.6)]" />
-                  <span className="text-white/90 font-mono font-bold tracking-widest text-xs uppercase animate-pulse">
+                <div className="relative z-10 flex flex-col items-center gap-4 text-center px-4">
+                  <Loader2 className="w-12 h-12 text-red-500 animate-spin drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]" />
+                  <span className="text-white/80 font-mono text-sm tracking-wider uppercase animate-pulse font-semibold">
                     {playerStatus || 'Loading Stream...'}
                   </span>
                   {selectedMovie && (
@@ -915,7 +916,7 @@ function MainApp() {
                 <video 
                   key={`${playingUrl}-${selectedAudioTrack}-${selectedSubtitleTrack}-${subtitleOffset}`}
                   ref={videoRef}
-                  src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&hevc=${playingContext?.isHevc === true}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}&live=${playingContext?.isLive ? 'true' : 'false'}`}
+                  src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&hevc=${playingContext?.isHevc === true}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}&live=${playingContext?.isLive ? 'true' : 'false'}&direct=${detectDeviceCapabilities().canDirectPlay}`}
                   autoPlay
                   className="w-full h-full object-contain absolute top-0 left-0"
                   onTimeUpdate={(e) => {
@@ -968,7 +969,7 @@ function MainApp() {
                 <video 
                   key={`${playingUrl}-${selectedAudioTrack}`}
                   ref={videoRef}
-                  src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&hevc=${playingContext?.isHevc === true}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}&live=${playingContext?.isLive ? 'true' : 'false'}`}
+                  src={`/api/transcode/stream.mp4?url=${encodeURIComponent(playingUrl)}&start=${streamOffset}&hevc=${playingContext?.isHevc === true}&audio=${encodeURIComponent(selectedAudioTrack || userSettings.audioLanguage || 'eng')}&sub=${encodeURIComponent(userSettings.ccLanguage || 'eng')}&autoCC=${userSettings.autoCC !== false}&leveling=${userSettings.enableAudioLeveling !== false}&bufsize=${Math.max(16, Math.round((15000000 * parseInt(systemSettings.streamBufferSeconds || '60', 10)) / 8000000))}M&intel=${systemSettings.intelTranscoding === true}&live=${playingContext?.isLive ? 'true' : 'false'}&direct=${detectDeviceCapabilities().canDirectPlay}`}
                   autoPlay
                   className="w-full h-full object-contain absolute top-0 left-0"
                   onTimeUpdate={(e) => {

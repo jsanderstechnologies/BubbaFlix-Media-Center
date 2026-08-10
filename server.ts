@@ -2351,6 +2351,21 @@ app.get('/api/youtube/search', async (req, res) => {
   });
 
   
+  // API Route: Detect device capabilities and return Direct Play suitability for Android TV & Custom Browsers
+  app.get("/api/device/detect", (req, res) => {
+    const userAgent = req.headers['user-agent'] || '';
+    const isAndroidTVDevice = /AndroidTV|Android TV|ExoPlayer|BubbaFlixTV|CustomTV|TVBrowser|SmartTV|Android/i.test(userAgent);
+    const isCustomTV = /CustomTV|BubbaFlixTV|ExoPlayer/i.test(userAgent);
+
+    res.json({
+      success: true,
+      userAgent,
+      isAndroidTVDevice,
+      isCustomTV,
+      recommendedDirectPlay: isAndroidTVDevice || isCustomTV
+    });
+  });
+
   app.get("/api/transcode/stream.mp4", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl || typeof targetUrl !== 'string') {
@@ -2381,6 +2396,21 @@ app.get('/api/youtube/search', async (req, res) => {
           isLocalFile = true;
         }
       } catch (e) {}
+    }
+
+    // Custom Android TV Browser & Native Hardware Player Direct Play Bypass Check
+    const userAgent = req.headers['user-agent'] || '';
+    const forceDirectPlay = req.query.direct === 'true' || req.query.direct === '1' || req.query.directPlay === 'true' || req.headers['x-native-player'] === '1';
+    const isAndroidTVDevice = /AndroidTV|Android TV|ExoPlayer|BubbaFlixTV|CustomTV|TVBrowser|SmartTV/i.test(userAgent);
+
+    if (forceDirectPlay || isAndroidTVDevice) {
+      console.log(`[Stream Dispatcher] Detected Custom Android TV Browser / Native Hardware Player (UA: "${userAgent}"). Direct Play Pass-Through active (0% Transcode CPU).`);
+      if (isLocalFile && localFilePath) {
+        return res.redirect(302, `/api/local-media/stream?path=${encodeURIComponent(localFilePath)}`);
+      }
+      if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+        return res.redirect(302, targetUrl);
+      }
     }
 
     // TorBox requestdl links are passed directly to FFmpeg so 307 redirects are followed natively without token invalidation
