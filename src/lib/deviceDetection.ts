@@ -70,7 +70,8 @@ export function detectDeviceCapabilities(): DeviceCapabilities {
     canDecodeAc3 = true;
   }
 
-  const canDirectPlay = isAndroidTV || isCustomApp || (canDecodeHevc && canDecodeMkv);
+  // Direct Play is strictly reserved for Android TV hardware & Custom TV Browser apps with native hardware decoders
+  const canDirectPlay = isAndroidTV || isCustomApp;
 
   let deviceName = 'Standard Web Browser';
   if (isCustomApp) deviceName = 'Custom Android TV Browser (Native Hardware Decoder)';

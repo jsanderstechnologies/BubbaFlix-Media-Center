@@ -2403,7 +2403,7 @@ app.get('/api/youtube/search', async (req, res) => {
     const forceDirectPlay = req.query.direct === 'true' || req.query.direct === '1' || req.query.directPlay === 'true' || req.headers['x-native-player'] === '1';
     const isAndroidTVDevice = /AndroidTV|Android TV|ExoPlayer|BubbaFlixTV|CustomTV|TVBrowser|SmartTV/i.test(userAgent);
 
-    if (forceDirectPlay || isAndroidTVDevice) {
+    if ((forceDirectPlay && (isAndroidTVDevice || req.headers['x-native-player'] === '1' || req.query.forceDirect === 'true')) || isAndroidTVDevice) {
       console.log(`[Stream Dispatcher] Detected Custom Android TV Browser / Native Hardware Player (UA: "${userAgent}"). Direct Play Pass-Through active (0% Transcode CPU).`);
       if (isLocalFile && localFilePath) {
         return res.redirect(302, `/api/local-media/stream?path=${encodeURIComponent(localFilePath)}`);
