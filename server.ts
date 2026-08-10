@@ -2581,6 +2581,38 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
+  // API Route: Active NWS Weather Alerts for Android TV Clients
+  app.get("/api/weather/alerts", async (req, res) => {
+    try {
+      const lat = parseFloat(req.query.lat as string) || 35.0;
+      const lon = parseFloat(req.query.lon as string) || -85.0;
+      const nwsUrl = `https://api.weather.gov/alerts/active?point=${lat.toFixed(4)},${lon.toFixed(4)}`;
+      const response = await fetch(nwsUrl, {
+        headers: { 'User-Agent': '(BubbaFlix-Media-Center, weather-alert-service)' }
+      });
+      if (!response.ok) {
+        return res.json({ success: true, count: 0, alerts: [] });
+      }
+      const data = await response.json();
+      const alerts = (data.features || []).map((f: any) => ({
+        id: f.id || f.properties?.id,
+        event: f.properties?.event || 'Weather Alert',
+        headline: f.properties?.headline || f.properties?.event,
+        severity: f.properties?.severity || 'Moderate',
+        urgency: f.properties?.urgency,
+        areaDesc: f.properties?.areaDesc,
+        description: f.properties?.description,
+        instruction: f.properties?.instruction,
+        effective: f.properties?.effective,
+        expires: f.properties?.expires
+      }));
+      res.json({ success: true, count: alerts.length, alerts });
+    } catch (e: any) {
+      console.error("[Backend] Weather Alert Error:", e);
+      res.status(500).json({ error: e.message || "Failed to fetch weather alerts" });
+    }
+  });
+
   // Search Stream Proxies
 
   async function filterWithGemini(query: string, items: any[], settings: any, isMusic: boolean = false): Promise<any[]> {

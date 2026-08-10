@@ -37,6 +37,44 @@ export function dismissAlertId(alertId: string) {
   }
 }
 
+export function pushAlertToAndroidTV(alert: WeatherAlert) {
+  try {
+    // 1. Android TV JavaScript Interface Bridges
+    if ((window as any).AndroidInterface?.pushWeatherAlert) {
+      (window as any).AndroidInterface.pushWeatherAlert(JSON.stringify(alert));
+    }
+    if ((window as any).AndroidTV?.pushNotification) {
+      (window as any).AndroidTV.pushNotification(alert.event, alert.headline || alert.description);
+    }
+    if ((window as any).AndroidNativePlayer?.onWeatherAlert) {
+      (window as any).AndroidNativePlayer.onWeatherAlert(JSON.stringify(alert));
+    }
+    if ((window as any).isNativeAndroidTV || (window as any).isCustomTVBrowser) {
+      window.dispatchEvent(new CustomEvent('androidtv_weather_alert', { detail: alert }));
+    }
+
+    // 2. HTML5 System Push Notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(`🚨 ${alert.event}`, {
+        body: alert.headline || alert.description || 'Active Severe Weather Alert',
+        tag: alert.id,
+        requireInteraction: alert.severity === 'Extreme' || alert.severity === 'Severe'
+      });
+    } else if ('Notification' in window && Notification.permission !== 'denied') {
+      Notification.requestPermission().then(perm => {
+        if (perm === 'granted') {
+          new Notification(`🚨 ${alert.event}`, {
+            body: alert.headline || alert.description || 'Active Severe Weather Alert',
+            tag: alert.id
+          });
+        }
+      });
+    }
+  } catch (e) {
+    console.error('Error pushing weather alert to Android TV:', e);
+  }
+}
+
 export async function fetchActiveWeatherAlerts(lat: number, lon: number): Promise<WeatherAlert[]> {
   try {
     const nwsUrl = `https://api.weather.gov/alerts/active?point=${lat.toFixed(4)},${lon.toFixed(4)}`;
@@ -67,6 +105,8 @@ export async function fetchActiveWeatherAlerts(lat: number, lon: number): Promis
         logger.info(`WeatherAlerts: Detected ${newAlerts.length} active severe weather alerts`, {
           events: newAlerts.map(a => a.event)
         });
+        // Push top alert to Android TV native bridge & system notification
+        pushAlertToAndroidTV(newAlerts[0]);
       }
 
       return newAlerts;
