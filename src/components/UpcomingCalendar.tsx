@@ -6,6 +6,7 @@ import { useSettings } from '../lib/settings';
 
 interface UpcomingCalendarProps {
   defaultType?: 'movie' | 'tv' | 'all';
+  hideModeSelector?: boolean;
   onSelectMedia: (media: any) => void;
   onHoverMedia?: (posterUrl: string) => void;
   filterGenre?: number;
@@ -13,6 +14,7 @@ interface UpcomingCalendarProps {
 
 export default function UpcomingCalendar({
   defaultType = 'all',
+  hideModeSelector = false,
   onSelectMedia,
   onHoverMedia,
   filterGenre = 0
@@ -115,37 +117,41 @@ export default function UpcomingCalendar({
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
         <div className="flex items-center gap-2">
           <CalendarIcon className="w-5 h-5 text-red-500" />
-          <h2 className="text-lg font-bold text-white tracking-tight">TMDB Release Calendar</h2>
+          <h2 className="text-lg font-bold text-white tracking-tight">
+            {activeMode === 'movie' ? 'Upcoming Movies Release Calendar' : activeMode === 'tv' ? 'Upcoming TV Series & Episode Airings' : 'TMDB Release Calendar'}
+          </h2>
         </div>
 
-        <div className="flex items-center gap-2 bg-black/40 border border-white/10 p-1 rounded-xl">
-          <button
-            onClick={() => setActiveMode('all')}
-            className={`focusable px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
-              activeMode === 'all' ? 'bg-red-600 text-white shadow-lg' : 'text-white/70 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            All Upcoming
-          </button>
-          <button
-            onClick={() => setActiveMode('movie')}
-            className={`focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
-              activeMode === 'movie' ? 'bg-red-600 text-white shadow-lg' : 'text-white/70 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Film className="w-3.5 h-3.5" />
-            Upcoming Movies
-          </button>
-          <button
-            onClick={() => setActiveMode('tv')}
-            className={`focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
-              activeMode === 'tv' ? 'bg-red-600 text-white shadow-lg' : 'text-white/70 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Tv className="w-3.5 h-3.5" />
-            Upcoming Episodes
-          </button>
-        </div>
+        {!hideModeSelector && (
+          <div className="flex items-center gap-2 bg-black/40 border border-white/10 p-1 rounded-xl">
+            <button
+              onClick={() => setActiveMode('all')}
+              className={`focusable px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                activeMode === 'all' ? 'bg-red-600 text-white shadow-lg' : 'text-white/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              All Upcoming
+            </button>
+            <button
+              onClick={() => setActiveMode('movie')}
+              className={`focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                activeMode === 'movie' ? 'bg-red-600 text-white shadow-lg' : 'text-white/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Film className="w-3.5 h-3.5" />
+              Upcoming Movies
+            </button>
+            <button
+              onClick={() => setActiveMode('tv')}
+              className={`focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                activeMode === 'tv' ? 'bg-red-600 text-white shadow-lg' : 'text-white/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Tv className="w-3.5 h-3.5" />
+              Upcoming Episodes
+            </button>
+          </div>
+        )}
       </div>
 
       {isLoading ? (

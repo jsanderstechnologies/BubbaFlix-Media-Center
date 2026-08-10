@@ -1533,7 +1533,7 @@ function MainApp() {
                 {movieViewMode === 'grid' ? (
                   <CatalogGrid onSelectMovie={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={movieSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
                 ) : (
-                  <UpcomingCalendar defaultType="movie" onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
+                  <UpcomingCalendar defaultType="movie" hideModeSelector={true} onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
                 )}
               </>
             ) : activeTab === 'series' ? (
@@ -1615,7 +1615,7 @@ function MainApp() {
                 {seriesViewMode === 'grid' ? (
                   <TvSeriesGrid onSelectSeries={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={seriesSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
                 ) : (
-                  <UpcomingCalendar defaultType="tv" onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
+                  <UpcomingCalendar defaultType="tv" hideModeSelector={true} onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
                 )}
               </>
             ) : activeTab === 'search' ? (

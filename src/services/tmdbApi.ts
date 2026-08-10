@@ -15,7 +15,7 @@ export const getCachedImageUrl = (pathOrUrl: string | null | undefined): string 
 };
 
 
-const applyFilters = (results: any[], isSearch: boolean = false) => {
+const applyFilters = (results: any[], isSearch: boolean = false, isCalendar: boolean = false) => {
   // Deduplicate results by ID to avoid React duplicate key warnings
   const seen = new Set();
   const uniqueResults = results.filter(m => {
@@ -33,7 +33,7 @@ const applyFilters = (results: any[], isSearch: boolean = false) => {
   const today = new Date().toISOString().split('T')[0];
 
   return uniqueResults.filter(m => {
-    if (hideUnreleasedMedia) {
+    if (!isCalendar && hideUnreleasedMedia) {
       const isTv = !!(m.first_air_date || m.name);
       if (isTv) {
         // TV Series: Only filter out if first air date is in the future, or if status is Rumored/Planned without a past air date
@@ -258,15 +258,10 @@ export const getUpcomingMovies = async (genreId: number = 0) => {
       fetch(`${endpoint}&page=1`).then(r => r.json()).catch(() => ({})),
       fetch(`${endpoint}&page=2`).then(r => r.json()).catch(() => ({}))
     ]);
-    const results = pages.flatMap(p => p.results || []).filter(m => m && m.id && m.release_date && m.release_date >= today);
-    const seen = new Set();
-    const unique = results.filter(m => {
-      if (seen.has(m.id)) return false;
-      seen.add(m.id);
-      return true;
-    });
+    const rawResults = pages.flatMap(p => p.results || []).filter(m => m && m.id && m.release_date && m.release_date >= today);
+    const filtered = applyFilters(rawResults, false, true);
 
-    return unique.slice(0, 50).map((m: any) => ({
+    return filtered.slice(0, 50).map((m: any) => ({
       id: m.id,
       title: m.title,
       year: m.release_date?.substring(0, 4) || 'N/A',
@@ -294,15 +289,10 @@ export const getUpcomingTvSeries = async (genreId: number = 0) => {
       fetch(`${BASE_URL}/tv/on_the_air?api_key=${apiKey}&page=1`).then(r => r.json()).catch(() => ({})),
       fetch(`${BASE_URL}/discover/tv?api_key=${apiKey}&first_air_date.gte=${today}&sort_by=first_air_date.asc${genreId > 0 ? `&with_genres=${genreId}` : ''}&page=1`).then(r => r.json()).catch(() => ({}))
     ]);
-    const results = pages.flatMap(p => p.results || []).filter(m => m && m.id);
-    const seen = new Set();
-    const unique = results.filter(m => {
-      if (seen.has(m.id)) return false;
-      seen.add(m.id);
-      return true;
-    });
+    const rawResults = pages.flatMap(p => p.results || []).filter(m => m && m.id);
+    const filtered = applyFilters(rawResults, false, true);
 
-    return unique.slice(0, 50).map((m: any) => ({
+    return filtered.slice(0, 50).map((m: any) => ({
       id: m.id,
       title: m.name,
       year: (m.first_air_date || m.next_episode_to_air?.air_date)?.substring(0, 4) || 'N/A',
