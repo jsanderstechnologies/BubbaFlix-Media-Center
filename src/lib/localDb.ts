@@ -48,7 +48,7 @@ const saveCollection = async (colName: string, data: any[]) => {
 
 // Initial preload (useful for fast switching)
 const preload = () => {
-  ['favorites', 'settings', 'history'].forEach(col => {
+  ['favorites', 'settings', 'history', 'user_watched', 'user_progress'].forEach(col => {
     if (getToken()) fetchCollection(col);
   });
 };

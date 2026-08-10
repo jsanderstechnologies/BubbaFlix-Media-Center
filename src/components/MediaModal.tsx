@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
 import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar } from 'lucide-react';
 
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, setDoc, serverTimestamp } from '../lib/localDb';
+import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, setDoc, serverTimestamp, onSnapshot } from '../lib/localDb';
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
 import { useSettings } from '../lib/settings';
@@ -353,26 +353,33 @@ export default function MediaModal({
 
   useEffect(() => {
     if (!user || !movie || isHidden) return;
+    const targetId = resolvedTmdbId || movie.realTmdbId || movie.tmdbId || movie.id;
     const q = query(
       collection(db, 'user_watched'),
-      where('userId', '==', user.uid),
-      where('mediaId', '==', movie.id)
+      where('userId', '==', user.uid)
     );
-    getDocs(q).then(snapshot => {
+    const unsubscribe = onSnapshot(q, snapshot => {
       const docsMap: Record<string, boolean> = {};
       snapshot.docs.forEach(d => {
         const data = d.data();
-        if (data.watched !== false) {
+        const matchesMedia = (
+          String(data.mediaId) === String(targetId) || 
+          String(data.mediaId) === String(movie.id) ||
+          (movie.title && data.title && data.title.toLowerCase() === movie.title.toLowerCase())
+        );
+        if (matchesMedia && data.watched !== false) {
           if (data.type === 'tv' && data.season !== undefined && data.episode !== undefined) {
             docsMap[`s${data.season}_e${data.episode}`] = true;
-          } else if (data.type === 'movie') {
+          } else if (data.type === 'movie' || data.type === 'series') {
             docsMap['movie'] = true;
           }
         }
       });
       setWatchedDocs(docsMap);
-    }).catch(err => console.error("Error fetching user_watched status:", err));
-  }, [user, movie, isHidden]);
+    }, err => console.error("Error subscribing to user_watched status:", err));
+
+    return () => unsubscribe();
+  }, [user, movie, isHidden, resolvedTmdbId]);
 
   // Auto-populate the next unwatched season and episode when opening TV Series
   useEffect(() => {
@@ -404,10 +411,11 @@ export default function MediaModal({
 
   const toggleWatched = async (type: 'tv' | 'movie', seasonNum?: number, episodeNum?: number) => {
     if (!user || !movie) return;
+    const targetId = resolvedTmdbId || movie.realTmdbId || movie.tmdbId || movie.id;
 
     const docId = type === 'tv' 
-      ? `${user.uid}_${movie.id}_s${seasonNum}_e${episodeNum}`
-      : `${user.uid}_${movie.id}`;
+      ? `${user.uid}_${targetId}_s${seasonNum}_e${episodeNum}`
+      : `${user.uid}_${targetId}`;
     
     const key = type === 'tv' ? `s${seasonNum}_e${episodeNum}` : 'movie';
     const currentlyWatched = !!watchedDocs[key];
@@ -421,7 +429,8 @@ export default function MediaModal({
       if (newWatchedState) {
         await setDoc(docRef, {
           userId: user.uid,
-          mediaId: movie.id,
+          mediaId: targetId,
+          title: movie.title || movie.name,
           type,
           season: seasonNum ?? null,
           episode: episodeNum ?? null,
@@ -439,15 +448,18 @@ export default function MediaModal({
 
   useEffect(() => {
     if (!user || !movie || isHidden) return;
-    const q = query(collection(db, 'user_progress'), where('userId', '==', user.uid), where('mediaId', '==', movie.id));
-    getDocs(q).then(snapshot => {
+    const targetId = resolvedTmdbId || movie.realTmdbId || movie.tmdbId || movie.id;
+    const q = query(collection(db, 'user_progress'), where('userId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, snapshot => {
       const docs = snapshot.docs.map(d => d.data());
       const prog = docs.find(d => 
+        (String(d.mediaId) === String(targetId) || String(d.mediaId) === String(movie.id)) &&
         (isSeries ? d.season === selectedSeason && d.episode === selectedEpisode : true)
       );
       setSavedProgress(prog || null);
     });
-  }, [user, movie, selectedSeason, selectedEpisode, isSeries, isHidden]);
+    return () => unsubscribe();
+  }, [user, movie, selectedSeason, selectedEpisode, isSeries, isHidden, resolvedTmdbId]);
   
   const [prevMovieId, setPrevMovieId] = useState(movie?.id);
   if (movie?.id !== prevMovieId) {
