@@ -286,10 +286,14 @@ export const getUpcomingTvSeries = async (genreId: number = 0) => {
 
   try {
     const pages = await Promise.all([
-      fetch(`${BASE_URL}/tv/on_the_air?api_key=${apiKey}&page=1`).then(r => r.json()).catch(() => ({})),
-      fetch(`${BASE_URL}/discover/tv?api_key=${apiKey}&first_air_date.gte=${today}&sort_by=first_air_date.asc${genreId > 0 ? `&with_genres=${genreId}` : ''}&page=1`).then(r => r.json()).catch(() => ({}))
+      fetch(`${BASE_URL}/tv/on_the_air?api_key=${apiKey}&with_origin_country=US&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/tv/on_the_air?api_key=${apiKey}&with_origin_country=US&page=2`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/discover/tv?api_key=${apiKey}&with_origin_country=US&first_air_date.gte=${today}&sort_by=first_air_date.asc${genreId > 0 ? `&with_genres=${genreId}` : ''}&page=1`).then(r => r.json()).catch(() => ({}))
     ]);
-    const rawResults = pages.flatMap(p => p.results || []).filter(m => m && m.id);
+    const rawResults = pages
+      .flatMap(p => p.results || [])
+      .filter(m => m && m.id && (!m.origin_country || m.origin_country.length === 0 || m.origin_country.includes('US')));
+
     const filtered = applyFilters(rawResults, false, true);
 
     return filtered.slice(0, 50).map((m: any) => ({
