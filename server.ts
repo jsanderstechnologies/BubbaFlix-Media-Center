@@ -2732,7 +2732,7 @@ app.get('/api/youtube/search', async (req, res) => {
     const cClean = titlePart.replace(/\s+/g, '');
 
     // Exact or substring clean match (e.g. "thebear" inside "usmoviesthebear")
-    if (cClean.includes(qClean) || qClean.includes(cClean)) {
+    if (cClean.includes(qClean)) {
       return true;
     }
 
@@ -3260,15 +3260,18 @@ app.get('/api/youtube/search', async (req, res) => {
   // Helper: Filter out low-quality releases (CAM, Telesync/TS, Telecine/TC, Screener/SCR, Workprint, etc.)
   const isLowQualityRelease = (titleName: string): boolean => {
     if (!titleName) return false;
-    const nameLower = titleName.toLowerCase();
+    // Strip file extension (.ts, .mp4, .mkv) before quality checking so .ts video extension is not confused with Telesync (TS)
+    const nameWithoutExt = titleName.replace(/\.[a-z0-9]{2,4}$/i, '');
+    const nameLower = nameWithoutExt.toLowerCase();
     
     // Explicit bad quality keywords (CAM, Telesync, Telecine, Screener)
     const lowQualityRegex = /\b(telesync|hd-?ts|ts-?rip|cam-?rip|hd-?cam|telecine|hd-?tc|tc-?rip|dvd-?scr|dvd-?screener|workprint|line\.?audio|hardcoded|vhs-?rip|pdvd)\b/i;
     
-    // Check standalone TS / CAM / TC / SCR tags enclosed in delimiters (e.g. .CAM., .TS., -CAM-, -TS-, [CAM], [TS])
-    const badTagRegex = /[\.\_\s\-\[\(](TS|CAM|TC|SCR|HDCAM|HDTS|TELESYNC|TELECINE|DVDSCR|WORKPRINT)[\.\_\s\-\]\)]/i;
+    // Check standalone TS / CAM / TC / SCR release tags enclosed in delimiters (e.g. .CAM., .TS., -CAM-, -TS-, [CAM], [TS])
+    const badTagRegex = /[\.\_\s\-\[\(](CAM|TC|SCR|HDCAM|HDTS|TELECINE|DVDSCR|WORKPRINT)[\.\_\s\-\]\)]/i;
+    const standaloneTsRegex = /[\.\_\s\-\[\(]TS[\.\_\s\-\]\)]/i;
 
-    return lowQualityRegex.test(nameLower) || badTagRegex.test(titleName);
+    return lowQualityRegex.test(nameLower) || badTagRegex.test(nameWithoutExt) || standaloneTsRegex.test(nameWithoutExt);
   };
 
   // Cache for Premiumize Cloud file listings (per token, 30-second TTL)
