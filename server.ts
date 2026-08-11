@@ -3154,7 +3154,7 @@ app.get('/api/youtube/search', async (req, res) => {
     const visitedFolders = new Set<string>();
 
     const scanFolder = async (folderId?: string, folderName = '', depth = 0): Promise<void> => {
-      if (depth > 6) return; // Traverse up to 6 subfolder levels deep
+      if (depth > 10) return; // Traverse up to 10 subfolder levels deep
       const fId = folderId || 'root';
       if (visitedFolders.has(fId)) return;
       visitedFolders.add(fId);
@@ -3214,7 +3214,7 @@ app.get('/api/youtube/search', async (req, res) => {
         .replace(/[^a-z0-9\s]/g, ' ')
         .trim();
       
-      const titleTokens = coreTitle.split(/\s+/).filter(w => w.length > 1 && !['the', 'a', 'an', 'and', 'or', 'of'].includes(w));
+      const titleTokens = coreTitle.split(/\s+/).filter(w => w.length > 1 && !['the', 'a', 'an', 'and', 'or', 'of', 'in', 'to', 'for', 'with', 'on', 'at'].includes(w));
       const cleanTitle = coreTitle.replace(/\s+/g, '');
 
       const sNum = season !== undefined && season !== null ? parseInt(String(season), 10) : null;
@@ -3224,7 +3224,7 @@ app.get('/api/youtube/search', async (req, res) => {
       const cloudItems: any[] = [];
       const seenIds = new Set<string>();
 
-      const VIDEO_EXTS = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.ts', '.webm', '.flv'];
+      const VIDEO_EXTS = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.ts', '.webm', '.flv', '.strm'];
 
       cloudFiles.forEach((f: any) => {
         const originalName = f.name || '';
@@ -3234,8 +3234,8 @@ app.get('/api/youtube/search', async (req, res) => {
 
         const ext = path.extname(originalName).toLowerCase();
         
-        // 1. Filter out non-video files (.nfo, .txt, .srt, .jpg, .png, .zip, etc.)
-        if (!VIDEO_EXTS.includes(ext)) {
+        // 1. Filter out non-video files (.nfo, .txt, .srt, .jpg, .png, .zip, etc.) unless no extension
+        if (ext && !VIDEO_EXTS.includes(ext)) {
           return;
         }
 
@@ -3244,9 +3244,13 @@ app.get('/api/youtube/search', async (req, res) => {
           return;
         }
 
-        // 3. Flexible Title matching: either cleaned string match or tokenized match
+        // 3. Flexible Title matching: either clean string match or matching majority of title tokens
         const matchesCleanTitle = cleanTitle.length > 0 && combinedClean.includes(cleanTitle);
-        const matchesTokens = titleTokens.length > 0 && titleTokens.every(tok => combinedPath.includes(tok));
+        const matchingTokenCount = titleTokens.filter(tok => combinedPath.includes(tok)).length;
+        const matchesTokens = titleTokens.length > 0 && (
+          matchingTokenCount === titleTokens.length ||
+          (titleTokens.length >= 2 && matchingTokenCount >= Math.ceil(titleTokens.length * 0.5))
+        );
 
         if (!matchesCleanTitle && !matchesTokens) {
           return;
@@ -3254,18 +3258,41 @@ app.get('/api/youtube/search', async (req, res) => {
 
         // 4. Season matching against file name or parent folder
         if (sNum !== null) {
-          const seasonRegex = new RegExp(`\\b(s0*${sNum}|season\\s*0*${sNum}|0*${sNum}x)\\b`, 'i');
-          const sFormatted = `s${sNum.toString().padStart(2, '0')}`;
-          if (!seasonRegex.test(combinedPath) && !combinedPath.includes(sFormatted)) {
-            return;
+          const sPadded = sNum.toString().padStart(2, '0');
+          const seasonPatterns = [
+            `s${sNum}`, `s${sPadded}`,
+            `season${sNum}`, `season ${sNum}`, `season${sPadded}`, `season ${sPadded}`,
+            `${sNum}x`, `${sPadded}x`,
+            `series ${sNum}`, `series${sNum}`
+          ];
+          const hasSeasonMatch = seasonPatterns.some(p => combinedPath.includes(p));
+          
+          if (!hasSeasonMatch) {
+            // Check if file specifies a DIFFERENT season (e.g. S02 when requesting S01)
+            const otherSeasonMatch = combinedPath.match(/\b(s|season\s*|series\s*)0*(\d{1,2})\b/i);
+            if (otherSeasonMatch && parseInt(otherSeasonMatch[2], 10) !== sNum) {
+              return;
+            }
           }
         }
 
         // 5. Episode matching against file name or parent folder
         if (eNum !== null) {
-          const episodeRegex = new RegExp(`\\b(e0*${eNum}|ep0*${eNum}|episode\\s*0*${eNum}|x0*${eNum})\\b`, 'i');
-          const eFormatted = `e${eNum.toString().padStart(2, '0')}`;
-          if (!episodeRegex.test(combinedPath) && !combinedPath.includes(eFormatted)) {
+          const ePadded = eNum.toString().padStart(2, '0');
+          const sPadded = sNum ? sNum.toString().padStart(2, '0') : '\\d{1,2}';
+          
+          const epRegexes = [
+            new RegExp(`\\be0*${eNum}\\b`, 'i'),
+            new RegExp(`\\bep0*${eNum}\\b`, 'i'),
+            new RegExp(`\\bepisode\\s*0*${eNum}\\b`, 'i'),
+            new RegExp(`\\b${sPadded}x0*${eNum}\\b`, 'i'),
+            new RegExp(`\\b${sNum}x0*${eNum}\\b`, 'i'),
+            new RegExp(`\\b${sNum}${ePadded}\\b`, 'i'), // e.g. 101 for S01E01
+            new RegExp(`[\\s\\._\\-\\[\\(]0*${eNum}[\\s\\._\\-\\]\\)]`, 'i') // e.g. - 01.mkv or [01]
+          ];
+
+          const hasEpMatch = epRegexes.some(r => r.test(originalName) || r.test(combinedPath));
+          if (!hasEpMatch) {
             return;
           }
         }
