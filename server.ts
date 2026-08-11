@@ -3272,7 +3272,7 @@ app.get('/api/youtube/search', async (req, res) => {
     const allFiles: any[] = [];
     const visitedFolders = new Set<string>();
 
-    const scanFolder = async (folderId?: string, folderName = '', depth = 0): Promise<void> => {
+    const scanFolder = async (folderId?: string, folderPath = '', depth = 0): Promise<void> => {
       if (depth > 10) return; // Traverse up to 10 subfolder levels deep
       const fId = folderId || 'root';
       if (visitedFolders.has(fId)) return;
@@ -3287,13 +3287,13 @@ app.get('/api/youtube/search', async (req, res) => {
             if (item.type === 'file') {
               allFiles.push({
                 ...item,
-                parentFolderName: folderName
+                parentFolderName: folderPath
               });
             } else if (item.type === 'folder' && item.id) {
               subfolders.push(item);
             }
           }
-          await Promise.all(subfolders.map((f) => scanFolder(f.id, f.name || folderName, depth + 1)));
+          await Promise.all(subfolders.map((f) => scanFolder(f.id, folderPath ? `${folderPath} / ${f.name}` : (f.name || ''), depth + 1)));
         }
       } catch (e) {}
     };
@@ -3363,15 +3363,16 @@ app.get('/api/youtube/search', async (req, res) => {
           return;
         }
 
-        // 3. Flexible Title matching: either clean string match or matching majority of title tokens
+        // 3. Flexible Title matching: clean title, title tokens, or isValidTitleMatch
         const matchesCleanTitle = cleanTitle.length > 0 && combinedClean.includes(cleanTitle);
         const matchingTokenCount = titleTokens.filter(tok => combinedPath.includes(tok)).length;
         const matchesTokens = titleTokens.length > 0 && (
           matchingTokenCount === titleTokens.length ||
           (titleTokens.length >= 2 && matchingTokenCount >= Math.ceil(titleTokens.length * 0.5))
         );
+        const matchesStrict = isValidTitleMatch(title, combinedPath);
 
-        if (!matchesCleanTitle && !matchesTokens) {
+        if (!matchesCleanTitle && !matchesTokens && !matchesStrict) {
           return;
         }
 

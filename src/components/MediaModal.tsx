@@ -775,13 +775,14 @@ export default function MediaModal({
             .catch(() => null);
 
           const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
-          const pmCloudPromise = pmKey
-            ? fetch('/api/premiumize/cloud/search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pmKey}` },
-                body: JSON.stringify({ title: movie.title || movie.name, year: movie.year })
-              }).then(r => r.json()).catch(() => null)
-            : Promise.resolve(null);
+          const pmCloudPromise = fetch('/api/premiumize/cloud/search', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(pmKey ? { Authorization: `Bearer ${pmKey}` } : {})
+            },
+            body: JSON.stringify({ title: movie.title || movie.name, year: movie.year, refresh: true })
+          }).then(r => r.json()).catch(() => null);
 
           const torrentSearchPromise = movie.type === 'music'
             ? fetchStreamsForMusic(movie.title || movie.name, movie.artist, movie.album)
@@ -1043,13 +1044,14 @@ export default function MediaModal({
         .catch(() => null);
 
       const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
-      const pmCloudPromise = pmKey
-        ? fetch('/api/premiumize/cloud/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pmKey}` },
-            body: JSON.stringify({ title: movie.title || movie.name, season: selectedSeason, episode: selectedEpisode })
-          }).then(r => r.json()).catch(() => null)
-        : Promise.resolve(null);
+      const pmCloudPromise = fetch('/api/premiumize/cloud/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(pmKey ? { Authorization: `Bearer ${pmKey}` } : {})
+        },
+        body: JSON.stringify({ title: movie.title || movie.name, season: selectedSeason, episode: selectedEpisode, refresh: true })
+      }).then(r => r.json()).catch(() => null);
 
       Promise.all([
         fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode, extraDetails?.imdbId || undefined),
