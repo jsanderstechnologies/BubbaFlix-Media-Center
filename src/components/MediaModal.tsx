@@ -197,17 +197,18 @@ export default function MediaModal({
     SpatialNavigation.add('media-modal', {
       selector: '#media-modal .focusable, #media-modal button, #media-modal input, #media-modal select',
       straightOnly: false,
-      enterTo: 'last-focused'
+      enterTo: 'last-focused',
+      rememberSource: true
     });
     SpatialNavigation.makeFocusable('media-modal');
     SpatialNavigation.focus('media-modal');
-    SpatialNavigation.disable('');
 
-    // Focus main action elements (Fix Match / Add to Library) instead of top [X] close button
     setTimeout(() => {
-      const firstAction = document.querySelector('#media-modal .focusable:not(.no-focus)') as HTMLElement;
-      if (firstAction) {
-        firstAction.focus();
+      if (document.activeElement === document.body || !document.activeElement || !document.querySelector('#media-modal')?.contains(document.activeElement)) {
+        const firstAction = document.querySelector('#media-modal-header-actions .focusable') as HTMLElement;
+        if (firstAction) {
+          firstAction.focus();
+        }
       }
     }, 50);
 

@@ -255,18 +255,6 @@ function MainApp() {
           }
         }
 
-        const isOutside = document.activeElement && 
-                          document.activeElement !== document.body && 
-                          document.activeElement !== document.documentElement && 
-                          !topOverlay.contains(document.activeElement);
-
-        if (isOutside) {
-          const focusable = topOverlay.querySelector('.focusable, button, input, select') as HTMLElement;
-          if (focusable) {
-            focusable.focus();
-          }
-        }
-
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
           const dirMap: Record<string, string> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
           const dir = dirMap[e.key];
