@@ -202,6 +202,28 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
       }
     };
 
+    const fetchLocalRssNews = async (cityStr: string, stateStr: string) => {
+      try {
+        const res = await fetch(`/api/news/local-rss?city=${encodeURIComponent(cityStr)}&state=${encodeURIComponent(stateStr)}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        if (!data.articles) return [];
+        return data.articles.map((item: any, idx: number) => ({
+          id: `local-rss-${idx}-${item.url}`,
+          title: item.title,
+          description: item.description || '',
+          url: item.url,
+          imageUrl: '',
+          publishedAt: item.publishedAt,
+          source: item.source || 'Local Media Outlet',
+          apiSource: 'NewsAPI' as const
+        }));
+      } catch (err) {
+        console.error('Error fetching local RSS news:', err);
+        return [];
+      }
+    };
+
     let newsApiParams = '';
     let gnewsParams = '';
 
@@ -228,12 +250,20 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
         break;
     }
 
-    const [newsApiList, gnewsList] = await Promise.all([
-      fetchNewsApi(newsApiParams),
-      fetchGNews(gnewsParams)
-    ]);
-
-    articles.push(...newsApiList, ...gnewsList);
+    if (tab === 'local') {
+      const [localRssList, newsApiList, gnewsList] = await Promise.all([
+        fetchLocalRssNews(currentCity, currentState),
+        fetchNewsApi(newsApiParams),
+        fetchGNews(gnewsParams)
+      ]);
+      articles.push(...localRssList, ...newsApiList, ...gnewsList);
+    } else {
+      const [newsApiList, gnewsList] = await Promise.all([
+        fetchNewsApi(newsApiParams),
+        fetchGNews(gnewsParams)
+      ]);
+      articles.push(...newsApiList, ...gnewsList);
+    }
 
     const seenUrls = new Set<string>();
     const uniqueArticles: Article[] = [];

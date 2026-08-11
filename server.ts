@@ -1188,6 +1188,66 @@ async function startServer() {
     }
   });
 
+  // Hyper-Local News Proxy (Google News Location RSS Geo Feed)
+  app.get('/api/news/local-rss', async (req, res) => {
+    try {
+      const city = String(req.query.city || '').trim();
+      const state = String(req.query.state || '').trim();
+      const locationQuery = city ? (state ? `${city}, ${state}` : city) : 'US';
+
+      const rssUrl = `https://news.google.com/rss/headlines/section/geo/${encodeURIComponent(locationQuery)}?hl=en-US&gl=US&ceid=US:en`;
+      const response = await axios.get(rssUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        timeout: 10000
+      });
+
+      const xml = response.data || '';
+      const articles: any[] = [];
+
+      const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+      let match;
+      while ((match = itemRegex.exec(xml)) !== null) {
+        const itemXml = match[1];
+        
+        const titleMatch = itemXml.match(/<title>([\s\S]*?)<\/title>/i);
+        const linkMatch = itemXml.match(/<link>([\s\S]*?)<\/link>/i);
+        const pubDateMatch = itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/i);
+        const sourceMatch = itemXml.match(/<source[^>]*>([\s\S]*?)<\/source>/i);
+        const descMatch = itemXml.match(/<description>([\s\S]*?)<\/description>/i);
+
+        let rawTitle = titleMatch ? titleMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() : '';
+        let sourceName = sourceMatch ? sourceMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() : '';
+
+        // Google News RSS titles end with " - Source Name"
+        if (!sourceName && rawTitle.includes(' - ')) {
+          const parts = rawTitle.split(' - ');
+          sourceName = parts.pop() || 'Local News';
+          rawTitle = parts.join(' - ');
+        }
+
+        const url = linkMatch ? linkMatch[1].trim() : '';
+        const publishedAt = pubDateMatch ? new Date(pubDateMatch[1]).toISOString() : new Date().toISOString();
+        const description = descMatch ? descMatch[1].replace(/<[^>]+>/g, '').replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim() : '';
+
+        if (rawTitle && url) {
+          articles.push({
+            title: rawTitle,
+            url,
+            publishedAt,
+            source: sourceName || 'Local Media Outlet',
+            description,
+            isLocalOutlet: true
+          });
+        }
+      }
+
+      res.json({ articles });
+    } catch (err: any) {
+      console.warn('[Local News RSS Proxy Error]:', err?.message);
+      res.json({ articles: [] });
+    }
+  });
+
   // Sports Scores Proxy Endpoint (ESPN Public API - No key required)
   app.get('/api/sports/scores', async (req, res) => {
     try {
