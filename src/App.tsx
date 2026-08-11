@@ -176,6 +176,7 @@ function MainApp() {
   }, [userSettings.weatherLocation]);
 
   useEffect(() => {
+    let lastActiveState = false;
     const checkModals = () => {
       const isPlayerActive = !!(isPlaying && playingUrl);
       const isMediaModalActive = !!selectedMovie;
@@ -184,12 +185,9 @@ function MainApp() {
       const isKeyboardActive = isKeyboardOpen;
       
       const active = isPlayerActive || isMediaModalActive || isUserSettingsActive || isAuthModalActive || isKeyboardActive;
-      setHasModalOpen(active);
-
-      if (active) {
-        SpatialNavigation.disable('');
-      } else {
-        SpatialNavigation.enable('');
+      if (active !== lastActiveState) {
+        lastActiveState = active;
+        setHasModalOpen(active);
       }
     };
 
