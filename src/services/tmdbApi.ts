@@ -162,13 +162,44 @@ export const searchMovies = async (query: string) => {
   }
 };
 
+export const fetchTvdbFallbackImage = async (title: string, tvdbId?: number): Promise<{ poster: string | null; backdrop: string | null }> => {
+  try {
+    const tvdbApiKey = (typeof window !== 'undefined' && (localStorage.getItem('tvdbApiKey') || '')) || '';
+    const res = await fetch(`/api/tvdb/images?title=${encodeURIComponent(title)}${tvdbId ? `&tvdbId=${tvdbId}` : ''}${tvdbApiKey ? `&apiKey=${encodeURIComponent(tvdbApiKey)}` : ''}`)
+      .then(r => r.json())
+      .catch(() => null);
+
+    if (res?.success && (res.poster || res.backdrop)) {
+      return {
+        poster: getCachedImageUrl(res.poster),
+        backdrop: getCachedImageUrl(res.backdrop)
+      };
+    }
+  } catch (e) {
+    console.error("Error fetching TVDB fallback image:", e);
+  }
+  return { poster: null, backdrop: null };
+};
+
 export const getTvSeriesDetails = async (seriesId: number) => {
   const apiKey = getApiKey();
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${BASE_URL}/tv/${seriesId}?api_key=${apiKey}`);
+    const res = await fetch(`${BASE_URL}/tv/${seriesId}?api_key=${apiKey}&append_to_response=external_ids`);
     if (!res.ok) throw new Error("Failed to fetch tv series details");
-    return await res.json();
+    const data = await res.json();
+
+    // Fallback to TVDB for poster or backdrop if TMDB images are missing
+    if (data && (!data.poster_path || !data.backdrop_path)) {
+      const tvdbImages = await fetchTvdbFallbackImage(data.name || data.original_name, data.external_ids?.tvdb_id);
+      if (!data.poster_path && tvdbImages.poster) {
+        data.poster_path = tvdbImages.poster;
+      }
+      if (!data.backdrop_path && tvdbImages.backdrop) {
+        data.backdrop_path = tvdbImages.backdrop;
+      }
+    }
+    return data;
   } catch (error) {
     console.error("[Frontend] TMDB API TV Details Error:", error);
     return null;

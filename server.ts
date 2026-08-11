@@ -3453,6 +3453,61 @@ app.get('/api/youtube/search', async (req, res) => {
     }
   });
 
+  // Endpoint: Fallback TVDB Poster & Artwork Lookup for TV Series
+  app.get("/api/tvdb/images", async (req, res) => {
+    const { title, tvdbId, apiKey } = req.query;
+    const settings = readJson(SETTINGS_FILE);
+    const keyToUse = (typeof apiKey === 'string' && apiKey.trim()) || settings.tvdbApiKey || 'b62cdff1-a0c5-4309-a1b7-b088bb3e8d2e';
+
+    if (!title && !tvdbId) {
+      return res.status(400).json({ success: false, error: "Title or TVDB ID is required." });
+    }
+
+    try {
+      const token = await getTvdbToken(keyToUse);
+      if (!token) {
+        return res.status(401).json({ success: false, error: "Failed to authenticate with TVDB API." });
+      }
+
+      let targetTvdbId = tvdbId;
+
+      if (!targetTvdbId && title) {
+        const searchUrl = `https://api4.thetvdb.com/v4/search?q=${encodeURIComponent(String(title))}&type=series`;
+        const searchRes = await axios.get(searchUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 8000
+        });
+        if (searchRes.data?.status === 'success' && Array.isArray(searchRes.data?.data) && searchRes.data.data.length > 0) {
+          targetTvdbId = searchRes.data.data[0].tvdb_id || searchRes.data.data[0].id;
+        }
+      }
+
+      if (targetTvdbId) {
+        const detailsUrl = `https://api4.thetvdb.com/v4/series/${targetTvdbId}/extended`;
+        const detailsRes = await axios.get(detailsUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 8000
+        });
+
+        if (detailsRes.data?.status === 'success' && detailsRes.data?.data) {
+          const sData = detailsRes.data.data;
+          const imagePath = sData.image || sData.artwork?.find((a: any) => a.type === 2 || a.type === 3)?.image;
+          const backdropPath = sData.artwork?.find((a: any) => a.type === 3)?.image || sData.image;
+
+          const poster = imagePath ? (imagePath.startsWith('http') ? imagePath : `https://artworks.thetvdb.com${imagePath.startsWith('/') ? '' : '/'}${imagePath}`) : null;
+          const backdrop = backdropPath ? (backdropPath.startsWith('http') ? backdropPath : `https://artworks.thetvdb.com${backdropPath.startsWith('/') ? '' : '/'}${backdropPath}`) : null;
+
+          return res.json({ success: true, poster, backdrop, tvdbId: targetTvdbId });
+        }
+      }
+
+      res.json({ success: false, poster: null, backdrop: null });
+    } catch (err: any) {
+      console.warn('[TVDB Image Fallback Error]:', err?.message);
+      res.json({ success: false, poster: null, backdrop: null });
+    }
+  });
+
   // Helper function to accurately detect video resolution (4K, 1080p, 720p) for IPTV & local media
   function detectStreamQuality(name: string): string {
     const n = (name || '').toLowerCase();
