@@ -2690,12 +2690,13 @@ app.get('/api/youtube/search', async (req, res) => {
 
   // Search Stream Proxies
 
-  // Helper: Strict title & year matcher to prevent false stream matches (e.g., "The Bus A French Football Mutiny" matching "Mutiny")
+  // Helper: Strict title & year matcher to prevent false stream matches while accurately matching multi-word titles
   function isValidTitleMatch(queryTitle: string, candidateTitle: string, expectedYear?: string | number): boolean {
     if (!queryTitle || !candidateTitle) return false;
 
-    const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const qClean = clean(queryTitle);
+    const normalizeWords = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    const qNormalized = normalizeWords(queryTitle);
+    const qClean = qNormalized.replace(/\s+/g, '');
     if (!qClean) return false;
 
     const candidateLower = candidateTitle.toLowerCase();
@@ -2717,20 +2718,22 @@ app.get('/api/youtube/search', async (req, res) => {
       .replace(/\b(2160p|1080p|720p|480p|4k|uhd|hdr|hdr10|dv|dolby\s*vision|webrip|web-dl|web|bluray|bdrip|hdrip|brrip|hdtv|x264|x265|hevc|h264|h265|aac|dts|dd5\.1|5\.1|7\.1|atmos|repack|proper|unrated|extended|cut|remastered)\b/gi, ' ')
       .replace(/\b(19|20)\d{2}\b/g, ' ') // strip year
       .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
       .trim();
 
-    const cClean = clean(titlePart);
+    const cClean = titlePart.replace(/\s+/g, '');
 
-    // Exact clean match
-    if (cClean === qClean) {
+    // Exact or substring clean match (e.g. "projecthailmary" inside "projecthailmarymkv")
+    if (cClean.includes(qClean) || qClean.includes(cClean)) {
       return true;
     }
 
-    // Tokenize query and candidate words
-    const qTokens = qClean.split(/\s+/).filter(Boolean);
-    const cTokens = titlePart.split(/\s+/).filter(w => w.length > 0 && !['the', 'a', 'an', 'and', 'or', 'of', 'in', 'to', 'for', 'with', 'on', 'at', 'is', 'by'].includes(w));
+    // Tokenize query words properly (preserving spaces!)
+    const STOP_WORDS = ['the', 'a', 'an', 'and', 'or', 'of', 'in', 'to', 'for', 'with', 'on', 'at', 'is', 'by'];
+    const qTokens = qNormalized.split(' ').filter(w => w.length > 0 && !STOP_WORDS.includes(w));
+    const cTokens = titlePart.split(' ').filter(w => w.length > 0 && !STOP_WORDS.includes(w));
 
-    // If query is a single-word title (e.g. "Mutiny"), candidate must not contain unrelated extra major words
+    // If query is truly a single-word title (e.g. "Mutiny"), candidate must not contain unrelated extra major words
     if (qTokens.length === 1) {
       const singleWord = qTokens[0];
       if (!cClean.includes(singleWord)) return false;
@@ -2740,11 +2743,12 @@ app.get('/api/youtube/search', async (req, res) => {
       if (extraMajorWords.length >= 2) {
         return false;
       }
+      return true;
     }
 
-    // Multi-word titles: require at least 75% of query tokens to match
-    const matchesCount = qTokens.filter(tok => cClean.includes(tok)).length;
-    return matchesCount >= Math.ceil(qTokens.length * 0.75);
+    // Multi-word titles (e.g. "Project Hail Mary"): require at least 60% of query tokens to match
+    const matchesCount = qTokens.filter(tok => titlePart.includes(tok)).length;
+    return matchesCount >= Math.ceil(qTokens.length * 0.6);
   }
 
   async function filterWithGemini(query: string, items: any[], settings: any, isMusic: boolean = false): Promise<any[]> {
