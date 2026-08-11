@@ -2690,31 +2690,39 @@ app.get('/api/youtube/search', async (req, res) => {
 
   // Search Stream Proxies
 
-  // Helper: Strict title & year matcher to prevent false stream matches while accurately matching multi-word titles
+  // Helper: Strict title & year matcher to prevent false stream matches while accurately matching multi-word titles and TV episodes
   function isValidTitleMatch(queryTitle: string, candidateTitle: string, expectedYear?: string | number): boolean {
     if (!queryTitle || !candidateTitle) return false;
 
+    // Strip season/episode patterns (e.g. S01E01, 1x01) from queryTitle and candidateTitle before matching core title
+    const cleanSeasonEp = (s: string) => s.replace(/\b(s\d{1,2}e\d{1,2}|\d{1,2}x\d{1,2})\b/gi, ' ');
+
     const normalizeWords = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-    const qNormalized = normalizeWords(queryTitle);
+    
+    const coreQueryTitle = cleanSeasonEp(queryTitle);
+    const qNormalized = normalizeWords(coreQueryTitle);
     const qClean = qNormalized.replace(/\s+/g, '');
     if (!qClean) return false;
 
     const candidateLower = candidateTitle.toLowerCase();
     
-    // 1. Year checking: if candidate title contains a year, ensure it matches expectedYear
+    // 1. Year checking: if candidate title contains a year and expectedYear is provided, ensure year is reasonably close
     if (expectedYear) {
       const yearNum = parseInt(String(expectedYear), 10);
-      const candidateYears = candidateLower.match(/\b(19\d{2}|20\d{2})\b/g);
-      if (candidateYears && yearNum && yearNum > 1900) {
-        const hasCloseYear = candidateYears.some(y => Math.abs(parseInt(y, 10) - yearNum) <= 1);
-        if (!hasCloseYear) {
-          return false;
+      if (yearNum && yearNum > 1900) {
+        const candidateYears = candidateLower.match(/\b(19\d{2}|20\d{2})\b/g);
+        if (candidateYears && candidateYears.length > 0) {
+          // Allow year match if any candidate year is within 2 years of expectedYear (handling release year discrepancies across regions/providers)
+          const hasCloseYear = candidateYears.some(y => Math.abs(parseInt(y, 10) - yearNum) <= 2);
+          if (!hasCloseYear) {
+            return false;
+          }
         }
       }
     }
 
-    // 2. Strip quality, codec, audio, and scene tags from candidate string
-    const titlePart = candidateLower
+    // 2. Strip quality, codec, audio, season/ep, and scene tags from candidate string
+    const titlePart = cleanSeasonEp(candidateLower)
       .replace(/\b(2160p|1080p|720p|480p|4k|uhd|hdr|hdr10|dv|dolby\s*vision|webrip|web-dl|web|bluray|bdrip|hdrip|brrip|hdtv|x264|x265|hevc|h264|h265|aac|dts|dd5\.1|5\.1|7\.1|atmos|repack|proper|unrated|extended|cut|remastered)\b/gi, ' ')
       .replace(/\b(19|20)\d{2}\b/g, ' ') // strip year
       .replace(/[^a-z0-9\s]/g, ' ')
@@ -2723,32 +2731,33 @@ app.get('/api/youtube/search', async (req, res) => {
 
     const cClean = titlePart.replace(/\s+/g, '');
 
-    // Exact or substring clean match (e.g. "projecthailmary" inside "projecthailmarymkv")
+    // Exact or substring clean match (e.g. "thebear" inside "usmoviesthebear")
     if (cClean.includes(qClean) || qClean.includes(cClean)) {
       return true;
     }
 
     // Tokenize query words properly (preserving spaces!)
-    const STOP_WORDS = ['the', 'a', 'an', 'and', 'or', 'of', 'in', 'to', 'for', 'with', 'on', 'at', 'is', 'by'];
+    const STOP_WORDS = ['the', 'a', 'an', 'and', 'or', 'of', 'in', 'to', 'for', 'with', 'on', 'at', 'is', 'by', 'us', 'uk', 'ca', 'au', 'en', 'hd', 'fhd', '4k', 'vod'];
     const qTokens = qNormalized.split(' ').filter(w => w.length > 0 && !STOP_WORDS.includes(w));
     const cTokens = titlePart.split(' ').filter(w => w.length > 0 && !STOP_WORDS.includes(w));
 
-    // If query is truly a single-word title (e.g. "Mutiny"), candidate must not contain unrelated extra major words
+    if (qTokens.length === 0) return true;
+
+    // Single-word titles (e.g. "Mutiny", "Dune"): candidate must contain single word and not extra major unrelated title words
     if (qTokens.length === 1) {
       const singleWord = qTokens[0];
       if (!cClean.includes(singleWord)) return false;
 
-      // Extra words in candidate that are not the single query word
-      const extraMajorWords = cTokens.filter(w => w !== singleWord && w.length >= 3);
+      const extraMajorWords = cTokens.filter(w => w !== singleWord && w.length >= 4);
       if (extraMajorWords.length >= 2) {
         return false;
       }
       return true;
     }
 
-    // Multi-word titles (e.g. "Project Hail Mary"): require at least 60% of query tokens to match
+    // Multi-word titles (e.g. "The Bear", "Project Hail Mary", "Road House"): at least 50% of query tokens must match candidate
     const matchesCount = qTokens.filter(tok => titlePart.includes(tok)).length;
-    return matchesCount >= Math.ceil(qTokens.length * 0.6);
+    return matchesCount >= Math.ceil(qTokens.length * 0.5);
   }
 
   async function filterWithGemini(query: string, items: any[], settings: any, isMusic: boolean = false): Promise<any[]> {
