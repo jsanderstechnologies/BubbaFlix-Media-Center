@@ -563,6 +563,42 @@ export default function MediaModal({
   const [fixMatchSearching, setFixMatchSearching] = useState(false);
   const [fixMatchSaving, setFixMatchSaving] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!showFixMatchModal) {
+      SpatialNavigation.remove('fix-match-modal');
+      return;
+    }
+
+    const handleFixMatchBackKey = (e: KeyboardEvent) => {
+      const isBackKey = [
+        'Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft'
+      ].includes(e.key) || [4, 27, 8, 10009, 461, 283].includes(e.keyCode) ||
+      (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
+
+      if (isBackKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowFixMatchModal(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleFixMatchBackKey, true);
+
+    SpatialNavigation.add('fix-match-modal', {
+      selector: '#fix-match-modal .focusable, #fix-match-modal button, #fix-match-modal input',
+      restrict: 'self-only',
+      straightOnly: false,
+      enterTo: 'last-focused'
+    });
+    SpatialNavigation.makeFocusable('fix-match-modal');
+    SpatialNavigation.focus('fix-match-modal');
+
+    return () => {
+      window.removeEventListener('keydown', handleFixMatchBackKey, true);
+      SpatialNavigation.remove('fix-match-modal');
+    };
+  }, [showFixMatchModal]);
+
   const handleOpenFixMatch = () => {
     setShowFixMatchModal(true);
     const initialQ = movie?.title || movie?.name || '';
@@ -1890,7 +1926,7 @@ export default function MediaModal({
 
       {/* Fix Match Modal Dialog */}
       {showFixMatchModal && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div id="fix-match-modal" className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
             {/* Header */}
             <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-slate-950/80">
@@ -1904,8 +1940,9 @@ export default function MediaModal({
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={() => setShowFixMatchModal(false)}
-                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                className="close-fix-match focusable p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1924,13 +1961,13 @@ export default function MediaModal({
                     value={fixMatchQuery}
                     onChange={(e) => setFixMatchQuery(e.target.value)}
                     placeholder="Type movie or series title..."
-                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-red-500 transition-colors"
+                    className="focusable w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
                   />
                 </div>
                 <button 
                   type="submit"
                   disabled={fixMatchSearching}
-                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all"
+                  className="focusable px-5 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-red-500"
                 >
                   {fixMatchSearching ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                   Search
@@ -1953,8 +1990,9 @@ export default function MediaModal({
                 fixMatchResults.map((item) => (
                   <div 
                     key={item.tmdbId}
+                    tabIndex={0}
                     onClick={() => selectFixMatchCandidate(item)}
-                    className="group flex gap-4 p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 hover:border-red-500/40 cursor-pointer transition-all duration-200"
+                    className="focusable group flex gap-4 p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 hover:border-red-500/40 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white/[0.08]"
                   >
                     {/* Poster Preview */}
                     <div className="w-14 h-20 rounded-lg bg-slate-800 overflow-hidden shrink-0 relative border border-white/10 shadow-md">
@@ -1989,6 +2027,7 @@ export default function MediaModal({
                           ★ {item.rating}
                         </span>
                         <button 
+                          type="button"
                           disabled={fixMatchSaving === item.tmdbId}
                           className="px-3.5 py-1 bg-red-600/80 group-hover:bg-red-600 text-white text-[10px] font-bold rounded-lg flex items-center gap-1 shadow transition-all"
                         >

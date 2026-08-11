@@ -205,9 +205,10 @@ function MainApp() {
       const userSettingsEl = document.getElementById('user-settings-modal');
       const authModalEl = document.getElementById('auth-modal');
       const resumeModalEl = document.getElementById('resume-modal');
+      const fixMatchModalEl = document.getElementById('fix-match-modal');
       const mediaModalEl = document.getElementById('media-modal');
 
-      const topOverlay = playerEl || userSettingsEl || authModalEl || resumeModalEl || (mediaModalEl && !mediaModalEl.classList.contains('hidden') ? mediaModalEl : null);
+      const topOverlay = playerEl || userSettingsEl || authModalEl || resumeModalEl || fixMatchModalEl || (mediaModalEl && !mediaModalEl.classList.contains('hidden') ? mediaModalEl : null);
 
       if (topOverlay) {
         const isBackKey = [
@@ -216,6 +217,13 @@ function MainApp() {
         (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
 
         if (isBackKey) {
+          if (topOverlay === fixMatchModalEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            const closeBtn = fixMatchModalEl.querySelector('.close-fix-match') as HTMLElement;
+            if (closeBtn) closeBtn.click();
+            return;
+          }
           if (topOverlay === mediaModalEl && selectedMovie) {
             e.preventDefault();
             e.stopPropagation();
@@ -230,8 +238,13 @@ function MainApp() {
           }
         }
 
-        if (!topOverlay.contains(document.activeElement)) {
-          const focusable = topOverlay.querySelector('.focusable:not(.no-focus), button:not(.no-focus), input:not(.no-focus), select:not(.no-focus)') as HTMLElement;
+        const isOutside = document.activeElement && 
+                          document.activeElement !== document.body && 
+                          document.activeElement !== document.documentElement && 
+                          !topOverlay.contains(document.activeElement);
+
+        if (isOutside) {
+          const focusable = topOverlay.querySelector('.focusable, button, input, select') as HTMLElement;
           if (focusable) {
             focusable.focus();
           }
