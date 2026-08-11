@@ -1246,38 +1246,52 @@ async function startServer() {
       console.warn(`[AI System] Gemini API is currently in rate-limit cooldown (${remainingSec}s remaining). Cascading to fallback AI provider...`);
       errors.push('Gemini 429 Rate Limit Cooldown Active');
     } else if (rawGeminiKey) {
-      const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+      const models = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash-exp',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro-latest',
+        'gemini-1.5-pro'
+      ];
+      const apiVersions = ['v1beta', 'v1'];
+      let modelSuccess = false;
+
       for (const model of models) {
-        try {
-          const payload: any = { contents: [{ parts: [{ text: prompt }] }] };
-          if (options.responseMimeType) {
-            payload.generationConfig = { temperature: 0.1, responseMimeType: options.responseMimeType };
-          }
+        if (modelSuccess) break;
+        for (const ver of apiVersions) {
+          try {
+            const payload: any = { contents: [{ parts: [{ text: prompt }] }] };
+            if (options.responseMimeType) {
+              payload.generationConfig = { temperature: 0.1, responseMimeType: options.responseMimeType };
+            }
 
-          const res = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${rawGeminiKey}`,
-            payload,
-            { timeout: timeoutMs, headers: { 'Content-Type': 'application/json' } }
-          );
+            const res = await axios.post(
+              `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${rawGeminiKey}`,
+              payload,
+              { timeout: timeoutMs, headers: { 'Content-Type': 'application/json' } }
+            );
 
-          const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text !== undefined && text !== null) {
-            return text;
-          }
-        } catch (err: any) {
-          const status = err.response?.status;
-          if (status === 429) {
-            geminiCooldownUntil = Date.now() + 5 * 60 * 1000; // 5-minute circuit breaker
-            console.warn(`[AI System] Gemini API rate limited / quota exceeded (429). Setting 5-minute cooldown and cascading to fallback AI provider...`);
-            errors.push('Gemini 429 Rate Limit');
+            const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text !== undefined && text !== null) {
+              modelSuccess = true;
+              return text;
+            }
+          } catch (err: any) {
+            const status = err.response?.status;
+            if (status === 429) {
+              geminiCooldownUntil = Date.now() + 5 * 60 * 1000; // 5-minute circuit breaker
+              console.warn(`[AI System] Gemini API rate limited / quota exceeded (429). Setting 5-minute cooldown and cascading to fallback AI provider...`);
+              errors.push('Gemini 429 Rate Limit');
+              modelSuccess = false;
+              break;
+            }
+            if (status === 404) {
+              continue;
+            }
+            errors.push(`Gemini (${model}/${ver}): ${err.message}`);
             break;
           }
-          if (status === 404) {
-            console.warn(`[AI System] Gemini model '${model}' returned 404. Trying next model...`);
-            continue;
-          }
-          errors.push(`Gemini: ${err.message}`);
-          break;
         }
       }
     }
