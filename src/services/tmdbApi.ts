@@ -55,14 +55,26 @@ const applyFilters = (results: any[], isSearch: boolean = false, isCalendar: boo
       }
     }
 
-    // Strict Calendar rules: Filter out non-English or foreign productions unless preferredLanguage explicitly allows it
+    // Strict Calendar rules: Filter out non-English, Asian, Indian, or foreign productions
     if (isCalendar) {
-      const lang = m.original_language || '';
-      if (lang && lang !== 'en' && preferredLanguage !== 'all' && preferredLanguage !== lang) {
+      const lang = (m.original_language || '').toLowerCase();
+      const EXCLUDED_LANGS = [
+        'hi', 'ta', 'te', 'ml', 'kn', 'bn', 'pa', 'gu', 'mr', 'or', 'ur', // Indian languages
+        'ja', 'ko', 'zh', 'cn', 'th', 'vi', 'id', 'tl', 'my', 'km', 'lo', // Asian languages
+        'tr', 'ar', 'fa', 'he', 'ru', 'uk', 'pl', 'cs', 'sk', 'hu', 'ro', 'bg', 'el'
+      ];
+      if (EXCLUDED_LANGS.includes(lang)) {
         return false;
       }
-      if (m.origin_country && Array.isArray(m.origin_country) && m.origin_country.length > 0 && !m.origin_country.includes('US')) {
+      if (lang !== 'en' && preferredLanguage !== 'all' && preferredLanguage !== lang) {
         return false;
+      }
+      if (m.origin_country && Array.isArray(m.origin_country) && m.origin_country.length > 0) {
+        const hasUS = m.origin_country.includes('US') || m.origin_country.includes('GB') || m.origin_country.includes('CA');
+        const hasAsianOrIndian = m.origin_country.some((c: string) => ['IN', 'JP', 'KR', 'CN', 'HK', 'TW', 'TH', 'VN', 'ID', 'PH', 'MY', 'PK', 'BD'].includes(c));
+        if (hasAsianOrIndian || !hasUS) {
+          return false;
+        }
       }
     }
 
@@ -298,15 +310,19 @@ export const getUpcomingMovies = async (genreId: number = 0) => {
   if (!apiKey) return [];
 
   try {
-    const endpoint = `${BASE_URL}/discover/movie?api_key=${apiKey}&primary_release_date.gte=${today}&sort_by=primary_release_date.asc${genreId > 0 ? `&with_genres=${genreId}` : ''}`;
+    const genreParam = genreId > 0 ? `&with_genres=${genreId}` : '';
     const pages = await Promise.all([
-      fetch(`${endpoint}&page=1`).then(r => r.json()).catch(() => ({})),
-      fetch(`${endpoint}&page=2`).then(r => r.json()).catch(() => ({}))
+      fetch(`${BASE_URL}/movie/upcoming?api_key=${apiKey}&region=US&page=1${genreParam}`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/movie/upcoming?api_key=${apiKey}&region=US&page=2${genreParam}`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/movie/upcoming?api_key=${apiKey}&region=US&page=3${genreParam}`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/discover/movie?api_key=${apiKey}&region=US&with_origin_country=US&with_original_language=en&primary_release_date.gte=${today}&sort_by=primary_release_date.asc${genreParam}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/discover/movie?api_key=${apiKey}&region=US&with_origin_country=US&with_original_language=en&primary_release_date.gte=${today}&sort_by=primary_release_date.asc${genreParam}&page=2`).then(r => r.json()).catch(() => ({}))
     ]);
+
     const rawResults = pages.flatMap(p => p.results || []).filter(m => m && m.id && m.release_date && m.release_date >= today);
     const filtered = applyFilters(rawResults, false, true);
 
-    return filtered.slice(0, 50).map((m: any) => ({
+    return filtered.slice(0, 80).map((m: any) => ({
       id: m.id,
       title: m.title,
       year: m.release_date?.substring(0, 4) || 'N/A',
@@ -330,18 +346,26 @@ export const getUpcomingTvSeries = async (genreId: number = 0) => {
   if (!apiKey) return [];
 
   try {
+    const genreParam = genreId > 0 ? `&with_genres=${genreId}` : '';
     const pages = await Promise.all([
-      fetch(`${BASE_URL}/tv/on_the_air?api_key=${apiKey}&with_origin_country=US&page=1`).then(r => r.json()).catch(() => ({})),
-      fetch(`${BASE_URL}/tv/on_the_air?api_key=${apiKey}&with_origin_country=US&page=2`).then(r => r.json()).catch(() => ({})),
-      fetch(`${BASE_URL}/discover/tv?api_key=${apiKey}&with_origin_country=US&first_air_date.gte=${today}&sort_by=first_air_date.asc${genreId > 0 ? `&with_genres=${genreId}` : ''}&page=1`).then(r => r.json()).catch(() => ({}))
+      fetch(`${BASE_URL}/discover/tv?api_key=${apiKey}&with_origin_country=US&with_original_language=en&air_date.gte=${today}&sort_by=popularity.desc${genreParam}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/discover/tv?api_key=${apiKey}&with_origin_country=US&with_original_language=en&air_date.gte=${today}&sort_by=popularity.desc${genreParam}&page=2`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/discover/tv?api_key=${apiKey}&with_origin_country=US&with_original_language=en&first_air_date.gte=${today}&sort_by=first_air_date.asc${genreParam}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/discover/tv?api_key=${apiKey}&with_origin_country=US&with_original_language=en&first_air_date.gte=${today}&sort_by=first_air_date.asc${genreParam}&page=2`).then(r => r.json()).catch(() => ({}))
     ]);
+
     const rawResults = pages
       .flatMap(p => p.results || [])
-      .filter(m => m && m.id && (!m.origin_country || m.origin_country.length === 0 || m.origin_country.includes('US')));
+      .filter(m => {
+        if (!m || !m.id) return false;
+        const isEnglish = !m.original_language || m.original_language === 'en';
+        const isUSOrigin = !m.origin_country || m.origin_country.length === 0 || m.origin_country.includes('US');
+        return isEnglish && isUSOrigin;
+      });
 
     const filtered = applyFilters(rawResults, false, true);
 
-    return filtered.slice(0, 50).map((m: any) => ({
+    return filtered.slice(0, 80).map((m: any) => ({
       id: m.id,
       title: m.name,
       year: (m.first_air_date || m.next_episode_to_air?.air_date)?.substring(0, 4) || 'N/A',
