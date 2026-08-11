@@ -231,7 +231,7 @@ function MainApp() {
         }
 
         if (!topOverlay.contains(document.activeElement)) {
-          const focusable = topOverlay.querySelector('#media-modal .focusable:not([title="Close"]), .focusable, button, input, select, [tabindex="0"]') as HTMLElement;
+          const focusable = topOverlay.querySelector('.focusable, button:not([tabindex="-1"]), input, select') as HTMLElement;
           if (focusable) {
             focusable.focus();
           }

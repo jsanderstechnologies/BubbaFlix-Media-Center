@@ -192,7 +192,7 @@ export default function MediaModal({
     window.addEventListener('keydown', handleModalBackKeyDown, true);
 
     SpatialNavigation.add('media-modal', {
-      selector: '#media-modal .focusable, #media-modal button, #media-modal input, #media-modal select, #media-modal [tabindex="0"]',
+      selector: '#media-modal .focusable, #media-modal button:not([tabindex="-1"]), #media-modal input, #media-modal select, #media-modal [tabindex="0"]',
       restrict: 'self-only',
       straightOnly: false,
       enterTo: 'last-focused'
@@ -1457,7 +1457,7 @@ export default function MediaModal({
         <div className="relative h-32 sm:h-40 md:h-48 shrink-0">
             {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-30 blur-sm" referrerPolicy="no-referrer" />}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12]/90 via-[#0c0c12]/40 to-transparent"></div>
-            <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer">
+            <button tabIndex={-1} onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer">
                 <X className="w-5 h-5" />
             </button>
             <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
