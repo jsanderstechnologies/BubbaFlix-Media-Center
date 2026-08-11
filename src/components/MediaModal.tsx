@@ -731,15 +731,17 @@ export default function MediaModal({
 
           let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
           const applyFiltersAndSort = (streams: any[]) => {
-              const seenUrls = new Set<string>();
+              const seenIdentifiers = new Set<string>();
               const uniqueStreams = streams.filter(s => {
-                if (!s || !s.url) return false;
-                let normUrl = (s.url || '').toLowerCase().trim();
+                if (!s) return false;
+                const rawId = s.url || s.magnet || s.hash || s.name || '';
+                if (!rawId) return false;
+                let normId = rawId.toLowerCase().trim();
                 try {
-                  normUrl = decodeURIComponent(s.url).toLowerCase().trim();
+                  normId = decodeURIComponent(rawId).toLowerCase().trim();
                 } catch (e) {}
-                if (seenUrls.has(normUrl)) return false;
-                seenUrls.add(normUrl);
+                if (seenIdentifiers.has(normId)) return false;
+                seenIdentifiers.add(normId);
                 return true;
               });
 
