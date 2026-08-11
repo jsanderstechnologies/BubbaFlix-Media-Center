@@ -192,6 +192,26 @@ function MainApp() {
       const topOverlay = playerEl || userSettingsEl || authModalEl || resumeModalEl || (mediaModalEl && !mediaModalEl.classList.contains('hidden') ? mediaModalEl : null);
 
       if (topOverlay) {
+        const isBackKey = [
+          'Escape', 'Back', 'GoBack', 'BrowserBack'
+        ].includes(e.key) || [27, 10009, 461].includes(e.keyCode) ||
+        (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
+
+        if (isBackKey) {
+          if (topOverlay === mediaModalEl && selectedMovie) {
+            e.preventDefault();
+            e.stopPropagation();
+            setSelectedMovie(null);
+            return;
+          }
+          if (topOverlay === playerEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            closePlayer();
+            return;
+          }
+        }
+
         if (!topOverlay.contains(document.activeElement)) {
           const focusable = topOverlay.querySelector('.focusable, button, input, select, [tabindex="0"]') as HTMLElement;
           if (focusable) {

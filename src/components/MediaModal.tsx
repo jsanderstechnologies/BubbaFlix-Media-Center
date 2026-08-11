@@ -176,6 +176,21 @@ export default function MediaModal({
       return;
     }
 
+    const handleModalBackKeyDown = (e: KeyboardEvent) => {
+      const isBackKey = [
+        'Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B'
+      ].includes(e.key) || [27, 10009, 461].includes(e.keyCode) ||
+      (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
+
+      if (isBackKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleModalBackKeyDown, true);
+
     SpatialNavigation.add('media-modal', {
       selector: '#media-modal .focusable, #media-modal button, #media-modal input, #media-modal select, #media-modal [tabindex="0"]',
       restrict: 'self-only',
@@ -187,11 +202,12 @@ export default function MediaModal({
     SpatialNavigation.disable('');
 
     return () => {
+      window.removeEventListener('keydown', handleModalBackKeyDown, true);
       SpatialNavigation.remove('media-modal');
       SpatialNavigation.enable('');
       SpatialNavigation.focus('');
     };
-  }, [isHidden]);
+  }, [isHidden, onClose]);
 
   const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return '0:00';
