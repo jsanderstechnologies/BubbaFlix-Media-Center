@@ -97,6 +97,9 @@ function syncSystemSettingsToLocalStorage(data: SystemSettings) {
   if (data.tmdbKey) localStorage.setItem('tmdbKey', data.tmdbKey);
   else localStorage.removeItem('tmdbKey');
 
+  if (data.tvdbApiKey) localStorage.setItem('tvdbApiKey', data.tvdbApiKey);
+  else localStorage.removeItem('tvdbApiKey');
+
   if (data.geminiApiKey) localStorage.setItem('geminiApiKey', data.geminiApiKey);
   else localStorage.removeItem('geminiApiKey');
 

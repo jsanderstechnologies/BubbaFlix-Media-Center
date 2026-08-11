@@ -453,6 +453,7 @@ export default function SettingsPanel() {
 
 
     localStorage.setItem('premiumizeApiKey', premiumizeApiKey);
+    localStorage.setItem('tvdbApiKey', tvdbApiKey);
 
     await updateSystemSettings({
       tmdbKey,

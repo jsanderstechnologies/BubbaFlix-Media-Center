@@ -837,6 +837,7 @@ async function startServer() {
     const settings = readJson(SETTINGS_FILE);
     res.json({
       tmdbKey: settings.tmdbKey || '',
+      tvdbApiKey: settings.tvdbApiKey || '',
       premiumizeApiKey: settings.premiumizeApiKey || '',
       geminiApiKey: settings.geminiApiKey || '',
       groqApiKey: settings.groqApiKey || '',
@@ -1104,6 +1105,7 @@ async function startServer() {
 
     // Some general settings that any admin can save from SettingsPanel
     if (req.body.tmdbKey !== undefined) settings.tmdbKey = req.body.tmdbKey;
+    if (req.body.tvdbApiKey !== undefined) settings.tvdbApiKey = req.body.tvdbApiKey;
     if (req.body.premiumizeApiKey !== undefined) settings.premiumizeApiKey = req.body.premiumizeApiKey;
     if (req.body.newsApiKey !== undefined) settings.newsApiKey = req.body.newsApiKey;
     if (req.body.gnewsApiKey !== undefined) settings.gnewsApiKey = req.body.gnewsApiKey;
