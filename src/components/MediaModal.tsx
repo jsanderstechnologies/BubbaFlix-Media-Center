@@ -176,10 +176,10 @@ export default function MediaModal({
       return;
     }
 
-    const handleModalBackKeyDown = (e: KeyboardEvent) => {
+    const handleModalBackKey = (e: KeyboardEvent) => {
       const isBackKey = [
-        'Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft'
-      ].includes(e.key) || [4, 27, 8, 10009, 461, 283].includes(e.keyCode) ||
+        'Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft', 'HistoryBack', 'NavigateBack'
+      ].includes(e.key) || [4, 27, 8, 10009, 461, 283, 166, 167, 198, 219, 220].includes(e.keyCode) ||
       (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
 
       if (isBackKey) {
@@ -189,7 +189,8 @@ export default function MediaModal({
       }
     };
 
-    window.addEventListener('keydown', handleModalBackKeyDown, true);
+    window.addEventListener('keydown', handleModalBackKey, true);
+    window.addEventListener('keyup', handleModalBackKey, true);
 
     SpatialNavigation.add('media-modal', {
       selector: '#media-modal .focusable, #media-modal button, #media-modal input, #media-modal select',
@@ -210,7 +211,8 @@ export default function MediaModal({
     }, 50);
 
     return () => {
-      window.removeEventListener('keydown', handleModalBackKeyDown, true);
+      window.removeEventListener('keydown', handleModalBackKey, true);
+      window.removeEventListener('keyup', handleModalBackKey, true);
       SpatialNavigation.remove('media-modal');
       SpatialNavigation.enable('');
       SpatialNavigation.focus('');
@@ -1521,7 +1523,18 @@ export default function MediaModal({
                       )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div 
+                  id="media-modal-header-actions" 
+                  className="flex items-center gap-2 shrink-0"
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const firstBodyEl = document.querySelector('#media-modal-body-content .focusable, #media-modal-body-content select, #media-modal-body-content button') as HTMLElement;
+                      if (firstBodyEl) firstBodyEl.focus();
+                    }
+                  }}
+                >
                   <button 
                     onClick={handleOpenFixMatch}
                     className="focusable flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors bg-white/5 text-white/90 border border-white/10 hover:bg-white/10 hover:text-white"
@@ -1577,7 +1590,10 @@ export default function MediaModal({
         </div>
 
 
-        <div className="p-6 overflow-y-auto md:overflow-hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div 
+          id="media-modal-body-content" 
+          className="p-6 overflow-y-auto md:overflow-hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-8"
+        >
             <div className="space-y-6 h-full md:overflow-y-auto custom-scrollbar md:pr-4 pb-4">
                 {movie.overview && (
                     <p className="text-sm text-white/90 leading-relaxed">
