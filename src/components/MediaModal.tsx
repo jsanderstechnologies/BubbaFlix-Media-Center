@@ -192,7 +192,7 @@ export default function MediaModal({
     window.addEventListener('keydown', handleModalBackKeyDown, true);
 
     SpatialNavigation.add('media-modal', {
-      selector: '#media-modal .focusable:not(.no-focus), #media-modal button:not(.no-focus), #media-modal input:not(.no-focus), #media-modal select:not(.no-focus)',
+      selector: '#media-modal .focusable, #media-modal button, #media-modal input, #media-modal select',
       restrict: 'self-only',
       straightOnly: false,
       enterTo: 'last-focused'
@@ -1457,9 +1457,9 @@ export default function MediaModal({
         <div className="relative h-32 sm:h-40 md:h-48 shrink-0">
             {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-30 blur-sm" referrerPolicy="no-referrer" />}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12]/90 via-[#0c0c12]/40 to-transparent"></div>
-            <button tabIndex={-1} data-sn-focusable="false" onClick={onClose} className="no-focus absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer">
+            <div onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer" title="Close">
                 <X className="w-5 h-5" />
-            </button>
+            </div>
             <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <h2 className="text-3xl sm:text-4xl font-light tracking-tight text-white mb-2 truncate">{movie.title}</h2>
