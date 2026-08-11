@@ -1496,9 +1496,14 @@ export default function MediaModal({
         <div className="relative h-32 sm:h-40 md:h-48 shrink-0">
             {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-30 blur-sm" referrerPolicy="no-referrer" />}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12]/90 via-[#0c0c12]/40 to-transparent"></div>
-            <div onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer" title="Close">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="focusable absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500" 
+              title="Close"
+            >
                 <X className="w-5 h-5" />
-            </div>
+            </button>
             <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <h2 className="text-3xl sm:text-4xl font-light tracking-tight text-white mb-2 truncate">{movie.title}</h2>

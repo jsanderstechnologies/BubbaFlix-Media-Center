@@ -68,6 +68,21 @@ function MainApp() {
     }, 50);
   }, []);
 
+  useEffect(() => {
+    if (!selectedMovie) return;
+
+    const handlePopState = () => {
+      handleCloseMediaModal();
+    };
+
+    window.history.pushState({ modalOpen: true }, '');
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [selectedMovie, handleCloseMediaModal]);
+
   const [playerStatus, setPlayerStatus] = useState<string>('STREAM READY');
   const [isTranscoding, setIsTranscoding] = useState<boolean>(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -212,8 +227,8 @@ function MainApp() {
 
       if (topOverlay) {
         const isBackKey = 
-          ['Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft', 'HistoryBack', 'NavigateBack'].includes(e.key) ||
-          ['Escape', 'Back', 'Backspace', 'GoBack'].includes(e.code) ||
+          ['Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft', 'HistoryBack', 'NavigateBack', 'AndroidBack'].includes(e.key) ||
+          ['Escape', 'Back', 'Backspace', 'GoBack', 'BrowserBack'].includes(e.code) ||
           [4, 27, 8, 10009, 461, 283, 166, 167, 198, 219, 220].includes(e.keyCode) ||
           [4, 27, 8, 10009, 461, 283, 166, 167, 198, 219, 220].includes(e.which) ||
           (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
@@ -256,11 +271,8 @@ function MainApp() {
           const dirMap: Record<string, string> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
           const dir = dirMap[e.key];
           if (dir) {
-            const activeSection = topOverlay.id || 'media-modal';
-            const moved = SpatialNavigation.move(dir, activeSection);
-            if (moved) {
-              e.preventDefault();
-            }
+            e.preventDefault();
+            SpatialNavigation.move(dir);
           }
         }
         return;
