@@ -966,7 +966,7 @@ export function LibraryGrid({
                     key={letter}
                     disabled={!hasItems && !isAll}
                     onClick={() => setSelectedLetter(isActive ? null : letter)}
-                    className={`px-2 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    className={`focusable px-2 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-red-600 focus:text-white focus:scale-110 relative z-20 ${
                       isActive
                         ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 scale-105'
                         : hasItems

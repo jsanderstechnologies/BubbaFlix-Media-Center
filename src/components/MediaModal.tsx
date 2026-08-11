@@ -179,6 +179,7 @@ export default function MediaModal({
     SpatialNavigation.add('media-modal', {
       selector: '#media-modal .focusable, #media-modal button, #media-modal input, #media-modal select, #media-modal [tabindex="0"]',
       restrict: 'self-only',
+      straightOnly: false,
       enterTo: 'last-focused'
     });
     SpatialNavigation.makeFocusable('media-modal');

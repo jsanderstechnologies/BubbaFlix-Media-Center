@@ -198,6 +198,14 @@ function MainApp() {
             focusable.focus();
           }
         }
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+          const dirMap: Record<string, string> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+          const dir = dirMap[e.key];
+          if (dir) {
+            e.preventDefault();
+            SpatialNavigation.move(dir);
+          }
+        }
         return;
       }
 
@@ -268,10 +276,8 @@ function MainApp() {
       const target = e.target as HTMLElement;
       if (target && target.scrollIntoView && target.tagName !== 'VIDEO' && target.id !== 'root') {
         try {
-          target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-        } catch (err) {
-          target.scrollIntoView();
-        }
+          target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        } catch (err) {}
       }
     };
     
