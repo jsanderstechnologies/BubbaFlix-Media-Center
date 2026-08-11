@@ -178,8 +178,8 @@ export default function MediaModal({
 
     const handleModalBackKeyDown = (e: KeyboardEvent) => {
       const isBackKey = [
-        'Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B'
-      ].includes(e.key) || [27, 10009, 461].includes(e.keyCode) ||
+        'Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft'
+      ].includes(e.key) || [4, 27, 8, 10009, 461, 283].includes(e.keyCode) ||
       (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
 
       if (isBackKey) {
@@ -200,6 +200,14 @@ export default function MediaModal({
     SpatialNavigation.makeFocusable('media-modal');
     SpatialNavigation.focus('media-modal');
     SpatialNavigation.disable('');
+
+    // Focus main action elements (Fix Match / Add to Library) instead of top [X] close button
+    setTimeout(() => {
+      const firstAction = document.querySelector('#media-modal .focusable:not([title="Close"])') as HTMLElement;
+      if (firstAction) {
+        firstAction.focus();
+      }
+    }, 50);
 
     return () => {
       window.removeEventListener('keydown', handleModalBackKeyDown, true);
