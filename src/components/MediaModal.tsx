@@ -746,7 +746,8 @@ export default function MediaModal({
               });
 
               const filtered = uniqueStreams.filter(s => {
-                  if (s.type === 'local') return true;
+                  if (s.type === 'local' || s.type === 'iptv' || s.type === 'premiumize_cloud' || s.inPersonalCloud) return true;
+                  if (s.type === 'torrent' && !s.isPremiumize && !s.isCached) return false;
                   const desc = (s.name || '') + ' ' + (s.fullDescription || '');
                   if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
                   if (desc.includes('1080p')) return allowedRes.includes('1080p');
@@ -1756,8 +1757,12 @@ export default function MediaModal({
                   };
 
                   const activeStreams = streams.filter(isReadyOrActive);
-                  // Filter out un-cached plain torrents when Premiumize filtering is active so only Premiumize-cached streams are displayed
-                  const availableStreams = streams.filter(s => !isReadyOrActive(s) && (s.isPremiumize || s.type === 'premiumize_cloud' || s.inPersonalCloud || s.isCached || s.magnet || s.url));
+                  // Filter out un-cached plain torrents so only streams that qualify for the Premiumize cached badge (or local/iptv/cloud streams) are displayed
+                  const availableStreams = streams.filter(s => {
+                    if (isReadyOrActive(s)) return false;
+                    if (s.type === 'local' || s.type === 'iptv' || s.type === 'premiumize_cloud' || s.inPersonalCloud) return true;
+                    return Boolean(s.isPremiumize || s.isCached);
+                  });
 
                   return (
                     <div className="flex flex-col flex-1 min-h-0 gap-6">
