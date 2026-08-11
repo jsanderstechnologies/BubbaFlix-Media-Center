@@ -3386,7 +3386,7 @@ app.get('/api/youtube/search', async (req, res) => {
           matchingTokenCount === titleTokens.length ||
           (titleTokens.length >= 2 && matchingTokenCount >= Math.ceil(titleTokens.length * 0.5))
         );
-        const matchesStrict = isValidTitleMatch(title, combinedPath, year);
+        const matchesStrict = isValidTitleMatch(title, originalName, year) || isValidTitleMatch(title, combinedPath);
 
         if (!matchesCleanTitle && !matchesTokens && !matchesStrict) {
           return;
