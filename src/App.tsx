@@ -231,7 +231,7 @@ function MainApp() {
         }
 
         if (!topOverlay.contains(document.activeElement)) {
-          const focusable = topOverlay.querySelector('.focusable, button:not([tabindex="-1"]), input, select') as HTMLElement;
+          const focusable = topOverlay.querySelector('.focusable:not(.no-focus), button:not(.no-focus), input:not(.no-focus), select:not(.no-focus)') as HTMLElement;
           if (focusable) {
             focusable.focus();
           }
