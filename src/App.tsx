@@ -133,6 +133,19 @@ function MainApp() {
   const [activeWeatherAlert, setActiveWeatherAlert] = useState<WeatherAlert | null>(null);
   const [hasModalOpen, setHasModalOpen] = useState(false);
 
+  // When a navbar tab is selected, automatically move focus to the first poster/card on the page
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const firstPoster = document.querySelector('main .focusable, #main-content-view .focusable, main button, main [tabindex="0"]') as HTMLElement;
+      if (firstPoster) {
+        firstPoster.focus({ preventScroll: false });
+        firstPoster.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [activeTab]);
+
   // Monitor National Weather Service alerts for user location every 3 minutes
   useEffect(() => {
     let isMounted = true;
