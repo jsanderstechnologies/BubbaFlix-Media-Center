@@ -54,9 +54,23 @@ const applyFilters = (results: any[], isSearch: boolean = false, isCalendar: boo
         }
       }
     }
-    if (filterAnime && m.original_language === 'ja' && (m.genre_ids?.includes(16) || m.genre_ids?.includes(10759))) {
+
+    // Strict Calendar rules: Filter out non-English or foreign productions unless preferredLanguage explicitly allows it
+    if (isCalendar) {
+      const lang = m.original_language || '';
+      if (lang && lang !== 'en' && preferredLanguage !== 'all' && preferredLanguage !== lang) {
+        return false;
+      }
+      if (m.origin_country && Array.isArray(m.origin_country) && m.origin_country.length > 0 && !m.origin_country.includes('US')) {
+        return false;
+      }
+    }
+
+    // Anime filter rule
+    if (filterAnime && (m.original_language === 'ja' || m.origin_country?.includes('JP')) && (m.genre_ids?.includes(16) || m.genre_ids?.includes(10759))) {
       return false;
     }
+
     // Bypassed for explicit search queries so international productions (e.g. The Fifth Element, original_language: fr) are returned
     if (!isSearch && preferredLanguage && preferredLanguage !== 'all' && m.original_language !== preferredLanguage) {
       return false;

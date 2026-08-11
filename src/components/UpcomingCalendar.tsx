@@ -20,6 +20,7 @@ export default function UpcomingCalendar({
   filterGenre = 0
 }: UpcomingCalendarProps) {
   const [activeMode, setActiveMode] = useState<'movie' | 'tv' | 'all'>(defaultType);
+  const [failedPosters, setFailedPosters] = useState<Record<string, boolean>>({});
   const { systemSettings } = useSettings();
 
   const { data: upcomingMovies, isLoading: loadingMovies } = useQuery({
@@ -195,16 +196,19 @@ export default function UpcomingCalendar({
                       }}
                     >
                       <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2.5 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-300">
-                        {item.poster ? (
+                        {item.poster && !failedPosters[`${item.type}_${item.id}`] ? (
                           <img
                             src={item.poster}
                             alt={item.title}
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
+                            onError={() => setFailedPosters(prev => ({ ...prev, [`${item.type}_${item.id}`]: true }))}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-white text-xs text-center p-4">
-                            No Poster
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-purple-950/40 to-slate-900 p-4 text-center">
+                            <Film className="w-8 h-8 text-white/30 mb-2" />
+                            <span className="text-xs font-bold text-white/80 line-clamp-2">{item.title}</span>
+                            <span className="text-[10px] text-purple-300 font-mono mt-1">{formatDateLabel(item.releaseDate)}</span>
                           </div>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-70"></div>
