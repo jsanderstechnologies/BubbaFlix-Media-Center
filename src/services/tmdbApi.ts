@@ -236,7 +236,26 @@ export const getTvSeasonDetails = async (seriesId: number, seasonNumber: number)
   const apiKey = getApiKey();
   const tvdbApiKey = (typeof window !== 'undefined' && (localStorage.getItem('tvdbApiKey') || '')) || '';
 
-  // If TVDB API Key is configured, attempt TVDB lookup first for enhanced season/episode metadata
+  // 1. If TMDB Key is present, query TMDB with explicit en-US language for official localized episode titles
+  if (apiKey) {
+    try {
+      const res = await fetch(`${BASE_URL}/tv/${seriesId}/season/${seasonNumber}?api_key=${apiKey}&language=en-US`);
+      if (res.ok) {
+        const tmdbData = await res.json();
+        if (tmdbData && Array.isArray(tmdbData.episodes) && tmdbData.episodes.length > 0) {
+          tmdbData.episodes = tmdbData.episodes.map((e: any) => ({
+            ...e,
+            name: e.name || e.title || `Episode ${e.episode_number}`
+          }));
+          return tmdbData;
+        }
+      }
+    } catch (e) {
+      console.warn("[Frontend] TMDB Season Fetch Warning:", e);
+    }
+  }
+
+  // 2. Fallback to TVDB for enhanced season/episode metadata
   if (tvdbApiKey) {
     try {
       const tvdbRes = await fetch(`/api/tvdb/season?seriesId=${seriesId}&season=${seasonNumber}&apiKey=${encodeURIComponent(tvdbApiKey)}`).then(r => r.json()).catch(() => null);
@@ -246,15 +265,7 @@ export const getTvSeasonDetails = async (seriesId: number, seasonNumber: number)
     } catch (e) {}
   }
 
-  if (!apiKey) return null;
-  try {
-    const res = await fetch(`${BASE_URL}/tv/${seriesId}/season/${seasonNumber}?api_key=${apiKey}`);
-    if (!res.ok) throw new Error("Failed to fetch tv season details");
-    return await res.json();
-  } catch (error) {
-    console.error("[Frontend] TMDB API TV Season Error:", error);
-    return null;
-  }
+  return null;
 };
 
 export const getTrendingTvSeries = async (genreId: number = 0) => {

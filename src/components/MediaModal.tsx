@@ -909,7 +909,12 @@ export default function MediaModal({
         if (!isActive) return;
 
         const epMap = new Map<number, any>();
-        tmdbEpisodes.forEach(e => epMap.set(e.episode_number, e));
+        tmdbEpisodes.forEach(e => {
+          epMap.set(e.episode_number, {
+            ...e,
+            name: e.name || e.title || `Episode ${e.episode_number}`
+          });
+        });
         localEpisodes.forEach(e => {
           if (!tmdbEpisodes || tmdbEpisodes.length === 0) {
             // Only add local files as new standalone episode entries if TMDB returned no episodes
@@ -917,9 +922,15 @@ export default function MediaModal({
               epMap.set(e.episode_number, e);
             }
           } else if (epMap.has(e.episode_number)) {
-            // Merge local stream URL into existing official TMDB episode object!
-            epMap.get(e.episode_number)!.streamUrl = e.streamUrl;
-            epMap.get(e.episode_number)!.filePath = e.filePath;
+            // Merge local stream URL into existing official TMDB episode object while preserving official episode name!
+            const existing = epMap.get(e.episode_number)!;
+            existing.streamUrl = e.streamUrl;
+            existing.filePath = e.filePath;
+            if (!existing.name || existing.name === `Episode ${e.episode_number}`) {
+              if (e.name && e.name !== `Episode ${e.episode_number}`) {
+                existing.name = e.name;
+              }
+            }
           }
         });
 

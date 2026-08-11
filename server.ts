@@ -3569,9 +3569,19 @@ app.get('/api/youtube/search', async (req, res) => {
         return res.status(401).json({ success: false, error: "Failed to authenticate with TVDB API." });
       }
 
+      // If seriesId is a TMDB ID, resolve real TVDB ID via TMDB external_ids
+      let targetTvdbId = String(seriesId);
+      const tmdbKey = settings.tmdbKey || process.env.VITE_TMDB_API_KEY;
+      if (tmdbKey && /^\d+$/.test(targetTvdbId)) {
+        const extRes = await axios.get(`https://api.themoviedb.org/3/tv/${targetTvdbId}/external_ids?api_key=${tmdbKey}`).catch(() => null);
+        if (extRes?.data?.tvdb_id) {
+          targetTvdbId = String(extRes.data.tvdb_id);
+        }
+      }
+
       // Query TVDB v4 series episodes filtered by season
       const sNum = parseInt(String(season), 10) || 1;
-      const tvdbUrl = `https://api4.thetvdb.com/v4/series/${seriesId}/episodes/official?season=${sNum}`;
+      const tvdbUrl = `https://api4.thetvdb.com/v4/series/${targetTvdbId}/episodes/official?season=${sNum}`;
       const epRes = await axios.get(tvdbUrl, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000
