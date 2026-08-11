@@ -782,7 +782,7 @@ export default function MediaModal({
               'Content-Type': 'application/json',
               ...(pmKey ? { Authorization: `Bearer ${pmKey}` } : {})
             },
-            body: JSON.stringify({ title: movie.title || movie.name, year: movie.year, refresh: true })
+            body: JSON.stringify({ title: movie.title || movie.name, year: movieYear, refresh: true })
           }).then(r => r.json()).catch(() => null);
 
           const torrentSearchPromise = movie.type === 'music'
@@ -1052,7 +1052,7 @@ export default function MediaModal({
           'Content-Type': 'application/json',
           ...(pmKey ? { Authorization: `Bearer ${pmKey}` } : {})
         },
-        body: JSON.stringify({ title: movie.title || movie.name, season: selectedSeason, episode: selectedEpisode, refresh: true })
+        body: JSON.stringify({ title: movie.title || movie.name, season: selectedSeason, episode: selectedEpisode, year: seriesYear, refresh: true })
       }).then(r => r.json()).catch(() => null);
 
       Promise.all([

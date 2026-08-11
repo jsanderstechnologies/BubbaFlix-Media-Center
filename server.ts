@@ -3262,10 +3262,10 @@ app.get('/api/youtube/search', async (req, res) => {
     if (!titleName) return false;
     const nameLower = titleName.toLowerCase();
     
-    // Explicit bad quality keywords
-    const lowQualityRegex = /\b(telesync|hd-?ts|ts-?rip|cam|cam-?rip|hd-?cam|telecine|hd-?tc|tc-?rip|screener|dvd-?scr|scr|workprint|wp|r5|line\.?audio|hc|hardcoded|vhs-?rip|pdvd|clean\.audio)\b/i;
+    // Explicit bad quality keywords (CAM, Telesync, Telecine, Screener)
+    const lowQualityRegex = /\b(telesync|hd-?ts|ts-?rip|cam-?rip|hd-?cam|telecine|hd-?tc|tc-?rip|dvd-?scr|dvd-?screener|workprint|line\.?audio|hardcoded|vhs-?rip|pdvd)\b/i;
     
-    // Check standalone TS / CAM / TC / SCR tags enclosed in brackets, dots, hyphens, or spaces
+    // Check standalone TS / CAM / TC / SCR tags enclosed in delimiters (e.g. .CAM., .TS., -CAM-, -TS-, [CAM], [TS])
     const badTagRegex = /[\.\_\s\-\[\(](TS|CAM|TC|SCR|HDCAM|HDTS|TELESYNC|TELECINE|DVDSCR|WORKPRINT)[\.\_\s\-\]\)]/i;
 
     return lowQualityRegex.test(nameLower) || badTagRegex.test(titleName);
@@ -3383,7 +3383,7 @@ app.get('/api/youtube/search', async (req, res) => {
           matchingTokenCount === titleTokens.length ||
           (titleTokens.length >= 2 && matchingTokenCount >= Math.ceil(titleTokens.length * 0.5))
         );
-        const matchesStrict = isValidTitleMatch(title, combinedPath);
+        const matchesStrict = isValidTitleMatch(title, combinedPath, year);
 
         if (!matchesCleanTitle && !matchesTokens && !matchesStrict) {
           return;
@@ -3396,7 +3396,7 @@ app.get('/api/youtube/search', async (req, res) => {
             `s${sNum}`, `s${sPadded}`,
             `season${sNum}`, `season ${sNum}`, `season${sPadded}`, `season ${sPadded}`,
             `${sNum}x`, `${sPadded}x`,
-            `series ${sNum}`, `series${sNum}`
+            `series ${sNum}`, `series${sPadded}`
           ];
           const hasSeasonMatch = seasonPatterns.some(p => combinedPath.includes(p));
           
@@ -3415,13 +3415,13 @@ app.get('/api/youtube/search', async (req, res) => {
           const sPadded = sNum ? sNum.toString().padStart(2, '0') : '\\d{1,2}';
           
           const epRegexes = [
-            new RegExp(`\\be0*${eNum}\\b`, 'i'),
+            new RegExp(`\\b(s${sPadded}|s${sNum})?e0*${eNum}\\b`, 'i'),
             new RegExp(`\\bep0*${eNum}\\b`, 'i'),
             new RegExp(`\\bepisode\\s*0*${eNum}\\b`, 'i'),
             new RegExp(`\\b${sPadded}x0*${eNum}\\b`, 'i'),
             new RegExp(`\\b${sNum}x0*${eNum}\\b`, 'i'),
             new RegExp(`\\b${sNum}${ePadded}\\b`, 'i'), // e.g. 101 for S01E01
-            new RegExp(`[\\s\\._\\-\\[\\(]0*${eNum}[\\s\\._\\-\\]\\)]`, 'i') // e.g. - 01.mkv or [01]
+            new RegExp(`(^|[\\s\\._\\-\\[\\(])0*${eNum}([\\s\\._\\-\\]\\.]|$)`, 'i') // e.g. 01.mkv, - 01.mkv, [01]
           ];
 
           const hasEpMatch = epRegexes.some(r => r.test(originalName) || r.test(combinedPath));
