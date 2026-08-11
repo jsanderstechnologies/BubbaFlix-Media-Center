@@ -3703,8 +3703,8 @@ app.get('/api/youtube/search', async (req, res) => {
           const seriesRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_series`, { timeout: 7000 }).catch(() => null);
           if (seriesRes?.data && Array.isArray(seriesRes.data)) {
             const matchSeries = seriesRes.data.find((s: any) => {
-              const sName = (s.name || s.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-              return sName.includes(normalizedTitle) || normalizedTitle.includes(sName);
+              const sName = s.name || s.title || '';
+              return isValidTitleMatch(title as string, sName, year as string);
             });
 
             if (matchSeries?.series_id) {
@@ -3740,10 +3740,9 @@ app.get('/api/youtube/search', async (req, res) => {
           const vodRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_vod_streams`, { timeout: 7000 }).catch(() => null);
           if (vodRes?.data && Array.isArray(vodRes.data)) {
             vodRes.data.forEach((m: any) => {
-              const mName = (m.name || m.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-              if (mName.includes(normalizedTitle) || normalizedTitle.includes(mName)) {
+              const streamName = m.name || m.title || '';
+              if (isValidTitleMatch(title as string, streamName, year as string)) {
                 const ext = m.container_extension || 'mp4';
-                const streamName = m.name || m.title || '';
                 results.push({
                   id: `iptv_movie_${m.stream_id}`,
                   name: `IPTV Direct Stream - ${streamName}`,

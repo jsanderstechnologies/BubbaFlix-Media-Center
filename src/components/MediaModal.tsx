@@ -767,11 +767,10 @@ export default function MediaModal({
               setStreams(applyFiltersAndSort(initialData));
           }
 
-          const iptvPromise = fetch(`/api/iptv/vod/search?title=${encodeURIComponent(movie.title || movie.name)}&type=movie`)
+          const movieYear = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
+          const iptvPromise = fetch(`/api/iptv/vod/search?title=${encodeURIComponent(movie.title || movie.name)}&type=movie${movieYear ? `&year=${encodeURIComponent(movieYear)}` : ''}`)
             .then(r => r.json())
             .catch(() => null);
-
-          const movieYear = movie.year || (movie.release_date ? movie.release_date.split('-')[0] : '');
           const localMediaPromise = fetch(`/api/local-media/search?title=${encodeURIComponent(movie.title || movie.name)}&type=movie${movieYear ? `&year=${encodeURIComponent(movieYear)}` : ''}`)
             .then(r => r.json())
             .catch(() => null);
@@ -1037,7 +1036,8 @@ export default function MediaModal({
         return;
       }
 
-      const iptvPromise = fetch(`/api/iptv/vod/search?title=${encodeURIComponent(movie.title || movie.name)}&type=series&season=${selectedSeason}&episode=${selectedEpisode}`)
+      const seriesYear = movie.year || (movie.first_air_date ? movie.first_air_date.split('-')[0] : '');
+      const iptvPromise = fetch(`/api/iptv/vod/search?title=${encodeURIComponent(movie.title || movie.name)}&type=series&season=${selectedSeason}&episode=${selectedEpisode}${seriesYear ? `&year=${encodeURIComponent(seriesYear)}` : ''}`)
         .then(r => r.json())
         .catch(() => null);
 
