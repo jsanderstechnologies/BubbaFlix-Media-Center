@@ -2678,11 +2678,10 @@ app.get('/api/youtube/search', async (req, res) => {
         urgency: f.properties?.urgency,
         areaDesc: f.properties?.areaDesc,
         description: f.properties?.description,
-        instruction: f.properties?.instruction,
         effective: f.properties?.effective,
         expires: f.properties?.expires
       }));
-      res.json({ success: true, count: alerts.length, alerts });
+      return res.json({ success: true, count: alerts.length, alerts });
     } catch (e: any) {
       console.error("[Backend] Weather Alert Error:", e);
       res.status(500).json({ error: e.message || "Failed to fetch weather alerts" });
@@ -2690,6 +2689,63 @@ app.get('/api/youtube/search', async (req, res) => {
   });
 
   // Search Stream Proxies
+
+  // Helper: Strict title & year matcher to prevent false stream matches (e.g., "The Bus A French Football Mutiny" matching "Mutiny")
+  function isValidTitleMatch(queryTitle: string, candidateTitle: string, expectedYear?: string | number): boolean {
+    if (!queryTitle || !candidateTitle) return false;
+
+    const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const qClean = clean(queryTitle);
+    if (!qClean) return false;
+
+    const candidateLower = candidateTitle.toLowerCase();
+    
+    // 1. Year checking: if candidate title contains a year, ensure it matches expectedYear
+    if (expectedYear) {
+      const yearNum = parseInt(String(expectedYear), 10);
+      const candidateYears = candidateLower.match(/\b(19\d{2}|20\d{2})\b/g);
+      if (candidateYears && yearNum && yearNum > 1900) {
+        const hasCloseYear = candidateYears.some(y => Math.abs(parseInt(y, 10) - yearNum) <= 1);
+        if (!hasCloseYear) {
+          return false;
+        }
+      }
+    }
+
+    // 2. Strip quality, codec, audio, and scene tags from candidate string
+    const titlePart = candidateLower
+      .replace(/\b(2160p|1080p|720p|480p|4k|uhd|hdr|hdr10|dv|dolby\s*vision|webrip|web-dl|web|bluray|bdrip|hdrip|brrip|hdtv|x264|x265|hevc|h264|h265|aac|dts|dd5\.1|5\.1|7\.1|atmos|repack|proper|unrated|extended|cut|remastered)\b/gi, ' ')
+      .replace(/\b(19|20)\d{2}\b/g, ' ') // strip year
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .trim();
+
+    const cClean = clean(titlePart);
+
+    // Exact clean match
+    if (cClean === qClean) {
+      return true;
+    }
+
+    // Tokenize query and candidate words
+    const qTokens = qClean.split(/\s+/).filter(Boolean);
+    const cTokens = titlePart.split(/\s+/).filter(w => w.length > 0 && !['the', 'a', 'an', 'and', 'or', 'of', 'in', 'to', 'for', 'with', 'on', 'at', 'is', 'by'].includes(w));
+
+    // If query is a single-word title (e.g. "Mutiny"), candidate must not contain unrelated extra major words
+    if (qTokens.length === 1) {
+      const singleWord = qTokens[0];
+      if (!cClean.includes(singleWord)) return false;
+
+      // Extra words in candidate that are not the single query word
+      const extraMajorWords = cTokens.filter(w => w !== singleWord && w.length >= 3);
+      if (extraMajorWords.length >= 2) {
+        return false;
+      }
+    }
+
+    // Multi-word titles: require at least 75% of query tokens to match
+    const matchesCount = qTokens.filter(tok => cClean.includes(tok)).length;
+    return matchesCount >= Math.ceil(qTokens.length * 0.75);
+  }
 
   async function filterWithGemini(query: string, items: any[], settings: any, isMusic: boolean = false): Promise<any[]> {
     if (items.length === 0) return items;
@@ -2773,18 +2829,19 @@ app.get('/api/youtube/search', async (req, res) => {
       
       if (Array.isArray(indices)) {
         console.log(`[Gemini Filter] Filtered from ${candidateItems.length} to ${indices.length} items for "${query}"`);
-        return indices.map(i => candidateItems[i]).filter(Boolean);
+        const resultItems = indices.map(i => candidateItems[i]).filter(Boolean);
+        return resultItems.filter(item => isValidTitleMatch(query, item.name || item.title || ''));
       }
-      return candidateItems;
+      return candidateItems.filter(item => isValidTitleMatch(query, item.name || item.title || ''));
     } catch (err: any) {
       const status = err.response?.status;
       const errMsg = err.response?.data?.error?.message || err.message;
       if (status === 429 || errMsg.includes('429')) {
-        console.warn(`[Gemini Filter Warning]: Gemini API quota / rate limit reached (429). Returning all candidate streams.`);
+        console.warn(`[Gemini Filter Warning]: Gemini API quota / rate limit reached (429). Applying strict title matching.`);
       } else {
-        console.warn(`[Gemini Filter Warning] (${status || 'Network Error'}): ${errMsg}. Returning candidate items.`);
+        console.warn(`[Gemini Filter Warning] (${status || 'Network Error'}): ${errMsg}. Applying strict title matching.`);
       }
-      return candidateItems; // Fallback to candidate items if Gemini fails
+      return candidateItems.filter(item => isValidTitleMatch(query, item.name || item.title || ''));
     }
   }
 
@@ -3608,7 +3665,7 @@ app.get('/api/youtube/search', async (req, res) => {
 
   // API Route: Search IPTV Provider for VOD Movie and TV Series Streams
   app.get("/api/iptv/vod/search", async (req, res) => {
-    const { title, type, season, episode } = req.query;
+    const { title, type, season, episode, year } = req.query;
     if (!title || typeof title !== 'string') {
       return res.status(400).json({ success: false, data: [], error: "Title parameter is required." });
     }
@@ -3714,7 +3771,7 @@ app.get('/api/youtube/search', async (req, res) => {
                   isMatch = true;
                 }
               } else {
-                if (normalizedName.length > 3 && normalizedTitle.length > 3 && (normalizedName.includes(normalizedTitle) || normalizedTitle.includes(normalizedName))) {
+                if (isValidTitleMatch(title as string, channelName, year as string)) {
                   isMatch = true;
                 }
               }
