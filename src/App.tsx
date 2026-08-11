@@ -211,10 +211,12 @@ function MainApp() {
       const topOverlay = playerEl || userSettingsEl || authModalEl || resumeModalEl || fixMatchModalEl || (mediaModalEl && !mediaModalEl.classList.contains('hidden') ? mediaModalEl : null);
 
       if (topOverlay) {
-        const isBackKey = [
-          'Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft'
-        ].includes(e.key) || [4, 27, 8, 10009, 461, 283].includes(e.keyCode) ||
-        (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
+        const isBackKey = 
+          ['Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft', 'HistoryBack', 'NavigateBack'].includes(e.key) ||
+          ['Escape', 'Back', 'Backspace', 'GoBack'].includes(e.code) ||
+          [4, 27, 8, 10009, 461, 283, 166, 167, 198, 219, 220].includes(e.keyCode) ||
+          [4, 27, 8, 10009, 461, 283, 166, 167, 198, 219, 220].includes(e.which) ||
+          (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
 
         if (isBackKey) {
           if (topOverlay === fixMatchModalEl) {
@@ -249,12 +251,16 @@ function MainApp() {
             focusable.focus();
           }
         }
+
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
           const dirMap: Record<string, string> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
           const dir = dirMap[e.key];
           if (dir) {
-            e.preventDefault();
-            SpatialNavigation.move(dir);
+            const activeSection = topOverlay.id || 'media-modal';
+            const moved = SpatialNavigation.move(dir, activeSection);
+            if (moved) {
+              e.preventDefault();
+            }
           }
         }
         return;

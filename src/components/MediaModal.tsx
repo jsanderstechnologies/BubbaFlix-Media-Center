@@ -177,10 +177,12 @@ export default function MediaModal({
     }
 
     const handleModalBackKey = (e: KeyboardEvent) => {
-      const isBackKey = [
-        'Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft', 'HistoryBack', 'NavigateBack'
-      ].includes(e.key) || [4, 27, 8, 10009, 461, 283, 166, 167, 198, 219, 220].includes(e.keyCode) ||
-      (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
+      const isBackKey = 
+        ['Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft', 'HistoryBack', 'NavigateBack'].includes(e.key) ||
+        ['Escape', 'Back', 'Backspace', 'GoBack'].includes(e.code) ||
+        [4, 27, 8, 10009, 461, 283, 166, 167, 198, 219, 220].includes(e.keyCode) ||
+        [4, 27, 8, 10009, 461, 283, 166, 167, 198, 219, 220].includes(e.which) ||
+        (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
 
       if (isBackKey) {
         e.preventDefault();
@@ -194,7 +196,6 @@ export default function MediaModal({
 
     SpatialNavigation.add('media-modal', {
       selector: '#media-modal .focusable, #media-modal button, #media-modal input, #media-modal select',
-      restrict: 'self-only',
       straightOnly: false,
       enterTo: 'last-focused'
     });
