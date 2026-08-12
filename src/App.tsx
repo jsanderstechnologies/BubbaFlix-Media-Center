@@ -630,6 +630,8 @@ function MainApp() {
 
         if (isIntro && userSettings.autoSkipIntros && lastAutoSkippedSeg !== segId) {
           setLastAutoSkippedSeg(segId);
+          logger.info(`[TIDB Auto-Skip] Automatically skipping intro segment to ${activeSeg.end}s`);
+          console.log(`[TIDB Auto-Skip] Skipped segment:`, activeSeg);
           if (videoRef.current) {
             const seekTo = activeSeg.end - streamOffset;
             videoRef.current.currentTime = Math.max(0, seekTo);
@@ -638,6 +640,8 @@ function MainApp() {
           }
         } else if (isCredits && userSettings.autoSkipCredits && lastAutoSkippedSeg !== segId) {
           setLastAutoSkippedSeg(segId);
+          logger.info(`[TIDB Auto-Skip] Automatically skipping credits segment to ${activeSeg.end}s`);
+          console.log(`[TIDB Auto-Skip] Skipped segment:`, activeSeg);
           if (videoRef.current) {
             const seekTo = activeSeg.end - streamOffset;
             videoRef.current.currentTime = Math.max(0, seekTo);
@@ -850,14 +854,21 @@ function MainApp() {
     const episodeNum = finalContext?.episode;
 
     if (targetMediaId && !finalContext?.isLive) {
+      logger.info(`[TIDB] Querying intro/credit skip segments for TMDB #${targetMediaId}...`);
       fetch(`/api/skip-segments?tmdbId=${targetMediaId}&type=${isTv ? 'tv' : 'movie'}${seasonNum ? `&season=${seasonNum}` : ''}${episodeNum ? `&episode=${episodeNum}` : ''}${systemSettings.tidbApiKey ? `&apiKey=${encodeURIComponent(systemSettings.tidbApiKey)}` : ''}`)
         .then(r => r.json())
         .then(data => {
           if (data?.success && Array.isArray(data.segments)) {
+            logger.info(`[TIDB] Successfully loaded ${data.segments.length} segment(s) for TMDB #${targetMediaId}`);
+            console.log('[TIDB] Skip segments retrieved:', data.segments);
             setSkipSegments(data.segments);
+          } else {
+            logger.info(`[TIDB] No skip segments available for TMDB #${targetMediaId}`);
           }
         })
-        .catch(() => {});
+        .catch(err => {
+          logger.error(`[TIDB Error] Failed to fetch skip segments for TMDB #${targetMediaId}:`, err);
+        });
     }
 
     if (channelLogoUrl) {
@@ -1175,6 +1186,8 @@ function MainApp() {
                 <div className="absolute bottom-28 right-8 z-[140] animate-in fade-in slide-in-from-bottom-4 duration-300">
                   <button
                     onClick={() => {
+                      logger.info(`[TIDB Manual-Skip] User clicked ${activeSkipSegment.label} to skip to ${activeSkipSegment.end}s`);
+                      console.log(`[TIDB Manual-Skip] Skipped segment:`, activeSkipSegment);
                       if (videoRef.current) {
                         const seekTo = activeSkipSegment.end - streamOffset;
                         videoRef.current.currentTime = Math.max(0, seekTo);

@@ -1260,7 +1260,10 @@ async function startServer() {
       const season = req.query.season ? String(req.query.season) : '';
       const episode = req.query.episode ? String(req.query.episode) : '';
 
+      console.log(`[TIDB Proxy] Requesting skip segments: tmdbId=${tmdbId || 'N/A'}, imdbId=${imdbId || 'N/A'}, type=${type}${season ? `, S${season}E${episode}` : ''}`);
+
       if (!tmdbId && !imdbId) {
+        console.log('[TIDB Proxy] Skipped search: Missing tmdbId or imdbId');
         return res.json({ success: false, message: 'Missing tmdbId or imdbId', segments: [] });
       }
 
@@ -1276,6 +1279,7 @@ async function startServer() {
           if (type === 'tv' && season && episode) {
             tidbUrl += `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`;
           }
+          console.log(`[TIDB Proxy] Querying v3 API: ${tidbUrl}`);
           const tidbRes = await axios.get(tidbUrl, { headers, timeout: 4000 }).catch(() => null);
           if (tidbRes?.data) {
             const items = Array.isArray(tidbRes.data) 
@@ -1295,9 +1299,12 @@ async function startServer() {
                   });
                 }
               });
+              console.log(`[TIDB Proxy] Found ${segments.length} segment(s) via v3 API`);
             }
           }
-        } catch (e) {}
+        } catch (e: any) {
+          console.warn('[TIDB Proxy] v3 API request failed:', e?.message || e);
+        }
       }
 
       // 2. Query TheIntroDB v1 API Fallback
@@ -1307,6 +1314,7 @@ async function startServer() {
           if (type === 'tv' && season && episode) {
             v1Url += `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`;
           }
+          console.log(`[TIDB Proxy] Querying v1 Fallback API: ${v1Url}`);
           const v1Res = await axios.get(v1Url, { timeout: 4000 }).catch(() => null);
           if (v1Res?.data) {
             const list = Array.isArray(v1Res.data) ? v1Res.data : (v1Res.data.segments || []);
@@ -1323,8 +1331,13 @@ async function startServer() {
                 });
               }
             });
+            if (segments.length > 0) {
+              console.log(`[TIDB Proxy] Found ${segments.length} segment(s) via v1 Fallback`);
+            }
           }
-        } catch (e) {}
+        } catch (e: any) {
+          console.warn('[TIDB Proxy] v1 API request failed:', e?.message || e);
+        }
       }
 
       // 3. Query IntroDB App API Fallback
@@ -1339,6 +1352,7 @@ async function startServer() {
           if (type === 'tv' && season && episode) {
             appUrl += `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`;
           }
+          console.log(`[TIDB Proxy] Querying IntroDB App Fallback API: ${appUrl}`);
           const appRes = await axios.get(appUrl, { timeout: 4000 }).catch(() => null);
           if (appRes?.data) {
             const list = Array.isArray(appRes.data) ? appRes.data : (appRes.data.segments || []);
@@ -1355,8 +1369,19 @@ async function startServer() {
                 });
               }
             });
+            if (segments.length > 0) {
+              console.log(`[TIDB Proxy] Found ${segments.length} segment(s) via IntroDB App Fallback`);
+            }
           }
-        } catch (e) {}
+        } catch (e: any) {
+          console.warn('[TIDB Proxy] IntroDB App API request failed:', e?.message || e);
+        }
+      }
+
+      if (segments.length > 0) {
+        console.log(`[TIDB Proxy] Successfully returning ${segments.length} segment(s):`, segments.map(s => `${s.label} (${s.start}s-${s.end}s)`).join(', '));
+      } else {
+        console.log(`[TIDB Proxy] No skip segments available for target media`);
       }
 
       return res.json({ success: true, segments });
