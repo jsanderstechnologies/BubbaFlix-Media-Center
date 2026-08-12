@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot, Calendar as CalendarIcon, Film, SkipForward } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot, Calendar as CalendarIcon, Film, SkipForward, RotateCcw, RotateCw } from 'lucide-react';
 import { searchMovies, searchTvSeries, getTrendingMovies, getTrendingTvSeries, getTvSeasonDetails, getCachedImageUrl } from './services/tmdbApi';
 import { collection, query, where, onSnapshot, setDoc, deleteDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
@@ -1059,7 +1059,23 @@ function MainApp() {
                 </div>
               )}
           </div>
-          <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black overflow-hidden">
+          <div 
+            className="flex-1 w-full h-full relative flex items-center justify-center bg-black overflow-hidden cursor-pointer"
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest('button, input, select, a, [role="button"], .pointer-events-auto, .popover-container')) {
+                return;
+              }
+              if (videoRef.current) {
+                if (isVideoPlaying) {
+                  videoRef.current.pause();
+                } else {
+                  videoRef.current.play();
+                }
+              }
+              setIsIdle(false);
+            }}
+          >
             {/* Glowing Loader & TMDB Backdrop Player Overlay while video is loading/buffering */}
             {!isVideoLoaded && (
               <div className="absolute inset-0 z-40 bg-[#06060a] flex flex-col items-center justify-center pointer-events-none">
@@ -1291,31 +1307,53 @@ function MainApp() {
               })()}
               <div className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-4 z-[110] bg-gradient-to-t from-black/90 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="flex items-center gap-6 pointer-events-auto w-full max-w-5xl mx-auto">
-                  <button 
-                    onClick={() => handleSeek(-15)}
-                    className="focusable p-3 rounded-full hover:bg-white/10 text-white transition-colors focus:outline-none focus:ring-4 focus:ring-white/50"
-                    title="Rewind 15s"
-                  >
-                    <Rewind className="w-6 h-6" />
-                  </button>
-                  <button 
-                    onClick={() => {
-                      if (videoRef.current) {
-                        if (isVideoPlaying) videoRef.current.pause();
-                        else videoRef.current.play();
-                      }
-                    }}
-                    className="focusable p-4 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors focus:outline-none focus:ring-4 focus:ring-white/50"
-                  >
-                    {isVideoPlaying ? <span className="font-bold text-lg leading-none">||</span> : <Play className="w-6 h-6 fill-current" />}
-                  </button>
-                  <button 
-                    onClick={() => handleSeek(30)}
-                    className="focusable p-3 rounded-full hover:bg-white/10 text-white transition-colors focus:outline-none focus:ring-4 focus:ring-white/50"
-                    title="Forward 30s"
-                  >
-                    <FastForward className="w-6 h-6" />
-                  </button>
+                  {/* 10s and 30s Forward/Reverse Skip Buttons */}
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleSeek(-30)}
+                      className="focusable px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer"
+                      title="Rewind 30 Seconds (-30s)"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span className="text-xs font-mono font-bold">30s</span>
+                    </button>
+                    <button 
+                      onClick={() => handleSeek(-10)}
+                      className="focusable px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer"
+                      title="Rewind 10 Seconds (-10s)"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span className="text-xs font-mono font-bold">10s</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (videoRef.current) {
+                          if (isVideoPlaying) videoRef.current.pause();
+                          else videoRef.current.play();
+                        }
+                      }}
+                      className="focusable p-4 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-md transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer mx-1"
+                      title={isVideoPlaying ? "Pause" : "Play"}
+                    >
+                      {isVideoPlaying ? <span className="font-bold text-lg leading-none">||</span> : <Play className="w-6 h-6 fill-current" />}
+                    </button>
+                    <button 
+                      onClick={() => handleSeek(10)}
+                      className="focusable px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer"
+                      title="Forward 10 Seconds (+10s)"
+                    >
+                      <span className="text-xs font-mono font-bold">10s</span>
+                      <RotateCw className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleSeek(30)}
+                      className="focusable px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer"
+                      title="Forward 30 Seconds (+30s)"
+                    >
+                      <span className="text-xs font-mono font-bold">30s</span>
+                      <RotateCw className="w-4 h-4" />
+                    </button>
+                  </div>
                   <div className="text-white text-sm font-mono font-medium drop-shadow-md">
                     {formatTime(seekTarget !== null ? seekTarget : streamOffset + currentTime)}
                   </div>
