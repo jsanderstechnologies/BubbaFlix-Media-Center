@@ -806,7 +806,7 @@ function MainApp() {
     const episodeNum = finalContext?.episode;
 
     if (targetMediaId && !finalContext?.isLive) {
-      fetch(`/api/skip-segments?tmdbId=${targetMediaId}&type=${isTv ? 'tv' : 'movie'}${seasonNum ? `&season=${seasonNum}` : ''}${episodeNum ? `&episode=${episodeNum}` : ''}`)
+      fetch(`/api/skip-segments?tmdbId=${targetMediaId}&type=${isTv ? 'tv' : 'movie'}${seasonNum ? `&season=${seasonNum}` : ''}${episodeNum ? `&episode=${episodeNum}` : ''}${systemSettings.tidbApiKey ? `&apiKey=${encodeURIComponent(systemSettings.tidbApiKey)}` : ''}`)
         .then(r => r.json())
         .then(data => {
           if (data?.success && Array.isArray(data.segments)) {
@@ -1530,6 +1530,9 @@ function MainApp() {
               <div className="flex items-center gap-3 opacity-70 shrink-0 mx-2 hidden sm:flex">
                 {systemSettings.tmdbKey && (
                   <img src="/images/tmdb-logo.png" alt="TMDB API" className="h-4 object-contain brightness-110" title="TMDB API Active" />
+                )}
+                {systemSettings.tidbApiKey && (
+                  <img src="https://theintrodb.org/logo.svg" alt="TheIntroDB API" className="h-4 object-contain brightness-110" title="TheIntroDB Skip Timestamps Engine Active" />
                 )}
                 {systemSettings.premiumizeApiKey && (
                   <img src="https://www.premiumize.me/icon_normal.svg" alt="Premiumize" className="h-4 object-contain brightness-110" title="Premiumize.me Instant 4K Debrid Engine Active" />

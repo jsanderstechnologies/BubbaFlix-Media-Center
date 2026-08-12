@@ -52,6 +52,7 @@ const CollapsibleSection = ({ id, title, icon: Icon, isOpen, onToggle, children,
 
 const SETTINGS_TABS = [
   { id: 'users', label: 'Users', icon: Users, adminOnly: true },
+  { id: 'apikeys', label: 'API Keys', icon: Key, adminOnly: true },
   { id: 'media', label: 'Media Sources', icon: Database, adminOnly: false },
   { id: 'playback', label: 'Playback & Transcoding', icon: PlayCircle, adminOnly: false },
   { id: 'iptv', label: 'Live TV (IPTV)', icon: Tv, adminOnly: false },
@@ -74,6 +75,7 @@ export default function SettingsPanel() {
 
   const [tmdbKey, setTmdbKey] = useState(systemSettings.tmdbKey || '');
   const [tvdbApiKey, setTvdbApiKey] = useState(systemSettings.tvdbApiKey || '');
+  const [tidbApiKey, setTidbApiKey] = useState(systemSettings.tidbApiKey || localStorage.getItem('tidbApiKey') || '');
   const [premiumizeApiKey, setPremiumizeApiKey] = useState(systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey') || '');
   const [geminiApiKey, setGeminiApiKey] = useState(systemSettings.geminiApiKey || '');
   const [groqApiKey, setGroqApiKey] = useState(systemSettings.groqApiKey || '');
@@ -454,10 +456,12 @@ export default function SettingsPanel() {
 
     localStorage.setItem('premiumizeApiKey', premiumizeApiKey);
     localStorage.setItem('tvdbApiKey', tvdbApiKey);
+    localStorage.setItem('tidbApiKey', tidbApiKey);
 
     await updateSystemSettings({
       tmdbKey,
       tvdbApiKey,
+      tidbApiKey,
       premiumizeApiKey,
       geminiApiKey,
       groqApiKey,
@@ -547,6 +551,204 @@ export default function SettingsPanel() {
         {activeTab === 'users' && isAdmin && (
           <div className="mb-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <AdminPanel />
+          </div>
+        )}
+
+        {/* API Keys Management Page */}
+        {activeTab === 'apikeys' && isAdmin && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <Key className="w-6 h-6 text-indigo-400" />
+                  <div>
+                    <h2 className="text-xl font-medium text-white">API Keys Management</h2>
+                    <p className="text-xs text-white/40 mt-0.5">Configure external API integration keys for metadata, AI, streaming, and skipping services. Sorted alphabetically by name.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full font-semibold">
+                    9 API Providers
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* 1. Gemini AI API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">1</span>
+                      <span>Gemini AI API Key</span>
+                      <span className="text-[10px] text-white/40 font-mono font-normal">(Google Gemini Smart AI Engine)</span>
+                    </label>
+                    {geminiApiKey && <span className="text-[10px] text-emerald-400 font-mono font-semibold">ACTIVE</span>}
+                  </div>
+                  <input 
+                    type="password"
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                    placeholder="Enter Gemini AI API Key..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
+                  />
+                </div>
+
+                {/* 2. GNews API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">2</span>
+                      <span>GNews API Key</span>
+                      <span className="text-[10px] text-white/40 font-mono font-normal">(Global News Live Headlines API)</span>
+                    </label>
+                    {gnewsApiKey && <span className="text-[10px] text-emerald-400 font-mono font-semibold">ACTIVE</span>}
+                  </div>
+                  <input 
+                    type="password"
+                    value={gnewsApiKey}
+                    onChange={(e) => setGnewsApiKey(e.target.value)}
+                    placeholder="Enter GNews API Key..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
+                  />
+                </div>
+
+                {/* 3. Groq AI API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">3</span>
+                      <span>Groq AI API Key</span>
+                      <span className="text-[10px] text-white/40 font-mono font-normal">(Groq High-Speed LPU AI Engine)</span>
+                    </label>
+                    {groqApiKey && <span className="text-[10px] text-emerald-400 font-mono font-semibold">ACTIVE</span>}
+                  </div>
+                  <input 
+                    type="password"
+                    value={groqApiKey}
+                    onChange={(e) => setGroqApiKey(e.target.value)}
+                    placeholder="gsk_..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
+                  />
+                </div>
+
+                {/* 4. NewsAPI Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">4</span>
+                      <span>NewsAPI Key</span>
+                      <span className="text-[10px] text-white/40 font-mono font-normal">(NewsAPI News Articles Provider)</span>
+                    </label>
+                    {newsApiKey && <span className="text-[10px] text-emerald-400 font-mono font-semibold">ACTIVE</span>}
+                  </div>
+                  <input 
+                    type="password"
+                    value={newsApiKey}
+                    onChange={(e) => setNewsApiKey(e.target.value)}
+                    placeholder="Enter NewsAPI Key..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
+                  />
+                </div>
+
+                {/* 5. OpenRouter AI API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">5</span>
+                      <span>OpenRouter AI API Key</span>
+                      <span className="text-[10px] text-white/40 font-mono font-normal">(OpenRouter Universal AI Engine)</span>
+                    </label>
+                    {openRouterApiKey && <span className="text-[10px] text-emerald-400 font-mono font-semibold">ACTIVE</span>}
+                  </div>
+                  <input 
+                    type="password"
+                    value={openRouterApiKey}
+                    onChange={(e) => setOpenRouterApiKey(e.target.value)}
+                    placeholder="sk-or-v1-..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
+                  />
+                </div>
+
+                {/* 6. Premiumize API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">6</span>
+                      <span>Premiumize API Key</span>
+                      <span className="text-[10px] text-white/40 font-mono font-normal">(Premiumize.me 4K Debrid Cloud Storage)</span>
+                    </label>
+                    {premiumizeApiKey && <span className="text-[10px] text-emerald-400 font-mono font-semibold">ACTIVE</span>}
+                  </div>
+                  <input 
+                    type="password"
+                    value={premiumizeApiKey}
+                    onChange={(e) => setPremiumizeApiKey(e.target.value)}
+                    placeholder="Enter Premiumize API Key..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
+                  />
+                </div>
+
+                {/* 7. TheIntroDB (TIDB) API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">7</span>
+                      <div className="flex items-center gap-2">
+                        <span>TheIntroDB (TIDB) API Key</span>
+                        <img src="https://theintrodb.org/logo.svg" alt="TIDB" className="h-4 object-contain" />
+                      </div>
+                      <span className="text-[10px] text-white/40 font-mono font-normal">(Skip Intros, Recaps & End Credits)</span>
+                    </label>
+                    {tidbApiKey && <span className="text-[10px] text-emerald-400 font-mono font-semibold">ACTIVE</span>}
+                  </div>
+                  <input 
+                    type="password"
+                    value={tidbApiKey}
+                    onChange={(e) => setTidbApiKey(e.target.value)}
+                    placeholder="Enter TheIntroDB API Key..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
+                  />
+                </div>
+
+                {/* 8. TMDb API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">8</span>
+                      <span>TMDb API Key</span>
+                      <span className="text-[10px] text-white/40 font-mono font-normal">(The Movie Database Catalog & Details)</span>
+                    </label>
+                    {tmdbKey && <span className="text-[10px] text-emerald-400 font-mono font-semibold">ACTIVE</span>}
+                  </div>
+                  <input 
+                    type="password"
+                    value={tmdbKey}
+                    onChange={(e) => setTmdbKey(e.target.value)}
+                    placeholder="b4d4dfa06829..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
+                  />
+                </div>
+
+                {/* 9. TVDb API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">9</span>
+                      <span>TVDb API Key</span>
+                      <span className="text-[10px] text-white/40 font-mono font-normal">(The TV Database Series Details)</span>
+                    </label>
+                    {tvdbApiKey && <span className="text-[10px] text-emerald-400 font-mono font-semibold">ACTIVE</span>}
+                  </div>
+                  <input 
+                    type="password"
+                    value={tvdbApiKey}
+                    onChange={(e) => setTvdbApiKey(e.target.value)}
+                    placeholder="Enter TVDb API Key..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

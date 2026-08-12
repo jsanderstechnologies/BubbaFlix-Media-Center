@@ -1261,7 +1261,10 @@ async function startServer() {
         return res.json({ success: false, message: 'Missing tmdbId or imdbId', segments: [] });
       }
 
+      const apiKey = req.query.apiKey ? String(req.query.apiKey) : (req.headers.authorization?.replace('Bearer ', '') || '');
+
       const segments: Array<{ type: string; start: number; end: number; label: string }> = [];
+      const headers: Record<string, string> = apiKey ? { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey } : {};
 
       // 1. Query TheIntroDB v3 API
       if (tmdbId) {
@@ -1270,7 +1273,7 @@ async function startServer() {
           if (type === 'tv' && season && episode) {
             tidbUrl += `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`;
           }
-          const tidbRes = await axios.get(tidbUrl, { timeout: 4000 }).catch(() => null);
+          const tidbRes = await axios.get(tidbUrl, { headers, timeout: 4000 }).catch(() => null);
           if (tidbRes?.data) {
             const items = Array.isArray(tidbRes.data) 
               ? tidbRes.data 

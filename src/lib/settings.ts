@@ -56,6 +56,7 @@ export interface SystemSettings {
   enableEztv?: boolean;
   premiumizeApiKey?: string;
   tvdbApiKey?: string;
+  tidbApiKey?: string;
 }
 
 export interface UserSettings {
@@ -103,6 +104,9 @@ function syncSystemSettingsToLocalStorage(data: SystemSettings) {
 
   if (data.tvdbApiKey) localStorage.setItem('tvdbApiKey', data.tvdbApiKey);
   else localStorage.removeItem('tvdbApiKey');
+
+  if (data.tidbApiKey) localStorage.setItem('tidbApiKey', data.tidbApiKey);
+  else localStorage.removeItem('tidbApiKey');
 
   if (data.geminiApiKey) localStorage.setItem('geminiApiKey', data.geminiApiKey);
   else localStorage.removeItem('geminiApiKey');

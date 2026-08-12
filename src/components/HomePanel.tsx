@@ -114,6 +114,12 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                     <span className="text-[9px] bg-red-600/90 text-white font-bold tracking-widest px-2 py-0.5 rounded shadow-sm">
                       TV SHOW SPOTLIGHT
                     </span>
+                    {systemSettings.tidbApiKey && (
+                      <span className="flex items-center gap-1.5 bg-black/60 border border-white/15 px-2.5 py-0.5 rounded-full text-[10px] text-white/90 font-mono shadow-sm" title="TheIntroDB Skip Timestamps Active">
+                        <img src="https://theintrodb.org/logo.svg" alt="TheIntroDB" className="h-3.5 object-contain" />
+                        <span className="font-semibold text-[9px] tracking-wider text-emerald-400">TIDB</span>
+                      </span>
+                    )}
                     <span className="text-xs text-white/90 font-mono">{tvHeroItem.year}</span>
                     <span className="flex items-center gap-1 text-xs text-amber-400 font-semibold font-mono">
                       ★ {tvHeroItem.rating}
@@ -182,6 +188,12 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
                     <span className="text-[9px] bg-red-600/90 text-white font-bold tracking-widest px-2 py-0.5 rounded shadow-sm">
                       MOVIE SPOTLIGHT
                     </span>
+                    {systemSettings.tidbApiKey && (
+                      <span className="flex items-center gap-1.5 bg-black/60 border border-white/15 px-2.5 py-0.5 rounded-full text-[10px] text-white/90 font-mono shadow-sm" title="TheIntroDB Skip Timestamps Active">
+                        <img src="https://theintrodb.org/logo.svg" alt="TheIntroDB" className="h-3.5 object-contain" />
+                        <span className="font-semibold text-[9px] tracking-wider text-emerald-400">TIDB</span>
+                      </span>
+                    )}
                     <span className="text-xs text-white/90 font-mono">{movieHeroItem.year}</span>
                     <span className="flex items-center gap-1 text-xs text-amber-400 font-semibold font-mono">
                       ★ {movieHeroItem.rating}
