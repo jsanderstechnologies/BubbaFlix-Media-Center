@@ -858,9 +858,14 @@ function MainApp() {
       fetch(`/api/skip-segments?tmdbId=${targetMediaId}&type=${isTv ? 'tv' : 'movie'}${seasonNum ? `&season=${seasonNum}` : ''}${episodeNum ? `&episode=${episodeNum}` : ''}${systemSettings.tidbApiKey ? `&apiKey=${encodeURIComponent(systemSettings.tidbApiKey)}` : ''}`)
         .then(r => r.json())
         .then(data => {
-          if (data?.success && Array.isArray(data.segments)) {
-            logger.info(`[TIDB] Successfully loaded ${data.segments.length} segment(s) for TMDB #${targetMediaId}`);
-            console.log('[TIDB] Skip segments retrieved:', data.segments);
+          if (data?.success && Array.isArray(data.segments) && data.segments.length > 0) {
+            if (data.isAiGenerated) {
+              logger.info(`[TIDB AI Fallback] Generated ${data.segments.length} skip segment(s) using AI Media Analysis Engine`);
+              console.log('[TIDB AI Fallback] AI Analysis generated segments:', data.segments);
+            } else {
+              logger.info(`[TIDB] Successfully loaded ${data.segments.length} segment(s) from TheIntroDB database`);
+              console.log('[TIDB] Skip segments retrieved:', data.segments);
+            }
             setSkipSegments(data.segments);
           } else {
             logger.info(`[TIDB] No skip segments available for TMDB #${targetMediaId}`);

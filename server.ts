@@ -1378,13 +1378,120 @@ async function startServer() {
         }
       }
 
+      // 4. AI Media Analysis Fallback Engine (Gemini / Groq / OpenRouter AI)
+      let isAiGenerated = false;
+      if (segments.length === 0 && (tmdbId || imdbId)) {
+        try {
+          console.log(`[TIDB Proxy AI Fallback] TheIntroDB has no segment data for tmdbId=${tmdbId || 'N/A'}. Launching AI Media Analysis Engine...`);
+          
+          const settings = readJson(SETTINGS_FILE);
+          const tmdbKey = settings.tmdbKey || process.env.TMDB_KEY || '841059f71aab310b4d4c4f3a7e28328e';
+          
+          let mediaTitle = '';
+          let overview = '';
+          let durationSeconds = 0;
+
+          // Query TMDB metadata if tmdbId is present
+          if (tmdbId) {
+            try {
+              if (type === 'tv' && season && episode) {
+                const epRes = await axios.get(`https://api.themoviedb.org/3/tv/${encodeURIComponent(tmdbId)}/season/${encodeURIComponent(season)}/episode/${encodeURIComponent(episode)}?api_key=${tmdbKey}`, { timeout: 3000 }).catch(() => null);
+                if (epRes?.data) {
+                  mediaTitle = epRes.data.name || '';
+                  overview = epRes.data.overview || '';
+                  if (epRes.data.runtime) {
+                    durationSeconds = Number(epRes.data.runtime) * 60;
+                  }
+                }
+                if (!mediaTitle) {
+                  const tvRes = await axios.get(`https://api.themoviedb.org/3/tv/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}`, { timeout: 3000 }).catch(() => null);
+                  if (tvRes?.data) {
+                    mediaTitle = tvRes.data.name || tvRes.data.original_name || '';
+                    overview = overview || tvRes.data.overview || '';
+                    if (!durationSeconds && Array.isArray(tvRes.data.episode_run_time) && tvRes.data.episode_run_time.length > 0) {
+                      durationSeconds = Number(tvRes.data.episode_run_time[0]) * 60;
+                    }
+                  }
+                }
+              } else {
+                const movRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}`, { timeout: 3000 }).catch(() => null);
+                if (movRes?.data) {
+                  mediaTitle = movRes.data.title || movRes.data.original_title || '';
+                  overview = movRes.data.overview || '';
+                  if (movRes.data.runtime) {
+                    durationSeconds = Number(movRes.data.runtime) * 60;
+                  }
+                }
+              }
+            } catch (e: any) {
+              console.warn('[TIDB Proxy AI Fallback] TMDB metadata fetch error:', e?.message);
+            }
+          }
+
+          const prompt = `You are a professional TV and movie media analysis AI specializing in identifying intro sequence (opening theme / recap) and end credits timestamp bounds for media playback.
+Analyze the following media item:
+- Media ID: ${tmdbId || imdbId}
+- Title: "${mediaTitle || 'Unknown Title'}"
+- Type: ${type.toUpperCase()} ${season ? `Season ${season} Episode ${episode}` : ''}
+- Duration: ${durationSeconds ? `${durationSeconds} seconds (~${Math.round(durationSeconds / 60)} min)` : 'Standard runtime (~45 min for TV, ~120 min for Movies)'}
+- Overview: "${overview ? overview.slice(0, 300) : 'N/A'}"
+
+Estimate the exact timestamp segment ranges in seconds for skipping the Intro/Recap and End Credits based on standard industry broadcasting and streaming patterns.
+Return ONLY valid JSON in this exact structure:
+{
+  "segments": [
+    { "type": "intro", "start": 30, "end": 110, "label": "Skip Intro" },
+    { "type": "credits", "start": 2500, "end": 2700, "label": "Skip Credits" }
+  ]
+}
+
+Strict Rules:
+1. "start" and "end" MUST be integers in seconds. "end" MUST be greater than "start".
+2. If TV episode, intro themes usually start around 15s-60s and run for 45s-90s. End credits occupy the final 60s-180s.
+3. If Movie, intros are rare (0-30s opening studio logo), while end credits occupy the final 3-10 minutes.
+4. Output raw JSON ONLY. No markdown formatting, code blocks, or explanatory text.`;
+
+          const aiResponseText = await callAiWithFallback('', prompt, { responseMimeType: 'application/json', timeout: 12000 });
+          if (aiResponseText) {
+            let parsed: any = null;
+            try {
+              const cleanedText = aiResponseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+              parsed = JSON.parse(cleanedText);
+            } catch (pErr) {}
+
+            if (parsed && Array.isArray(parsed.segments) && parsed.segments.length > 0) {
+              parsed.segments.forEach((item: any) => {
+                const segType = (item.type || item.category || 'intro').toLowerCase();
+                const startSec = Number(item.start || 0);
+                const endSec = Number(item.end || 0);
+                if (endSec > startSec) {
+                  segments.push({
+                    type: segType,
+                    start: startSec,
+                    end: endSec,
+                    label: item.label || (segType.includes('credit') || segType.includes('outro') ? 'Skip Credits' : segType.includes('recap') ? 'Skip Recap' : 'Skip Intro')
+                  });
+                }
+              });
+
+              if (segments.length > 0) {
+                isAiGenerated = true;
+                console.log(`[TIDB Proxy AI Fallback] AI Analysis successfully generated ${segments.length} segment(s):`, segments.map(s => `${s.label} [${s.start}s-${s.end}s]`).join(', '));
+              }
+            }
+          }
+        } catch (aiErr: any) {
+          console.warn('[TIDB Proxy AI Fallback] AI analysis failed:', aiErr?.message || aiErr);
+        }
+      }
+
       if (segments.length > 0) {
-        console.log(`[TIDB Proxy] Successfully returning ${segments.length} segment(s):`, segments.map(s => `${s.label} (${s.start}s-${s.end}s)`).join(', '));
+        console.log(`[TIDB Proxy] Successfully returning ${segments.length} segment(s) ${isAiGenerated ? '(AI Analysis Generated)' : '(TheIntroDB Database)'}:`, segments.map(s => `${s.label} (${s.start}s-${s.end}s)`).join(', '));
       } else {
         console.log(`[TIDB Proxy] No skip segments available for target media`);
       }
 
-      return res.json({ success: true, segments });
+      return res.json({ success: true, segments, isAiGenerated });
     } catch (err: any) {
       console.error('[Skip Segments Error]:', err?.message);
       return res.json({ success: false, segments: [] });
