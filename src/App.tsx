@@ -105,6 +105,22 @@ function MainApp() {
   const [activeWeatherAlert, setActiveWeatherAlert] = useState<WeatherAlert | null>(null);
   const [hasModalOpen, setHasModalOpen] = useState(false);
 
+  const isSectionAllowed = (sectionId: string): boolean => {
+    if (!user) return true;
+    if (user.role === 'admin') return true;
+    const allowed = user.allowedSections || ['tv', 'music', 'weather', 'news'];
+    return allowed.includes(sectionId);
+  };
+
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      const restrictedTabs = ['tv', 'music', 'weather', 'news'];
+      if (restrictedTabs.includes(activeTab) && !isSectionAllowed(activeTab)) {
+        setActiveTab('home');
+      }
+    }
+  }, [user, activeTab]);
+
   // When a navbar tab is selected, automatically move focus to the first poster/card on the page
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1367,17 +1383,19 @@ function MainApp() {
               <Home className="w-5 h-5" />
               <span className="text-[9px] uppercase tracking-wider font-medium">Home</span>
             </div>
-            <div 
-              id="nav-tab-tv"
-              tabIndex={0}
-              onClick={() => { setActiveTab('tv'); setSearchQuery(''); }}
-              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('tv'); setSearchQuery(''); } }}
-              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'tv' ? 'text-red-500' : ''}`}
-              title="Live TV"
-            >
-              <MonitorPlay className="w-5 h-5" />
-              <span className="text-[9px] uppercase tracking-wider font-medium">Live</span>
-            </div>
+            {isSectionAllowed('tv') && (
+              <div 
+                id="nav-tab-tv"
+                tabIndex={0}
+                onClick={() => { setActiveTab('tv'); setSearchQuery(''); }}
+                onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('tv'); setSearchQuery(''); } }}
+                className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'tv' ? 'text-red-500' : ''}`}
+                title="Live TV"
+              >
+                <MonitorPlay className="w-5 h-5" />
+                <span className="text-[9px] uppercase tracking-wider font-medium">Live</span>
+              </div>
+            )}
             <div 
               id="nav-tab-series"
               tabIndex={0}
@@ -1400,17 +1418,19 @@ function MainApp() {
               <Clapperboard className="w-5 h-5" />
               <span className="text-[9px] uppercase tracking-wider font-medium">Movies</span>
             </div>
-            <div 
-              id="nav-tab-music"
-              tabIndex={0}
-              onClick={() => { setActiveTab('music'); setSearchQuery(''); }}
-              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('music'); setSearchQuery(''); } }}
-              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'music' ? 'text-red-500' : ''}`}
-              title="Music Search"
-            >
-              <Music className="w-5 h-5" />
-              <span className="text-[9px] uppercase tracking-wider font-medium">Music</span>
-            </div>
+            {isSectionAllowed('music') && (
+              <div 
+                id="nav-tab-music"
+                tabIndex={0}
+                onClick={() => { setActiveTab('music'); setSearchQuery(''); }}
+                onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('music'); setSearchQuery(''); } }}
+                className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'music' ? 'text-red-500' : ''}`}
+                title="Music Search"
+              >
+                <Music className="w-5 h-5" />
+                <span className="text-[9px] uppercase tracking-wider font-medium">Music</span>
+              </div>
+            )}
             <div 
               id="nav-tab-library"
               tabIndex={0}
@@ -1422,28 +1442,32 @@ function MainApp() {
               <Bookmark className="w-5 h-5" />
               <span className="text-[9px] uppercase tracking-wider font-medium">Library</span>
             </div>
-            <div 
-              id="nav-tab-weather"
-              tabIndex={0}
-              onClick={() => { setActiveTab('weather'); setSearchQuery(''); }}
-              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('weather'); setSearchQuery(''); } }}
-              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'weather' ? 'text-red-500' : ''}`}
-              title="Weather & Radar"
-            >
-              <CloudSun className="w-5 h-5" />
-              <span className="text-[9px] uppercase tracking-wider font-medium">Weather</span>
-            </div>
-            <div 
-              id="nav-tab-news"
-              tabIndex={0}
-              onClick={() => { setActiveTab('news'); setSearchQuery(''); }}
-              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('news'); setSearchQuery(''); } }}
-              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'news' ? 'text-red-500' : ''}`}
-              title="News & Sports"
-            >
-              <Newspaper className="w-5 h-5" />
-              <span className="text-[9px] uppercase tracking-wider font-medium">News</span>
-            </div>
+            {isSectionAllowed('weather') && (
+              <div 
+                id="nav-tab-weather"
+                tabIndex={0}
+                onClick={() => { setActiveTab('weather'); setSearchQuery(''); }}
+                onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('weather'); setSearchQuery(''); } }}
+                className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'weather' ? 'text-red-500' : ''}`}
+                title="Weather & Radar"
+              >
+                <CloudSun className="w-5 h-5" />
+                <span className="text-[9px] uppercase tracking-wider font-medium">Weather</span>
+              </div>
+            )}
+            {isSectionAllowed('news') && (
+              <div 
+                id="nav-tab-news"
+                tabIndex={0}
+                onClick={() => { setActiveTab('news'); setSearchQuery(''); }}
+                onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('news'); setSearchQuery(''); } }}
+                className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'news' ? 'text-red-500' : ''}`}
+                title="News & Sports"
+              >
+                <Newspaper className="w-5 h-5" />
+                <span className="text-[9px] uppercase tracking-wider font-medium">News</span>
+              </div>
+            )}
             {user?.role === 'admin' && (
               <div 
                 id="nav-tab-settings"

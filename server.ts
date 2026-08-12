@@ -944,7 +944,7 @@ async function startServer() {
     (user as any).tokens = [...existingTokens.slice(-15), token];
     writeJson(USERS_FILE, users);
 
-    res.json({ user: { uid: (user as any).uid, email: (user as any).email, username: (user as any).username, role: (user as any).role || 'user', status }, token });
+    res.json({ user: { uid: (user as any).uid, email: (user as any).email, username: (user as any).username, role: (user as any).role || 'user', status, allowedSections: (user as any).allowedSections || ['tv', 'music', 'weather', 'news'] }, token });
   });
 
   // /api/auth/me
@@ -956,7 +956,7 @@ async function startServer() {
       const firstAdmin = Object.values(users as Record<string, any>).find((u: any) => u.role === 'admin') || {
         uid: 'dev-admin-id', email: 'dev@admin.local', username: 'Dev Admin', role: 'admin', status: 'approved'
       };
-      return res.json({ user: { uid: firstAdmin.uid, email: firstAdmin.email, username: firstAdmin.username, role: firstAdmin.role || 'user' } });
+      return res.json({ user: { uid: firstAdmin.uid, email: firstAdmin.email, username: firstAdmin.username, role: firstAdmin.role || 'user', allowedSections: ['tv', 'music', 'weather', 'news'] } });
     }
 
     const authHeader = req.headers.authorization;
@@ -968,7 +968,7 @@ async function startServer() {
     );
 
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    res.json({ user: { uid: user.uid, email: user.email, username: user.username, role: user.role || 'user' } });
+    res.json({ user: { uid: user.uid, email: user.email, username: user.username, role: user.role || 'user', allowedSections: user.allowedSections || ['tv', 'music', 'weather', 'news'] } });
   });
 
   // /api/user/settings GET
@@ -1034,7 +1034,8 @@ async function startServer() {
       username: u.username,
       role: u.role || 'user',
       status: u.status || 'approved',
-      registeredAt: u.registeredAt || null
+      registeredAt: u.registeredAt || null,
+      allowedSections: u.allowedSections || ['tv', 'music', 'weather', 'news']
     }));
     res.json(safeUsers);
   });
@@ -1948,7 +1949,6 @@ Do not include markdown blocks or extra text.`;
   });
 
   // /api/admin/users/:uid/role PUT
-
   app.put('/api/admin/users/:uid/role', requireAdmin, (req, res) => {
     const { role } = req.body;
     const users = readJson(USERS_FILE);
@@ -1957,6 +1957,17 @@ Do not include markdown blocks or extra text.`;
     users[req.params.uid].role = role;
     writeJson(USERS_FILE, users);
     res.json({ success: true });
+  });
+
+  // /api/admin/users/:uid/permissions PUT
+  app.put('/api/admin/users/:uid/permissions', requireAdmin, (req, res) => {
+    const { allowedSections } = req.body;
+    const users = readJson(USERS_FILE);
+    if (!users[req.params.uid]) return res.status(404).json({ error: 'User not found' });
+    
+    users[req.params.uid].allowedSections = Array.isArray(allowedSections) ? allowedSections : ['tv', 'music', 'weather', 'news'];
+    writeJson(USERS_FILE, users);
+    res.json({ success: true, allowedSections: users[req.params.uid].allowedSections });
   });
 
   // /api/admin/users/:uid DELETE

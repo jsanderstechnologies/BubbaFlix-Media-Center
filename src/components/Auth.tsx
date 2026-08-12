@@ -8,6 +8,7 @@ export interface AuthUser {
   email: string | null;
   username: string | null;
   role?: string;
+  allowedSections?: string[];
 }
 
 // Helper to initialize session instantly from localStorage

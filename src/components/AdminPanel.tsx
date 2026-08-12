@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './Auth';
-import { Trash2, UserCog, ShieldCheck, ShieldAlert, Shield, Plus, X, Check, Clock, Ban, Lock, Unlock, KeyRound, Copy } from 'lucide-react';
+import { Trash2, UserCog, ShieldCheck, ShieldAlert, Shield, Plus, X, Check, Clock, Ban, Lock, Unlock, KeyRound, Copy, Tv, Music, CloudSun, Newspaper } from 'lucide-react';
 
 interface UserData {
   uid: string;
@@ -9,6 +9,7 @@ interface UserData {
   role: string;
   status: string;
   registeredAt: string | null;
+  allowedSections?: string[];
 }
 
 export default function AdminPanel() {
@@ -83,6 +84,27 @@ export default function AdminPanel() {
       if (!res.ok) throw new Error('Failed to update role');
       fetchUsers();
     } catch (err: any) { alert(err.message); }
+  };
+
+  const handleTogglePermission = async (uid: string, sectionId: string, currentAllowed: string[] = ['tv', 'music', 'weather', 'news']) => {
+    const newAllowed = currentAllowed.includes(sectionId)
+      ? currentAllowed.filter(s => s !== sectionId)
+      : [...currentAllowed, sectionId];
+
+    setUsers(prev => prev.map(u => u.uid === uid ? { ...u, allowedSections: newAllowed } : u));
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(`/api/admin/users/${uid}/permissions`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ allowedSections: newAllowed })
+      });
+      if (!res.ok) throw new Error('Failed to update section permissions');
+    } catch (err: any) {
+      alert(err.message);
+      fetchUsers();
+    }
   };
 
   const handleApprove = async (uid: string) => {
@@ -329,6 +351,7 @@ export default function AdminPanel() {
                 <th className="p-4 font-semibold">User</th>
                 <th className="p-4 font-semibold">Status</th>
                 <th className="p-4 font-semibold">Role</th>
+                <th className="p-4 font-semibold">Navbar Section Access</th>
                 <th className="p-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
@@ -359,6 +382,42 @@ export default function AdminPanel() {
                       {u.role === 'admin' ? <ShieldAlert className="w-3.5 h-3.5" /> : <UserCog className="w-3.5 h-3.5" />}
                       {u.role.toUpperCase()}
                     </div>
+                  </td>
+                  <td className="p-4">
+                    {u.role === 'admin' ? (
+                      <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md inline-flex items-center gap-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5" /> Full Access (Admin)
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {[
+                          { id: 'tv', label: 'Live TV', icon: Tv },
+                          { id: 'music', label: 'Music', icon: Music },
+                          { id: 'weather', label: 'Weather', icon: CloudSun },
+                          { id: 'news', label: 'News', icon: Newspaper },
+                        ].map(s => {
+                          const Icon = s.icon;
+                          const allowed = (u.allowedSections || ['tv', 'music', 'weather', 'news']).includes(s.id);
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => handleTogglePermission(u.uid, s.id, u.allowedSections)}
+                              className={`px-2 py-1 rounded-lg text-xs font-medium border flex items-center gap-1 transition-all cursor-pointer ${
+                                allowed
+                                  ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/40 hover:bg-indigo-600/50'
+                                  : 'bg-black/40 text-white/40 border-white/10 hover:text-white/70 hover:border-white/20 opacity-60'
+                              }`}
+                              title={`${allowed ? 'Disable' : 'Enable'} ${s.label} access for ${u.username}`}
+                            >
+                              <Icon className="w-3.5 h-3.5" />
+                              <span>{s.label}</span>
+                              {allowed ? <Check className="w-3 h-3 text-emerald-400 ml-0.5" /> : <X className="w-3 h-3 text-red-400 ml-0.5" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </td>
                   <td className="p-4">
                     <div className="flex items-center justify-end gap-2">
