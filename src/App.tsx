@@ -50,38 +50,6 @@ function MainApp() {
   const { systemSettings, userSettings, zoom } = useSettings();
 
   const [selectedMovie, setSelectedMovie] = useState<any>(null);
-  const lastFocusedPosterRef = useRef<HTMLElement | null>(null);
-
-  const handleOpenMediaModal = useCallback((media: any) => {
-    if (document.activeElement && document.activeElement !== document.body && document.activeElement.tagName !== 'BODY') {
-      lastFocusedPosterRef.current = document.activeElement as HTMLElement;
-    }
-    setSelectedMovie(media);
-  }, []);
-
-  const handleCloseMediaModal = useCallback(() => {
-    setSelectedMovie(null);
-    setTimeout(() => {
-      if (lastFocusedPosterRef.current && document.body.contains(lastFocusedPosterRef.current)) {
-        lastFocusedPosterRef.current.focus();
-      }
-    }, 50);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedMovie) return;
-
-    const handlePopState = () => {
-      handleCloseMediaModal();
-    };
-
-    window.history.pushState({ modalOpen: true }, '');
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [selectedMovie, handleCloseMediaModal]);
 
   const [playerStatus, setPlayerStatus] = useState<string>('STREAM READY');
   const [isTranscoding, setIsTranscoding] = useState<boolean>(true);
@@ -250,12 +218,6 @@ function MainApp() {
             e.stopPropagation();
             const closeBtn = fixMatchModalEl.querySelector('.close-fix-match') as HTMLElement;
             if (closeBtn) closeBtn.click();
-            return;
-          }
-          if (topOverlay === mediaModalEl && selectedMovie) {
-            e.preventDefault();
-            e.stopPropagation();
-            handleCloseMediaModal();
             return;
           }
           if (topOverlay === playerEl) {
@@ -1512,12 +1474,11 @@ function MainApp() {
               <AuthButton />
             </div>
           </header>
-
           {/* Main View */}
           <main className={`flex-1 min-h-0 p-6 sm:p-10 overflow-y-auto flex flex-col gap-8 custom-scrollbar ${isKeyboardOpen ? 'pb-80' : ''}`}>
             
             {activeTab === 'home' ? (
-              <HomePanel onSelectMedia={handleOpenMediaModal} onHoverMedia={setHoveredPoster} />
+              <HomePanel onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} />
             ) : activeTab === 'catalog' ? (
               <>
                 <div className="flex flex-wrap items-center justify-between shrink-0 gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
@@ -1595,9 +1556,9 @@ function MainApp() {
                 </div>
 
                 {movieViewMode === 'grid' ? (
-                  <CatalogGrid onSelectMovie={handleOpenMediaModal} onHoverMedia={setHoveredPoster} searchQuery={movieSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
+                  <CatalogGrid onSelectMovie={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={movieSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
                 ) : (
-                  <UpcomingCalendar defaultType="movie" hideModeSelector={true} onSelectMedia={handleOpenMediaModal} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
+                  <UpcomingCalendar defaultType="movie" hideModeSelector={true} onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
                 )}
               </>
             ) : activeTab === 'series' ? (
@@ -1677,15 +1638,15 @@ function MainApp() {
                 </div>
 
                 {seriesViewMode === 'grid' ? (
-                  <TvSeriesGrid onSelectSeries={handleOpenMediaModal} onHoverMedia={setHoveredPoster} searchQuery={seriesSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
+                  <TvSeriesGrid onSelectSeries={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={seriesSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
                 ) : (
-                  <UpcomingCalendar defaultType="tv" hideModeSelector={true} onSelectMedia={handleOpenMediaModal} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
+                  <UpcomingCalendar defaultType="tv" hideModeSelector={true} onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
                 )}
               </>
             ) : activeTab === 'search' ? (
               <SearchPanel 
                 query={searchQuery}
-                onSelectMedia={handleOpenMediaModal}
+                onSelectMedia={setSelectedMovie}
                 onHoverMedia={setHoveredPoster}
                 onSelectSuggestion={(term) => {
                   setSearchQuery(term);
@@ -1702,11 +1663,10 @@ function MainApp() {
               />
             ) : activeTab === 'library' ? (
               <>
-                <LibraryGrid onSelectMedia={handleOpenMediaModal} onPlayMedia={handlePlayStream} onHoverMedia={setHoveredPoster} />
-
+                <LibraryGrid onSelectMedia={setSelectedMovie} onPlayMedia={handlePlayStream} onHoverMedia={setHoveredPoster} />
               </>
             ) : activeTab === 'music' ? (
-              <MusicPanel initialQuery={musicSearchQuery} onSelectMedia={handleOpenMediaModal} />
+              <MusicPanel initialQuery={musicSearchQuery} onSelectMedia={setSelectedMovie} />
             ) : activeTab === 'weather' ? (
               <WeatherPanel />
             ) : activeTab === 'news' ? (
@@ -1733,12 +1693,12 @@ function MainApp() {
 
       <MediaModal 
         movie={selectedMovie} 
-        onClose={handleCloseMediaModal} 
+        onClose={() => setSelectedMovie(null)} 
         onPlay={handlePlayStream} 
         onActorSearch={(actorName) => {
           setSearchQuery(actorName);
           setActiveTab('search');
-          handleCloseMediaModal();
+          setSelectedMovie(null);
         }}
         isHidden={!!playingUrl}
       />

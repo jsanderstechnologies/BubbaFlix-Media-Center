@@ -168,58 +168,7 @@ export default function MediaModal({
   const [savedProgress, setSavedProgress] = useState<any>(null);
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isHidden) {
-      SpatialNavigation.remove('media-modal');
-      SpatialNavigation.enable('');
-      SpatialNavigation.focus('');
-      return;
-    }
 
-    const handleModalBackKey = (e: KeyboardEvent) => {
-      const isBackKey = 
-        ['Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft', 'HistoryBack', 'NavigateBack'].includes(e.key) ||
-        ['Escape', 'Back', 'Backspace', 'GoBack'].includes(e.code) ||
-        [4, 27, 8, 10009, 461, 283, 166, 167, 198, 219, 220].includes(e.keyCode) ||
-        [4, 27, 8, 10009, 461, 283, 166, 167, 198, 219, 220].includes(e.which) ||
-        (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
-
-      if (isBackKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleModalBackKey, true);
-    window.addEventListener('keyup', handleModalBackKey, true);
-
-    SpatialNavigation.add('media-modal', {
-      selector: '#media-modal .focusable, #media-modal button, #media-modal input, #media-modal select',
-      straightOnly: false,
-      enterTo: 'last-focused',
-      rememberSource: true
-    });
-    SpatialNavigation.makeFocusable('media-modal');
-    SpatialNavigation.focus('media-modal');
-
-    setTimeout(() => {
-      if (document.activeElement === document.body || !document.activeElement || !document.querySelector('#media-modal')?.contains(document.activeElement)) {
-        const firstAction = document.querySelector('#media-modal-header-actions .focusable') as HTMLElement;
-        if (firstAction) {
-          firstAction.focus();
-        }
-      }
-    }, 50);
-
-    return () => {
-      window.removeEventListener('keydown', handleModalBackKey, true);
-      window.removeEventListener('keyup', handleModalBackKey, true);
-      SpatialNavigation.remove('media-modal');
-      SpatialNavigation.enable('');
-      SpatialNavigation.focus('');
-    };
-  }, [isHidden, onClose]);
 
   const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return '0:00';
