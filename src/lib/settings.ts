@@ -64,6 +64,8 @@ export interface UserSettings {
   audioLanguage?: string;
   ccLanguage?: string;
   autoCC?: boolean;
+  autoSkipIntros?: boolean;
+  autoSkipCredits?: boolean;
   enableAudioLeveling?: boolean;
   filterAnime?: boolean;
   preferredLanguage?: string;
@@ -79,6 +81,8 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   audioLanguage: 'eng',
   ccLanguage: 'eng',
   autoCC: false,
+  autoSkipIntros: false,
+  autoSkipCredits: false,
   enableAudioLeveling: false,
   filterAnime: false,
   preferredLanguage: 'all',

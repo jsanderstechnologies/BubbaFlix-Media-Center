@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot, Calendar as CalendarIcon, Film } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot, Calendar as CalendarIcon, Film, SkipForward } from 'lucide-react';
 import { searchMovies, searchTvSeries, getTrendingMovies, getTrendingTvSeries, getTvSeasonDetails, getCachedImageUrl } from './services/tmdbApi';
 import { collection, query, where, onSnapshot, setDoc, deleteDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
@@ -73,6 +73,10 @@ function MainApp() {
   const [streamOffset, setStreamOffset] = useState<number>(0);
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
   const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [skipSegments, setSkipSegments] = useState<Array<{ type: string; start: number; end: number; label: string }>>([]);
+  const [activeSkipSegment, setActiveSkipSegment] = useState<{ type: string; start: number; end: number; label: string } | null>(null);
+  const [lastAutoSkippedSeg, setLastAutoSkippedSeg] = useState<string | null>(null);
 
   const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
   const [isVideoLoaded, setIsVideoLoaded] = useState<boolean>(false);
@@ -566,6 +570,41 @@ function MainApp() {
     };
   }, [isPlaying, totalDuration]);
 
+  const handleVideoTimeUpdate = (currentTimeInVideo: number) => {
+    if (currentTimeInVideo > 0) setIsVideoLoaded(true);
+    setCurrentTime(currentTimeInVideo);
+
+    const currentSec = streamOffset + currentTimeInVideo;
+    if (skipSegments.length > 0) {
+      const activeSeg = skipSegments.find(s => currentSec >= s.start && currentSec < s.end);
+      setActiveSkipSegment(activeSeg || null);
+
+      if (activeSeg) {
+        const segId = `${activeSeg.type}_${activeSeg.start}_${activeSeg.end}`;
+        const isIntro = activeSeg.type.includes('intro') || activeSeg.type.includes('recap');
+        const isCredits = activeSeg.type.includes('credit') || activeSeg.type.includes('outro');
+
+        if (isIntro && userSettings.autoSkipIntros && lastAutoSkippedSeg !== segId) {
+          setLastAutoSkippedSeg(segId);
+          if (videoRef.current) {
+            const seekTo = activeSeg.end - streamOffset;
+            videoRef.current.currentTime = Math.max(0, seekTo);
+            setCurrentTime(activeSeg.end);
+            setActiveSkipSegment(null);
+          }
+        } else if (isCredits && userSettings.autoSkipCredits && lastAutoSkippedSeg !== segId) {
+          setLastAutoSkippedSeg(segId);
+          if (videoRef.current) {
+            const seekTo = activeSeg.end - streamOffset;
+            videoRef.current.currentTime = Math.max(0, seekTo);
+            setCurrentTime(activeSeg.end);
+            setActiveSkipSegment(null);
+          }
+        }
+      }
+    }
+  };
+
   const savePlaybackProgress = (explicitTime?: number) => {
     if (!playingContext || !user || !playingContext.id || playingContext.isLive) return;
 
@@ -757,6 +796,26 @@ function MainApp() {
     setMediaInfo(null);
     setPlayerStatus('BUFFERING...');
     
+    setSkipSegments([]);
+    setActiveSkipSegment(null);
+    setLastAutoSkippedSeg(null);
+
+    const targetMediaId = selectedMovie?.realTmdbId || selectedMovie?.tmdbId || selectedMovie?.id || finalContext?.id;
+    const isTv = finalContext?.type === 'tv' || selectedMovie?.type === 'series';
+    const seasonNum = finalContext?.season;
+    const episodeNum = finalContext?.episode;
+
+    if (targetMediaId && !finalContext?.isLive) {
+      fetch(`/api/skip-segments?tmdbId=${targetMediaId}&type=${isTv ? 'tv' : 'movie'}${seasonNum ? `&season=${seasonNum}` : ''}${episodeNum ? `&episode=${episodeNum}` : ''}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data?.success && Array.isArray(data.segments)) {
+            setSkipSegments(data.segments);
+          }
+        })
+        .catch(() => {});
+    }
+
     if (channelLogoUrl) {
       setLogoUrl(channelLogoUrl);
     } else if (activeTab === 'tv') {
@@ -959,8 +1018,7 @@ function MainApp() {
                   autoPlay
                   className="w-full h-full object-contain absolute top-0 left-0"
                   onTimeUpdate={(e) => {
-                    if (e.currentTarget.currentTime > 0) setIsVideoLoaded(true);
-                    setCurrentTime(e.currentTarget.currentTime);
+                    handleVideoTimeUpdate(e.currentTarget.currentTime);
                     if (e.currentTarget.buffered.length > 0) {
                       setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
                     }
@@ -1012,8 +1070,7 @@ function MainApp() {
                   autoPlay
                   className="w-full h-full object-contain absolute top-0 left-0"
                   onTimeUpdate={(e) => {
-                    if (e.currentTarget.currentTime > 0) setIsVideoLoaded(true);
-                    setCurrentTime(e.currentTarget.currentTime);
+                    handleVideoTimeUpdate(e.currentTarget.currentTime);
                     if (e.currentTarget.buffered.length > 0) {
                       setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
                     }
@@ -1067,6 +1124,26 @@ function MainApp() {
                     setPlayerStatus("BUFFERING..."); 
                   }}
                 />
+              )}
+
+              {/* TheIntroDB Skip Segment Interactive Overlay Button */}
+              {activeSkipSegment && (
+                <div className="absolute bottom-28 right-8 z-[140] animate-in fade-in slide-in-from-bottom-4 duration-300">
+                  <button
+                    onClick={() => {
+                      if (videoRef.current) {
+                        const seekTo = activeSkipSegment.end - streamOffset;
+                        videoRef.current.currentTime = Math.max(0, seekTo);
+                        setCurrentTime(activeSkipSegment.end);
+                        setActiveSkipSegment(null);
+                      }
+                    }}
+                    className="focusable flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm tracking-wide shadow-2xl backdrop-blur-md border border-white/20 hover:scale-105 transition-all cursor-pointer focus:outline-none focus:ring-4 focus:ring-red-400"
+                  >
+                    <SkipForward className="w-5 h-5" />
+                    <span>{activeSkipSegment.label}</span>
+                  </button>
+                </div>
               )}
               <div className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-4 z-[110] bg-gradient-to-t from-black/90 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="flex items-center gap-6 pointer-events-auto w-full max-w-5xl mx-auto">

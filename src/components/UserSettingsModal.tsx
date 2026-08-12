@@ -276,7 +276,7 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
             </div>
           </div>
 
-          {/* Auto CC */}
+          {/* Playback Options */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Playback Options</h3>
             <button 
@@ -291,6 +291,36 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
               </div>
               <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${settings.autoCC ? 'bg-emerald-500' : 'bg-white/10'}`}>
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform ${settings.autoCC ? 'translate-x-4' : 'translate-x-0'}`} />
+              </div>
+            </button>
+
+            <button 
+              type="button"
+              tabIndex={0}
+              onClick={() => setSettings({...settings, autoSkipIntros: !settings.autoSkipIntros})}
+              className="focusable w-full flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-emerald-500/20 text-left"
+            >
+              <div className="flex-1 pr-2">
+                <div className="text-sm font-medium text-white">Auto-Skip Intros & Recaps</div>
+                <div className="text-xs text-white/40 mt-1">Automatically skip TV intro/recap sequences via TheIntroDB</div>
+              </div>
+              <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${settings.autoSkipIntros ? 'bg-emerald-500' : 'bg-white/10'}`}>
+                <div className={`w-4 h-4 rounded-full bg-white transition-transform ${settings.autoSkipIntros ? 'translate-x-4' : 'translate-x-0'}`} />
+              </div>
+            </button>
+
+            <button 
+              type="button"
+              tabIndex={0}
+              onClick={() => setSettings({...settings, autoSkipCredits: !settings.autoSkipCredits})}
+              className="focusable w-full flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-emerald-500/20 text-left"
+            >
+              <div className="flex-1 pr-2">
+                <div className="text-sm font-medium text-white">Auto-Skip End Credits</div>
+                <div className="text-xs text-white/40 mt-1">Automatically skip end credits on movies and TV shows via TheIntroDB</div>
+              </div>
+              <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${settings.autoSkipCredits ? 'bg-emerald-500' : 'bg-white/10'}`}>
+                <div className={`w-4 h-4 rounded-full bg-white transition-transform ${settings.autoSkipCredits ? 'translate-x-4' : 'translate-x-0'}`} />
               </div>
             </button>
 

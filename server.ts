@@ -1248,6 +1248,118 @@ async function startServer() {
     }
   });
 
+  // TheIntroDB & IntroDB Skip Segments Proxy Endpoint (Intro, Recap, Outro, Credits)
+  app.get('/api/skip-segments', async (req, res) => {
+    try {
+      const tmdbId = req.query.tmdbId ? String(req.query.tmdbId) : '';
+      const imdbId = req.query.imdbId ? String(req.query.imdbId) : '';
+      const type = req.query.type ? String(req.query.type) : 'movie';
+      const season = req.query.season ? String(req.query.season) : '';
+      const episode = req.query.episode ? String(req.query.episode) : '';
+
+      if (!tmdbId && !imdbId) {
+        return res.json({ success: false, message: 'Missing tmdbId or imdbId', segments: [] });
+      }
+
+      const segments: Array<{ type: string; start: number; end: number; label: string }> = [];
+
+      // 1. Query TheIntroDB v3 API
+      if (tmdbId) {
+        try {
+          let tidbUrl = `https://api.theintrodb.org/v3/media?tmdb_id=${encodeURIComponent(tmdbId)}`;
+          if (type === 'tv' && season && episode) {
+            tidbUrl += `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`;
+          }
+          const tidbRes = await axios.get(tidbUrl, { timeout: 4000 }).catch(() => null);
+          if (tidbRes?.data) {
+            const items = Array.isArray(tidbRes.data) 
+              ? tidbRes.data 
+              : (tidbRes.data.segments || tidbRes.data.items || tidbRes.data.results || []);
+            if (items.length > 0) {
+              items.forEach((item: any) => {
+                const segType = (item.type || item.category || item.action || 'intro').toLowerCase();
+                const startSec = Number(item.start || item.start_sec || item.startTime || 0);
+                const endSec = Number(item.end || item.end_sec || item.endTime || 0);
+                if (endSec > startSec) {
+                  segments.push({
+                    type: segType,
+                    start: startSec,
+                    end: endSec,
+                    label: segType.includes('credit') || segType.includes('outro') ? 'Skip Credits' : segType.includes('recap') ? 'Skip Recap' : 'Skip Intro'
+                  });
+                }
+              });
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 2. Query TheIntroDB v1 API Fallback
+      if (segments.length === 0 && tmdbId) {
+        try {
+          let v1Url = `https://api.theintrodb.org/v1/segments?tmdb_id=${encodeURIComponent(tmdbId)}`;
+          if (type === 'tv' && season && episode) {
+            v1Url += `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`;
+          }
+          const v1Res = await axios.get(v1Url, { timeout: 4000 }).catch(() => null);
+          if (v1Res?.data) {
+            const list = Array.isArray(v1Res.data) ? v1Res.data : (v1Res.data.segments || []);
+            list.forEach((item: any) => {
+              const segType = (item.type || 'intro').toLowerCase();
+              const startSec = Number(item.start || 0);
+              const endSec = Number(item.end || 0);
+              if (endSec > startSec) {
+                segments.push({
+                  type: segType,
+                  start: startSec,
+                  end: endSec,
+                  label: segType.includes('credit') || segType.includes('outro') ? 'Skip Credits' : segType.includes('recap') ? 'Skip Recap' : 'Skip Intro'
+                });
+              }
+            });
+          }
+        } catch (e) {}
+      }
+
+      // 3. Query IntroDB App API Fallback
+      if (segments.length === 0) {
+        try {
+          let appUrl = `https://api.introdb.app/segments?`;
+          if (imdbId) {
+            appUrl += `imdb_id=${encodeURIComponent(imdbId)}`;
+          } else if (tmdbId) {
+            appUrl += `tmdb_id=${encodeURIComponent(tmdbId)}`;
+          }
+          if (type === 'tv' && season && episode) {
+            appUrl += `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`;
+          }
+          const appRes = await axios.get(appUrl, { timeout: 4000 }).catch(() => null);
+          if (appRes?.data) {
+            const list = Array.isArray(appRes.data) ? appRes.data : (appRes.data.segments || []);
+            list.forEach((item: any) => {
+              const segType = (item.type || item.category || 'intro').toLowerCase();
+              const startSec = Number(item.start || item.start_time || 0);
+              const endSec = Number(item.end || item.end_time || 0);
+              if (endSec > startSec) {
+                segments.push({
+                  type: segType,
+                  start: startSec,
+                  end: endSec,
+                  label: segType.includes('credit') || segType.includes('outro') ? 'Skip Credits' : segType.includes('recap') ? 'Skip Recap' : 'Skip Intro'
+                });
+              }
+            });
+          }
+        } catch (e) {}
+      }
+
+      return res.json({ success: true, segments });
+    } catch (err: any) {
+      console.error('[Skip Segments Error]:', err?.message);
+      return res.json({ success: false, segments: [] });
+    }
+  });
+
   // Sports Scores Proxy Endpoint (ESPN Public API - No key required)
   app.get('/api/sports/scores', async (req, res) => {
     try {
