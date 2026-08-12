@@ -526,7 +526,7 @@ export default function SettingsPanel() {
   };
 
   return (
-    <div className="flex flex-col gap-8 max-w-4xl mx-auto w-full pb-32 relative">
+    <div className="flex flex-col gap-8 max-w-7xl mx-auto w-full px-2 sm:px-6 pb-32 relative">
       <div className="fixed bottom-8 right-8 z-50 transition-all duration-300">
         <button 
           onClick={handleSave}
@@ -539,7 +539,7 @@ export default function SettingsPanel() {
 
 
       {/* Tabs */}
-      <div className="flex overflow-x-auto hide-scrollbar gap-2 mb-2 p-1 bg-black/20 rounded-2xl border border-white/5">
+      <div className="flex flex-wrap items-center gap-2 mb-2 p-2 bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl overflow-x-auto custom-scrollbar">
         {SETTINGS_TABS.filter(t => !t.adminOnly || isAdmin).map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -547,14 +547,14 @@ export default function SettingsPanel() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all cursor-pointer select-none whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
                 isActive 
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' 
-                  : 'text-white/50 hover:text-white hover:bg-white/5'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 scale-[1.02]' 
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
               }`}
             >
               <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-indigo-400'}`} />
-              {tab.label}
+              <span>{tab.label}</span>
             </button>
           );
         })}

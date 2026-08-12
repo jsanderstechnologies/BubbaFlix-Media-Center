@@ -221,7 +221,7 @@ export default function AdminPanel() {
   };
 
   return (
-    <div className="text-white max-w-4xl mx-auto w-full space-y-8">
+    <div className="text-white max-w-7xl mx-auto w-full space-y-8">
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3 pb-4 border-b border-white/10">
