@@ -59,6 +59,7 @@ export interface SystemSettings {
   tidbApiKey?: string;
   submitTidbSegments?: boolean;
   enableTidbSubmission?: boolean;
+  enableIntroSkip?: boolean;
 }
 
 export interface UserSettings {

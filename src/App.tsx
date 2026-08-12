@@ -890,7 +890,7 @@ function MainApp() {
     const seasonNum = finalContext?.season;
     const episodeNum = finalContext?.episode;
 
-    if (targetMediaId && !finalContext?.isLive) {
+    if (targetMediaId && !finalContext?.isLive && systemSettings.enableIntroSkip !== false) {
       logger.info(`[TIDB] Querying intro/credit skip segments for TMDB #${targetMediaId}...`);
       fetch(`/api/skip-segments?tmdbId=${targetMediaId}&type=${isTv ? 'tv' : 'movie'}${seasonNum ? `&season=${seasonNum}` : ''}${episodeNum ? `&episode=${episodeNum}` : ''}${systemSettings.tidbApiKey ? `&apiKey=${encodeURIComponent(systemSettings.tidbApiKey)}` : ''}`)
         .then(r => r.json())

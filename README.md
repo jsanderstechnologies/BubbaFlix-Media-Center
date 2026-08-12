@@ -50,6 +50,7 @@
 
 ### ⚙️ Comprehensive Settings Panel
 - **Dedicated Alphabetical API Keys Tab**: All 9 API keys (Gemini AI, GNews, Groq AI, NewsAPI, OpenRouter AI, Premiumize, TheIntroDB / TIDB, TMDb, TVDb) are managed in a dedicated top-level **API Keys** tab ordered strictly alphabetically by provider name.
+- **Master Intro & Credit Skip Toggle**: Administrators can enable or disable the application-wide Intro & Credit Skip feature directly in Admin Settings, as well as toggle automated AI segment contribution back to TheIntroDB repository.
 - **Live API Status Overview**: Displays an interactive API Integrations Status Overview card showing real-time `ACTIVE` / `NO KEY` status indicators across all 9 integrations.
 - **User Preferences Access for All Users**: All logged-in users have access to the Settings button in the navbar, presenting non-admin users with strictly their personal **User Preferences** (resolutions, HEVC filtering, audio/CC languages, auto-skipping, and display zoom).
 - **Responsive Top-Bar Layout**: Expanded container width (`max-w-7xl`) with responsive flex-wrapping tabs for seamless navigation on TV screens, 4K monitors, tablets, and mobile devices.

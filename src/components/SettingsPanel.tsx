@@ -88,6 +88,7 @@ export default function SettingsPanel() {
   const [submitTidbSegments, setSubmitTidbSegments] = useState<boolean>(
     systemSettings.submitTidbSegments !== false && systemSettings.enableTidbSubmission !== false
   );
+  const [enableIntroSkip, setEnableIntroSkip] = useState<boolean>(systemSettings.enableIntroSkip !== false);
   const [premiumizeApiKey, setPremiumizeApiKey] = useState(systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey') || '');
   const [geminiApiKey, setGeminiApiKey] = useState(systemSettings.geminiApiKey || '');
   const [groqApiKey, setGroqApiKey] = useState(systemSettings.groqApiKey || '');
@@ -476,6 +477,7 @@ export default function SettingsPanel() {
       tidbApiKey,
       submitTidbSegments,
       enableTidbSubmission: submitTidbSegments,
+      enableIntroSkip,
       premiumizeApiKey,
       geminiApiKey,
       groqApiKey,
@@ -1071,8 +1073,29 @@ export default function SettingsPanel() {
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
                   />
                   
-                  {/* Submit AI Segments Back to TIDB Toggle */}
+                  {/* Master Intro & Credit Skip Feature Toggle */}
                   <div className="pt-3 flex items-center justify-between border-t border-white/10 mt-3">
+                    <div>
+                      <div className="text-xs font-semibold text-white/90">Enable Intro & Credit Skip Feature</div>
+                      <div className="text-[11px] text-white/50 mt-0.5">Master toggle to enable or disable intro, recap, and credit skip functionality application-wide.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEnableIntroSkip(!enableIntroSkip)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                        enableIntroSkip ? 'bg-indigo-600' : 'bg-white/10'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          enableIntroSkip ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Submit AI Segments Back to TIDB Toggle */}
+                  <div className="pt-3 flex items-center justify-between border-t border-white/10 mt-2">
                     <div>
                       <div className="text-xs font-semibold text-white/90">Submit AI Skip Timestamps to TheIntroDB</div>
                       <div className="text-[11px] text-white/50 mt-0.5">Automatically contribute AI-analyzed intro/credit timestamp segments back to TheIntroDB repository when your API key is active.</div>

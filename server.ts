@@ -841,6 +841,7 @@ async function startServer() {
       tidbApiKey: settings.tidbApiKey || '',
       submitTidbSegments: settings.submitTidbSegments !== false,
       enableTidbSubmission: settings.submitTidbSegments !== false,
+      enableIntroSkip: settings.enableIntroSkip !== false,
       premiumizeApiKey: settings.premiumizeApiKey || '',
       geminiApiKey: settings.geminiApiKey || '',
       groqApiKey: settings.groqApiKey || '',
@@ -1113,6 +1114,7 @@ async function startServer() {
     if (req.body.tidbApiKey !== undefined) settings.tidbApiKey = req.body.tidbApiKey;
     if (req.body.submitTidbSegments !== undefined) settings.submitTidbSegments = req.body.submitTidbSegments;
     if (req.body.enableTidbSubmission !== undefined) settings.submitTidbSegments = req.body.enableTidbSubmission;
+    if (req.body.enableIntroSkip !== undefined) settings.enableIntroSkip = req.body.enableIntroSkip;
     if (req.body.premiumizeApiKey !== undefined) settings.premiumizeApiKey = req.body.premiumizeApiKey;
     if (req.body.newsApiKey !== undefined) settings.newsApiKey = req.body.newsApiKey;
     if (req.body.gnewsApiKey !== undefined) settings.gnewsApiKey = req.body.gnewsApiKey;
@@ -1263,6 +1265,12 @@ async function startServer() {
       const type = req.query.type ? String(req.query.type) : 'movie';
       const season = req.query.season ? String(req.query.season) : '';
       const episode = req.query.episode ? String(req.query.episode) : '';
+
+      const settings = readJson(SETTINGS_FILE);
+      if (settings.enableIntroSkip === false) {
+        console.log('[TIDB Proxy] Feature disabled by administrator (enableIntroSkip === false)');
+        return res.json({ success: true, segments: [], disabled: true });
+      }
 
       console.log(`[TIDB Proxy] Requesting skip segments: tmdbId=${tmdbId || 'N/A'}, imdbId=${imdbId || 'N/A'}, type=${type}${season ? `, S${season}E${episode}` : ''}`);
 
