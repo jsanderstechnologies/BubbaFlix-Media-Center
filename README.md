@@ -10,8 +10,10 @@
 - **TMDB Integration**: Browse rich metadata for movies and TV shows, complete with cast, crew, trailers, and recommendations.
 - **Premiumize & Debrid Streaming**: Search for Torrents, Usenet, and Debrid streams directly through Premiumize and stream them instantly without local downloading.
 - **TV Series Episode Dropdown & Air Dates**: Interactive `<select>` episode selector showing episode numbers, episode titles, air dates, and watched checkmarks.
+- **TheIntroDB (TIDB) Intro & Credit Skipping**: Integrated with TheIntroDB (`https://theintrodb.org`) API to retrieve exact timestamp segment data for automatically or manually skipping intros and end credits during playback of movies and TV episodes. Displays active TIDB status badges and branding logos in headers and hero spotlight cards when configured.
 - **Auto-Select Next Unwatched Episode**: Automatically queries per-user watch history and opens show detail screens on the first unwatched season and episode.
 - **Per-User Watch History**: Independent per-user watch tracking for movies and TV episodes with manual "Watched / Mark Watched" toggle buttons and automatic 90%+ progress completion marking.
+- **HEVC (H.265) Codec & Stream Filtering**: User-configurable HEVC stream handling with 3 distinct modes: `Prioritize HEVC` (sorts 4K/HEVC streams to top), `Allow All Codecs` (mixes H.264 & HEVC), and `Exclude HEVC` (forces H.264 only for older/legacy hardware).
 - **TMDB Backdrop Player Background**: Displays the item's TMDB backdrop image as a blurred, atmospheric background overlay with a glowing loader until video frames render.
 - **AI-Powered Filtering & Fallback Engine**: Integrated with Google Gemini API, Groq, and OpenRouter for smart filtering with 5-minute 429 rate limit circuit breaking.
 - **Hardware-Accelerated Transcoding**: Support for Intel Quick Sync Video (QSV), NVENC, and AMF to transcode media on the fly via FFmpeg with minimal CPU usage.
@@ -36,7 +38,10 @@
 - **D-Pad Spatial Navigation**: Built-in 2D spatial navigation allowing 100% remote control operation across all cards, menus, sidebar tabs, video player controls, modal dialogs, and user avatar settings.
 - **Focus Ring Accessibility**: Clear, high-visibility focus indicators designed specifically for 10-foot viewing experiences without poster clipping.
 
-### 👥 User Administration & Multi-Device Auth
+### 👥 User Administration & Section Access Permissions
+- **Navbar Section Access Control**: Administrators can grant or restrict user access to individual navbar sections (**Live TV**, **Music**, **Weather**, **News**) directly from the Admin Panel with interactive toggle buttons.
+- **Dynamic Navigation Guard**: Restricted sections are automatically hidden from non-admin navbars, and direct navigation attempts automatically redirect to `Home`.
+- **Admin Privilege Bypass**: Admin accounts (`role === 'admin'`) automatically retain full unrestricted access across all sections.
 - **Multi-Device Token Sessions**: Support for simultaneous device logins without revoking credentials or admin access.
 - **Pending Registration Workflow**: New registrations are created without passwords and flagged as `pending` until approved by an administrator.
 - **Gmail Welcome Notification**: Upon admin approval, the system auto-generates a secure 12-character password, hashes it using `scrypt`, updates the database, and automatically sends a beautifully formatted email with access credentials to the user.
@@ -44,7 +49,10 @@
 - **Auto Admin / Dev Mode**: A handy toggle to completely disable login and boot straight into the administrator dashboard for local development or Android Studio layout inspection.
 
 ### ⚙️ Comprehensive Settings Panel
-- **Sleek Admin Controls**: All system settings are organized into a clean, collapsible UI for managing API keys (TMDB, Gemini, NewsAPI, GNews, Premiumize), Scrapers, IPTV Providers, Developer logs, and more.
+- **Dedicated Alphabetical API Keys Tab**: All 9 API keys (Gemini AI, GNews, Groq AI, NewsAPI, OpenRouter AI, Premiumize, TheIntroDB / TIDB, TMDb, TVDb) are managed in a dedicated top-level **API Keys** tab ordered strictly alphabetically by provider name.
+- **Live API Status Overview**: Displays an interactive API Integrations Status Overview card showing real-time `ACTIVE` / `NO KEY` status indicators across all 9 integrations.
+- **User Preferences Access for All Users**: All logged-in users have access to the Settings button in the navbar, presenting non-admin users with strictly their personal **User Preferences** (resolutions, HEVC filtering, audio/CC languages, auto-skipping, and display zoom).
+- **Responsive Top-Bar Layout**: Expanded container width (`max-w-7xl`) with responsive flex-wrapping tabs for seamless navigation on TV screens, 4K monitors, tablets, and mobile devices.
 - **Email Configuration**: Exposes a dedicated UI to manage and save credentials (Gmail address, App Password, App Name, App URL) to `data/settings.json`, complete with a "Test Email" button.
 - **Developer Debugging**: View real-time frontend and backend console logs directly within the browser Settings UI.
 

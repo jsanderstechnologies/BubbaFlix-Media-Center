@@ -1,6 +1,6 @@
 # BubbaFlix Media Center - Complete Backend API Reference
 
-This document contains complete documentation, exact request body schemas, content types, headers, query parameters, and example JSON responses for all 61 REST API endpoints exposed by the BubbaFlix Media Center server (`server.ts`).
+This document contains complete documentation, exact request body schemas, content types, headers, query parameters, and example JSON responses for all 63 REST API endpoints exposed by the BubbaFlix Media Center server (`server.ts`).
 
 ---
 
@@ -25,7 +25,7 @@ Authorization: Bearer <premiumize_api_key>
 
 ---
 
-## All 61 Endpoints Quick Reference Index
+## All 63 Endpoints Quick Reference Index
 
 | # | HTTP Method | Endpoint Path | Auth Required | Expected Content-Type | Summary Description |
 |---|-------------|---------------|---------------|-----------------------|---------------------|
@@ -51,7 +51,9 @@ Authorization: Bearer <premiumize_api_key>
 | 20 | `PUT` | `/api/admin/users/:uid/reset-password` | `requireAdmin` | `application/json` | Reset user password |
 | 21 | `POST` | `/api/admin/users` | `requireAdmin` | `application/json` | Create user account directly |
 | 22 | `PUT` | `/api/admin/users/:uid/role` | `requireAdmin` | `application/json` | Change user role (`"admin"` or `"user"`) |
-| 23 | `DELETE` | `/api/admin/users/:uid` | `requireAdmin` | `application/json` | Delete user account |
+| 23 | `PUT` | `/api/admin/users/:uid/permissions` | `requireAdmin` | `application/json` | Grant or restrict navbar section access permissions |
+| 24 | `DELETE` | `/api/admin/users/:uid` | `requireAdmin` | `application/json` | Delete user account |
+| 25 | `GET` | `/api/skip-segments` | Public | `application/json` | Fetch intro & credit timestamp segments from TheIntroDB |
 | 24 | `GET` | `/api/db/get/:collection` | `requireAuth` | `application/json` | Query items from local JSON database cache |
 | 25 | `POST` | `/api/db/post/:collection` | `requireAuth` | `application/json` | Insert/update items in local JSON database cache |
 | 26 | `GET` | `/api/media-info` | Public | `application/json` | Inspect media container and tracks with `ffprobe` |
@@ -279,6 +281,43 @@ Authorization: Bearer <premiumize_api_key>
     "password": "OptionalManualPassword",
     "role": "user",
     "emailPassword": true
+  }
+  ```
+
+#### `PUT /api/admin/users/:uid/permissions`
+- **Description:** Updates navbar section access permissions (`tv`, `music`, `weather`, `news`) for a specific user account.
+- **Auth:** `requireAdmin` (`Authorization: Bearer <token>`)
+- **Content-Type:** `application/json`
+- **Request Body Keys:**
+  ```json
+  {
+    "allowedSections": ["tv", "music", "weather", "news"]
+  }
+  ```
+- **Example Response:**
+  ```json
+  {
+    "success": true,
+    "allowedSections": ["tv", "music", "weather", "news"]
+  }
+  ```
+
+#### `GET /api/skip-segments`
+- **Description:** Queries TheIntroDB (`https://theintrodb.org`) proxy endpoint for intro and end credits timestamp segment markers.
+- **Auth:** Public / Optional `x-api-key` or `Authorization: Bearer <tidb_key>`
+- **Query Params:**
+  - `tmdbId` (number, required): TMDB Media Identifier.
+  - `type` (string, optional): `"movie"` or `"tv"`.
+  - `season` (number, optional): TV Season number.
+  - `episode` (number, optional): TV Episode number.
+- **Example Response:**
+  ```json
+  {
+    "success": true,
+    "segments": [
+      { "type": "intro", "start": 35.5, "end": 110.0, "label": "Skip Intro" },
+      { "type": "credits", "start": 2840.0, "end": 3020.0, "label": "Skip Credits" }
+    ]
   }
   ```
 
