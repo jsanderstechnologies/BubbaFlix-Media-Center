@@ -569,7 +569,7 @@ function MainApp() {
 
 
   
-  const applySeek = (newTime: number) => {
+  const applySeek = (newTime: number, immediate: boolean = false) => {
     setSeekTarget(newTime);
     if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
     
@@ -579,7 +579,7 @@ function MainApp() {
       setBufferedSeconds(0);
       setSeekTarget(null);
       setPlayerStatus('BUFFERING...');
-    }, 700);
+    }, immediate ? 50 : 500);
   };
 
   const handleSeek = (secondsToAdd: number) => {
@@ -632,22 +632,24 @@ function MainApp() {
           setLastAutoSkippedSeg(segId);
           logger.info(`[TIDB Auto-Skip] Automatically skipping intro segment to ${activeSeg.end}s`);
           console.log(`[TIDB Auto-Skip] Skipped segment:`, activeSeg);
+          setActiveSkipSegment(null);
           if (videoRef.current) {
-            const seekTo = activeSeg.end - streamOffset;
-            videoRef.current.currentTime = Math.max(0, seekTo);
-            setCurrentTime(activeSeg.end);
-            setActiveSkipSegment(null);
+            try {
+              videoRef.current.currentTime = Math.max(0, activeSeg.end - streamOffset);
+            } catch (e) {}
           }
+          applySeek(activeSeg.end, true);
         } else if (isCredits && userSettings.autoSkipCredits && lastAutoSkippedSeg !== segId) {
           setLastAutoSkippedSeg(segId);
           logger.info(`[TIDB Auto-Skip] Automatically skipping credits segment to ${activeSeg.end}s`);
           console.log(`[TIDB Auto-Skip] Skipped segment:`, activeSeg);
+          setActiveSkipSegment(null);
           if (videoRef.current) {
-            const seekTo = activeSeg.end - streamOffset;
-            videoRef.current.currentTime = Math.max(0, seekTo);
-            setCurrentTime(activeSeg.end);
-            setActiveSkipSegment(null);
+            try {
+              videoRef.current.currentTime = Math.max(0, activeSeg.end - streamOffset);
+            } catch (e) {}
           }
+          applySeek(activeSeg.end, true);
         }
       }
     }
@@ -1187,26 +1189,37 @@ function MainApp() {
               )}
 
               {/* TheIntroDB Skip Segment Interactive Overlay Button */}
-              {activeSkipSegment && (
-                <div className="absolute bottom-28 right-8 z-[140] animate-in fade-in slide-in-from-bottom-4 duration-300">
-                  <button
-                    onClick={() => {
-                      logger.info(`[TIDB Manual-Skip] User clicked ${activeSkipSegment.label} to skip to ${activeSkipSegment.end}s`);
-                      console.log(`[TIDB Manual-Skip] Skipped segment:`, activeSkipSegment);
-                      if (videoRef.current) {
-                        const seekTo = activeSkipSegment.end - streamOffset;
-                        videoRef.current.currentTime = Math.max(0, seekTo);
-                        setCurrentTime(activeSkipSegment.end);
+              {(() => {
+                if (!activeSkipSegment) return null;
+                const isIntroSeg = activeSkipSegment.type.includes('intro') || activeSkipSegment.type.includes('recap');
+                const isCreditsSeg = activeSkipSegment.type.includes('credit') || activeSkipSegment.type.includes('outro');
+                const isAutoSkipActive = (isIntroSeg && userSettings.autoSkipIntros) || (isCreditsSeg && userSettings.autoSkipCredits);
+                
+                if (isAutoSkipActive) return null;
+
+                return (
+                  <div className="absolute bottom-28 right-8 z-[140] animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <button
+                      onClick={() => {
+                        const targetSeg = activeSkipSegment;
+                        logger.info(`[TIDB Manual-Skip] User clicked ${targetSeg.label} to skip to ${targetSeg.end}s`);
+                        console.log(`[TIDB Manual-Skip] Skipped segment:`, targetSeg);
                         setActiveSkipSegment(null);
-                      }
-                    }}
-                    className="focusable flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm tracking-wide shadow-2xl backdrop-blur-md border border-white/20 hover:scale-105 transition-all cursor-pointer focus:outline-none focus:ring-4 focus:ring-red-400"
-                  >
-                    <SkipForward className="w-5 h-5" />
-                    <span>{activeSkipSegment.label}</span>
-                  </button>
-                </div>
-              )}
+                        if (videoRef.current) {
+                          try {
+                            videoRef.current.currentTime = Math.max(0, targetSeg.end - streamOffset);
+                          } catch (e) {}
+                        }
+                        applySeek(targetSeg.end, true);
+                      }}
+                      className="focusable flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm tracking-wide shadow-2xl backdrop-blur-md border border-white/20 hover:scale-105 transition-all cursor-pointer focus:outline-none focus:ring-4 focus:ring-red-400"
+                    >
+                      <SkipForward className="w-5 h-5" />
+                      <span>{activeSkipSegment.label}</span>
+                    </button>
+                  </div>
+                );
+              })()}
               <div className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-4 z-[110] bg-gradient-to-t from-black/90 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="flex items-center gap-6 pointer-events-auto w-full max-w-5xl mx-auto">
                   <button 
