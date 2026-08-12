@@ -361,33 +361,89 @@ export default function MediaModal({
     return () => unsubscribe();
   }, [user, movie, isHidden, resolvedTmdbId]);
 
-  // Auto-populate the next unwatched season and episode when opening TV Series
-  useEffect(() => {
-    if (!isSeries || seasons.length === 0 || isHidden) return;
-    if (selectedSeason !== null) return;
+  const getNextUnwatchedEpisode = (
+    currentS: number,
+    currentE: number,
+    allSeasons: any[],
+    currentEpisodes: any[],
+    watchedMap: Record<string, boolean>
+  ) => {
+    // 1. Search remaining episodes in current season
+    const currentSeasonData = allSeasons.find(s => s.season_number === currentS);
+    const maxEpCurrentSeason = currentEpisodes.length > 0 && selectedSeason === currentS
+      ? Math.max(...currentEpisodes.map(e => e.episode_number))
+      : (currentSeasonData?.episode_count || currentE + 20);
 
-    let targetSeason = seasons[0].season_number;
-    let targetEpisode = 1;
-    let foundUnwatched = false;
-
-    for (const s of seasons) {
-      const sNum = s.season_number;
-      const epCount = s.episode_count || s.episodes?.length || 0;
-      for (let eNum = 1; eNum <= epCount; eNum++) {
-        const key = `s${sNum}_e${eNum}`;
-        if (!watchedDocs[key]) {
-          targetSeason = sNum;
-          targetEpisode = eNum;
-          foundUnwatched = true;
-          break;
-        }
+    for (let eNum = currentE + 1; eNum <= maxEpCurrentSeason; eNum++) {
+      const key = `s${currentS}_e${eNum}`;
+      if (!watchedMap[key]) {
+        return { season: currentS, episode: eNum };
       }
-      if (foundUnwatched) break;
     }
 
-    setSelectedSeason(targetSeason);
-    setSelectedEpisode(targetEpisode);
-  }, [isSeries, seasons, watchedDocs, selectedSeason, isHidden]);
+    // 2. Search next seasons starting from episode 1
+    const currentSeasonIdx = allSeasons.findIndex(s => s.season_number === currentS);
+    if (currentSeasonIdx !== -1 && currentSeasonIdx < allSeasons.length - 1) {
+      for (let sIdx = currentSeasonIdx + 1; sIdx < allSeasons.length; sIdx++) {
+        const nextS = allSeasons[sIdx];
+        const sNum = nextS.season_number;
+        const epCount = nextS.episode_count || nextS.episodes?.length || 20;
+        for (let eNum = 1; eNum <= epCount; eNum++) {
+          const key = `s${sNum}_e${eNum}`;
+          if (!watchedMap[key]) {
+            return { season: sNum, episode: eNum };
+          }
+        }
+      }
+    }
+
+    // 3. Fallback: if no future unwatched episode, advance to currentE + 1 if within range
+    if (currentE < maxEpCurrentSeason) {
+      return { season: currentS, episode: currentE + 1 };
+    }
+
+    return null;
+  };
+
+  // Auto-populate or auto-advance to the next unwatched season and episode
+  useEffect(() => {
+    if (!isSeries || seasons.length === 0 || isHidden) return;
+
+    if (selectedSeason === null || selectedEpisode === null) {
+      let targetSeason = seasons[0].season_number;
+      let targetEpisode = 1;
+      let foundUnwatched = false;
+
+      for (const s of seasons) {
+        const sNum = s.season_number;
+        const epCount = s.episode_count || s.episodes?.length || 0;
+        for (let eNum = 1; eNum <= epCount; eNum++) {
+          const key = `s${sNum}_e${eNum}`;
+          if (!watchedDocs[key]) {
+            targetSeason = sNum;
+            targetEpisode = eNum;
+            foundUnwatched = true;
+            break;
+          }
+        }
+        if (foundUnwatched) break;
+      }
+
+      setSelectedSeason(targetSeason);
+      setSelectedEpisode(targetEpisode);
+      return;
+    }
+
+    // If currently selected episode has been finished / marked as watched, automatically advance to next unwatched episode
+    const currentEpKey = `s${selectedSeason}_e${selectedEpisode}`;
+    if (watchedDocs[currentEpKey]) {
+      const nextEp = getNextUnwatchedEpisode(selectedSeason, selectedEpisode, seasons, episodes, watchedDocs);
+      if (nextEp && (nextEp.season !== selectedSeason || nextEp.episode !== selectedEpisode)) {
+        setSelectedSeason(nextEp.season);
+        setSelectedEpisode(nextEp.episode);
+      }
+    }
+  }, [isSeries, seasons, episodes, watchedDocs, selectedSeason, selectedEpisode, isHidden]);
 
   const toggleWatched = async (type: 'tv' | 'movie', seasonNum?: number, episodeNum?: number) => {
     if (!user || !movie) return;
@@ -401,7 +457,17 @@ export default function MediaModal({
     const currentlyWatched = !!watchedDocs[key];
     const newWatchedState = !currentlyWatched;
 
-    setWatchedDocs(prev => ({ ...prev, [key]: newWatchedState }));
+    const updatedDocs = { ...watchedDocs, [key]: newWatchedState };
+    setWatchedDocs(updatedDocs);
+
+    // If marking an episode as watched, automatically advance to the next unwatched episode in the dropdown list
+    if (type === 'tv' && newWatchedState && seasonNum !== undefined && episodeNum !== undefined) {
+      const nextEp = getNextUnwatchedEpisode(seasonNum, episodeNum, seasons, episodes, updatedDocs);
+      if (nextEp) {
+        setSelectedSeason(nextEp.season);
+        setSelectedEpisode(nextEp.episode);
+      }
+    }
 
     const docRef = { collectionName: 'user_watched', id: docId };
 
