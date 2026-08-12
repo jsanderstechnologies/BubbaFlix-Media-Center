@@ -142,9 +142,27 @@ function MainApp() {
     return () => window.removeEventListener('navigate-tab', handleNavTab);
   }, []);
 
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
+  const prevSelectedMovieRef = useRef<any>(null);
+
+  // Capture the focused element in main view right before MediaModal opens
+  useEffect(() => {
+    if (selectedMovie && !prevSelectedMovieRef.current) {
+      const currentActive = document.activeElement as HTMLElement;
+      if (currentActive && currentActive !== document.body && !document.getElementById('media-modal')?.contains(currentActive)) {
+        lastFocusedElementRef.current = currentActive;
+      }
+    }
+    prevSelectedMovieRef.current = selectedMovie;
+  }, [selectedMovie]);
+
   // Ensure SpatialNavigation focus resets cleanly whenever exiting a modal or details screen
   useEffect(() => {
-    if (!selectedMovie && !isPlaying) {
+    if (!selectedMovie && prevSelectedMovieRef.current && !isPlaying) {
+      if (document.activeElement && document.activeElement !== document.body) {
+        try { (document.activeElement as HTMLElement).blur(); } catch (e) {}
+      }
+
       try {
         SpatialNavigation.remove('media-modal');
         SpatialNavigation.remove('resume-modal');
@@ -159,23 +177,39 @@ function MainApp() {
           SpatialNavigation.makeFocusable();
         } catch (e) {}
 
-        const activeNavEl = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
-        const firstMainFocusable = document.querySelector('main .focusable, #main-content-view .focusable, main button, main [tabindex="0"]') as HTMLElement;
-        
-        if (firstMainFocusable) {
-          firstMainFocusable.focus({ preventScroll: false });
-        } else if (activeNavEl) {
-          activeNavEl.focus({ preventScroll: false });
+        // 1. Target the exact poster / card element that was focused right before opening details!
+        const lastEl = lastFocusedElementRef.current;
+        if (lastEl && document.body.contains(lastEl)) {
+          try {
+            lastEl.focus({ preventScroll: false });
+            SpatialNavigation.focus();
+            return;
+          } catch (e) {}
         }
 
-        try {
-          SpatialNavigation.focus();
-        } catch (e) {}
-      }, 50);
+        // 2. Fallback to first focusable item in main content view
+        const firstMainFocusable = document.querySelector('#main-content-view .focusable, main .focusable, main button, main [tabindex="0"]') as HTMLElement;
+        if (firstMainFocusable) {
+          try {
+            firstMainFocusable.focus({ preventScroll: false });
+            SpatialNavigation.focus();
+            return;
+          } catch (e) {}
+        }
+
+        // 3. Fallback to current navbar tab
+        const activeNavEl = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
+        if (activeNavEl) {
+          try {
+            activeNavEl.focus({ preventScroll: false });
+            SpatialNavigation.focus();
+          } catch (e) {}
+        }
+      }, 100);
 
       return () => clearTimeout(timer);
     }
-  }, [selectedMovie, isPlaying, activeTab]);
+  }, [selectedMovie, isPlaying]);
 
   // Monitor National Weather Service alerts for user location every 3 minutes
   useEffect(() => {
