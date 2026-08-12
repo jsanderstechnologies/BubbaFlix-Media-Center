@@ -126,6 +126,26 @@ function MainApp() {
     return () => window.removeEventListener('navigate-tab', handleNavTab);
   }, []);
 
+  // Ensure SpatialNavigation focus resets cleanly whenever exiting a modal or details screen
+  useEffect(() => {
+    if (!selectedMovie && !isPlaying) {
+      try {
+        SpatialNavigation.remove('resume-modal');
+        SpatialNavigation.remove('fix-match-modal');
+        SpatialNavigation.enable('');
+        SpatialNavigation.makeFocusable();
+      } catch (e) {}
+      
+      const timer = setTimeout(() => {
+        const firstFocusable = document.querySelector('main .focusable, #main-content-view .focusable, main button, main [tabindex="0"]') as HTMLElement;
+        if (firstFocusable && (document.activeElement === document.body || !document.activeElement)) {
+          firstFocusable.focus({ preventScroll: false });
+        }
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedMovie, isPlaying]);
+
   // Monitor National Weather Service alerts for user location every 3 minutes
   useEffect(() => {
     let isMounted = true;
