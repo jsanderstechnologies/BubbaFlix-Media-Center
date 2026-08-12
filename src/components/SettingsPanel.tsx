@@ -1922,7 +1922,7 @@ export default function SettingsPanel() {
               <select 
                 value={streamBufferSeconds}
                 onChange={(e) => setStreamBufferSeconds(e.target.value)}
-                className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors appearance-none"
+                className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors appearance-none cursor-pointer"
               >
                 <option value="15">15 Seconds (Faster start, less stable)</option>
                 <option value="30">30 Seconds (Good for local network)</option>
@@ -1931,6 +1931,20 @@ export default function SettingsPanel() {
                 <option value="300">5 Minutes (Maximum stability, slower start)</option>
               </select>
               <p className="text-xs text-white/80 mt-2">Adjust the FFmpeg transcoding buffer size. Higher values increase stability but delay stream startup.</p>
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-white/10">
+              <div>
+                <label className="text-sm font-medium text-white block mb-1">Hardware Transcoding (GPU Acceleration)</label>
+                <p className="text-xs text-white/80">Automatically detects and uses NVENC, QSV, or AMF to reduce CPU load when transcoding media streams.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIntelTranscoding(!intelTranscoding)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${intelTranscoding ? 'bg-indigo-600' : 'bg-slate-700'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${intelTranscoding ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
             </div>
           </div>
         </div>
