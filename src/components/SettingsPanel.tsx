@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal, ChevronDown, ChevronUp, Users, PlayCircle, Search, Key, Folder, Plus, Trash2, Film, RefreshCw, CheckCircle2, AlertCircle, Globe, Lock, ExternalLink, Copy } from 'lucide-react';
+import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal, ChevronDown, ChevronUp, Users, User, Sliders, PlayCircle, Search, Key, Folder, Plus, Trash2, Film, RefreshCw, CheckCircle2, AlertCircle, Globe, Lock, ExternalLink, Copy } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 
@@ -51,11 +51,12 @@ const CollapsibleSection = ({ id, title, icon: Icon, isOpen, onToggle, children,
 
 
 const SETTINGS_TABS = [
+  { id: 'user_prefs', label: 'User Preferences', icon: User, adminOnly: false },
   { id: 'users', label: 'Users', icon: Users, adminOnly: true },
   { id: 'apikeys', label: 'API Keys', icon: Key, adminOnly: true },
-  { id: 'media', label: 'Media Sources', icon: Database, adminOnly: false },
-  { id: 'playback', label: 'Playback & Transcoding', icon: PlayCircle, adminOnly: false },
-  { id: 'iptv', label: 'Live TV (IPTV)', icon: Tv, adminOnly: false },
+  { id: 'media', label: 'Media Sources', icon: Database, adminOnly: true },
+  { id: 'playback', label: 'Playback & Transcoding', icon: PlayCircle, adminOnly: true },
+  { id: 'iptv', label: 'Live TV (IPTV)', icon: Tv, adminOnly: true },
   { id: 'system', label: 'System', icon: Server, adminOnly: true }
 ];
 
@@ -64,14 +65,22 @@ export default function SettingsPanel() {
   const [openSections, setOpenSections] = useState<string[]>([]);
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const [activeTab, setActiveTab] = useState(isAdmin ? 'users' : 'media');
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'user_prefs' : 'user_prefs');
   
   const toggleSection = (section: string) => {
     setOpenSections(prev => 
       prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
     );
   };
-  const { systemSettings, userSettings, updateSystemSettings, updateUserSettings } = useSettings();
+  const { systemSettings, userSettings, updateSystemSettings, updateUserSettings, zoom, updateZoom } = useSettings();
+
+  const [userPrefs, setUserPrefs] = useState(userSettings);
+  const [localZoom, setLocalZoom] = useState(zoom);
+
+  useEffect(() => {
+    setUserPrefs(userSettings);
+    setLocalZoom(zoom);
+  }, [userSettings, zoom]);
 
   const [tmdbKey, setTmdbKey] = useState(systemSettings.tmdbKey || '');
   const [tvdbApiKey, setTvdbApiKey] = useState(systemSettings.tvdbApiKey || '');
@@ -497,12 +506,16 @@ export default function SettingsPanel() {
     });
 
     await updateUserSettings({
+      ...userPrefs,
       playerPath,
       filterAnime,
       preferredLanguage,
       enabledGroups: enabledGroups || [],
       adminMode
     });
+
+    updateZoom(localZoom);
+    window.dispatchEvent(new CustomEvent('userSettingsChanged'));
 
     queryClient.invalidateQueries({ queryKey: ['movies'] });
     queryClient.invalidateQueries({ queryKey: ['tvseries'] });
@@ -548,6 +561,204 @@ export default function SettingsPanel() {
       </div>
 
       <div className="grid gap-6">
+        {/* User Preferences Tab (Available for all users: Admin & Non-Admin) */}
+        {activeTab === 'user_prefs' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-8">
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <User className="w-6 h-6 text-indigo-400" />
+                  <div>
+                    <h2 className="text-xl font-medium text-white">User Preferences</h2>
+                    <p className="text-xs text-white/40 mt-0.5">Customize your playback settings, subtitles, auto-skipping, audio leveling, and interface zoom.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* UI Zoom & Display Scaling */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">UI Zoom & Display Scale</h3>
+                <p className="text-xs text-white/40 leading-relaxed">Adjust the overall interface scaling for optimal viewing on TV screens or desktop monitors.</p>
+                <div className="space-y-2 max-w-xl">
+                  <div className="flex justify-between items-center text-xs font-mono">
+                    <span className="text-white/60">Interface Scale:</span>
+                    <span className="text-emerald-400 font-bold">{Math.round(localZoom * 100)}%</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0.5" 
+                    max="2.0" 
+                    step="0.1" 
+                    value={localZoom}
+                    onChange={e => setLocalZoom(parseFloat(e.target.value))}
+                    className="w-full accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded-lg cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/40 font-mono">
+                    <span>50%</span>
+                    <span>100% (Default)</span>
+                    <span>200%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stream Resolutions */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Stream Resolutions</h3>
+                <p className="text-xs text-white/40 leading-relaxed mb-4">Select which video qualities to search and include in stream results.</p>
+                <div className="flex gap-3 max-w-xl">
+                  {['4K', '1080p', '720p'].map(res => (
+                    <button 
+                      key={res}
+                      type="button"
+                      onClick={() => {
+                        const currentRes = userPrefs.resolutions || ['4K', '1080p', '720p'];
+                        const updated = currentRes.includes(res)
+                          ? currentRes.filter(r => r !== res)
+                          : [...currentRes, res];
+                        setUserPrefs({ ...userPrefs, resolutions: updated });
+                      }}
+                      className={`flex-1 flex items-center justify-center p-3 rounded-xl border transition-all cursor-pointer font-mono ${
+                        userPrefs.resolutions?.includes(res) 
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold' 
+                          : 'bg-black/50 border-white/5 text-white/40 hover:border-white/20'
+                      }`}
+                    >
+                      <span>{res}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Language Preferences */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Language Preferences</h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+                  <div className="space-y-2">
+                    <label className="text-xs text-white/50 block">Preferred Audio Language (e.g. eng, spa, fre)</label>
+                    <input 
+                      type="text" 
+                      value={userPrefs.audioLanguage || 'eng'}
+                      onChange={e => setUserPrefs({...userPrefs, audioLanguage: e.target.value.toLowerCase()})}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-400 outline-none transition-all font-mono"
+                      placeholder="eng"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-white/50 block">Preferred Subtitle Language (e.g. eng, spa)</label>
+                    <input 
+                      type="text" 
+                      value={userPrefs.ccLanguage || 'eng'}
+                      onChange={e => setUserPrefs({...userPrefs, ccLanguage: e.target.value.toLowerCase()})}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-400 outline-none transition-all font-mono"
+                      placeholder="eng"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Weather Location */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Weather Location</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+                  <div className="space-y-2">
+                    <label className="text-xs text-white/50 block">Default City or ZIP Code (e.g. Austin, 78701)</label>
+                    <input 
+                      type="text" 
+                      value={userPrefs.weatherLocation || ''}
+                      onChange={e => setUserPrefs({...userPrefs, weatherLocation: e.target.value})}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-emerald-400 outline-none transition-all"
+                      placeholder="Austin, TX"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-white/50 block">Temperature Unit</label>
+                    <div className="flex gap-2">
+                      <button 
+                        type="button"
+                        onClick={() => setUserPrefs({...userPrefs, temperatureUnit: 'F'})}
+                        className={`flex-1 py-2.5 rounded-xl border text-xs font-bold font-mono transition-all cursor-pointer ${userPrefs.temperatureUnit !== 'C' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}
+                      >
+                        Fahrenheit (°F)
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setUserPrefs({...userPrefs, temperatureUnit: 'C'})}
+                        className={`flex-1 py-2.5 rounded-xl border text-xs font-bold font-mono transition-all cursor-pointer ${userPrefs.temperatureUnit === 'C' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}
+                      >
+                        Celsius (°C)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Playback Toggles */}
+              <div className="space-y-3 max-w-xl">
+                <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Playback Toggles</h3>
+
+                <button 
+                  type="button"
+                  onClick={() => setUserPrefs({...userPrefs, autoCC: !userPrefs.autoCC})}
+                  className="w-full flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors text-left"
+                >
+                  <div className="flex-1 pr-2">
+                    <div className="text-sm font-medium text-white">Auto-enable Subtitles</div>
+                    <div className="text-xs text-white/40 mt-1">Automatically turn on CC when starting video playback</div>
+                  </div>
+                  <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${userPrefs.autoCC ? 'bg-emerald-500' : 'bg-white/10'}`}>
+                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${userPrefs.autoCC ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={() => setUserPrefs({...userPrefs, autoSkipIntros: !userPrefs.autoSkipIntros})}
+                  className="w-full flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors text-left"
+                >
+                  <div className="flex-1 pr-2">
+                    <div className="text-sm font-medium text-white">Auto-Skip Intros & Recaps</div>
+                    <div className="text-xs text-white/40 mt-1">Automatically skip TV show intros and recaps using TheIntroDB</div>
+                  </div>
+                  <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${userPrefs.autoSkipIntros ? 'bg-emerald-500' : 'bg-white/10'}`}>
+                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${userPrefs.autoSkipIntros ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={() => setUserPrefs({...userPrefs, autoSkipCredits: !userPrefs.autoSkipCredits})}
+                  className="w-full flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors text-left"
+                >
+                  <div className="flex-1 pr-2">
+                    <div className="text-sm font-medium text-white">Auto-Skip End Credits</div>
+                    <div className="text-xs text-white/40 mt-1">Automatically skip end credits using TheIntroDB</div>
+                  </div>
+                  <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${userPrefs.autoSkipCredits ? 'bg-emerald-500' : 'bg-white/10'}`}>
+                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${userPrefs.autoSkipCredits ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={() => setUserPrefs({...userPrefs, enableAudioLeveling: !userPrefs.enableAudioLeveling})}
+                  className="w-full flex items-center justify-between gap-4 p-4 bg-black/50 border border-white/5 rounded-xl cursor-pointer hover:border-white/10 transition-colors text-left"
+                >
+                  <div className="flex-1 pr-2">
+                    <div className="text-sm font-medium text-white">Dynamic Audio Leveling</div>
+                    <div className="text-xs text-white/40 mt-1">Normalize video volume dynamically to prevent loud audio spikes</div>
+                  </div>
+                  <div className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors ${userPrefs.enableAudioLeveling ? 'bg-emerald-500' : 'bg-white/10'}`}>
+                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${userPrefs.enableAudioLeveling ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'users' && isAdmin && (
           <div className="mb-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <AdminPanel />

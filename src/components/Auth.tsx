@@ -603,7 +603,10 @@ export function AuthButton() {
                 </div>
                 <button
                   tabIndex={0}
-                  onClick={() => { setShowSettings(true); setIsDropdownOpen(false); }}
+                  onClick={() => { 
+                    window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'settings' })); 
+                    setIsDropdownOpen(false); 
+                  }}
                   className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/5 rounded-lg transition-colors focus:bg-white/10 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                 >
                   Settings
@@ -620,8 +623,6 @@ export function AuthButton() {
           </>,
           document.body
         )}
-
-        {showSettings && <UserSettingsModal onClose={() => setShowSettings(false)} userId={user.uid} />}
       </>
     );
   }

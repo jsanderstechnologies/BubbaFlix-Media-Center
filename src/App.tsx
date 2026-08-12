@@ -114,9 +114,17 @@ function MainApp() {
         firstPoster.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }, 150);
-
     return () => clearTimeout(timer);
   }, [activeTab]);
+
+  // Listen for custom tab navigation events (e.g. from Avatar dropdown)
+  useEffect(() => {
+    const handleNavTab = (e: any) => {
+      if (e.detail) setActiveTab(e.detail);
+    };
+    window.addEventListener('navigate-tab', handleNavTab);
+    return () => window.removeEventListener('navigate-tab', handleNavTab);
+  }, []);
 
   // Monitor National Weather Service alerts for user location every 3 minutes
   useEffect(() => {
@@ -1754,7 +1762,7 @@ function MainApp() {
             ) : activeTab === 'tv' ? (
               <IptvGuide onPlayStream={handlePlayStream} />
             ) : activeTab === 'settings' ? (
-              user?.role === 'admin' ? <SettingsPanel /> : null
+              <SettingsPanel />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
                 <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
