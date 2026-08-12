@@ -629,6 +629,38 @@ export default function SettingsPanel() {
                 </div>
               </div>
 
+              {/* HEVC (H.265) Codec & Stream Filtering */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">HEVC (H.265) Codec Filtering</h3>
+                <p className="text-xs text-white/40 leading-relaxed">Configure how stream searches handle high-efficiency HEVC / H.265 video releases.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl">
+                  <button
+                    type="button"
+                    onClick={() => { setHevcMode('prefer'); setPreferHEVC(true); }}
+                    className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${hevcMode === 'prefer' ? 'bg-emerald-500/20 border-emerald-500 text-white' : 'bg-black/50 border-white/5 text-white/40 hover:border-white/20'}`}
+                  >
+                    <span className="font-bold text-xs">🌟 Prioritize HEVC</span>
+                    <span className="text-[10px] opacity-70 mt-1">Sort high-efficiency 4K/HEVC streams to top of results.</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setHevcMode('allow'); setPreferHEVC(true); }}
+                    className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${hevcMode === 'allow' ? 'bg-emerald-500/20 border-emerald-500 text-white' : 'bg-black/50 border-white/5 text-white/40 hover:border-white/20'}`}
+                  >
+                    <span className="font-bold text-xs">⚡ Allow All Codecs</span>
+                    <span className="text-[10px] opacity-70 mt-1">Include H.264 & HEVC streams equally.</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setHevcMode('exclude'); setPreferHEVC(false); }}
+                    className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${hevcMode === 'exclude' ? 'bg-red-600/20 border-red-500 text-white' : 'bg-black/50 border-white/5 text-white/40 hover:border-white/20'}`}
+                  >
+                    <span className="font-bold text-xs">🚫 Exclude HEVC</span>
+                    <span className="text-[10px] opacity-70 mt-1">Strictly force H.264 only (for older hardware).</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Language Preferences */}
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Language Preferences</h3>
@@ -768,6 +800,120 @@ export default function SettingsPanel() {
         {/* API Keys Management Page */}
         {activeTab === 'apikeys' && isAdmin && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+            {/* API Integrations Real-Time Status Card at top */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <Shield className="w-5 h-5 text-indigo-400" />
+                  <div>
+                    <h2 className="text-lg font-medium text-white">API Integrations Status Overview</h2>
+                    <p className="text-xs text-white/40 mt-0.5">Live configuration status for all 9 external integrations.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-3">
+                {/* 1. Gemini AI */}
+                <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                  <span className="text-[10px] text-white/60 font-mono uppercase">1. Gemini AI</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${geminiApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500/80'}`}></span>
+                    <span className={`text-xs font-bold font-mono ${geminiApiKey ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {geminiApiKey ? 'ACTIVE' : 'NO KEY'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. GNews */}
+                <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                  <span className="text-[10px] text-white/60 font-mono uppercase">2. GNews</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${gnewsApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500/80'}`}></span>
+                    <span className={`text-xs font-bold font-mono ${gnewsApiKey ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {gnewsApiKey ? 'ACTIVE' : 'NO KEY'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Groq AI */}
+                <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                  <span className="text-[10px] text-white/60 font-mono uppercase">3. Groq AI</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${groqApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500/80'}`}></span>
+                    <span className={`text-xs font-bold font-mono ${groqApiKey ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {groqApiKey ? 'ACTIVE' : 'NO KEY'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4. NewsAPI */}
+                <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                  <span className="text-[10px] text-white/60 font-mono uppercase">4. NewsAPI</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${newsApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500/80'}`}></span>
+                    <span className={`text-xs font-bold font-mono ${newsApiKey ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {newsApiKey ? 'ACTIVE' : 'NO KEY'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 5. OpenRouter AI */}
+                <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                  <span className="text-[10px] text-white/60 font-mono uppercase">5. OpenRouter AI</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${openRouterApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500/80'}`}></span>
+                    <span className={`text-xs font-bold font-mono ${openRouterApiKey ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {openRouterApiKey ? 'ACTIVE' : 'NO KEY'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 6. Premiumize Debrid */}
+                <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                  <span className="text-[10px] text-white/60 font-mono uppercase">6. Premiumize</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${premiumizeApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500/80'}`}></span>
+                    <span className={`text-xs font-bold font-mono ${premiumizeApiKey ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {premiumizeApiKey ? 'ACTIVE' : 'NO KEY'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 7. TheIntroDB (TIDB) */}
+                <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                  <span className="text-[10px] text-white/60 font-mono uppercase">7. TheIntroDB</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${tidbApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500/80'}`}></span>
+                    <span className={`text-xs font-bold font-mono ${tidbApiKey ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {tidbApiKey ? 'ACTIVE' : 'NO KEY'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 8. TMDb */}
+                <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                  <span className="text-[10px] text-white/60 font-mono uppercase">8. TMDb API</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${tmdbKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500/80'}`}></span>
+                    <span className={`text-xs font-bold font-mono ${tmdbKey ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {tmdbKey ? 'ACTIVE' : 'NO KEY'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 9. TVDb */}
+                <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                  <span className="text-[10px] text-white/60 font-mono uppercase">9. TVDb API</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${tvdbApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500/80'}`}></span>
+                    <span className={`text-xs font-bold font-mono ${tvdbApiKey ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {tvdbApiKey ? 'ACTIVE' : 'NO KEY'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
                 <div className="flex items-center gap-3">
@@ -1163,74 +1309,14 @@ export default function SettingsPanel() {
         </div>
 
 
-        {/* System Status */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
-            <Shield className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-lg font-medium text-white">System Status</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
-              <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">TMDB API</span>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-sm font-semibold text-white">ONLINE</span>
-              </div>
-            </div>
-            
-            <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
-              <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">DRV Driver</span>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
-                <span className="text-sm font-semibold text-white">i915/VAAPI</span>
-              </div>
-            </div>
-
-            <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
-              <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">Premiumize</span>
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${premiumizeApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`}></span>
-                <span className="text-sm font-semibold text-white">{premiumizeApiKey ? 'ONLINE' : 'MISSING KEY'}</span>
-              </div>
-            </div>
-
-            <div className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col gap-1.5">
-              <span className="text-[10px] text-white/80 uppercase font-bold tracking-wider">Gemini API</span>
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${geminiApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`}></span>
-                <span className="text-sm font-semibold text-white">{geminiApiKey ? 'ONLINE' : 'MISSING KEY'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Backend Integrations */}
+        {/* Torrent & Debrid Media Integrations */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
             <Server className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-lg font-medium text-white">Integrations</h2>
+            <h2 className="text-lg font-medium text-white">Torrent & Debrid Media Options</h2>
           </div>
           
           <div className="space-y-6">
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">Premiumize API Key / Account Code</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                  <Database className="w-4 h-4" />
-                </span>
-                <input 
-                  type="password"
-                  value={premiumizeApiKey}
-                  onChange={(e) => setPremiumizeApiKey(e.target.value)}
-                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
-                  placeholder="Enter Premiumize API Key..."
-                />
-              </div>
-              <p className="text-xs text-white/80 mt-2">Enables instant high-speed 4K torrent & cloud streaming via Premiumize.me. Get key at <a href="https://www.premiumize.me/account" target="_blank" rel="noreferrer" className="text-indigo-400 underline hover:text-indigo-300">premiumize.me/account</a></p>
-            </div>
-
             {/* Premiumize VPN Configuration Card */}
             <div className="bg-gradient-to-br from-indigo-950/40 via-purple-950/20 to-black/60 border border-indigo-500/20 rounded-xl p-5 space-y-4 shadow-lg">
               <div className="flex items-center justify-between border-b border-indigo-500/20 pb-3">
@@ -1312,57 +1398,6 @@ export default function SettingsPanel() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Gemini API Key</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                  <Database className="w-4 h-4" />
-                </span>
-                <input 
-                  type="password"
-                  value={geminiApiKey}
-                  onChange={(e) => setGeminiApiKey(e.target.value)}
-                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
-                  placeholder="Enter Gemini API Key..."
-                />
-              </div>
-              <p className="text-xs text-white/80 mt-2">Primary AI provider. Used by backend for search filtering, sports matching, and deduplication.</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">Groq API Key (Optional Free AI Fallback)</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                  <Database className="w-4 h-4" />
-                </span>
-                <input 
-                  type="password"
-                  value={groqApiKey}
-                  onChange={(e) => setGroqApiKey(e.target.value)}
-                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
-                  placeholder="Enter Groq API Key (Optional)..."
-                />
-              </div>
-              <p className="text-xs text-white/80 mt-2">100% Free ultra-fast AI fallback if Gemini encounters rate limits (429). Get free key at <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-indigo-400 underline hover:text-indigo-300">console.groq.com</a></p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">OpenRouter API Key (Optional Free AI Fallback)</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                  <Database className="w-4 h-4" />
-                </span>
-                <input 
-                  type="password"
-                  value={openRouterApiKey}
-                  onChange={(e) => setOpenRouterApiKey(e.target.value)}
-                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
-                  placeholder="Enter OpenRouter API Key (Optional)..."
-                />
-              </div>
-              <p className="text-xs text-white/80 mt-2">Secondary free AI fallback supporting Llama 3.2 & Gemma 2 free models. Get key at <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" className="text-indigo-400 underline hover:text-indigo-300">openrouter.ai/keys</a></p>
-            </div>
-
-            <div>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input 
                   type="checkbox" 
@@ -1374,72 +1409,6 @@ export default function SettingsPanel() {
               </label>
               <p className="text-xs text-white/80 mt-2 ml-7">Turn on EZTV searches for TV Shows. (Note: EZTV API can sometimes block requests or rate limit).</p>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">NewsAPI.org API Key</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                  <Key className="w-4 h-4" />
-                </span>
-                <input 
-                  type="password"
-                  value={newsApiKey}
-                  onChange={(e) => setNewsApiKey(e.target.value)}
-                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
-                  placeholder="Enter NewsAPI.org Key..."
-                />
-              </div>
-              <p className="text-xs text-white/80 mt-2">Powers local, national, world, and sports news headlines.</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">GNews API Key</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                  <Key className="w-4 h-4" />
-                </span>
-                <input 
-                  type="password"
-                  value={gnewsApiKey}
-                  onChange={(e) => setGnewsApiKey(e.target.value)}
-                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
-                  placeholder="Enter GNews API Key..."
-                />
-              </div>
-              <p className="text-xs text-white/80 mt-2">Provides additional regional, global, and sports news feeds.</p>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium text-white block mb-2">HEVC (H.265) Codec & Stream Filtering</label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
-                <button
-                  type="button"
-                  onClick={() => { setHevcMode('prefer'); setPreferHEVC(true); }}
-                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${hevcMode === 'prefer' ? 'bg-indigo-600/20 border-indigo-500 text-white' : 'bg-black/20 border-white/10 text-white/60 hover:text-white'}`}
-                >
-                  <span className="font-bold text-xs">🌟 Prioritize HEVC</span>
-                  <span className="text-[10px] opacity-70 mt-1">Sort high-efficiency 4K/HEVC streams to top of results.</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setHevcMode('allow'); setPreferHEVC(true); }}
-                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${hevcMode === 'allow' ? 'bg-indigo-600/20 border-indigo-500 text-white' : 'bg-black/20 border-white/10 text-white/60 hover:text-white'}`}
-                >
-                  <span className="font-bold text-xs">⚡ Allow All Codecs</span>
-                  <span className="text-[10px] opacity-70 mt-1">Include H.264 & HEVC streams equally.</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setHevcMode('exclude'); setPreferHEVC(false); }}
-                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${hevcMode === 'exclude' ? 'bg-red-600/20 border-red-500 text-white' : 'bg-black/20 border-white/10 text-white/60 hover:text-white'}`}
-                >
-                  <span className="font-bold text-xs">🚫 Exclude HEVC</span>
-                  <span className="text-[10px] opacity-70 mt-1">Strictly force H.264 only (for older devices).</span>
-                </button>
-              </div>
-              <p className="text-xs text-white/80">Configure how stream searches handle HEVC / H.265 video releases.</p>
-            </div>
-
 
             <div>
               <label className="block text-sm font-medium text-white mb-2">Max Stream Results</label>
@@ -1454,45 +1423,10 @@ export default function SettingsPanel() {
               />
               <p className="text-xs text-white/80 mt-2">Maximum number of cached streams to fetch (1-100).</p>
             </div>
-
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">TMDB API Key</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                  <Database className="w-4 h-4" />
-                </span>
-                <input 
-                  type="password"
-                  value={tmdbKey}
-                  onChange={(e) => setTmdbKey(e.target.value)}
-                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
-                  placeholder="Enter TMDB API Key..."
-                />
-              </div>
-              <p className="text-xs text-white/80 mt-2">Required to fetch movie metadata, posters, and trending lists.</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">TVDB API Key</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-white/10 bg-black/40 text-white/80">
-                  <Database className="w-4 h-4 text-emerald-400" />
-                </span>
-                <input 
-                  type="password"
-                  value={tvdbApiKey}
-                  onChange={(e) => setTvdbApiKey(e.target.value)}
-                  className="flex-1 bg-black/20 border border-white/10 rounded-r-lg p-3 text-white outline-none focus:border-indigo-500/50 transition-colors"
-                  placeholder="Enter TVDB API Key..."
-                />
-              </div>
-              <p className="text-xs text-white/80 mt-2">Optional TVDB API key for enhanced TV Series season and episode metadata.</p>
-            </div>
           </div>
-          </div>
-          </div>
-        )}
+        </div>
+      </div>
+    )}
 
         {activeTab === 'iptv' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
