@@ -265,7 +265,7 @@ function MainApp() {
       const fixMatchModalEl = document.getElementById('fix-match-modal');
       const mediaModalEl = document.getElementById('media-modal');
 
-      const topOverlay = playerEl || userSettingsEl || authModalEl || resumeModalEl || fixMatchModalEl || (mediaModalEl && !mediaModalEl.classList.contains('hidden') ? mediaModalEl : null);
+      const topOverlay = playerEl || userSettingsEl || authModalEl || resumeModalEl || fixMatchModalEl || (selectedMovie && mediaModalEl && !mediaModalEl.classList.contains('hidden') ? mediaModalEl : null);
 
       if (topOverlay) {
         const isBackKey = 
@@ -296,8 +296,28 @@ function MainApp() {
           const dir = dirMap[e.key];
           if (dir) {
             e.preventDefault();
-            SpatialNavigation.move(dir);
+            const moved = SpatialNavigation.move(dir);
+            
+            // Automatic Focus Recovery: If SpatialNavigation failed to move focus (e.g. detached element)
+            const curActive = document.activeElement as HTMLElement;
+            if (!moved || !curActive || curActive === document.body || !topOverlay.contains(curActive)) {
+              const focusableInOverlay = topOverlay.querySelector('.focusable, button, select, input, [tabindex="0"]') as HTMLElement;
+              if (focusableInOverlay) {
+                focusableInOverlay.focus({ preventScroll: false });
+                try { SpatialNavigation.focus(); } catch (err) {}
+              } else {
+                // If overlay is unmounting or has no focusables left, release trap and recover main view focus
+                const mainFocusable = document.querySelector('#main-content-view .focusable, main .focusable, main button') as HTMLElement 
+                  || document.getElementById(`nav-tab-${activeTab}`) 
+                  || document.getElementById('nav-tab-home');
+                if (mainFocusable) {
+                  mainFocusable.focus({ preventScroll: false });
+                  try { SpatialNavigation.focus(); } catch (err) {}
+                }
+              }
+            }
           }
+          return;
         }
         return;
       }

@@ -1428,7 +1428,7 @@ async function startServer() {
             }
           }
 
-          const prompt = `You are a professional TV and movie media analysis AI specializing in identifying intro sequence (opening theme / recap) and end credits timestamp bounds for media playback.
+          const prompt = `You are an advanced TV and movie media analysis AI incorporating automated content detection heuristics (inspired by contentDetectron algorithms using recurring sequence pattern recognition, visual histogram gradients, and duration ratio windowing).
 Analyze the following media item:
 - Media ID: ${tmdbId || imdbId}
 - Title: "${mediaTitle || 'Unknown Title'}"
@@ -1436,7 +1436,10 @@ Analyze the following media item:
 - Duration: ${durationSeconds ? `${durationSeconds} seconds (~${Math.round(durationSeconds / 60)} min)` : 'Standard runtime (~45 min for TV, ~120 min for Movies)'}
 - Overview: "${overview ? overview.slice(0, 300) : 'N/A'}"
 
-Estimate the exact timestamp segment ranges in seconds for skipping the Intro/Recap and End Credits based on standard industry broadcasting and streaming patterns.
+Apply contentDetectron detection heuristics to estimate the exact timestamp segment ranges in seconds for skipping Intro/Recap and End Credits:
+1. Cold Open & Intro Detection: Identify whether the episode features a cold open (typically 15s-120s into playback before main title theme) or starts directly with the title sequence. Opening theme duration is typically 30s-90s.
+2. End Credits Detection: Calculate the outro/credits window based on total runtime percentage (typically occupying the final 2% to 8% of total duration).
+
 Return ONLY valid JSON in this exact structure:
 {
   "segments": [
@@ -1447,8 +1450,8 @@ Return ONLY valid JSON in this exact structure:
 
 Strict Rules:
 1. "start" and "end" MUST be integers in seconds. "end" MUST be greater than "start".
-2. If TV episode, intro themes usually start around 15s-60s and run for 45s-90s. End credits occupy the final 60s-180s.
-3. If Movie, intros are rare (0-30s opening studio logo), while end credits occupy the final 3-10 minutes.
+2. For TV episodes, intro themes usually start around 15s-90s (after cold open) or 0s-30s (direct intro) and run for 45s-90s. End credits occupy the final 60s-180s.
+3. For Movies, intros are rare (0-30s opening studio logo), while end credits occupy the final 3-10 minutes.
 4. Output raw JSON ONLY. No markdown formatting, code blocks, or explanatory text.`;
 
           const aiResponseText = await callAiWithFallback('', prompt, { responseMimeType: 'application/json', timeout: 12000 });
