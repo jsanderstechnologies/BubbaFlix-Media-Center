@@ -146,6 +146,7 @@ function MainApp() {
   useEffect(() => {
     if (!selectedMovie && !isPlaying) {
       try {
+        SpatialNavigation.remove('media-modal');
         SpatialNavigation.remove('resume-modal');
         SpatialNavigation.remove('fix-match-modal');
         SpatialNavigation.enable('');
@@ -153,14 +154,28 @@ function MainApp() {
       } catch (e) {}
       
       const timer = setTimeout(() => {
-        const firstFocusable = document.querySelector('main .focusable, #main-content-view .focusable, main button, main [tabindex="0"]') as HTMLElement;
-        if (firstFocusable && (document.activeElement === document.body || !document.activeElement)) {
-          firstFocusable.focus({ preventScroll: false });
+        try {
+          SpatialNavigation.enable('');
+          SpatialNavigation.makeFocusable();
+        } catch (e) {}
+
+        const activeNavEl = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
+        const firstMainFocusable = document.querySelector('main .focusable, #main-content-view .focusable, main button, main [tabindex="0"]') as HTMLElement;
+        
+        if (firstMainFocusable) {
+          firstMainFocusable.focus({ preventScroll: false });
+        } else if (activeNavEl) {
+          activeNavEl.focus({ preventScroll: false });
         }
-      }, 60);
+
+        try {
+          SpatialNavigation.focus();
+        } catch (e) {}
+      }, 50);
+
       return () => clearTimeout(timer);
     }
-  }, [selectedMovie, isPlaying]);
+  }, [selectedMovie, isPlaying, activeTab]);
 
   // Monitor National Weather Service alerts for user location every 3 minutes
   useEffect(() => {

@@ -264,6 +264,33 @@ export default function MediaModal({
   }, [movie, isSeries, systemSettings.tmdbKey]);
 
   useEffect(() => {
+    if (movie && !isHidden) {
+      SpatialNavigation.add('media-modal', {
+        selector: '#media-modal .focusable, #media-modal button, #media-modal select, #media-modal input, #media-modal [tabindex="0"]',
+        restrict: 'self-only',
+        enterTo: 'last-focused'
+      });
+      SpatialNavigation.makeFocusable('media-modal');
+      
+      const timer = setTimeout(() => {
+        try {
+          SpatialNavigation.focus('media-modal');
+        } catch (e) {
+          const firstFocusable = document.querySelector('#media-modal .focusable, #media-modal button, #media-modal select') as HTMLElement;
+          if (firstFocusable) firstFocusable.focus();
+        }
+      }, 50);
+
+      return () => {
+        clearTimeout(timer);
+        try {
+          SpatialNavigation.remove('media-modal');
+        } catch (e) {}
+      };
+    }
+  }, [movie, isHidden]);
+
+  useEffect(() => {
     if (resumePromptStream) {
       SpatialNavigation.add('resume-modal', {
         selector: '#resume-modal .focusable',
