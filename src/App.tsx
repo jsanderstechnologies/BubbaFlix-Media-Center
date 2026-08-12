@@ -1468,19 +1468,17 @@ function MainApp() {
                 <span className="text-[9px] uppercase tracking-wider font-medium">News</span>
               </div>
             )}
-            {user?.role === 'admin' && (
-              <div 
-                id="nav-tab-settings"
-                tabIndex={0}
-                onClick={() => { setActiveTab('settings'); setSearchQuery(''); }}
-                onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('settings'); setSearchQuery(''); } }}
-                className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
-                title="Settings"
-              >
-                <Settings className="w-5 h-5" />
-                <span className="text-[9px] uppercase tracking-wider font-medium">Settings</span>
-              </div>
-            )}
+            <div 
+              id="nav-tab-settings"
+              tabIndex={0}
+              onClick={() => { setActiveTab('settings'); setSearchQuery(''); }}
+              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('settings'); setSearchQuery(''); } }}
+              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'settings' ? 'text-red-500' : ''}`}
+              title="Settings"
+            >
+              <Settings className="w-5 h-5" />
+              <span className="text-[9px] uppercase tracking-wider font-medium">Settings</span>
+            </div>
           </div>
         </div>
 
