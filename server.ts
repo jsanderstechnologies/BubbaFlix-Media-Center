@@ -839,6 +839,8 @@ async function startServer() {
       tmdbKey: settings.tmdbKey || '',
       tvdbApiKey: settings.tvdbApiKey || '',
       tidbApiKey: settings.tidbApiKey || '',
+      submitTidbSegments: settings.submitTidbSegments !== false,
+      enableTidbSubmission: settings.submitTidbSegments !== false,
       premiumizeApiKey: settings.premiumizeApiKey || '',
       geminiApiKey: settings.geminiApiKey || '',
       groqApiKey: settings.groqApiKey || '',
@@ -1109,6 +1111,8 @@ async function startServer() {
     if (req.body.tmdbKey !== undefined) settings.tmdbKey = req.body.tmdbKey;
     if (req.body.tvdbApiKey !== undefined) settings.tvdbApiKey = req.body.tvdbApiKey;
     if (req.body.tidbApiKey !== undefined) settings.tidbApiKey = req.body.tidbApiKey;
+    if (req.body.submitTidbSegments !== undefined) settings.submitTidbSegments = req.body.submitTidbSegments;
+    if (req.body.enableTidbSubmission !== undefined) settings.submitTidbSegments = req.body.enableTidbSubmission;
     if (req.body.premiumizeApiKey !== undefined) settings.premiumizeApiKey = req.body.premiumizeApiKey;
     if (req.body.newsApiKey !== undefined) settings.newsApiKey = req.body.newsApiKey;
     if (req.body.gnewsApiKey !== undefined) settings.gnewsApiKey = req.body.gnewsApiKey;
@@ -1490,6 +1494,51 @@ Strict Rules:
 
       if (segments.length > 0) {
         console.log(`[TIDB Proxy] Successfully returning ${segments.length} segment(s) ${isAiGenerated ? '(AI Analysis Generated)' : '(TheIntroDB Database)'}:`, segments.map(s => `${s.label} (${s.start}s-${s.end}s)`).join(', '));
+
+        // Submit AI-generated skip segments back to TheIntroDB repository if enabled
+        const settings = readJson(SETTINGS_FILE);
+        const shouldSubmit = settings.submitTidbSegments !== false && settings.enableTidbSubmission !== false;
+        if (isAiGenerated && shouldSubmit && apiKey) {
+          try {
+            console.log(`[TIDB Submission] Submitting ${segments.length} AI-generated skip segment(s) back to TheIntroDB for tmdbId=${tmdbId || 'N/A'}...`);
+            const submitPayload = {
+              tmdb_id: tmdbId ? Number(tmdbId) : undefined,
+              imdb_id: imdbId || undefined,
+              type: type === 'tv' ? 'tv' : 'movie',
+              season: season ? Number(season) : undefined,
+              episode: episode ? Number(episode) : undefined,
+              segments: segments.map(s => ({
+                type: s.type,
+                start: s.start,
+                end: s.end,
+                label: s.label
+              }))
+            };
+
+            axios.post('https://api.theintrodb.org/v3/segments', submitPayload, {
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'x-api-key': apiKey,
+                'Content-Type': 'application/json'
+              },
+              timeout: 5000
+            }).then(() => {
+              console.log(`[TIDB Submission] Successfully submitted skip segments back to TheIntroDB repository!`);
+            }).catch(() => {
+              // Fallback submission to v1 endpoint
+              axios.post('https://api.theintrodb.org/v1/segments', submitPayload, {
+                headers: { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey },
+                timeout: 5000
+              }).then(() => {
+                console.log(`[TIDB Submission] Successfully submitted skip segments back to TheIntroDB v1 endpoint!`);
+              }).catch((err: any) => {
+                console.warn('[TIDB Submission Warning] Remote submission returned:', err?.message || err);
+              });
+            });
+          } catch (e: any) {
+            console.warn('[TIDB Submission Error]:', e?.message || e);
+          }
+        }
       } else {
         console.log(`[TIDB Proxy] No skip segments available for target media`);
       }

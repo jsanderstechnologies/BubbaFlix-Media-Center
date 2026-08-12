@@ -303,7 +303,7 @@ Authorization: Bearer <premiumize_api_key>
   ```
 
 #### `GET /api/skip-segments`
-- **Description:** Queries TheIntroDB (`https://theintrodb.org`) proxy endpoint for intro and end credits timestamp segment markers. If the requested media is not found in TheIntroDB database, automatically triggers the **AI Media Analysis Fallback Engine** (Gemini / Groq / OpenRouter) to evaluate metadata and generate predicted segment timestamps.
+- **Description:** Queries TheIntroDB (`https://theintrodb.org`) proxy endpoint for intro and end credits timestamp segment markers. If the requested media is not found in TheIntroDB database, automatically triggers the **AI Media Analysis Fallback Engine** (Gemini / Groq / OpenRouter) to evaluate metadata and generate predicted segment timestamps. If `submitTidbSegments` is enabled in Admin Settings, automatically submits the AI-generated timestamp segments back to TheIntroDB repository.
 - **Auth:** Public / Optional `x-api-key` or `Authorization: Bearer <tidb_key>`
 - **Query Params:**
   - `tmdbId` (number, required): TMDB Media Identifier.

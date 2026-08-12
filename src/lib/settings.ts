@@ -57,6 +57,8 @@ export interface SystemSettings {
   premiumizeApiKey?: string;
   tvdbApiKey?: string;
   tidbApiKey?: string;
+  submitTidbSegments?: boolean;
+  enableTidbSubmission?: boolean;
 }
 
 export interface UserSettings {

@@ -85,6 +85,9 @@ export default function SettingsPanel() {
   const [tmdbKey, setTmdbKey] = useState(systemSettings.tmdbKey || '');
   const [tvdbApiKey, setTvdbApiKey] = useState(systemSettings.tvdbApiKey || '');
   const [tidbApiKey, setTidbApiKey] = useState(systemSettings.tidbApiKey || localStorage.getItem('tidbApiKey') || '');
+  const [submitTidbSegments, setSubmitTidbSegments] = useState<boolean>(
+    systemSettings.submitTidbSegments !== false && systemSettings.enableTidbSubmission !== false
+  );
   const [premiumizeApiKey, setPremiumizeApiKey] = useState(systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey') || '');
   const [geminiApiKey, setGeminiApiKey] = useState(systemSettings.geminiApiKey || '');
   const [groqApiKey, setGroqApiKey] = useState(systemSettings.groqApiKey || '');
@@ -471,6 +474,8 @@ export default function SettingsPanel() {
       tmdbKey,
       tvdbApiKey,
       tidbApiKey,
+      submitTidbSegments,
+      enableTidbSubmission: submitTidbSegments,
       premiumizeApiKey,
       geminiApiKey,
       groqApiKey,
@@ -1046,7 +1051,7 @@ export default function SettingsPanel() {
                 </div>
 
                 {/* 7. TheIntroDB (TIDB) API Key */}
-                <div className="space-y-2">
+                <div className="space-y-3 bg-white/5 border border-white/10 p-4 rounded-2xl">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-white/80 flex items-center gap-2">
                       <span className="w-5 h-5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] flex items-center justify-center font-bold">7</span>
@@ -1065,6 +1070,27 @@ export default function SettingsPanel() {
                     placeholder="Enter TheIntroDB API Key..."
                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono transition-all"
                   />
+                  
+                  {/* Submit AI Segments Back to TIDB Toggle */}
+                  <div className="pt-3 flex items-center justify-between border-t border-white/10 mt-3">
+                    <div>
+                      <div className="text-xs font-semibold text-white/90">Submit AI Skip Timestamps to TheIntroDB</div>
+                      <div className="text-[11px] text-white/50 mt-0.5">Automatically contribute AI-analyzed intro/credit timestamp segments back to TheIntroDB repository when your API key is active.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSubmitTidbSegments(!submitTidbSegments)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                        submitTidbSegments ? 'bg-indigo-600' : 'bg-white/10'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          submitTidbSegments ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
 
                 {/* 8. TMDb API Key */}
