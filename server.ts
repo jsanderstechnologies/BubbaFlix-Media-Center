@@ -1258,6 +1258,67 @@ async function startServer() {
     }
   });
 
+  function parseTidbV3Segments(data: any): Array<{ type: string; start: number; end: number; label: string }> {
+    if (!data) return [];
+    const segments: Array<{ type: string; start: number; end: number; label: string }> = [];
+
+    // Handle v3 object format: { intro: [{ start_ms, end_ms }], credits: [{ start_ms, end_ms }], recap: [...] }
+    ['intro', 'credits', 'recap', 'outro'].forEach(key => {
+      const arr = Array.isArray(data[key]) ? data[key] : (data[key] ? [data[key]] : []);
+      arr.forEach((item: any) => {
+        let startSec = 0;
+        let endSec = 0;
+
+        if (item.start_ms !== undefined && item.start_ms !== null) {
+          startSec = Number(item.start_ms) / 1000;
+        } else if (item.start !== undefined && item.start !== null) {
+          startSec = Number(item.start);
+        } else if (item.start_sec !== undefined && item.start_sec !== null) {
+          startSec = Number(item.start_sec);
+        }
+
+        if (item.end_ms !== undefined && item.end_ms !== null) {
+          endSec = Number(item.end_ms) / 1000;
+        } else if (item.end !== undefined && item.end !== null) {
+          endSec = Number(item.end);
+        } else if (item.end_sec !== undefined && item.end_sec !== null) {
+          endSec = Number(item.end_sec);
+        }
+
+        if (!endSec && startSec) endSec = startSec + 120;
+        if (endSec > startSec) {
+          segments.push({
+            type: key,
+            start: Math.max(0, startSec),
+            end: endSec,
+            label: key === 'credits' || key === 'outro' ? 'Skip Credits' : key === 'recap' ? 'Skip Recap' : 'Skip Intro'
+          });
+        }
+      });
+    });
+
+    // Also handle flat array format if returned by some endpoints: [{ type: 'intro', start: 10, end: 40 }]
+    const rawItems = Array.isArray(data) ? data : (data.segments || data.items || data.results || []);
+    if (rawItems.length > 0 && segments.length === 0) {
+      rawItems.forEach((item: any) => {
+        const segType = (item.type || item.category || item.action || 'intro').toLowerCase();
+        const startSec = item.start_ms ? Number(item.start_ms) / 1000 : Number(item.start || item.start_sec || 0);
+        let endSec = item.end_ms ? Number(item.end_ms) / 1000 : Number(item.end || item.end_sec || 0);
+        if (!endSec && startSec) endSec = startSec + 120;
+        if (endSec > startSec) {
+          segments.push({
+            type: segType,
+            start: Math.max(0, startSec),
+            end: endSec,
+            label: segType.includes('credit') || segType.includes('outro') ? 'Skip Credits' : segType.includes('recap') ? 'Skip Recap' : 'Skip Intro'
+          });
+        }
+      });
+    }
+
+    return segments;
+  }
+
   // TheIntroDB & IntroDB Skip Segments Proxy Endpoint (Intro, Recap, Outro, Credits)
   app.get('/api/skip-segments', async (req, res) => {
     try {
@@ -1312,27 +1373,15 @@ async function startServer() {
           let tidbUrl = `https://api.theintrodb.org/v3/media?tmdb_id=${encodeURIComponent(tmdbId)}`;
           if (type === 'tv' && season && episode) {
             tidbUrl += `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`;
+          } else if (type === 'movie') {
+            tidbUrl += `&type=movie`;
           }
           console.log(`[TIDB Proxy] Querying v3 API: ${tidbUrl}`);
           const tidbRes = await axios.get(tidbUrl, { headers, timeout: 4000 }).catch(() => null);
           if (tidbRes?.data) {
-            const items = Array.isArray(tidbRes.data) 
-              ? tidbRes.data 
-              : (tidbRes.data.segments || tidbRes.data.items || tidbRes.data.results || []);
-            if (items.length > 0) {
-              items.forEach((item: any) => {
-                const segType = (item.type || item.category || item.action || 'intro').toLowerCase();
-                const startSec = Number(item.start || item.start_sec || item.startTime || 0);
-                const endSec = Number(item.end || item.end_sec || item.endTime || 0);
-                if (endSec > startSec) {
-                  segments.push({
-                    type: segType,
-                    start: startSec,
-                    end: endSec,
-                    label: segType.includes('credit') || segType.includes('outro') ? 'Skip Credits' : segType.includes('recap') ? 'Skip Recap' : 'Skip Intro'
-                  });
-                }
-              });
+            const parsed = parseTidbV3Segments(tidbRes.data);
+            if (parsed.length > 0) {
+              segments.push(...parsed);
               console.log(`[TIDB Proxy] Found ${segments.length} segment(s) via v3 API`);
             }
           }
@@ -1658,6 +1707,7 @@ Strict Rules:
             metadata.releaseDate = d.release_date || d.first_air_date || metadata.releaseDate;
             metadata.runtime = d.runtime || (d.episode_run_time ? d.episode_run_time[0] : 0);
             metadata.genres = d.genres ? d.genres.map((g: any) => g.name) : [];
+            metadata.tmdbSeasons = d.seasons || [];
             
             // Logos
             if (d.images?.logos && Array.isArray(d.images.logos) && d.images.logos.length > 0) {
@@ -1700,56 +1750,51 @@ Strict Rules:
       // 2. Fetch TheIntroDB v3 Skip Segments across all seasons
       if (settings.enableIntroSkip !== false && tmdbId) {
         try {
-          const v3Url = `https://api.theintrodb.org/v3/media?tmdb_id=${encodeURIComponent(tmdbId)}&type=${mediaType}`;
-          const tidbRes = await axios.get(v3Url, { headers: tidbHeaders, timeout: 6000 }).catch(() => null);
+          if (mediaType === 'movie') {
+            const v3Url = `https://api.theintrodb.org/v3/media?tmdb_id=${encodeURIComponent(tmdbId)}&type=movie`;
+            const tidbRes = await axios.get(v3Url, { headers: tidbHeaders, timeout: 5000 }).catch(() => null);
+            if (tidbRes?.data) {
+              metadata.movieSegments = parseTidbV3Segments(tidbRes.data);
+              console.log(`[Media Cache Engine] Cached ${metadata.movieSegments.length} skip segment(s) for movie "${metadata.title}"`);
+            }
+          } else {
+            // TV Series: Store segments organized by Season & Episode from TheIntroDB v3 per-episode queries
+            const tmdbSeasons = metadata.tmdbSeasons || [];
+            const seasonsMap: Record<string, Record<string, any[]>> = metadata.seasons || {};
 
-          if (tidbRes?.data) {
-            const rawItems = Array.isArray(tidbRes.data) 
-              ? tidbRes.data 
-              : (tidbRes.data.items || tidbRes.data.segments || tidbRes.data.results || []);
+            const targetSeasons = Array.isArray(tmdbSeasons) && tmdbSeasons.length > 0
+              ? tmdbSeasons.filter((s: any) => s.season_number > 0)
+              : [{ season_number: 1, episode_count: 24 }];
 
-            if (mediaType === 'movie') {
-              const segs: any[] = [];
-              rawItems.forEach((item: any) => {
-                const sType = (item.type || item.category || 'intro').toLowerCase();
-                const sStart = Number(item.start || item.start_sec || 0);
-                const sEnd = Number(item.end || item.end_sec || 0);
-                if (sEnd > sStart) {
-                  segs.push({
-                    type: sType,
-                    start: sStart,
-                    end: sEnd,
-                    label: sType.includes('credit') || sType.includes('outro') ? 'Skip Credits' : 'Skip Intro'
-                  });
+            for (const s of targetSeasons) {
+              const sNum = String(s.season_number);
+              const epCount = s.episode_count || 12;
+              if (!seasonsMap[sNum]) seasonsMap[sNum] = {};
+
+              const epPromises = [];
+              for (let e = 1; e <= epCount; e++) {
+                const epUrl = `https://api.theintrodb.org/v3/media?tmdb_id=${encodeURIComponent(tmdbId)}&season=${sNum}&episode=${e}`;
+                epPromises.push(
+                  axios.get(epUrl, { headers: tidbHeaders, timeout: 3500 })
+                    .then(r => ({ ep: String(e), data: r.data }))
+                    .catch(() => null)
+                );
+              }
+
+              const epResults = await Promise.all(epPromises);
+              epResults.forEach(res => {
+                if (res && res.data) {
+                  const parsedSegs = parseTidbV3Segments(res.data);
+                  if (parsedSegs.length > 0) {
+                    seasonsMap[sNum][res.ep] = parsedSegs;
+                  }
                 }
               });
-              metadata.movieSegments = segs;
-            } else {
-              // TV Series: Store segments organized by Season & Episode
-              const seasonsMap: Record<string, Record<string, any[]>> = metadata.seasons || {};
-              rawItems.forEach((item: any) => {
-                const sNum = String(item.season || item.season_number || 1);
-                const epNum = String(item.episode || item.episode_number || 1);
-                if (!seasonsMap[sNum]) seasonsMap[sNum] = {};
-                if (!seasonsMap[sNum][epNum]) seasonsMap[sNum][epNum] = [];
-
-                const itemSegs = Array.isArray(item.segments) ? item.segments : [item];
-                itemSegs.forEach((seg: any) => {
-                  const sType = (seg.type || seg.category || 'intro').toLowerCase();
-                  const sStart = Number(seg.start || seg.start_sec || 0);
-                  const sEnd = Number(seg.end || seg.end_sec || 0);
-                  if (sEnd > sStart) {
-                    seasonsMap[sNum][epNum].push({
-                      type: sType,
-                      start: sStart,
-                      end: sEnd,
-                      label: sType.includes('credit') || sType.includes('outro') ? 'Skip Credits' : sType.includes('recap') ? 'Skip Recap' : 'Skip Intro'
-                    });
-                  }
-                });
-              });
-              metadata.seasons = seasonsMap;
             }
+
+            metadata.seasons = seasonsMap;
+            const epCountTotal = Object.values(seasonsMap).reduce((acc, epObj) => acc + Object.keys(epObj).length, 0);
+            console.log(`[Media Cache Engine] Successfully cached v3 skip segments across all seasons (${epCountTotal} episodes) for TV Series "${metadata.title}"`);
           }
         } catch (tidbErr: any) {
           console.warn('[Media Cache Engine] TheIntroDB v3 bulk fetch notice:', tidbErr?.message);
