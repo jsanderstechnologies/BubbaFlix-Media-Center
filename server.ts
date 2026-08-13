@@ -1687,6 +1687,7 @@ Strict Rules:
         logoUrl: '',
         mpaaRating: '',
         directors: [],
+        writers: [],
         producers: [],
         cast: [],
         seasons: {},
@@ -1717,15 +1718,25 @@ Strict Rules:
               }
             }
 
-            // Credits
+            // Credits (Directors, Writers, Producers, Cast)
             if (d.credits) {
               const crew = d.credits.crew || [];
-              metadata.directors = crew.filter((c: any) => c.job === 'Director').map((c: any) => c.name);
-              metadata.producers = crew.filter((c: any) => c.job === 'Producer' || c.job === 'Executive Producer').slice(0, 5).map((c: any) => c.name);
-              metadata.cast = (d.credits.cast || []).slice(0, 12).map((c: any) => ({
+              const directorList = crew.filter((c: any) => c.job === 'Director' || c.job === 'Executive Producer').map((c: any) => c.name);
+              if (d.created_by && Array.isArray(d.created_by)) {
+                d.created_by.forEach((cb: any) => { if (cb?.name && !directorList.includes(cb.name)) directorList.unshift(cb.name); });
+              }
+              metadata.directors = Array.from(new Set(directorList));
+
+              const writerList = crew.filter((c: any) => c.job === 'Writer' || c.job === 'Screenplay' || c.job === 'Story' || c.department === 'Writing').map((c: any) => c.name);
+              metadata.writers = Array.from(new Set(writerList)).slice(0, 5);
+
+              const producerList = crew.filter((c: any) => c.job === 'Producer' || c.job === 'Executive Producer').map((c: any) => c.name);
+              metadata.producers = Array.from(new Set(producerList)).slice(0, 5);
+
+              metadata.cast = (d.credits.cast || []).slice(0, 16).map((c: any) => ({
                 id: c.id,
                 name: c.name,
-                character: c.character,
+                character: c.character || '',
                 profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
               }));
             }

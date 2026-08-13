@@ -157,12 +157,15 @@ export default function MediaModal({
   const [mpaaRating, setMpaaRating] = useState<string>('');
   const [extraDetails, setExtraDetails] = useState<{
     directors: string[];
+    writers?: string[];
     producers: string[];
     releaseDate: string;
     cast: { id: number; name: string; character: string; profilePath: string | null }[];
     genres?: string[];
     tagline?: string;
     imdbId?: string | null;
+    skipSegments?: any[];
+    seasons?: any;
   } | null>(null);
   const [extraLoading, setExtraLoading] = useState(false);
   const [dynamicLogoUrl, setDynamicLogoUrl] = useState<string>('');
@@ -174,6 +177,9 @@ export default function MediaModal({
     if (!raw) return null;
     const directors = Array.isArray(raw.directors)
       ? raw.directors.map((d: any) => typeof d === 'string' ? d : (d?.name || '')).filter(Boolean)
+      : [];
+    const writers = Array.isArray(raw.writers)
+      ? raw.writers.map((w: any) => typeof w === 'string' ? w : (w?.name || '')).filter(Boolean)
       : [];
     const producers = Array.isArray(raw.producers)
       ? raw.producers.map((p: any) => typeof p === 'string' ? p : (p?.name || '')).filter(Boolean)
@@ -202,7 +208,7 @@ export default function MediaModal({
     const skipSegments = Array.isArray(raw.skipSegments) ? raw.skipSegments : (raw.skipSegments ? [raw.skipSegments] : []);
     const seasons = raw.seasons || null;
 
-    return { directors, producers, releaseDate, cast, genres, tagline, imdbId, skipSegments, seasons };
+    return { directors, writers, producers, releaseDate, cast, genres, tagline, imdbId, skipSegments, seasons };
   };
 
 
@@ -1823,14 +1829,22 @@ export default function MediaModal({
                       )}
                     </div>
 
-                    {(extraDetails.directors.length > 0 || extraDetails.producers.length > 0) && (
-                      <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4 text-xs">
+                    {(extraDetails.directors.length > 0 || (extraDetails.writers && extraDetails.writers.length > 0) || extraDetails.producers.length > 0) && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border-b border-white/5 pb-4 text-xs">
                         {extraDetails.directors.length > 0 && (
                           <div>
                             <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">
                               {isSeries ? 'Creator / Showrunner' : 'Director'}
                             </span>
-                            <span className="text-white font-semibold">{extraDetails.directors.join(', ')}</span>
+                            <span className="text-white font-semibold">{extraDetails.directors.slice(0, 3).join(', ')}</span>
+                          </div>
+                        )}
+                        {extraDetails.writers && extraDetails.writers.length > 0 && (
+                          <div>
+                            <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Written By</span>
+                            <span className="text-white font-medium truncate block" title={extraDetails.writers.join(', ')}>
+                              {extraDetails.writers.slice(0, 3).join(', ')}
+                            </span>
                           </div>
                         )}
                         {extraDetails.producers.length > 0 && (
