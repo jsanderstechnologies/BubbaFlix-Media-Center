@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap } from 'lucide-react';
 
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, setDoc, serverTimestamp, onSnapshot } from '../lib/localDb';
 import { db } from '../lib/localDb';
@@ -199,8 +199,10 @@ export default function MediaModal({
       : (raw.releaseDate ? String(raw.releaseDate) : (fallbackYear ? String(fallbackYear) : ''));
     const tagline = typeof raw.tagline === 'string' ? raw.tagline : '';
     const imdbId = raw.imdbId || null;
+    const skipSegments = Array.isArray(raw.skipSegments) ? raw.skipSegments : (raw.skipSegments ? [raw.skipSegments] : []);
+    const seasons = raw.seasons || null;
 
-    return { directors, producers, releaseDate, cast, genres, tagline, imdbId };
+    return { directors, producers, releaseDate, cast, genres, tagline, imdbId, skipSegments, seasons };
   };
 
 
@@ -349,7 +351,7 @@ export default function MediaModal({
   useEffect(() => {
     let isActive = true;
     if (movie) {
-      const targetId = resolvedTmdbId || (typeof movie.id === 'number' ? movie.id : (movie.realTmdbId ? Number(movie.realTmdbId) : null));
+      const targetId = resolvedTmdbId || movie.tmdbId || (movie.realTmdbId ? Number(movie.realTmdbId) : (typeof movie.id === 'number' ? movie.id : (!isNaN(Number(movie.id)) ? Number(movie.id) : null)));
       if (targetId) {
         const mediaType = isSeries ? 'tv' : 'movie';
         setExtraLoading(true);
@@ -1578,6 +1580,18 @@ export default function MediaModal({
     );
   };
 
+  const getSkipBadgeText = () => {
+    let segs: any[] = [];
+    if (isSeries && selectedSeason !== null && selectedEpisode !== null) {
+      segs = (extraDetails as any)?.seasons?.[selectedSeason]?.[selectedEpisode] || (extraDetails as any)?.skipSegments || [];
+    } else {
+      segs = (extraDetails as any)?.skipSegments || [];
+    }
+    if (!Array.isArray(segs) || segs.length === 0) return null;
+    const labels = Array.from(new Set(segs.map((s: any) => s.label || (s.type === 'credits' ? 'Skip Credits' : 'Skip Intro'))));
+    return labels.join(' & ');
+  };
+
   return (
     <div id="media-modal" className={`fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn ${isHidden ? 'hidden' : ''}`}>
       {/* Full-Screen TMDB Backdrop Image overlay with glassmorphic transparency */}
@@ -1607,7 +1621,16 @@ export default function MediaModal({
             </button>
             <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-3xl sm:text-4xl font-light tracking-tight text-white mb-2 truncate">{movie.title}</h2>
+                  {dynamicLogoUrl ? (
+                    <img 
+                      src={dynamicLogoUrl} 
+                      alt={movie.title || movie.name} 
+                      className="h-12 sm:h-16 md:h-20 w-auto object-contain max-w-[80%] mb-2 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]" 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <h2 className="text-3xl sm:text-4xl font-light tracking-tight text-white mb-2 truncate">{movie.title}</h2>
+                  )}
                   <div className="flex flex-wrap items-center gap-3 text-sm">
                       <span className="font-mono text-white font-medium">{movie.year}</span>
                       {mpaaRating && (
@@ -1618,6 +1641,12 @@ export default function MediaModal({
                       <span className="flex items-center gap-1 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white font-mono bg-white/5">
                           <Star className="w-3 h-3 text-yellow-500 fill-current" /> <span className="font-mono">{movie.rating}</span>
                       </span>
+                      {getSkipBadgeText() && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 border border-indigo-500/50 rounded text-[11px] font-bold text-indigo-300 font-mono leading-none tracking-wide uppercase bg-indigo-950/60 shadow-md shadow-indigo-950/40" title="TheIntroDB v3 Skip Timestamps Available">
+                          <Zap className="w-3 h-3 text-indigo-400 fill-indigo-400/20 animate-pulse" />
+                          {getSkipBadgeText()}
+                        </span>
+                      )}
                       {(isFavorite || movie.isNetworkShare || movie.filePath) && (
                         <span className="flex items-center gap-1 px-2 py-0.5 border border-emerald-500/40 rounded text-[11px] font-bold text-emerald-400 font-mono leading-none tracking-wide uppercase bg-emerald-950/40">
                           <BookmarkCheck className="w-3 h-3 text-emerald-400" /> In Library

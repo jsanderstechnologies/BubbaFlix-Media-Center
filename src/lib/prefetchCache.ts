@@ -44,17 +44,20 @@ export function prefetchMediaItems(items: any[]) {
 
   items.forEach((item) => {
     if (!item) return;
-    const tmdbId = item.realTmdbId || (typeof item.id === 'number' && item.id > 0 ? item.id : item.tmdbId);
-    if (!tmdbId || isNaN(Number(tmdbId))) return;
+    const rawId = item.realTmdbId || item.tmdbId || item.id;
+    const numericId = typeof rawId === 'number' ? rawId : (!isNaN(Number(rawId)) ? Number(rawId) : null);
+    const title = item.title || item.name || '';
+
+    if (!numericId && (!title || title.length < 2)) return;
 
     const type = (item.type === 'series' || item.type === 'tv' || item.type === 'show' || !!item.first_air_date) ? 'tv' : 'movie';
-    const cacheKey = `${type}_${tmdbId}`;
+    const cacheKey = numericId ? `${type}_${numericId}` : `${type}_title_${title.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
     if (!requestedKeys.has(cacheKey)) {
       prefetchQueue.push({
-        tmdbId: Number(tmdbId),
+        tmdbId: numericId || 0,
         type,
-        title: item.title || item.name || ''
+        title
       });
     }
   });

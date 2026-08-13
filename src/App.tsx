@@ -46,7 +46,7 @@ const formatTime = (secs: number) => {
 function MainApp() {
   const isFetching = useIsFetching();
   const isPageLoading = isFetching > 0;
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { systemSettings, userSettings, zoom } = useSettings();
 
   const [selectedMovie, setSelectedMovie] = useState<any>(null);
@@ -974,6 +974,21 @@ function MainApp() {
       }
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="fixed inset-0 z-[999999] bg-[#060609] flex flex-col items-center justify-center space-y-6">
+        <div className="relative flex items-center justify-center">
+          <div className="w-16 h-16 border-4 border-red-600/20 border-t-red-600 rounded-full animate-spin"></div>
+          <Film className="w-7 h-7 text-red-500 absolute" />
+        </div>
+        <div className="text-center space-y-2">
+          <h1 className="text-2xl font-black text-white tracking-widest uppercase">BubbaFlix</h1>
+          <p className="text-xs font-mono text-white/50 tracking-wider animate-pulse">Initializing Media Center & Account Session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
