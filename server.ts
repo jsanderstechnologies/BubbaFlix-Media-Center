@@ -5033,8 +5033,32 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
   };
 
   const enrichItemWithTmdb = async (item: any, apiKey: string): Promise<boolean> => {
-
     try {
+      const mediaType = (item.type === 'series' || item.type === 'tv' || item.type === 'show') ? 'tv' : 'movie';
+      const cleanTitleStr = (item.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cacheKey = item.realTmdbId || item.tmdbId 
+        ? `${mediaType}_${item.realTmdbId || item.tmdbId}` 
+        : `${mediaType}_title_${cleanTitleStr}`;
+
+      // 1. Check persistent media_cache.json FIRST for 0ms instant disk hit
+      const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+      const cached = mediaCache[cacheKey] || Object.values(mediaCache).find((c: any) => c.type === mediaType && c.title && c.title.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTitleStr);
+
+      if (cached && cached.poster) {
+        item.poster = cached.poster.startsWith('/api/image-proxy') 
+          ? cached.poster 
+          : `/api/image-proxy?url=${encodeURIComponent(cached.poster)}`;
+        if (cached.backdrop) {
+          item.backdrop = cached.backdrop.startsWith('/api/image-proxy') 
+            ? cached.backdrop 
+            : `/api/image-proxy?url=${encodeURIComponent(cached.backdrop)}`;
+        }
+        if (cached.overview && !item.overview) item.overview = cached.overview;
+        if (cached.mpaaRating && !item.mpaaRating) item.mpaaRating = cached.mpaaRating;
+        if (cached.id && !item.realTmdbId) item.realTmdbId = cached.id;
+        return true;
+      }
+
       const primaryEndpoint = item.type === 'series' ? 'tv' : 'movie';
       const secondaryEndpoint = item.type === 'series' ? 'movie' : 'tv';
       
@@ -5083,10 +5107,27 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
         if (match && (match.poster_path || match.backdrop_path)) {
           const imgPath = match.poster_path || match.backdrop_path;
           const fullImgUrl = `https://image.tmdb.org/t/p/w500${imgPath}`;
-          item.poster = `/api/image-proxy?url=${encodeURIComponent(fullImgUrl)}`;
+          const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(fullImgUrl)}`;
+          item.poster = proxyUrl;
+          item.realTmdbId = match.id;
+
           if (match.vote_average && match.vote_average > 0) {
             item.rating = match.vote_average.toFixed(1);
           }
+
+          // Persist enriched entry directly into media_cache.json
+          const entryCacheKey = `${mediaType}_${match.id}`;
+          const currentCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+          currentCache[entryCacheKey] = {
+            id: match.id,
+            type: mediaType,
+            title: item.title,
+            overview: match.overview || item.overview || '',
+            poster: proxyUrl,
+            backdrop: match.backdrop_path ? `/api/image-proxy?url=${encodeURIComponent(`https://image.tmdb.org/t/p/original${match.backdrop_path}`)}` : '',
+            updatedAt: new Date().toISOString()
+          };
+          writeJson(MEDIA_METADATA_CACHE_FILE, currentCache);
           
           if (!item.rating || item.rating === '0' || item.rating === '0.0') {
             try {
@@ -5258,15 +5299,23 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
           const fileId = `local_lib_${fileHash}`;
           const localPoster = findLocalPosterForFile(primaryFile, group.folderPath);
 
+          const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+          const cleanTitleKey = group.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const cacheKey = `${group.mediaType === 'series' ? 'tv' : 'movie'}_title_${cleanTitleKey}`;
+          const cachedEntry = mediaCache[cacheKey] || Object.values(mediaCache).find((c: any) => c.title && c.title.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTitleKey);
+
+          const finalPoster = localPoster || (cachedEntry?.poster ? (cachedEntry.poster.startsWith('/api/image-proxy') ? cachedEntry.poster : `/api/image-proxy?url=${encodeURIComponent(cachedEntry.poster)}`) : '');
+
           items.push({
             id: fileId,
-            tmdbId: fileId,
+            tmdbId: cachedEntry?.id || fileId,
+            realTmdbId: cachedEntry?.id || null,
             title: group.title,
             name: group.title,
-            year: group.year || 'Local',
-            poster: localPoster,
-            backupPoster: localPoster,
-            overview: `Local Shared Folder (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
+            year: cachedEntry?.releaseDate ? cachedEntry.releaseDate.split('-')[0] : (group.year || 'Local'),
+            poster: finalPoster,
+            backupPoster: finalPoster,
+            overview: cachedEntry?.overview || `Local Shared Folder (${group.files.length} file${group.files.length > 1 ? 's' : ''})`,
             rating: '',
             type: group.mediaType,
             isNetworkShare: true,
