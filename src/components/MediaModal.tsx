@@ -1185,10 +1185,10 @@ export default function MediaModal({
 
       const currentEp = episodes.find(e => e.episode_number === selectedEpisode);
       const initialData: any[] = [];
-      const localPath = currentEp?.filePath || (selectedSeason === 1 && selectedEpisode === 1 ? movie.filePath : null);
-      const localStreamUrl = currentEp?.streamUrl || movie.streamUrl;
+      const localPath = currentEp?.filePath || null;
+      const localStreamUrl = currentEp?.streamUrl || (localPath ? `/api/local-media/stream?path=${encodeURIComponent(localPath)}` : null);
 
-      if (movie.isNetworkShare || localPath || localStreamUrl) {
+      if (localStreamUrl) {
         const locUrl = localStreamUrl || (localPath ? `/api/local-media/stream?path=${encodeURIComponent(localPath)}` : null);
         if (locUrl) {
           const locStr = (localPath || '') + ' ' + (movie.title || '');

@@ -3630,8 +3630,38 @@ app.get('/api/youtube/search', async (req, res) => {
         });
       }
 
-      // Filter to enforce magnet links only (Premiumize compatibility) and sort by seeds
-      const magnetOnlyTorrents = mappedTorrents.filter(t => t.magnet && t.magnet.startsWith('magnet:?xt=urn:btih:') && t.hash);
+      // Parse requested Season & Episode from search query `q` (e.g. "Bones S01E01")
+      const qStr = String(q || '');
+      const sMatch = qStr.match(/\bs(\d{1,2})e(\d{1,2})\b/i) || qStr.match(/\b(\d{1,2})x(\d{1,2})\b/i);
+      const reqSeason = sMatch ? parseInt(sMatch[1], 10) : null;
+      const reqEpisode = sMatch ? parseInt(sMatch[2], 10) : null;
+
+      // Filter to enforce magnet links only and match requested season & episode if specified
+      const magnetOnlyTorrents = mappedTorrents.filter(t => {
+        if (!t.magnet || !t.magnet.startsWith('magnet:?xt=urn:btih:') || !t.hash) return false;
+        if (!t.name) return true;
+
+        const tName = t.name.toLowerCase();
+
+        // Enforce Season strictness
+        if (reqSeason !== null) {
+          const specSeasons = Array.from(tName.matchAll(/\b(s|season\s*)0*(\d{1,2})\b/gi)).map(m => parseInt(m[2], 10));
+          if (specSeasons.length > 0 && !specSeasons.includes(reqSeason)) {
+            return false; // Belongs to a different season!
+          }
+        }
+
+        // Enforce Episode strictness
+        if (reqEpisode !== null) {
+          const specEps = Array.from(tName.matchAll(/\b(e|ep|episode\s*)0*(\d{1,3})\b/gi)).map(m => parseInt(m[2], 10));
+          if (specEps.length > 0 && !specEps.includes(reqEpisode)) {
+            return false; // Belongs to a different episode!
+          }
+        }
+
+        return true;
+      });
+
       magnetOnlyTorrents.sort((a, b) => (b.seeds || 0) - (a.seeds || 0));
 
       const isMusic = req.query.category === 'music';
@@ -3979,27 +4009,33 @@ app.get('/api/youtube/search', async (req, res) => {
           return;
         }
 
-        // 4. Season matching against file name or parent folder
+        // 4. Strict Season matching against file name or parent folder
         if (sNum !== null) {
           const sPadded = sNum.toString().padStart(2, '0');
-          const seasonPatterns = [
-            `s${sNum}`, `s${sPadded}`,
-            `season${sNum}`, `season ${sNum}`, `season${sPadded}`, `season ${sPadded}`,
-            `${sNum}x`, `${sPadded}x`,
-            `series ${sNum}`, `series${sPadded}`
+          const seasonRegexes = [
+            new RegExp(`\\b(s|season\\s*|series\\s*)0*${sNum}\\b`, 'i'),
+            new RegExp(`\\b0*${sNum}x\\d{1,2}\\b`, 'i'),
+            new RegExp(`\\bs0*${sNum}e\\d{1,2}\\b`, 'i')
           ];
-          const hasSeasonMatch = seasonPatterns.some(p => combinedPath.includes(p));
-          
-          if (!hasSeasonMatch) {
-            // Check if file specifies a DIFFERENT season (e.g. S02 when requesting S01)
-            const otherSeasonMatch = combinedPath.match(/\b(s|season\s*|series\s*)0*(\d{1,2})\b/i);
-            if (otherSeasonMatch && parseInt(otherSeasonMatch[2], 10) !== sNum) {
+          const hasSeasonMatch = seasonRegexes.some(r => r.test(combinedPath));
+
+          // Check if file explicitly specifies a DIFFERENT season (e.g. S02, S09, Season 9 when requesting Season 1)
+          const explicitSeasonMatches = Array.from(combinedPath.matchAll(/\b(s|season\s*|series\s*)0*(\d{1,2})\b/gi));
+          if (explicitSeasonMatches.length > 0) {
+            const specifiedSeasons = explicitSeasonMatches.map(m => parseInt(m[2], 10));
+            if (!specifiedSeasons.includes(sNum)) {
+              return; // Explicitly specifies a different season!
+            }
+          } else if (!hasSeasonMatch) {
+            // Also check SxEE format like 9x08
+            const xMatch = combinedPath.match(/\b(\d{1,2})x(\d{1,2})\b/i);
+            if (xMatch && parseInt(xMatch[1], 10) !== sNum) {
               return;
             }
           }
         }
 
-        // 5. Episode matching against file name or parent folder
+        // 5. Strict Episode matching against file name or parent folder
         if (eNum !== null) {
           const ePadded = eNum.toString().padStart(2, '0');
           const sPadded = sNum ? sNum.toString().padStart(2, '0') : '\\d{1,2}';
@@ -4010,11 +4046,20 @@ app.get('/api/youtube/search', async (req, res) => {
             new RegExp(`\\bepisode\\s*0*${eNum}\\b`, 'i'),
             new RegExp(`\\b${sPadded}x0*${eNum}\\b`, 'i'),
             new RegExp(`\\b${sNum}x0*${eNum}\\b`, 'i'),
-            new RegExp(`\\b${sNum}${ePadded}\\b`, 'i'), // e.g. 101 for S01E01
-            new RegExp(`(^|[\\s\\._\\-\\[\\(])0*${eNum}([\\s\\._\\-\\]\\.]|$)`, 'i') // e.g. 01.mkv, - 01.mkv, [01]
+            new RegExp(`\\b${sNum}${ePadded}\\b`, 'i') // e.g. 101 for S01E01, 908 for S09E08
           ];
 
-          const hasEpMatch = epRegexes.some(r => r.test(originalName) || r.test(combinedPath));
+          let hasEpMatch = epRegexes.some(r => r.test(originalName) || r.test(combinedPath));
+
+          // Reject if file explicitly specifies a DIFFERENT episode number (e.g. E08, E05 when requesting E01)
+          const explicitEpMatches = Array.from(combinedPath.matchAll(/\b(e|ep|episode\s*)0*(\d{1,3})\b/gi));
+          if (explicitEpMatches.length > 0) {
+            const specifiedEps = explicitEpMatches.map(m => parseInt(m[2], 10));
+            if (!specifiedEps.includes(eNum)) {
+              return; // Explicitly specifies a different episode!
+            }
+          }
+
           if (!hasEpMatch) {
             return;
           }
@@ -5450,9 +5495,17 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
       const folderPath = req.query.folderPath as string;
       const filePath = req.query.filePath as string;
 
-      const targetDir = folderPath || (filePath ? path.dirname(filePath) : '');
+      let targetDir = folderPath || (filePath ? path.dirname(filePath) : '');
       if (!targetDir) {
         return res.json({ success: false, seasons: [] });
+      }
+
+      // If targetDir is a Season subfolder (e.g. "Season 9"), walk up to parent series root folder
+      if (/season\s*\d+|s\d{1,2}/i.test(path.basename(targetDir))) {
+        const parentDir = path.dirname(targetDir);
+        if (parentDir && parentDir !== targetDir) {
+          targetDir = parentDir;
+        }
       }
 
       const normDir = normalizeNetworkPath(targetDir);
