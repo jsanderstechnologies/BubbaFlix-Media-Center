@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { getTrendingTvSeries, searchTvSeries } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
+import { prefetchMediaItems } from '../lib/prefetchCache';
 
 // Custom hook for debouncing
 function useDebounce<T>(value: T, delay: number): T {
@@ -25,6 +26,12 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
     queryKey: ['tvseries', debouncedSearchQuery, filterGenre, systemSettings.tmdbKey],
     queryFn: () => debouncedSearchQuery ? searchTvSeries(debouncedSearchQuery) : getTrendingTvSeries(filterGenre),
   });
+
+  useEffect(() => {
+    if (series && series.length > 0) {
+      prefetchMediaItems(series);
+    }
+  }, [series]);
 
   if (isLoading) return <div className="text-white text-sm">Loading TMDB catalog...</div>;
   if (!series || series.length === 0) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;

@@ -9,6 +9,7 @@ import {
 } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
 import { Play, Info, Flame, Trophy, Film, Tv, Star, Cpu, Zap, Bot } from 'lucide-react';
+import { prefetchMediaItems } from '../lib/prefetchCache';
 
 interface HomePanelProps {
   onSelectMedia: (media: any) => void;
@@ -62,6 +63,14 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
       </div>
     );
   }
+
+  useEffect(() => {
+    const list: any[] = [];
+    if (trendingMovies) list.push(...trendingMovies);
+    if (popularMovies) list.push(...popularMovies);
+    if (popularTv) list.push(...popularTv);
+    if (list.length > 0) prefetchMediaItems(list);
+  }, [trendingMovies, popularMovies, popularTv]);
 
   // Choose the spotlights for both TV Series and Movies
   const tvHeroItem = popularTv?.[0] || topRatedTv?.[0];

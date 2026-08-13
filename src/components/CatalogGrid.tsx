@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { getTrendingMovies, searchMovies } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
 
+import { prefetchMediaItems } from '../lib/prefetchCache';
+
 // Custom hook for debouncing
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -25,6 +27,12 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
     queryKey: ['movies', debouncedSearchQuery, filterGenre, systemSettings.tmdbKey],
     queryFn: () => debouncedSearchQuery ? searchMovies(debouncedSearchQuery) : getTrendingMovies(filterGenre),
   });
+
+  useEffect(() => {
+    if (movies && movies.length > 0) {
+      prefetchMediaItems(movies);
+    }
+  }, [movies]);
 
   if (isLoading) return <div className="text-white text-sm">Loading TMDB catalog...</div>;
   if (!movies || movies.length === 0) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;

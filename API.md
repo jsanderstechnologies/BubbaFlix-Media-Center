@@ -322,15 +322,20 @@ Authorization: Bearer <premiumize_api_key>
   }
   ```
 
+#### `GET /api/media/cached-metadata`
+- **Description:** Returns cached metadata, logos, posters, MPAA ratings, cast, and skip segment data directly from local database (`data/media_cache.json`) with 0ms latency for Stale-While-Revalidate detail screen rendering.
+- **Query Parameters:** `tmdbId` (number), `type` (`movie` | `tv`)
+
 #### `POST /api/media/prefetch-metadata`
-- **Description:** Bulk prefetch and persistent database caching engine for movie and TV series metadata, posters, backdrops, logos, MPAA ratings, cast/crew, and all-season TheIntroDB v3 skip segments. Stores data in `data/media_cache.json` for 0ms instant local database responses.
+- **Description:** Bulk prefetch and persistent database caching engine for movie and TV series metadata, posters, backdrops, logos, MPAA ratings, cast/crew, and all-season TheIntroDB v3 skip segments. Stores data in `data/media_cache.json`. Supports `revalidate: true` for online background revalidation.
 - **Auth:** Public / Optional `Authorization: Bearer <token>`
 - **Request Body:**
   ```json
   {
     "tmdbId": 1399,
     "type": "tv",
-    "title": "Game of Thrones"
+    "title": "Game of Thrones",
+    "revalidate": true
   }
   ```
 

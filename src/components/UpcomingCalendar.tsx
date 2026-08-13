@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Calendar as CalendarIcon, Film, Tv, Star, Clock, Sparkles, Filter, ChevronRight } from 'lucide-react';
 import { getUpcomingMovies, getUpcomingTvSeries } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
+import { prefetchMediaItems } from '../lib/prefetchCache';
 
 interface UpcomingCalendarProps {
   defaultType?: 'movie' | 'tv' | 'all';
@@ -34,6 +35,13 @@ export default function UpcomingCalendar({
     queryFn: () => getUpcomingTvSeries(filterGenre),
     enabled: activeMode === 'tv' || activeMode === 'all'
   });
+
+  useEffect(() => {
+    const list: any[] = [];
+    if (upcomingMovies) list.push(...upcomingMovies);
+    if (upcomingTv) list.push(...upcomingTv);
+    if (list.length > 0) prefetchMediaItems(list);
+  }, [upcomingMovies, upcomingTv]);
 
   const isLoading = (activeMode === 'movie' && loadingMovies) ||
                     (activeMode === 'tv' && loadingTv) ||

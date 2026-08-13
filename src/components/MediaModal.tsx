@@ -314,55 +314,67 @@ export default function MediaModal({
   useEffect(() => {
     let isActive = true;
     if (movie) {
-      setExtraLoading(true);
       const targetId = resolvedTmdbId || (typeof movie.id === 'number' ? movie.id : (movie.realTmdbId ? Number(movie.realTmdbId) : null));
       if (targetId) {
-        // Trigger server bulk prefetch engine for 0ms local database caching of metadata, logos & all-season TIDB v3 skip times
+        const mediaType = isSeries ? 'tv' : 'movie';
+        setExtraLoading(true);
+
+        // 1. INSTANT LOCAL DB LOAD (0ms latency for detail screen open)
+        fetch(`/api/media/cached-metadata?tmdbId=${targetId}&type=${mediaType}`)
+          .then(r => r.json())
+          .then(res => {
+            if (!isActive || !res?.success || !res.data) return;
+            const cached = res.data;
+            if (cached.logoUrl) movie.logoUrl = cached.logoUrl;
+            if (cached.mpaaRating) setMpaaRating(cached.mpaaRating);
+            if (cached.overview && !movie.overview) movie.overview = cached.overview;
+            if (cached.directors || cached.cast) {
+              setExtraDetails({
+                directors: cached.directors || [],
+                producers: cached.producers || [],
+                releaseDate: cached.releaseDate || movie.year || '',
+                cast: cached.cast || [],
+                genres: cached.genres || [],
+                tagline: cached.tagline || ''
+              });
+              setExtraLoading(false); // Display instantly from DB!
+            }
+          })
+          .catch(() => {});
+
+        // 2. BACKGROUND REVALIDATION WITH DATA PROVIDERS ONLINE
         fetch('/api/media/prefetch-metadata', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             tmdbId: targetId,
-            type: isSeries ? 'tv' : 'movie',
-            title: movie.title || movie.name
+            type: mediaType,
+            title: movie.title || movie.name,
+            revalidate: true
           })
         })
           .then(r => r.json())
           .then(res => {
             if (!isActive || !res?.success || !res.data) return;
-            const d = res.data;
-            if (d.logoUrl) movie.logoUrl = d.logoUrl;
-            if (d.mpaaRating) setMpaaRating(d.mpaaRating);
-            if (d.overview && !movie.overview) movie.overview = d.overview;
-            if (d.directors || d.cast) {
+            const fresh = res.data;
+            if (fresh.logoUrl && movie.logoUrl !== fresh.logoUrl) movie.logoUrl = fresh.logoUrl;
+            if (fresh.mpaaRating) setMpaaRating(fresh.mpaaRating);
+            if (fresh.overview && movie.overview !== fresh.overview) movie.overview = fresh.overview;
+            if (fresh.directors || fresh.cast) {
               setExtraDetails({
-                directors: d.directors || [],
-                producers: d.producers || [],
-                releaseDate: d.releaseDate || movie.year || '',
-                cast: d.cast || [],
-                genres: d.genres || [],
-                tagline: d.tagline || ''
+                directors: fresh.directors || [],
+                producers: fresh.producers || [],
+                releaseDate: fresh.releaseDate || movie.year || '',
+                cast: fresh.cast || [],
+                genres: fresh.genres || [],
+                tagline: fresh.tagline || ''
               });
-              setExtraLoading(false);
             }
+            setExtraLoading(false);
           })
-          .catch(() => {});
-
-        // Fallback TMDB details loader
-        getMediaCreditsAndDetails(targetId, isSeries).then(details => {
-          if (!isActive) return;
-          if (details) {
-            setExtraDetails(prev => prev || details);
-            if (!movie.overview && (details as any).overview) movie.overview = (details as any).overview;
-          }
-          setExtraLoading(false);
-        }).catch(() => {
-          if (isActive) setExtraLoading(false);
-        });
-
-        getMpaaRating(targetId, isSeries).then(rating => {
-          if (isActive && rating) setMpaaRating(rating);
-        });
+          .catch(() => {
+            if (isActive) setExtraLoading(false);
+          });
       } else {
         setExtraLoading(false);
       }

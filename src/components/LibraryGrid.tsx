@@ -4,6 +4,7 @@ import { db } from '../lib/localDb';
 import { getCachedImageUrl } from '../services/tmdbApi';
 import { useAuth } from './Auth';
 import { Music, Plus, Play, Pause, Trash2, ChevronLeft, Disc, Volume2, ListMusic, Users, Check } from 'lucide-react';
+import { prefetchMediaItems } from '../lib/prefetchCache';
 
 interface Track {
   id: string;
@@ -213,6 +214,7 @@ export function LibraryGrid({
       try {
         localStorage.setItem('cached_network_share_items', JSON.stringify(networkShareItems));
       } catch (e) {}
+      prefetchMediaItems(networkShareItems);
     }
   }, [networkShareItems]);
 

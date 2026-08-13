@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { searchMovies, searchTvSeries, searchActors } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
 import { Play, Pause, Music, Info, Film, Tv, Users, Search, Sparkles, ExternalLink, Disc, Loader2, Volume2, SkipBack, SkipForward, Video, X, ArrowLeft } from 'lucide-react';
+import { prefetchMediaItems } from '../lib/prefetchCache';
 
 interface SearchPanelProps {
   query: string;
@@ -329,6 +330,13 @@ export default function SearchPanel({
   });
 
   const [selectedVideoModal, setSelectedVideoModal] = useState<any | null>(null);
+
+  useEffect(() => {
+    const list: any[] = [];
+    if (movies) list.push(...movies);
+    if (tvSeries) list.push(...tvSeries);
+    if (list.length > 0) prefetchMediaItems(list);
+  }, [movies, tvSeries]);
 
   // Fetch YouTube Music Videos
   const { data: musicVideos, isLoading: loadingVideos } = useQuery({

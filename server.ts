@@ -1575,15 +1575,35 @@ Strict Rules:
 
       return res.json({ success: true, segments, isAiGenerated });
     } catch (err: any) {
-      console.error('[Skip Segments Error]:', err?.message);
       return res.json({ success: false, segments: [] });
+    }
+  });
+
+  // Instant Local Database Cache Query Endpoint (0ms latency for detail screen SWR load)
+  app.get('/api/media/cached-metadata', (req, res) => {
+    try {
+      const tmdbId = req.query.tmdbId ? String(req.query.tmdbId) : '';
+      const type = req.query.type ? String(req.query.type) : 'movie';
+      if (!tmdbId) return res.json({ success: false, data: null });
+
+      const mediaType = (type === 'tv' || type === 'series' || type === 'show') ? 'tv' : 'movie';
+      const cacheKey = `${mediaType}_${tmdbId}`;
+      const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+      const cached = mediaCache[cacheKey];
+
+      if (cached) {
+        return res.json({ success: true, data: cached });
+      }
+      return res.json({ success: false, data: null });
+    } catch (e) {
+      return res.json({ success: false, data: null });
     }
   });
 
   // Bulk Prefetch & Persistent Local Caching Endpoint for Metadata, Posters, Logos, and All-Season TIDB v3 Skip Segments
   app.post('/api/media/prefetch-metadata', async (req, res) => {
     try {
-      const { tmdbId, type, title, imdbId, forceRefresh } = req.body || {};
+      const { tmdbId, type, title, imdbId, forceRefresh, revalidate } = req.body || {};
       if (!tmdbId && !imdbId) {
         return res.status(400).json({ error: 'tmdbId or imdbId required' });
       }
@@ -1593,20 +1613,22 @@ Strict Rules:
       const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
       const existing = mediaCache[cacheKey];
 
-      // If cached and valid, return cached data immediately for instant response
-      if (existing && !forceRefresh && (existing.movieSegments?.length > 0 || (existing.seasons && Object.keys(existing.seasons).length > 0))) {
+      // If cached and valid and not forcing a revalidation, return cached data immediately
+      if (existing && !forceRefresh && !revalidate && (existing.movieSegments?.length > 0 || (existing.seasons && Object.keys(existing.seasons).length > 0))) {
         console.log(`[Media Cache Engine] Instant Cache Hit: Serving cached metadata, posters, logos & TIDB v3 segments for "${existing.title || title}" (${cacheKey})`);
-        return res.json({ success: true, cached: true, data: existing });
+        return res.json({ success: true, cached: true, updated: false, data: existing });
       }
 
-      console.log(`[Media Cache Engine] Prefetching metadata, posters, logos & all-season TIDB v3 skip segments for tmdbId=${tmdbId}, type=${mediaType}...`);
+      console.log(`[Media Cache Engine] ${revalidate ? 'Revalidating' : 'Prefetching'} metadata, posters, logos & all-season TIDB v3 skip segments for tmdbId=${tmdbId}, type=${mediaType}...`);
 
       const settings = readJson(SETTINGS_FILE);
       const tmdbApiKey = settings.tmdbKey || process.env.TMDB_KEY || 'b4d4dfa06829b83e3a8b08fc89372a9d';
       const tidbApiKey = settings.tidbApiKey || '';
       const tidbHeaders: Record<string, string> = tidbApiKey ? { 'Authorization': `Bearer ${tidbApiKey}`, 'x-api-key': tidbApiKey } : {};
 
-      let metadata: any = existing || {
+      const previousSnapshot = existing ? JSON.stringify(existing) : '';
+
+      let metadata: any = existing ? JSON.parse(JSON.stringify(existing)) : {
         id: tmdbId,
         type: mediaType,
         title: title || '',
@@ -1679,7 +1701,6 @@ Strict Rules:
       if (settings.enableIntroSkip !== false && tmdbId) {
         try {
           const v3Url = `https://api.theintrodb.org/v3/media?tmdb_id=${encodeURIComponent(tmdbId)}&type=${mediaType}`;
-          console.log(`[Media Cache Engine] Querying TheIntroDB v3 bulk endpoint: ${v3Url}`);
           const tidbRes = await axios.get(v3Url, { headers: tidbHeaders, timeout: 6000 }).catch(() => null);
 
           if (tidbRes?.data) {
@@ -1703,7 +1724,6 @@ Strict Rules:
                 }
               });
               metadata.movieSegments = segs;
-              console.log(`[Media Cache Engine] Cached ${segs.length} skip segment(s) for movie "${metadata.title}"`);
             } else {
               // TV Series: Store segments organized by Season & Episode
               const seasonsMap: Record<string, Record<string, any[]>> = metadata.seasons || {};
@@ -1729,8 +1749,6 @@ Strict Rules:
                 });
               });
               metadata.seasons = seasonsMap;
-              const epCount = Object.values(seasonsMap).reduce((acc, epObj) => acc + Object.keys(epObj).length, 0);
-              console.log(`[Media Cache Engine] Successfully cached v3 skip segments across all seasons (${epCount} episodes) for "${metadata.title}"`);
             }
           }
         } catch (tidbErr: any) {
@@ -1740,10 +1758,13 @@ Strict Rules:
 
       // 3. Save enriched entry to media_cache.json
       metadata.updatedAt = new Date().toISOString();
+      const currentSnapshot = JSON.stringify(metadata);
+      const isUpdated = previousSnapshot !== currentSnapshot;
+
       mediaCache[cacheKey] = metadata;
       writeJson(MEDIA_METADATA_CACHE_FILE, mediaCache);
 
-      return res.json({ success: true, cached: false, data: metadata });
+      return res.json({ success: true, cached: false, updated: isUpdated, data: metadata });
     } catch (err: any) {
       console.error('[Media Cache Engine Error]:', err?.message || err);
       return res.status(500).json({ error: err?.message || 'Prefetch error' });
