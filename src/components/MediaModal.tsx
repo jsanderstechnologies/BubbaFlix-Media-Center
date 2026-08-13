@@ -317,15 +317,51 @@ export default function MediaModal({
       setExtraLoading(true);
       const targetId = resolvedTmdbId || (typeof movie.id === 'number' ? movie.id : (movie.realTmdbId ? Number(movie.realTmdbId) : null));
       if (targetId) {
+        // Trigger server bulk prefetch engine for 0ms local database caching of metadata, logos & all-season TIDB v3 skip times
+        fetch('/api/media/prefetch-metadata', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tmdbId: targetId,
+            type: isSeries ? 'tv' : 'movie',
+            title: movie.title || movie.name
+          })
+        })
+          .then(r => r.json())
+          .then(res => {
+            if (!isActive || !res?.success || !res.data) return;
+            const d = res.data;
+            if (d.logoUrl) movie.logoUrl = d.logoUrl;
+            if (d.mpaaRating) setMpaaRating(d.mpaaRating);
+            if (d.overview && !movie.overview) movie.overview = d.overview;
+            if (d.directors || d.cast) {
+              setExtraDetails({
+                directors: d.directors || [],
+                producers: d.producers || [],
+                releaseDate: d.releaseDate || movie.year || '',
+                cast: d.cast || [],
+                genres: d.genres || [],
+                tagline: d.tagline || ''
+              });
+              setExtraLoading(false);
+            }
+          })
+          .catch(() => {});
+
+        // Fallback TMDB details loader
         getMediaCreditsAndDetails(targetId, isSeries).then(details => {
           if (!isActive) return;
-          setExtraDetails(details);
-          setExtraLoading(false);
           if (details) {
+            setExtraDetails(prev => prev || details);
             if (!movie.overview && (details as any).overview) movie.overview = (details as any).overview;
           }
+          setExtraLoading(false);
         }).catch(() => {
           if (isActive) setExtraLoading(false);
+        });
+
+        getMpaaRating(targetId, isSeries).then(rating => {
+          if (isActive && rating) setMpaaRating(rating);
         });
       } else {
         setExtraLoading(false);
@@ -333,19 +369,6 @@ export default function MediaModal({
     } else {
       setExtraDetails(null);
       setStreams([]);
-    }
-    return () => { isActive = false; };
-  }, [movie, isSeries, resolvedTmdbId]);
-
-  useEffect(() => {
-    let isActive = true;
-    if (!movie) { setMpaaRating(''); return; }
-    const targetId = resolvedTmdbId || (typeof movie.id === 'number' ? movie.id : (movie.realTmdbId ? Number(movie.realTmdbId) : null));
-    if (targetId) {
-      getMpaaRating(targetId, isSeries).then(rating => {
-        if (isActive) setMpaaRating(rating);
-      });
-    } else {
       setMpaaRating('');
     }
     return () => { isActive = false; };

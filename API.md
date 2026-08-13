@@ -322,6 +322,18 @@ Authorization: Bearer <premiumize_api_key>
   }
   ```
 
+#### `POST /api/media/prefetch-metadata`
+- **Description:** Bulk prefetch and persistent database caching engine for movie and TV series metadata, posters, backdrops, logos, MPAA ratings, cast/crew, and all-season TheIntroDB v3 skip segments. Stores data in `data/media_cache.json` for 0ms instant local database responses.
+- **Auth:** Public / Optional `Authorization: Bearer <token>`
+- **Request Body:**
+  ```json
+  {
+    "tmdbId": 1399,
+    "type": "tv",
+    "title": "Game of Thrones"
+  }
+  ```
+
 #### `POST /api/admin/iptv/ai-dedupe`
 - **Description:** Uses Gemini AI to deduplicate M3U channel lists.
 

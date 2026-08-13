@@ -370,6 +370,7 @@ async function startServer() {
   const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
   const SCANNED_LIBRARY_FILE = path.join(DATA_DIR, 'scanned_library.json');
   const PM_RETENTION_FILE = path.join(DATA_DIR, 'pm_retention.json');
+  const MEDIA_METADATA_CACHE_FILE = path.join(DATA_DIR, 'media_cache.json');
   const CACHE_IMG_DIR = path.join(DATA_DIR, 'cached_images');
 
   if (!fs.existsSync(CACHE_IMG_DIR)) {
@@ -1279,6 +1280,27 @@ async function startServer() {
         return res.json({ success: false, message: 'Missing tmdbId or imdbId', segments: [] });
       }
 
+      // 0. Check local database cache for instant 0ms latency
+      if (tmdbId) {
+        const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+        const mediaType = (type === 'tv' || type === 'series') ? 'tv' : 'movie';
+        const cacheKey = `${mediaType}_${tmdbId}`;
+        const cachedItem = mediaCache[cacheKey];
+
+        if (cachedItem) {
+          if (mediaType === 'movie' && cachedItem.movieSegments && cachedItem.movieSegments.length > 0) {
+            console.log(`[TIDB Proxy Database Cache Hit] Returning ${cachedItem.movieSegments.length} cached skip segment(s) for movie tmdbId=${tmdbId}`);
+            return res.json({ success: true, segments: cachedItem.movieSegments, isAiGenerated: false, cached: true });
+          } else if (mediaType === 'tv' && season && episode && cachedItem.seasons?.[season]?.[episode]) {
+            const epSegs = cachedItem.seasons[season][episode];
+            if (Array.isArray(epSegs) && epSegs.length > 0) {
+              console.log(`[TIDB Proxy Database Cache Hit] Returning ${epSegs.length} cached skip segment(s) for TV S${season}E${episode}`);
+              return res.json({ success: true, segments: epSegs, isAiGenerated: false, cached: true });
+            }
+          }
+        }
+      }
+
       const apiKey = req.query.apiKey ? String(req.query.apiKey) : (req.headers.authorization?.replace('Bearer ', '') || '');
 
       const segments: Array<{ type: string; start: number; end: number; label: string }> = [];
@@ -1555,6 +1577,176 @@ Strict Rules:
     } catch (err: any) {
       console.error('[Skip Segments Error]:', err?.message);
       return res.json({ success: false, segments: [] });
+    }
+  });
+
+  // Bulk Prefetch & Persistent Local Caching Endpoint for Metadata, Posters, Logos, and All-Season TIDB v3 Skip Segments
+  app.post('/api/media/prefetch-metadata', async (req, res) => {
+    try {
+      const { tmdbId, type, title, imdbId, forceRefresh } = req.body || {};
+      if (!tmdbId && !imdbId) {
+        return res.status(400).json({ error: 'tmdbId or imdbId required' });
+      }
+
+      const mediaType = (type === 'tv' || type === 'series' || type === 'show') ? 'tv' : 'movie';
+      const cacheKey = `${mediaType}_${tmdbId || imdbId}`;
+      const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+      const existing = mediaCache[cacheKey];
+
+      // If cached and valid, return cached data immediately for instant response
+      if (existing && !forceRefresh && (existing.movieSegments?.length > 0 || (existing.seasons && Object.keys(existing.seasons).length > 0))) {
+        console.log(`[Media Cache Engine] Instant Cache Hit: Serving cached metadata, posters, logos & TIDB v3 segments for "${existing.title || title}" (${cacheKey})`);
+        return res.json({ success: true, cached: true, data: existing });
+      }
+
+      console.log(`[Media Cache Engine] Prefetching metadata, posters, logos & all-season TIDB v3 skip segments for tmdbId=${tmdbId}, type=${mediaType}...`);
+
+      const settings = readJson(SETTINGS_FILE);
+      const tmdbApiKey = settings.tmdbKey || process.env.TMDB_KEY || 'b4d4dfa06829b83e3a8b08fc89372a9d';
+      const tidbApiKey = settings.tidbApiKey || '';
+      const tidbHeaders: Record<string, string> = tidbApiKey ? { 'Authorization': `Bearer ${tidbApiKey}`, 'x-api-key': tidbApiKey } : {};
+
+      let metadata: any = existing || {
+        id: tmdbId,
+        type: mediaType,
+        title: title || '',
+        overview: '',
+        poster: '',
+        backdrop: '',
+        logoUrl: '',
+        mpaaRating: '',
+        directors: [],
+        producers: [],
+        cast: [],
+        seasons: {},
+        movieSegments: [],
+        updatedAt: new Date().toISOString()
+      };
+
+      // 1. Fetch TMDB Details, Logos & Credits
+      if (tmdbId) {
+        try {
+          const tmdbRes = await axios.get(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${tmdbApiKey}&append_to_response=images,credits,release_dates,content_ratings`, { timeout: 6000 }).catch(() => null);
+          if (tmdbRes?.data) {
+            const d = tmdbRes.data;
+            metadata.title = d.title || d.name || metadata.title;
+            metadata.overview = d.overview || metadata.overview;
+            metadata.poster = d.poster_path ? `https://image.tmdb.org/t/p/w500${d.poster_path}` : metadata.poster;
+            metadata.backdrop = d.backdrop_path ? `https://image.tmdb.org/t/p/original${d.backdrop_path}` : metadata.backdrop;
+            metadata.releaseDate = d.release_date || d.first_air_date || metadata.releaseDate;
+            metadata.runtime = d.runtime || (d.episode_run_time ? d.episode_run_time[0] : 0);
+            metadata.genres = d.genres ? d.genres.map((g: any) => g.name) : [];
+            
+            // Logos
+            if (d.images?.logos && Array.isArray(d.images.logos) && d.images.logos.length > 0) {
+              const enLogo = d.images.logos.find((l: any) => l.iso_639_1 === 'en') || d.images.logos[0];
+              if (enLogo?.file_path) {
+                metadata.logoUrl = `https://image.tmdb.org/t/p/original${enLogo.file_path}`;
+              }
+            }
+
+            // Credits
+            if (d.credits) {
+              const crew = d.credits.crew || [];
+              metadata.directors = crew.filter((c: any) => c.job === 'Director').map((c: any) => c.name);
+              metadata.producers = crew.filter((c: any) => c.job === 'Producer' || c.job === 'Executive Producer').slice(0, 5).map((c: any) => c.name);
+              metadata.cast = (d.credits.cast || []).slice(0, 12).map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                character: c.character,
+                profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null
+              }));
+            }
+
+            // Ratings
+            if (mediaType === 'movie' && d.release_dates?.results) {
+              const usRel = d.release_dates.results.find((r: any) => r.iso_3166_1 === 'US');
+              if (usRel?.release_dates) {
+                const cert = usRel.release_dates.find((c: any) => c.certification)?.certification;
+                if (cert) metadata.mpaaRating = cert;
+              }
+            } else if (mediaType === 'tv' && d.content_ratings?.results) {
+              const usRat = d.content_ratings.results.find((r: any) => r.iso_3166_1 === 'US');
+              if (usRat?.rating) metadata.mpaaRating = usRat.rating;
+            }
+          }
+        } catch (tmdbErr: any) {
+          console.warn('[Media Cache Engine] TMDB metadata fetch notice:', tmdbErr?.message);
+        }
+      }
+
+      // 2. Fetch TheIntroDB v3 Skip Segments across all seasons
+      if (settings.enableIntroSkip !== false && tmdbId) {
+        try {
+          const v3Url = `https://api.theintrodb.org/v3/media?tmdb_id=${encodeURIComponent(tmdbId)}&type=${mediaType}`;
+          console.log(`[Media Cache Engine] Querying TheIntroDB v3 bulk endpoint: ${v3Url}`);
+          const tidbRes = await axios.get(v3Url, { headers: tidbHeaders, timeout: 6000 }).catch(() => null);
+
+          if (tidbRes?.data) {
+            const rawItems = Array.isArray(tidbRes.data) 
+              ? tidbRes.data 
+              : (tidbRes.data.items || tidbRes.data.segments || tidbRes.data.results || []);
+
+            if (mediaType === 'movie') {
+              const segs: any[] = [];
+              rawItems.forEach((item: any) => {
+                const sType = (item.type || item.category || 'intro').toLowerCase();
+                const sStart = Number(item.start || item.start_sec || 0);
+                const sEnd = Number(item.end || item.end_sec || 0);
+                if (sEnd > sStart) {
+                  segs.push({
+                    type: sType,
+                    start: sStart,
+                    end: sEnd,
+                    label: sType.includes('credit') || sType.includes('outro') ? 'Skip Credits' : 'Skip Intro'
+                  });
+                }
+              });
+              metadata.movieSegments = segs;
+              console.log(`[Media Cache Engine] Cached ${segs.length} skip segment(s) for movie "${metadata.title}"`);
+            } else {
+              // TV Series: Store segments organized by Season & Episode
+              const seasonsMap: Record<string, Record<string, any[]>> = metadata.seasons || {};
+              rawItems.forEach((item: any) => {
+                const sNum = String(item.season || item.season_number || 1);
+                const epNum = String(item.episode || item.episode_number || 1);
+                if (!seasonsMap[sNum]) seasonsMap[sNum] = {};
+                if (!seasonsMap[sNum][epNum]) seasonsMap[sNum][epNum] = [];
+
+                const itemSegs = Array.isArray(item.segments) ? item.segments : [item];
+                itemSegs.forEach((seg: any) => {
+                  const sType = (seg.type || seg.category || 'intro').toLowerCase();
+                  const sStart = Number(seg.start || seg.start_sec || 0);
+                  const sEnd = Number(seg.end || seg.end_sec || 0);
+                  if (sEnd > sStart) {
+                    seasonsMap[sNum][epNum].push({
+                      type: sType,
+                      start: sStart,
+                      end: sEnd,
+                      label: sType.includes('credit') || sType.includes('outro') ? 'Skip Credits' : sType.includes('recap') ? 'Skip Recap' : 'Skip Intro'
+                    });
+                  }
+                });
+              });
+              metadata.seasons = seasonsMap;
+              const epCount = Object.values(seasonsMap).reduce((acc, epObj) => acc + Object.keys(epObj).length, 0);
+              console.log(`[Media Cache Engine] Successfully cached v3 skip segments across all seasons (${epCount} episodes) for "${metadata.title}"`);
+            }
+          }
+        } catch (tidbErr: any) {
+          console.warn('[Media Cache Engine] TheIntroDB v3 bulk fetch notice:', tidbErr?.message);
+        }
+      }
+
+      // 3. Save enriched entry to media_cache.json
+      metadata.updatedAt = new Date().toISOString();
+      mediaCache[cacheKey] = metadata;
+      writeJson(MEDIA_METADATA_CACHE_FILE, mediaCache);
+
+      return res.json({ success: true, cached: false, data: metadata });
+    } catch (err: any) {
+      console.error('[Media Cache Engine Error]:', err?.message || err);
+      return res.status(500).json({ error: err?.message || 'Prefetch error' });
     }
   });
 
