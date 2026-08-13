@@ -139,7 +139,6 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
       return res.json();
     },
     staleTime: 10 * 60 * 1000,
-    enabled: activeTab === 'scores',
   });
 
   const locationQuery = userSettings.weatherLocation || '';
@@ -333,14 +332,13 @@ export default function NewsPanel({ onPlayStream }: NewsPanelProps) {
     queryKey: ['news-feed', activeTab, city, state],
     queryFn: () => fetchNewsForTab(activeTab, city, state),
     staleTime: 5 * 60 * 1000,
-    enabled: activeTab !== 'scores' && !!city && !!state,
+    enabled: !!city && !!state,
   });
 
   const { data: scores, isLoading: isLoadingScores, isError: isErrorScores, refetch: refetchScores } = useQuery<ScoreGame[]>({
     queryKey: ['sports-scores', activeSport],
     queryFn: () => fetchScoresForSport(activeSport),
     staleTime: 60 * 1000,
-    enabled: activeTab === 'scores',
   });
 
   // Auto-run Gemini IPTV channel matching whenever scores or channels load

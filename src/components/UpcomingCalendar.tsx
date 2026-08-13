@@ -27,13 +27,13 @@ export default function UpcomingCalendar({
   const { data: upcomingMovies, isLoading: loadingMovies } = useQuery({
     queryKey: ['upcoming_movies', filterGenre, systemSettings.tmdbKey],
     queryFn: () => getUpcomingMovies(filterGenre),
-    enabled: activeMode === 'movie' || activeMode === 'all'
+    staleTime: 10 * 60 * 1000
   });
 
   const { data: upcomingTv, isLoading: loadingTv } = useQuery({
     queryKey: ['upcoming_tv', filterGenre, systemSettings.tmdbKey],
     queryFn: () => getUpcomingTvSeries(filterGenre),
-    enabled: activeMode === 'tv' || activeMode === 'all'
+    staleTime: 10 * 60 * 1000
   });
 
   useEffect(() => {
