@@ -39,7 +39,6 @@ const CollapsibleSection = ({ id, title, icon: Icon, isOpen, onToggle, children,
       </div>
       <div 
         className={`transition-all duration-300 overflow-hidden ${isOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}
-        {...(!isOpen ? { inert: "" } as any : {})}
       >
         <div className="p-6 pt-2 border-t border-white/10">
           {children}

@@ -42,11 +42,6 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
       straightOnly: false
     });
 
-    const mediaModalEl = document.getElementById('media-modal');
-    if (mediaModalEl) {
-      mediaModalEl.setAttribute('inert', 'true');
-    }
-
     const focusTimeout = setTimeout(() => {
       SpatialNavigation.disable('');
       SpatialNavigation.disable('media-modal');
@@ -64,9 +59,6 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
 
     return () => {
       clearTimeout(focusTimeout);
-      if (mediaModalEl) {
-        mediaModalEl.removeAttribute('inert');
-      }
       SpatialNavigation.remove('settings-modal');
       const hasMediaModal = document.getElementById('media-modal') && !document.getElementById('media-modal')?.classList.contains('hidden');
       if (hasMediaModal) {

@@ -145,15 +145,13 @@ function MainApp() {
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
   const wasModalOpenRef = useRef<boolean>(false);
 
-  // Unified SpatialNavigation focus memory and clean recovery when exiting MediaModal
+  // Unified SpatialNavigation focus memory and multi-phase clean recovery when exiting MediaModal
   useEffect(() => {
     if (selectedMovie) {
       if (!wasModalOpenRef.current) {
         const currentActive = document.activeElement as HTMLElement;
         const isOutsideModal = currentActive && currentActive !== document.body && !document.getElementById('media-modal')?.contains(currentActive);
-        const isMainContent = currentActive && document.getElementById('main-content-view')?.contains(currentActive);
-        
-        if (isOutsideModal && isMainContent) {
+        if (isOutsideModal) {
           lastFocusedElementRef.current = currentActive;
         }
         wasModalOpenRef.current = true;
@@ -169,46 +167,64 @@ function MainApp() {
         SpatialNavigation.remove('media-modal');
         SpatialNavigation.remove('resume-modal');
         SpatialNavigation.remove('fix-match-modal');
+        SpatialNavigation.remove('skip-info-modal');
       } catch (e) {}
+
+      // Multi-phase focus recovery after modal exit: 0ms, 50ms, 150ms, 300ms!
+      const attempts = [0, 50, 150, 300];
+      const timers: NodeJS.Timeout[] = [];
       
-      const timer = setTimeout(() => {
-        try {
-          SpatialNavigation.enable('');
-          SpatialNavigation.makeFocusable('');
-          SpatialNavigation.makeFocusable();
-        } catch (e) {}
-
-        // 1. Target the exact poster / card element that was focused right before opening details!
-        const lastEl = lastFocusedElementRef.current;
-        if (lastEl && document.body.contains(lastEl)) {
+      attempts.forEach(delay => {
+        const t = setTimeout(() => {
           try {
-            lastEl.focus({ preventScroll: false });
-            SpatialNavigation.focus(lastEl);
+            SpatialNavigation.enable('');
+            SpatialNavigation.makeFocusable('');
+            SpatialNavigation.makeFocusable();
+          } catch (e) {}
+
+          const cur = document.activeElement;
+          const mediaModalEl = document.getElementById('media-modal');
+          const isModalVisible = mediaModalEl && !mediaModalEl.classList.contains('hidden');
+          if (isModalVisible) return;
+
+          // If focus is already set on a valid interactive item, don't override
+          if (cur && cur !== document.body && cur.id !== 'app-main-content' && document.body.contains(cur)) {
             return;
-          } catch (e) {}
-        }
+          }
 
-        // 2. Fallback to first focusable item in main content view
-        const firstMainFocusable = document.querySelector('#main-content-view .focusable, main .focusable, main button, main [tabindex="0"]') as HTMLElement;
-        if (firstMainFocusable) {
-          try {
-            firstMainFocusable.focus({ preventScroll: false });
-            SpatialNavigation.focus(firstMainFocusable);
-            return;
-          } catch (e) {}
-        }
+          // 1. Target the exact poster / card element that was focused right before opening details!
+          const lastEl = lastFocusedElementRef.current;
+          if (lastEl && document.body.contains(lastEl)) {
+            try {
+              lastEl.focus({ preventScroll: false });
+              SpatialNavigation.focus(lastEl);
+              return;
+            } catch (e) {}
+          }
 
-        // 3. Fallback to current navbar tab
-        const activeNavEl = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
-        if (activeNavEl) {
-          try {
-            activeNavEl.focus({ preventScroll: false });
-            SpatialNavigation.focus(activeNavEl);
-          } catch (e) {}
-        }
-      }, 60);
+          // 2. Fallback to first focusable item in main content view
+          const firstMainFocusable = document.querySelector('#main-content-view .focusable, main .focusable, main button, main [tabindex="0"]') as HTMLElement;
+          if (firstMainFocusable) {
+            try {
+              firstMainFocusable.focus({ preventScroll: false });
+              SpatialNavigation.focus(firstMainFocusable);
+              return;
+            } catch (e) {}
+          }
 
-      return () => clearTimeout(timer);
+          // 3. Fallback to current navbar tab
+          const activeNavEl = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
+          if (activeNavEl) {
+            try {
+              activeNavEl.focus({ preventScroll: false });
+              SpatialNavigation.focus(activeNavEl);
+            } catch (e) {}
+          }
+        }, delay);
+        timers.push(t);
+      });
+
+      return () => timers.forEach(t => clearTimeout(t));
     }
   }, [selectedMovie, isPlaying, activeTab]);
 
@@ -352,6 +368,40 @@ function MainApp() {
           return;
         }
         return;
+      }
+
+      // Top-level Global Focus Guardian: if no overlay is open and focus was lost to document.body, recover immediately!
+      const curActive = document.activeElement as HTMLElement;
+      if (!curActive || curActive === document.body || curActive.id === 'app-main-content') {
+        try {
+          SpatialNavigation.enable('');
+          SpatialNavigation.makeFocusable('');
+          SpatialNavigation.makeFocusable();
+        } catch (err) {}
+
+        const lastEl = lastFocusedElementRef.current;
+        if (lastEl && document.body.contains(lastEl)) {
+          try {
+            lastEl.focus({ preventScroll: false });
+            SpatialNavigation.focus(lastEl);
+          } catch (err) {}
+        } else {
+          const firstMain = document.querySelector('#main-content-view .focusable, main .focusable, main button, main [tabindex="0"]') as HTMLElement;
+          if (firstMain) {
+            try {
+              firstMain.focus({ preventScroll: false });
+              SpatialNavigation.focus(firstMain);
+            } catch (err) {}
+          } else {
+            const activeNavEl = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
+            if (activeNavEl) {
+              try {
+                activeNavEl.focus({ preventScroll: false });
+                SpatialNavigation.focus(activeNavEl);
+              } catch (err) {}
+            }
+          }
+        }
       }
 
       // Check D-Pad navigation between Sidebar and Main Content View
@@ -1522,7 +1572,7 @@ function MainApp() {
         </div>
       )}
 
-      <div id="app-main-content" inert={hasModalOpen ? true : undefined} className="flex-1 flex w-full h-full overflow-hidden relative">
+      <div id="app-main-content" className="flex-1 flex w-full h-full overflow-hidden relative">
         {/* Sidebar */}
         <div id="sidebar-nav" className="w-20 bg-black/60 border-r border-white/10 flex flex-col items-center py-6 gap-6 z-20 shrink-0">
           <div className="select-none cursor-pointer flex items-center justify-center hover:scale-110 transition-transform duration-300" title="BUBBAFLIX">
