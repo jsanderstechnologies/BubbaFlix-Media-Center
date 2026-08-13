@@ -150,7 +150,10 @@ function MainApp() {
     if (selectedMovie) {
       if (!wasModalOpenRef.current) {
         const currentActive = document.activeElement as HTMLElement;
-        if (currentActive && currentActive !== document.body && !document.getElementById('media-modal')?.contains(currentActive)) {
+        const isOutsideModal = currentActive && currentActive !== document.body && !document.getElementById('media-modal')?.contains(currentActive);
+        const isMainContent = currentActive && document.getElementById('main-content-view')?.contains(currentActive);
+        
+        if (isOutsideModal && isMainContent) {
           lastFocusedElementRef.current = currentActive;
         }
         wasModalOpenRef.current = true;
@@ -166,13 +169,12 @@ function MainApp() {
         SpatialNavigation.remove('media-modal');
         SpatialNavigation.remove('resume-modal');
         SpatialNavigation.remove('fix-match-modal');
-        SpatialNavigation.enable('');
-        SpatialNavigation.makeFocusable();
       } catch (e) {}
       
       const timer = setTimeout(() => {
         try {
           SpatialNavigation.enable('');
+          SpatialNavigation.makeFocusable('');
           SpatialNavigation.makeFocusable();
         } catch (e) {}
 
@@ -181,7 +183,7 @@ function MainApp() {
         if (lastEl && document.body.contains(lastEl)) {
           try {
             lastEl.focus({ preventScroll: false });
-            SpatialNavigation.focus();
+            SpatialNavigation.focus(lastEl);
             return;
           } catch (e) {}
         }
@@ -191,7 +193,7 @@ function MainApp() {
         if (firstMainFocusable) {
           try {
             firstMainFocusable.focus({ preventScroll: false });
-            SpatialNavigation.focus();
+            SpatialNavigation.focus(firstMainFocusable);
             return;
           } catch (e) {}
         }
@@ -201,10 +203,10 @@ function MainApp() {
         if (activeNavEl) {
           try {
             activeNavEl.focus({ preventScroll: false });
-            SpatialNavigation.focus();
+            SpatialNavigation.focus(activeNavEl);
           } catch (e) {}
         }
-      }, 50);
+      }, 60);
 
       return () => clearTimeout(timer);
     }
@@ -337,22 +339,13 @@ function MainApp() {
             e.preventDefault();
             const moved = SpatialNavigation.move(dir);
             
-            // Automatic Focus Recovery: If SpatialNavigation failed to move focus (e.g. detached element)
+            // Automatic Focus Recovery within Top Overlay ONLY
             const curActive = document.activeElement as HTMLElement;
             if (!moved || !curActive || curActive === document.body || !topOverlay.contains(curActive)) {
               const focusableInOverlay = topOverlay.querySelector('.focusable, button, select, input, [tabindex="0"]') as HTMLElement;
               if (focusableInOverlay) {
-                focusableInOverlay.focus({ preventScroll: false });
+                try { focusableInOverlay.focus({ preventScroll: false }); } catch (err) {}
                 try { SpatialNavigation.focus(); } catch (err) {}
-              } else {
-                // If overlay is unmounting or has no focusables left, release trap and recover main view focus
-                const mainFocusable = document.querySelector('#main-content-view .focusable, main .focusable, main button') as HTMLElement 
-                  || document.getElementById(`nav-tab-${activeTab}`) 
-                  || document.getElementById('nav-tab-home');
-                if (mainFocusable) {
-                  mainFocusable.focus({ preventScroll: false });
-                  try { SpatialNavigation.focus(); } catch (err) {}
-                }
               }
             }
           }
