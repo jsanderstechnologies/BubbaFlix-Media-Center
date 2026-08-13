@@ -165,8 +165,43 @@ export default function MediaModal({
     imdbId?: string | null;
   } | null>(null);
   const [extraLoading, setExtraLoading] = useState(false);
+  const [dynamicLogoUrl, setDynamicLogoUrl] = useState<string>('');
+  const [dynamicOverview, setDynamicOverview] = useState<string>('');
   const [savedProgress, setSavedProgress] = useState<any>(null);
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
+
+  const sanitizeExtraDetails = (raw: any, fallbackYear?: string | number) => {
+    if (!raw) return null;
+    const directors = Array.isArray(raw.directors)
+      ? raw.directors.map((d: any) => typeof d === 'string' ? d : (d?.name || '')).filter(Boolean)
+      : [];
+    const producers = Array.isArray(raw.producers)
+      ? raw.producers.map((p: any) => typeof p === 'string' ? p : (p?.name || '')).filter(Boolean)
+      : [];
+    const genres = Array.isArray(raw.genres)
+      ? raw.genres.map((g: any) => typeof g === 'string' ? g : (g?.name || '')).filter(Boolean)
+      : [];
+    const cast = Array.isArray(raw.cast)
+      ? raw.cast.map((actor: any, idx: number) => {
+          if (typeof actor === 'string') {
+            return { id: `cast-str-${idx}-${actor}`, name: actor, character: '', profilePath: null };
+          }
+          return {
+            id: actor?.id || `cast-obj-${idx}-${actor?.name || 'unknown'}`,
+            name: actor?.name || (typeof actor === 'string' ? actor : 'Unknown'),
+            character: actor?.character || '',
+            profilePath: actor?.profilePath || actor?.profile_path || null
+          };
+        })
+      : [];
+    const releaseDate = typeof raw.releaseDate === 'string' 
+      ? raw.releaseDate 
+      : (raw.releaseDate ? String(raw.releaseDate) : (fallbackYear ? String(fallbackYear) : ''));
+    const tagline = typeof raw.tagline === 'string' ? raw.tagline : '';
+    const imdbId = raw.imdbId || null;
+
+    return { directors, producers, releaseDate, cast, genres, tagline, imdbId };
+  };
 
 
 
@@ -325,18 +360,12 @@ export default function MediaModal({
           .then(res => {
             if (!isActive || !res?.success || !res.data) return;
             const cached = res.data;
-            if (cached.logoUrl) movie.logoUrl = cached.logoUrl;
+            if (cached.logoUrl) setDynamicLogoUrl(cached.logoUrl);
             if (cached.mpaaRating) setMpaaRating(cached.mpaaRating);
-            if (cached.overview && !movie.overview) movie.overview = cached.overview;
-            if (cached.directors || cached.cast) {
-              setExtraDetails({
-                directors: cached.directors || [],
-                producers: cached.producers || [],
-                releaseDate: cached.releaseDate || movie.year || '',
-                cast: cached.cast || [],
-                genres: cached.genres || [],
-                tagline: cached.tagline || ''
-              });
+            if (cached.overview) setDynamicOverview(cached.overview);
+            const sanitized = sanitizeExtraDetails(cached, movie.year);
+            if (sanitized) {
+              setExtraDetails(sanitized);
               setExtraLoading(false); // Display instantly from DB!
             }
           })
@@ -357,18 +386,12 @@ export default function MediaModal({
           .then(res => {
             if (!isActive || !res?.success || !res.data) return;
             const fresh = res.data;
-            if (fresh.logoUrl && movie.logoUrl !== fresh.logoUrl) movie.logoUrl = fresh.logoUrl;
+            if (fresh.logoUrl) setDynamicLogoUrl(fresh.logoUrl);
             if (fresh.mpaaRating) setMpaaRating(fresh.mpaaRating);
-            if (fresh.overview && movie.overview !== fresh.overview) movie.overview = fresh.overview;
-            if (fresh.directors || fresh.cast) {
-              setExtraDetails({
-                directors: fresh.directors || [],
-                producers: fresh.producers || [],
-                releaseDate: fresh.releaseDate || movie.year || '',
-                cast: fresh.cast || [],
-                genres: fresh.genres || [],
-                tagline: fresh.tagline || ''
-              });
+            if (fresh.overview) setDynamicOverview(fresh.overview);
+            const sanitized = sanitizeExtraDetails(fresh, movie.year);
+            if (sanitized) {
+              setExtraDetails(sanitized);
             }
             setExtraLoading(false);
           })
@@ -1679,9 +1702,9 @@ export default function MediaModal({
           className="p-6 overflow-y-auto md:overflow-hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-8"
         >
             <div className="space-y-6 h-full md:overflow-y-auto custom-scrollbar md:pr-4 pb-4">
-                {movie.overview && (
+                {(dynamicOverview || movie.overview) && (
                     <p className="text-sm text-white/90 leading-relaxed">
-                        {movie.overview}
+                        {dynamicOverview || movie.overview}
                     </p>
                 )}
                 
