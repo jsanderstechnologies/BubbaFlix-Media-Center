@@ -143,22 +143,21 @@ function MainApp() {
   }, []);
 
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
-  const prevSelectedMovieRef = useRef<any>(null);
+  const wasModalOpenRef = useRef<boolean>(false);
 
-  // Capture the focused element in main view right before MediaModal opens
+  // Unified SpatialNavigation focus memory and clean recovery when exiting MediaModal
   useEffect(() => {
-    if (selectedMovie && !prevSelectedMovieRef.current) {
-      const currentActive = document.activeElement as HTMLElement;
-      if (currentActive && currentActive !== document.body && !document.getElementById('media-modal')?.contains(currentActive)) {
-        lastFocusedElementRef.current = currentActive;
+    if (selectedMovie) {
+      if (!wasModalOpenRef.current) {
+        const currentActive = document.activeElement as HTMLElement;
+        if (currentActive && currentActive !== document.body && !document.getElementById('media-modal')?.contains(currentActive)) {
+          lastFocusedElementRef.current = currentActive;
+        }
+        wasModalOpenRef.current = true;
       }
-    }
-    prevSelectedMovieRef.current = selectedMovie;
-  }, [selectedMovie]);
+    } else if (wasModalOpenRef.current && !isPlaying) {
+      wasModalOpenRef.current = false;
 
-  // Ensure SpatialNavigation focus resets cleanly whenever exiting a modal or details screen
-  useEffect(() => {
-    if (!selectedMovie && prevSelectedMovieRef.current && !isPlaying) {
       if (document.activeElement && document.activeElement !== document.body) {
         try { (document.activeElement as HTMLElement).blur(); } catch (e) {}
       }
@@ -205,11 +204,11 @@ function MainApp() {
             SpatialNavigation.focus();
           } catch (e) {}
         }
-      }, 100);
+      }, 50);
 
       return () => clearTimeout(timer);
     }
-  }, [selectedMovie, isPlaying]);
+  }, [selectedMovie, isPlaying, activeTab]);
 
   // Monitor National Weather Service alerts for user location every 3 minutes
   useEffect(() => {
@@ -321,6 +320,12 @@ function MainApp() {
             e.preventDefault();
             e.stopPropagation();
             closePlayer();
+            return;
+          }
+          if (topOverlay === mediaModalEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            setSelectedMovie(null);
             return;
           }
         }
