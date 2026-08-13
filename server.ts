@@ -3278,8 +3278,10 @@ app.get('/api/youtube/search', async (req, res) => {
     const vaapiDev = getVaapiDevice();
     const useVaapi = (bestEncoder === 'h264_vaapi') && !!vaapiDev;
 
-    // Fast probing & multi-thread latency reduction
-    const args = ['-probesize', '5000000', '-analyzeduration', '5000000', '-threads', '0'];
+    // Fast probing & multi-thread latency reduction for instant seeks & playback
+    const probeSize = isLocalFile ? '500000' : '1000000';
+    const analyzeDur = isLocalFile ? '500000' : '1000000';
+    const args = ['-probesize', probeSize, '-analyzeduration', analyzeDur, '-threads', '0'];
     if (useVaapi) {
       args.push('-vaapi_device', vaapiDev);
     }

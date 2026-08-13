@@ -694,9 +694,19 @@ function MainApp() {
     setSeekTarget(newTime);
     if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
     
-    // Instant HTML5 native seek if within current video element stream duration
+    // Check if target time is already loaded into the browser's memory buffer
     const targetVideoTime = newTime - streamOffset;
-    if (videoRef.current && targetVideoTime >= 0 && isFinite(videoRef.current.duration) && videoRef.current.duration > 0 && targetVideoTime <= videoRef.current.duration) {
+    let isBufferedInMemory = false;
+    if (videoRef.current && videoRef.current.buffered && videoRef.current.buffered.length > 0 && targetVideoTime >= 0) {
+      for (let i = 0; i < videoRef.current.buffered.length; i++) {
+        if (targetVideoTime >= videoRef.current.buffered.start(i) && targetVideoTime <= videoRef.current.buffered.end(i)) {
+          isBufferedInMemory = true;
+          break;
+        }
+      }
+    }
+
+    if (isBufferedInMemory && videoRef.current) {
       try {
         videoRef.current.currentTime = targetVideoTime;
         setSeekTarget(null);
@@ -704,13 +714,14 @@ function MainApp() {
       } catch (e) {}
     }
 
+    // Target timestamp is outside browser memory buffer -> Instant server-side FFmpeg seek
     seekTimeoutRef.current = setTimeout(() => {
       setStreamOffset(Math.floor(newTime));
       setCurrentTime(0);
       setBufferedSeconds(0);
       setSeekTarget(null);
       setPlayerStatus('BUFFERING...');
-    }, immediate ? 50 : 300);
+    }, immediate ? 0 : 150);
   };
 
   const handleSeek = (secondsToAdd: number) => {
@@ -1047,10 +1058,7 @@ function MainApp() {
     setIsPlaying(true);
     setPlayingUrl(url);
     
-    let savedPlayer = 'mpv';
-    if (url.includes('127.0.0.1')) {
-      savedPlayer = userSettings.playerPath || 'mpv';
-    }
+    const savedPlayer = userSettings.playerPath || 'builtin';
 
     if ((window as any).mediaAPI && savedPlayer !== 'builtin') {
       try {
@@ -1213,57 +1221,7 @@ function MainApp() {
 
           {playingUrl ? (
             <>
-              {playingContext?.isLive ? (
-                <video 
-                  key={`${playingUrl}-${playingContext?.backupIndex || 0}`}
-                  ref={videoRef}
-                  src={playingUrl}
-                  autoPlay
-                  className="w-full h-full object-contain absolute top-0 left-0"
-                  onError={(e) => {
-                    const error = e.currentTarget.error;
-                    console.error("Built-in Player Error (Live TV)", { 
-                      code: error?.code, 
-                      message: error?.message, 
-                      src: e.currentTarget.src 
-                    });
-
-                    // Automatic IPTV Stream Failover to Backup URL
-                    if (playingContext?.backupUrls && Array.isArray(playingContext.backupUrls) && playingContext.backupUrls.length > 0) {
-                      const nextBackupIndex = (playingContext.backupIndex || 0);
-                      if (nextBackupIndex < playingContext.backupUrls.length) {
-                        const backupUrl = playingContext.backupUrls[nextBackupIndex];
-                        console.warn(`[Stream Failover] Main stream failed. Automatically switching to Backup #${nextBackupIndex + 1}: ${backupUrl}`);
-                        
-                        setPlayingContext({
-                          ...playingContext,
-                          backupIndex: nextBackupIndex + 1
-                        });
-                        setPlayingUrl(backupUrl);
-                        setPlayerStatus(`SWITCHING TO BACKUP #${nextBackupIndex + 1}...`);
-                        return;
-                      }
-                    }
-
-                    setPlayerStatus("ERROR: Video failed to load.");
-                  }}
-                  onPlay={() => { 
-                    setIsVideoPlaying(true); 
-                    setIsVideoLoaded(true);
-                    setPlayerStatus(""); // Clear buffering text when playing
-                  }}
-                  onCanPlay={() => {
-                    setIsVideoLoaded(true);
-                  }}
-                  onPause={() => { 
-                    setIsVideoPlaying(false); 
-                  }}
-                  onEnded={closePlayer}
-                  onWaiting={() => { 
-                    setPlayerStatus("BUFFERING..."); 
-                  }}
-                />
-              ) : selectedSubtitleTrack !== null ? (
+              {selectedSubtitleTrack !== null ? (
                 <video 
                   key={`${playingUrl}-${selectedAudioTrack}-${selectedSubtitleTrack}-${subtitleOffset}`}
                   ref={videoRef}
