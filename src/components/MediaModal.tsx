@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap, Info } from 'lucide-react';
 
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, setDoc, serverTimestamp, onSnapshot } from '../lib/localDb';
 import { db } from '../lib/localDb';
@@ -704,6 +704,55 @@ export default function MediaModal({
       SpatialNavigation.remove('fix-match-modal');
     };
   }, [showFixMatchModal]);
+
+  // Skip Info Modal State
+  const [showSkipInfoModal, setShowSkipInfoModal] = useState(false);
+
+  useEffect(() => {
+    if (!showSkipInfoModal) {
+      SpatialNavigation.remove('skip-info-modal');
+      return;
+    }
+
+    const handleSkipInfoBackKey = (e: KeyboardEvent) => {
+      const isBackKey = [
+        'Escape', 'Back', 'GoBack', 'BrowserBack', 'U+001B', 'SoftLeft'
+      ].includes(e.key) || [4, 27, 8, 10009, 461, 283].includes(e.keyCode) ||
+      (e.key === 'Backspace' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA');
+
+      if (isBackKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowSkipInfoModal(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleSkipInfoBackKey, true);
+
+    SpatialNavigation.add('skip-info-modal', {
+      selector: '#skip-info-modal .focusable, #skip-info-modal button',
+      restrict: 'self-only',
+      straightOnly: false,
+      enterTo: 'last-focused'
+    });
+    SpatialNavigation.makeFocusable('skip-info-modal');
+    SpatialNavigation.focus('skip-info-modal');
+
+    return () => {
+      window.removeEventListener('keydown', handleSkipInfoBackKey, true);
+      SpatialNavigation.remove('skip-info-modal');
+    };
+  }, [showSkipInfoModal]);
+
+  const getActiveSkipSegments = () => {
+    let segs: any[] = [];
+    if (isSeries && selectedSeason !== null && selectedEpisode !== null) {
+      segs = (extraDetails as any)?.seasons?.[selectedSeason]?.[selectedEpisode] || (extraDetails as any)?.skipSegments || [];
+    } else {
+      segs = (extraDetails as any)?.skipSegments || [];
+    }
+    return Array.isArray(segs) ? segs : [];
+  };
 
   const handleOpenFixMatch = () => {
     setShowFixMatchModal(true);
@@ -1642,10 +1691,16 @@ export default function MediaModal({
                           <Star className="w-3 h-3 text-yellow-500 fill-current" /> <span className="font-mono">{movie.rating}</span>
                       </span>
                       {getSkipBadgeText() && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 border border-indigo-500/50 rounded text-[11px] font-bold text-indigo-300 font-mono leading-none tracking-wide uppercase bg-indigo-950/60 shadow-md shadow-indigo-950/40" title="TheIntroDB v3 Skip Timestamps Available">
-                          <Zap className="w-3 h-3 text-indigo-400 fill-indigo-400/20 animate-pulse" />
-                          {getSkipBadgeText()}
-                        </span>
+                        <button 
+                          type="button"
+                          onClick={() => setShowSkipInfoModal(true)}
+                          className="focusable flex items-center gap-1.5 px-2.5 py-1 border border-indigo-500/50 rounded-lg text-[11px] font-bold text-indigo-300 font-mono leading-none tracking-wide uppercase bg-indigo-950/60 hover:bg-indigo-900/80 hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all cursor-pointer shadow-md shadow-indigo-950/40 group/badge"
+                          title="Click to view exact skip timestamps"
+                        >
+                          <Zap className="w-3.5 h-3.5 text-indigo-400 fill-indigo-400/20 animate-pulse group-hover/badge:scale-110" />
+                          <span>TheIntroDB ({getSkipBadgeText()})</span>
+                          <Info className="w-3 h-3 text-indigo-300/70 ml-0.5" />
+                        </button>
                       )}
                       {(isFavorite || movie.isNetworkShare || movie.filePath) && (
                         <span className="flex items-center gap-1 px-2 py-0.5 border border-emerald-500/40 rounded text-[11px] font-bold text-emerald-400 font-mono leading-none tracking-wide uppercase bg-emerald-950/40">
@@ -2262,6 +2317,88 @@ export default function MediaModal({
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* TheIntroDB Skip Info Modal */}
+      {showSkipInfoModal && (
+        <div 
+          id="skip-info-modal"
+          className="fixed inset-0 z-[999999] bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-200"
+        >
+          <div className="w-full max-w-lg bg-slate-900 border border-indigo-500/40 rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(99,102,241,0.35)] flex flex-col">
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-indigo-950/90 border-b border-indigo-500/30 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-indigo-600/30 border border-indigo-400/40 text-indigo-300">
+                  <Zap className="w-6 h-6 fill-indigo-400/20 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-white tracking-wide uppercase">TheIntroDB Skip Timestamps</h3>
+                  <p className="text-xs text-indigo-300/80 font-mono mt-0.5">
+                    {isSeries && selectedSeason !== null && selectedEpisode !== null 
+                      ? `Season ${selectedSeason}, Episode ${selectedEpisode}` 
+                      : (movie.title || movie.name)}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowSkipInfoModal(false)}
+                className="focusable p-2 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-3.5 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              {getActiveSkipSegments().length > 0 ? (
+                getActiveSkipSegments().map((seg: any, idx: number) => {
+                  const duration = Math.max(0, Math.round(seg.end - seg.start));
+                  const durMin = Math.floor(duration / 60);
+                  const durSec = duration % 60;
+                  const durStr = durMin > 0 ? `${durMin}m ${durSec}s` : `${durSec}s`;
+
+                  return (
+                    <div key={idx} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between gap-4 hover:border-indigo-500/30 transition-all">
+                      <div className="flex items-center gap-3">
+                        <span className="px-2.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shrink-0">
+                          {seg.label || seg.type}
+                        </span>
+                        <div>
+                          <div className="text-sm font-bold text-white font-mono">
+                            {formatTime(seg.start)} → {formatTime(seg.end)}
+                          </div>
+                          <div className="text-[11px] text-white/50 font-mono mt-0.5">
+                            Duration: {durStr}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 shrink-0">
+                        <Check className="w-3.5 h-3.5" /> Auto-Skip Ready
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-6 text-center text-white/50 font-mono text-xs">
+                  No skip timestamps recorded for this item.
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-black/80 border-t border-white/10 flex items-center justify-between">
+              <span className="text-xs text-white/50 font-mono">Powered by TheIntroDB v3</span>
+              <button 
+                onClick={() => setShowSkipInfoModal(false)}
+                className="focusable px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer shadow-lg shadow-indigo-600/30"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
