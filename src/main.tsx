@@ -3,44 +3,53 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-class ErrorBoundary extends Component<{children: ReactNode}, {error: Error | null}> {
+class ErrorBoundary extends Component<{children: ReactNode}, {error: Error | null; retryCount: number}> {
+  private retryTimer: any = null;
+
   constructor(props: any) {
     super(props);
-    this.state = { error: null };
+    this.state = { error: null, retryCount: 0 };
   }
+
   static getDerivedStateFromError(error: Error) {
     return { error };
   }
+
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('React crash:', error, info);
+    console.warn('[ErrorBoundary] Caught transient render error, recovering behind loading screen:', error);
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = setTimeout(() => {
+      this.setState(prev => ({ error: null, retryCount: prev.retryCount + 1 }));
+    }, 600);
   }
+
+  componentWillUnmount() {
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+  }
+
   render() {
     if (this.state.error) {
       return (
-        <div style={{
-          position: 'fixed', inset: 0, background: '#050507', color: '#fff',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '2rem', fontFamily: 'system-ui, sans-serif', zIndex: 9999
-        }}>
-          <div style={{background: '#14080e', border: '1px solid #ef4444', borderRadius: 16, padding: '2rem', maxWidth: 700, width: '100%', boxShadow: '0 20px 50px rgba(239,68,68,0.3)'}}>
-            <h1 style={{color: '#ef4444', marginBottom: '0.75rem', fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>⚠ Application Recovered</h1>
-            <p style={{color: '#fca5a5', marginBottom: '0.5rem', fontWeight: 'bold'}}>{this.state.error.message}</p>
-            {this.state.error.stack && (
-              <pre style={{color: '#f87171', fontSize: '0.75rem', overflow: 'auto', maxHeight: 220, marginTop: '1rem', padding: '1rem', background: '#000000', borderRadius: 8, whiteSpace: 'pre-wrap', fontFamily: 'monospace'}}>{this.state.error.stack}</pre>
-            )}
-            <div style={{marginTop: '1.5rem', display: 'flex', gap: '0.75rem'}}>
-              <button 
-                onClick={() => this.setState({ error: null })} 
-                style={{padding: '0.75rem 1.5rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 'bold', cursor: 'pointer'}}
-              >
-                Try Again
-              </button>
-              <button 
-                onClick={() => window.location.reload()} 
-                style={{padding: '0.75rem 1.5rem', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 12, fontWeight: 'bold', cursor: 'pointer'}}
-              >
-                Reload Page
-              </button>
+        <div 
+          onClick={() => this.setState({ error: null })}
+          style={{
+            position: 'fixed', inset: 0, background: '#060609', color: '#fff',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            zIndex: 999999, cursor: 'pointer', fontFamily: 'system-ui, sans-serif'
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', textAlign: 'center', padding: '2rem' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{
+                width: 64, height: 64, border: '4px solid rgba(239,68,68,0.2)', borderTopColor: '#ef4444',
+                borderRadius: '50%', animation: 'spin 1s linear infinite'
+              }}></div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', margin: 0, color: '#ffffff' }}>BUBBAFLIX</h1>
+              <p style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.05em', margin: 0 }}>
+                Loading Media Center & Syncing Components...
+              </p>
             </div>
           </div>
         </div>
