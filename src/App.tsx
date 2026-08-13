@@ -1288,7 +1288,7 @@ function MainApp() {
                 if (isAutoSkipActive) return null;
 
                 return (
-                  <div className="absolute bottom-28 right-8 z-[140] animate-in fade-in slide-in-from-bottom-4 duration-300">
+                  <div className="absolute bottom-32 right-10 z-[140] animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <button
                       onClick={() => {
                         const targetSeg = activeSkipSegment;
@@ -1302,33 +1302,33 @@ function MainApp() {
                         }
                         applySeek(targetSeg.end, true);
                       }}
-                      className="focusable flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm tracking-wide shadow-2xl backdrop-blur-md border border-white/20 hover:scale-105 transition-all cursor-pointer focus:outline-none focus:ring-4 focus:ring-red-400"
+                      className="focusable flex items-center gap-3 px-8 py-4 sm:px-10 sm:py-4.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-base sm:text-lg tracking-wide shadow-2xl backdrop-blur-md border border-white/20 hover:scale-105 transition-all cursor-pointer focus:outline-none focus:ring-4 focus:ring-red-400"
                     >
-                      <SkipForward className="w-5 h-5" />
+                      <SkipForward className="w-6 h-6 sm:w-7 sm:h-7" />
                       <span>{activeSkipSegment.label}</span>
                     </button>
                   </div>
                 );
               })()}
-              <div className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-4 z-[110] bg-gradient-to-t from-black/90 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
-                <div className="flex items-center gap-6 pointer-events-auto w-full max-w-5xl mx-auto">
+              <div className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-5 z-[110] bg-gradient-to-t from-black/95 via-black/70 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
+                <div className="flex items-center gap-6 pointer-events-auto w-full max-w-6xl mx-auto">
                   {/* 10s and 30s Forward/Reverse Skip Buttons */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <button 
                       onClick={() => handleSeek(-30)}
-                      className="focusable px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer"
+                      className="focusable px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-white/15 hover:bg-white/25 text-white transition-all flex items-center gap-1.5 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer shadow-lg active:scale-95"
                       title="Rewind 30 Seconds (-30s)"
                     >
-                      <RotateCcw className="w-4 h-4" />
-                      <span className="text-xs font-mono font-bold">30s</span>
+                      <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6" />
+                      <span className="text-sm sm:text-base font-mono font-black">30s</span>
                     </button>
                     <button 
                       onClick={() => handleSeek(-10)}
-                      className="focusable px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer"
+                      className="focusable px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-white/15 hover:bg-white/25 text-white transition-all flex items-center gap-1.5 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer shadow-lg active:scale-95"
                       title="Rewind 10 Seconds (-10s)"
                     >
-                      <RotateCcw className="w-4 h-4" />
-                      <span className="text-xs font-mono font-bold">10s</span>
+                      <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6" />
+                      <span className="text-sm sm:text-base font-mono font-black">10s</span>
                     </button>
                     <button 
                       onClick={() => {
@@ -1337,33 +1337,33 @@ function MainApp() {
                           else videoRef.current.play();
                         }
                       }}
-                      className="focusable p-4 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-md transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer mx-1"
+                      className="focusable p-5 sm:p-6 rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition-all transform hover:scale-110 active:scale-95 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer shadow-2xl mx-2"
                       title={isVideoPlaying ? "Pause" : "Play"}
                     >
-                      {isVideoPlaying ? <span className="font-bold text-lg leading-none">||</span> : <Play className="w-6 h-6 fill-current" />}
+                      {isVideoPlaying ? <span className="font-black text-2xl leading-none">||</span> : <Play className="w-7 h-7 sm:w-8 sm:h-8 fill-current" />}
                     </button>
                     <button 
                       onClick={() => handleSeek(10)}
-                      className="focusable px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer"
+                      className="focusable px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-white/15 hover:bg-white/25 text-white transition-all flex items-center gap-1.5 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer shadow-lg active:scale-95"
                       title="Forward 10 Seconds (+10s)"
                     >
-                      <span className="text-xs font-mono font-bold">10s</span>
-                      <RotateCw className="w-4 h-4" />
+                      <span className="text-sm sm:text-base font-mono font-black">10s</span>
+                      <RotateCw className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
                     <button 
                       onClick={() => handleSeek(30)}
-                      className="focusable px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer"
+                      className="focusable px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-white/15 hover:bg-white/25 text-white transition-all flex items-center gap-1.5 focus:outline-none focus:ring-4 focus:ring-white/50 cursor-pointer shadow-lg active:scale-95"
                       title="Forward 30 Seconds (+30s)"
                     >
-                      <span className="text-xs font-mono font-bold">30s</span>
-                      <RotateCw className="w-4 h-4" />
+                      <span className="text-sm sm:text-base font-mono font-black">30s</span>
+                      <RotateCw className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
                   </div>
-                  <div className="text-white text-sm font-mono font-medium drop-shadow-md">
+                  <div className="text-white text-base sm:text-lg font-mono font-bold drop-shadow-md">
                     {formatTime(seekTarget !== null ? seekTarget : streamOffset + currentTime)}
                   </div>
                   <div 
-                    className="flex-1 bg-white/20 h-3 rounded-full overflow-hidden relative shadow-inner cursor-pointer"
+                    className="flex-1 bg-white/20 h-4 sm:h-5 rounded-full overflow-hidden relative shadow-inner cursor-pointer"
                     onClick={(e) => {
                       if (!totalDuration) return;
                       const rect = e.currentTarget.getBoundingClientRect();
@@ -1382,18 +1382,18 @@ function MainApp() {
                       style={{ width: `${totalDuration > 0 ? ((seekTarget !== null ? seekTarget : streamOffset + currentTime) / totalDuration) * 100 : 0}%` }}
                     />
                   </div>
-                  <div className="text-white/80 text-sm font-mono font-medium drop-shadow-md mr-4">
+                  <div className="text-white/80 text-base sm:text-lg font-mono font-bold drop-shadow-md mr-4">
                     {formatTime(totalDuration)}
                   </div>
-                  <div className="flex items-center gap-2 border-l border-white/20 pl-6 relative">
-                    <button onClick={() => { setShowSubtitleMenu(!showSubtitleMenu); setShowAudioMenu(false); }} className={`focusable text-white/70 hover:text-white p-2 rounded-full transition-colors ${showSubtitleMenu ? 'bg-white/20 text-white' : 'hover:bg-white/10'} focus:outline-none focus:ring-4 focus:ring-white/50`} title="Subtitles / CC">
-                      <Subtitles className="w-5 h-5" />
+                  <div className="flex items-center gap-3 border-l border-white/20 pl-6 relative">
+                    <button onClick={() => { setShowSubtitleMenu(!showSubtitleMenu); setShowAudioMenu(false); }} className={`focusable text-white/80 hover:text-white p-3 sm:p-3.5 rounded-full transition-colors ${showSubtitleMenu ? 'bg-white/25 text-white' : 'hover:bg-white/15'} focus:outline-none focus:ring-4 focus:ring-white/50`} title="Subtitles / CC">
+                      <Subtitles className="w-6 h-6 sm:w-7 sm:h-7" />
                     </button>
-                    <button onClick={() => { setShowAudioMenu(!showAudioMenu); setShowSubtitleMenu(false); }} className={`focusable text-white/70 hover:text-white p-2 rounded-full transition-colors ${showAudioMenu ? 'bg-white/20 text-white' : 'hover:bg-white/10'} focus:outline-none focus:ring-4 focus:ring-white/50`} title="Audio Track">
-                      <AudioLines className="w-5 h-5" />
+                    <button onClick={() => { setShowAudioMenu(!showAudioMenu); setShowSubtitleMenu(false); }} className={`focusable text-white/80 hover:text-white p-3 sm:p-3.5 rounded-full transition-colors ${showAudioMenu ? 'bg-white/25 text-white' : 'hover:bg-white/15'} focus:outline-none focus:ring-4 focus:ring-white/50`} title="Audio Track">
+                      <AudioLines className="w-6 h-6 sm:w-7 sm:h-7" />
                     </button>
-                    <button onClick={() => setShowMediaInfo(!showMediaInfo)} className={`focusable text-white/70 hover:text-white p-2 rounded-full transition-colors ${showMediaInfo ? 'bg-white/20 text-white' : 'hover:bg-white/10'} focus:outline-none focus:ring-4 focus:ring-white/50`} title="Media Info (Codec, Bitrate)">
-                      <Info className="w-5 h-5" />
+                    <button onClick={() => setShowMediaInfo(!showMediaInfo)} className={`focusable text-white/80 hover:text-white p-3 sm:p-3.5 rounded-full transition-colors ${showMediaInfo ? 'bg-white/25 text-white' : 'hover:bg-white/15'} focus:outline-none focus:ring-4 focus:ring-white/50`} title="Media Info (Codec, Bitrate)">
+                      <Info className="w-6 h-6 sm:w-7 sm:h-7" />
                     </button>
                     
                     {/* Popover Menus */}
