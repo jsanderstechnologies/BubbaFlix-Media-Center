@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot, Calendar as CalendarIcon, Film, SkipForward, RotateCcw, RotateCw } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot, Calendar as CalendarIcon, Film, SkipForward, RotateCcw, RotateCw, BookMarked } from 'lucide-react';
 import { searchMovies, searchTvSeries, getTrendingMovies, getTrendingTvSeries, getTvSeasonDetails, getCachedImageUrl } from './services/tmdbApi';
 import { collection, query, where, onSnapshot, setDoc, deleteDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
@@ -77,6 +77,10 @@ function MainApp() {
   const [skipSegments, setSkipSegments] = useState<Array<{ type: string; start: number; end: number; label: string }>>([]);
   const [activeSkipSegment, setActiveSkipSegment] = useState<{ type: string; start: number; end: number; label: string } | null>(null);
   const [lastAutoSkippedSeg, setLastAutoSkippedSeg] = useState<string | null>(null);
+
+  const [chapters, setChapters] = useState<Array<{ id: string; title: string; startTime: number; endTime: number }>>([]);
+  const [showChapterMenu, setShowChapterMenu] = useState(false);
+  const [seekHoverInfo, setSeekHoverInfo] = useState<{ x: number; time: number; chapterTitle: string } | null>(null);
 
   const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
   const [isVideoLoaded, setIsVideoLoaded] = useState<boolean>(false);
@@ -982,6 +986,8 @@ function MainApp() {
     setSkipSegments([]);
     setActiveSkipSegment(null);
     setLastAutoSkippedSeg(null);
+    setChapters([]);
+    setShowChapterMenu(false);
 
     const targetMediaId = selectedMovie?.realTmdbId || selectedMovie?.tmdbId || selectedMovie?.id || finalContext?.id;
     const isTv = finalContext?.type === 'tv' || selectedMovie?.type === 'series';
@@ -1009,6 +1015,27 @@ function MainApp() {
         .catch(err => {
           logger.error(`[TIDB Error] Failed to fetch skip segments for TMDB #${targetMediaId}:`, err);
         });
+    }
+
+    // Fetch chapter markers for movies (fire-and-forget)
+    if (targetMediaId && !finalContext?.isLive && (finalContext?.type === 'movie' || selectedMovie?.type === 'movie' || (!isTv && !finalContext?.isLive))) {
+      const chapterTitle = selectedMovie?.title || selectedMovie?.name || finalContext?.title || '';
+      const chapterYear  = selectedMovie?.year || selectedMovie?.releaseDate?.substring(0, 4) || '';
+      const localFilePath = selectedMovie?.filePath || finalContext?.filePath || '';
+      const chapterParams = new URLSearchParams();
+      if (targetMediaId) chapterParams.set('tmdbId', String(targetMediaId));
+      if (chapterTitle)  chapterParams.set('title',  chapterTitle);
+      if (chapterYear)   chapterParams.set('year',   chapterYear);
+      if (localFilePath) chapterParams.set('filePath', localFilePath);
+      fetch(`/api/media/chapters?${chapterParams.toString()}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data?.success && Array.isArray(data.chapters) && data.chapters.length > 0) {
+            setChapters(data.chapters);
+            logger.info(`[Chapters] Loaded ${data.chapters.length} chapter(s) from source: ${data.source}`);
+          }
+        })
+        .catch(() => {});
     }
 
     if (channelLogoUrl) {
@@ -1437,7 +1464,7 @@ function MainApp() {
                     {formatTime(seekTarget !== null ? seekTarget : streamOffset + currentTime)}
                   </div>
                   <div 
-                    className="flex-1 bg-white/20 h-4 sm:h-5 rounded-full overflow-hidden relative shadow-inner cursor-pointer"
+                    className="flex-1 relative cursor-pointer"
                     onClick={(e) => {
                       if (!totalDuration) return;
                       const rect = e.currentTarget.getBoundingClientRect();
@@ -1446,15 +1473,50 @@ function MainApp() {
                       const newTime = percentage * totalDuration;
                       applySeek(newTime);
                     }}
+                    onMouseMove={(e) => {
+                      if (!totalDuration) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const hoverTime = (x / rect.width) * totalDuration;
+                      const hoverChapter = chapters.length > 0
+                        ? [...chapters].reverse().find(ch => hoverTime >= ch.startTime)
+                        : null;
+                      setSeekHoverInfo({ x, time: hoverTime, chapterTitle: hoverChapter?.title || '' });
+                    }}
+                    onMouseLeave={() => setSeekHoverInfo(null)}
                   >
-                    <div 
-                      className="absolute top-0 left-0 bottom-0 bg-white/30 transition-all duration-300 pointer-events-none" 
-                      style={{ width: `${totalDuration > 0 ? ((streamOffset + bufferedSeconds) / totalDuration) * 100 : 0}%` }}
-                    />
-                    <div 
-                      className="absolute top-0 left-0 bottom-0 bg-red-500 transition-all duration-300 pointer-events-none" 
-                      style={{ width: `${totalDuration > 0 ? ((seekTarget !== null ? seekTarget : streamOffset + currentTime) / totalDuration) * 100 : 0}%` }}
-                    />
+                    {/* Chapter hover tooltip – outside overflow-hidden so it isn't clipped */}
+                    {seekHoverInfo && seekHoverInfo.chapterTitle && (
+                      <div
+                        className="absolute bottom-7 bg-black/90 text-white text-xs font-semibold px-2.5 py-1 rounded-lg pointer-events-none whitespace-nowrap shadow-xl border border-white/20 z-30"
+                        style={{ left: `clamp(0px, ${seekHoverInfo.x - 50}px, calc(100% - 110px))` }}
+                      >
+                        {seekHoverInfo.chapterTitle}
+                      </div>
+                    )}
+                    {/* Inner bar — overflow-hidden keeps progress bars clipped */}
+                    <div className="bg-white/20 h-4 sm:h-5 rounded-full overflow-hidden relative shadow-inner">
+                      {/* Buffered indicator */}
+                      <div 
+                        className="absolute top-0 left-0 bottom-0 bg-white/30 transition-all duration-300 pointer-events-none" 
+                        style={{ width: `${totalDuration > 0 ? ((streamOffset + bufferedSeconds) / totalDuration) * 100 : 0}%` }}
+                      />
+                      {/* Playback progress */}
+                      <div 
+                        className="absolute top-0 left-0 bottom-0 bg-red-500 transition-all duration-300 pointer-events-none" 
+                        style={{ width: `${totalDuration > 0 ? ((seekTarget !== null ? seekTarget : streamOffset + currentTime) / totalDuration) * 100 : 0}%` }}
+                      />
+                      {/* Chapter tick marks */}
+                      {chapters.length > 0 && totalDuration > 0 && chapters.map((ch, idx) => (
+                        idx === 0 ? null : (
+                          <div
+                            key={ch.id}
+                            className="absolute top-0 bottom-0 w-[2px] bg-white/60 pointer-events-none z-10"
+                            style={{ left: `${(ch.startTime / totalDuration) * 100}%` }}
+                          />
+                        )
+                      ))}
+                    </div>
                   </div>
                   <div className="text-white/80 text-base sm:text-lg font-mono font-bold drop-shadow-md mr-4">
                     {formatTime(totalDuration)}
@@ -1469,7 +1531,45 @@ function MainApp() {
                     <button onClick={() => setShowMediaInfo(!showMediaInfo)} className={`focusable text-white/80 hover:text-white p-3 sm:p-3.5 rounded-full transition-colors ${showMediaInfo ? 'bg-white/25 text-white' : 'hover:bg-white/15'} focus:outline-none focus:ring-4 focus:ring-white/50`} title="Media Info (Codec, Bitrate)">
                       <Info className="w-6 h-6 sm:w-7 sm:h-7" />
                     </button>
+                    {chapters.length > 0 && (
+                      <button onClick={() => { setShowChapterMenu(!showChapterMenu); setShowSubtitleMenu(false); setShowAudioMenu(false); }} className={`focusable text-white/80 hover:text-white p-3 sm:p-3.5 rounded-full transition-colors ${showChapterMenu ? 'bg-amber-500/30 text-amber-300' : 'hover:bg-white/15'} focus:outline-none focus:ring-4 focus:ring-white/50`} title={`Chapters (${chapters.length})`}>
+                        <BookMarked className="w-6 h-6 sm:w-7 sm:h-7" />
+                      </button>
+                    )}
                     
+                    {/* Chapter Popover Menu */}
+                    {showChapterMenu && chapters.length > 0 && (
+                      <div className="absolute bottom-16 right-0 bg-black/95 border border-amber-500/30 rounded-xl p-4 min-w-72 shadow-2xl flex flex-col gap-1 max-h-80 overflow-y-auto z-[130] backdrop-blur-xl">
+                        <h3 className="text-amber-400/80 font-bold text-xs uppercase tracking-wider border-b border-white/20 pb-2 mb-2 flex items-center gap-2">
+                          <BookMarked className="w-3.5 h-3.5" /> Chapters
+                        </h3>
+                        {chapters.map((ch) => {
+                          const currentPos = streamOffset + currentTime;
+                          const isActive   = currentPos >= ch.startTime && (ch.endTime <= 0 || currentPos < ch.endTime);
+                          return (
+                            <button
+                              key={ch.id}
+                              tabIndex={0}
+                              onClick={() => { applySeek(ch.startTime); setShowChapterMenu(false); }}
+                              className={`focusable text-left text-sm px-3 py-2 rounded-lg transition-all flex items-center justify-between gap-2 ${
+                                isActive
+                                  ? 'bg-amber-500/20 text-amber-200 font-semibold border border-amber-500/40'
+                                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+                              } focus:outline-none focus:ring-2 focus:ring-amber-500`}
+                            >
+                              <span className="truncate">{ch.title}</span>
+                              <span className="text-white/50 text-xs font-mono shrink-0">
+                                {Math.floor(ch.startTime / 3600) > 0
+                                  ? `${Math.floor(ch.startTime / 3600)}:${String(Math.floor((ch.startTime % 3600) / 60)).padStart(2, '0')}:${String(Math.floor(ch.startTime % 60)).padStart(2, '0')}`
+                                  : `${Math.floor(ch.startTime / 60)}:${String(Math.floor(ch.startTime % 60)).padStart(2, '0')}`
+                                }
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
                     {/* Popover Menus */}
                     {(showSubtitleMenu || showAudioMenu) && (
                       <div className="absolute bottom-16 right-0 bg-black/95 border border-white/20 rounded-xl p-4 min-w-64 shadow-2xl flex flex-col gap-2 max-h-64 overflow-y-auto z-[130] backdrop-blur-xl">

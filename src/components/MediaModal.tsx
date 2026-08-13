@@ -166,6 +166,7 @@ export default function MediaModal({
     imdbId?: string | null;
     skipSegments?: any[];
     seasons?: any;
+    chapters?: { id: string; title: string; startTime: number; endTime: number }[];
   } | null>(null);
   const [extraLoading, setExtraLoading] = useState(false);
   const [dynamicLogoUrl, setDynamicLogoUrl] = useState<string>('');
@@ -207,8 +208,11 @@ export default function MediaModal({
     const imdbId = raw.imdbId || null;
     const skipSegments = Array.isArray(raw.skipSegments) ? raw.skipSegments : (raw.skipSegments ? [raw.skipSegments] : []);
     const seasons = raw.seasons || null;
+    const chapters: { id: string; title: string; startTime: number; endTime: number }[] = Array.isArray(raw.chapters)
+      ? raw.chapters.map((ch: any) => ({ id: ch.id || '', title: ch.title || '', startTime: Number(ch.startTime) || 0, endTime: Number(ch.endTime) || 0 }))
+      : [];
 
-    return { directors, writers, producers, releaseDate, cast, genres, tagline, imdbId, skipSegments, seasons };
+    return { directors, writers, producers, releaseDate, cast, genres, tagline, imdbId, skipSegments, seasons, chapters };
   };
 
 
@@ -1908,6 +1912,31 @@ export default function MediaModal({
                               </a>
                             </div>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Chapters List */}
+                    {extraDetails.chapters && extraDetails.chapters.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-white/5">
+                        <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider flex items-center gap-2">
+                          <span>📑</span> Chapters ({extraDetails.chapters.length})
+                        </h4>
+                        <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto pr-1">
+                          {extraDetails.chapters.map((ch, idx) => {
+                            const h = Math.floor(ch.startTime / 3600);
+                            const m = Math.floor((ch.startTime % 3600) / 60);
+                            const s = Math.floor(ch.startTime % 60);
+                            const timeStr = h > 0
+                              ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+                              : `${m}:${String(s).padStart(2, '0')}`;
+                            return (
+                              <div key={ch.id || idx} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
+                                <span className="text-xs text-white/80 truncate">{ch.title}</span>
+                                <span className="text-[10px] font-mono text-white/40 shrink-0 ml-2">{timeStr}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

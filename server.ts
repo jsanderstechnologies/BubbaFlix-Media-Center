@@ -1820,10 +1820,205 @@ Strict Rules:
       mediaCache[cacheKey] = metadata;
       writeJson(MEDIA_METADATA_CACHE_FILE, mediaCache);
 
+      // 4. Fire-and-forget chapter lookup for movies (persists via /api/media/chapters logic inline)
+      if (mediaType === 'movie' && tmdbId && !existing?.chapters) {
+        (async () => {
+          try {
+            const movieTitle = metadata.title || title || '';
+            const movieYear  = metadata.releaseDate ? metadata.releaseDate.substring(0, 4) : '';
+            if (!movieTitle) return;
+            const searchTitle = encodeURIComponent(movieTitle);
+            const chapterDbUrl = `https://chapterdb.plex.tv/chapters/search?title=${searchTitle}${movieYear ? `&year=${movieYear}` : ''}&apiKey=0`;
+            const xmlRes = await axios.get(chapterDbUrl, {
+              timeout: 8000,
+              headers: { 'Accept': 'application/xml, text/xml, */*', 'User-Agent': 'BubbaFlix/1.0 MediaCenter' }
+            }).catch(() => null);
+
+            if (xmlRes?.data && typeof xmlRes.data === 'string') {
+              const xml: string = xmlRes.data;
+              const chapterSetMatch = xml.match(/<chapterSet[\s\S]*?<\/chapterSet>/i);
+              if (chapterSetMatch) {
+                interface PrefetchChapter { id: string; title: string; startTime: number; endTime: number; }
+                const prefetchChapters: PrefetchChapter[] = [];
+                const chapterRegex = /<chapter\s+name="([^"]*)"(?:[^>]*)>\s*<time>([^<]*)<\/time>/gi;
+                let m; let idx = 0;
+                while ((m = chapterRegex.exec(chapterSetMatch[0])) !== null) {
+                  let startTime = 0;
+                  const timeStr = m[2] || '0';
+                  if (timeStr.includes(':')) {
+                    const pts = timeStr.split(':').map(Number);
+                    if (pts.length === 3) startTime = pts[0] * 3600 + pts[1] * 60 + pts[2];
+                    else if (pts.length === 2) startTime = pts[0] * 60 + pts[1];
+                  } else { startTime = parseFloat(timeStr) || 0; }
+                  prefetchChapters.push({ id: `ch-${idx}`, title: m[1] || `Chapter ${idx + 1}`, startTime, endTime: 0 });
+                  idx++;
+                }
+                for (let i = 0; i < prefetchChapters.length - 1; i++) prefetchChapters[i].endTime = prefetchChapters[i + 1].startTime;
+                if (prefetchChapters.length > 0) {
+                  const latestCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+                  if (latestCache[cacheKey]) {
+                    latestCache[cacheKey].chapters = prefetchChapters;
+                    latestCache[cacheKey].chapterSource = 'chapterdb';
+                    latestCache[cacheKey].chaptersAt = new Date().toISOString();
+                    writeJson(MEDIA_METADATA_CACHE_FILE, latestCache);
+                    console.log(`[Media Cache Engine] Prefetched ${prefetchChapters.length} ChapterDB chapter(s) for movie "${movieTitle}"`);
+                  }
+                }
+              }
+            }
+          } catch (_) { /* silent */ }
+        })();
+      }
+
       return res.json({ success: true, cached: false, updated: isUpdated, data: metadata });
     } catch (err: any) {
       console.error('[Media Cache Engine Error]:', err?.message || err);
       return res.status(500).json({ error: err?.message || 'Prefetch error' });
+    }
+  });
+
+  // ─── Chapter Database Endpoint ────────────────────────────────────────────────
+  // Extracts chapters from embedded file metadata (ffprobe) with a fallback to
+  // the Plex ChapterDB legacy archive. Results are persisted to media_cache.json.
+  app.get('/api/media/chapters', async (req, res) => {
+    try {
+      const tmdbId  = String(req.query.tmdbId  || '').trim();
+      const filePath = String(req.query.filePath || '').trim();
+      const title    = String(req.query.title   || '').trim();
+      const year     = String(req.query.year    || '').trim();
+
+      if (!tmdbId && !filePath) {
+        return res.status(400).json({ error: 'tmdbId or filePath required' });
+      }
+
+      const cacheKey  = `movie_${tmdbId || filePath.replace(/[^a-z0-9]/gi, '_')}`;
+      const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+      const existing   = mediaCache[cacheKey];
+
+      // Return cached chapters immediately
+      if (existing?.chapters && Array.isArray(existing.chapters) && existing.chapters.length > 0) {
+        console.log(`[Chapters] Cache hit: returning ${existing.chapters.length} chapter(s) for "${existing.title || title}"`);
+        return res.json({ success: true, cached: true, chapters: existing.chapters, source: existing.chapterSource || 'cache' });
+      }
+
+      // ── Source 1: ffprobe embedded chapters ──────────────────────────────────
+      interface Chapter {
+        id: string;
+        title: string;
+        startTime: number;
+        endTime: number;
+      }
+      let chapters: Chapter[] = [];
+      let chapterSource = 'none';
+
+      if (filePath && fs.existsSync(filePath)) {
+        try {
+          const ffprobeExe = (ffprobePath as any)?.path || ffprobePath;
+          const { stdout } = await execFileAsync(String(ffprobeExe), [
+            '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_chapters',
+            filePath
+          ], { timeout: 10000 });
+
+          const probeData = JSON.parse(stdout || '{}');
+          const rawChapters: any[] = probeData.chapters || [];
+
+          if (rawChapters.length > 0) {
+            chapters = rawChapters.map((ch: any, idx: number) => ({
+              id:        `ch-${idx}`,
+              title:     ch.tags?.title || ch.tags?.TITLE || `Chapter ${idx + 1}`,
+              startTime: parseFloat(ch.start_time || '0'),
+              endTime:   parseFloat(ch.end_time   || '0'),
+            }));
+            chapterSource = 'ffprobe';
+            console.log(`[Chapters] ffprobe extracted ${chapters.length} embedded chapter(s) from "${filePath}"`);
+          }
+        } catch (probeErr: any) {
+          console.warn('[Chapters] ffprobe extraction failed:', probeErr?.message);
+        }
+      }
+
+      // ── Source 2: Plex ChapterDB legacy XML archive ───────────────────────────
+      if (chapters.length === 0 && title) {
+        try {
+          const searchTitle = encodeURIComponent(title);
+          const chapterDbUrl = `https://chapterdb.plex.tv/chapters/search?title=${searchTitle}${year ? `&year=${year}` : ''}&apiKey=0`;
+
+          const xmlRes = await axios.get(chapterDbUrl, {
+            timeout: 8000,
+            headers: {
+              'Accept': 'application/xml, text/xml, */*',
+              'User-Agent': 'BubbaFlix/1.0 MediaCenter'
+            }
+          }).catch(() => null);
+
+          if (xmlRes?.data && typeof xmlRes.data === 'string') {
+            const xml: string = xmlRes.data;
+            // Parse the first <chapterSet> from the XML response
+            const chapterSetMatch = xml.match(/<chapterSet[\s\S]*?<\/chapterSet>/i);
+            if (chapterSetMatch) {
+              const chapterSetXml = chapterSetMatch[0];
+              // Extract all <chapter> elements
+              const chapterRegex = /<chapter\s+name="([^"]*)"(?:[^>]*)>\s*<time>([^<]*)<\/time>/gi;
+              let match;
+              let idx = 0;
+              while ((match = chapterRegex.exec(chapterSetXml)) !== null) {
+                const chTitle = match[1] || `Chapter ${idx + 1}`;
+                const timeStr = match[2] || '0';
+                // Time is in HH:MM:SS.mmm format or seconds
+                let startTime = 0;
+                if (timeStr.includes(':')) {
+                  const parts = timeStr.split(':').map(Number);
+                  if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];
+                  else if (parts.length === 2) startTime = parts[0] * 60 + parts[1];
+                } else {
+                  startTime = parseFloat(timeStr) || 0;
+                }
+                chapters.push({ id: `ch-${idx}`, title: chTitle, startTime, endTime: 0 });
+                idx++;
+              }
+
+              // Calculate endTime from next chapter's startTime
+              for (let i = 0; i < chapters.length - 1; i++) {
+                chapters[i].endTime = chapters[i + 1].startTime;
+              }
+
+              if (chapters.length > 0) {
+                chapterSource = 'chapterdb';
+                console.log(`[Chapters] Plex ChapterDB returned ${chapters.length} chapter(s) for "${title}"`);
+              }
+            }
+          }
+        } catch (chapterDbErr: any) {
+          console.warn('[Chapters] Plex ChapterDB lookup failed:', chapterDbErr?.message);
+        }
+      }
+
+      // ── Persist to media_cache.json ───────────────────────────────────────────
+      if (chapters.length > 0 && tmdbId) {
+        try {
+          const freshCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+          if (!freshCache[cacheKey]) freshCache[cacheKey] = {};
+          freshCache[cacheKey].chapters      = chapters;
+          freshCache[cacheKey].chapterSource = chapterSource;
+          freshCache[cacheKey].chaptersAt    = new Date().toISOString();
+          writeJson(MEDIA_METADATA_CACHE_FILE, freshCache);
+        } catch (writeErr: any) {
+          console.warn('[Chapters] Failed to persist to cache:', writeErr?.message);
+        }
+      }
+
+      return res.json({
+        success: true,
+        cached: false,
+        chapters,
+        source: chapterSource
+      });
+
+    } catch (err: any) {
+      console.error('[Chapters Error]:', err?.message || err);
+      return res.status(500).json({ error: err?.message || 'Chapter lookup failed', chapters: [] });
     }
   });
 
