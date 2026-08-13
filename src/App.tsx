@@ -695,7 +695,13 @@ function MainApp() {
     const currentSec = streamOffset + currentTimeInVideo;
     if (skipSegments.length > 0) {
       const activeSeg = skipSegments.find(s => currentSec >= s.start && currentSec < s.end);
-      setActiveSkipSegment(activeSeg || null);
+      setActiveSkipSegment(prev => {
+        if (!activeSeg && !prev) return null;
+        if (activeSeg && prev && prev.start === activeSeg.start && prev.end === activeSeg.end && prev.type === activeSeg.type) {
+          return prev;
+        }
+        return activeSeg || null;
+      });
 
       if (activeSeg) {
         const segId = `${activeSeg.type}_${activeSeg.start}_${activeSeg.end}`;
