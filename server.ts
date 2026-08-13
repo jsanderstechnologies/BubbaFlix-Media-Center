@@ -3052,13 +3052,11 @@ app.get('/api/youtube/search', async (req, res) => {
       } catch (e) {}
     }
 
-    // Custom Android TV Browser & Native Hardware Player Direct Play Bypass Check
-    const userAgent = req.headers['user-agent'] || '';
-    const forceDirectPlay = req.query.direct === 'true' || req.query.direct === '1' || req.query.directPlay === 'true' || req.headers['x-native-player'] === '1';
-    const isAndroidTVDevice = /AndroidTV|Android TV|ExoPlayer|BubbaFlixTV|CustomTV|TVBrowser|SmartTV/i.test(userAgent);
+    // Native Hardware Player (MPV) Direct Play Bypass Check
+    const forceDirectPlay = req.query.forceDirect === 'true' || req.headers['x-native-player'] === '1';
 
-    if ((forceDirectPlay && (isAndroidTVDevice || req.headers['x-native-player'] === '1' || req.query.forceDirect === 'true')) || isAndroidTVDevice) {
-      console.log(`[Stream Dispatcher] Detected Custom Android TV Browser / Native Hardware Player (UA: "${userAgent}"). Direct Play Pass-Through active (0% Transcode CPU).`);
+    if (forceDirectPlay) {
+      console.log(`[Stream Dispatcher] Native Hardware MPV Player active. Direct Play Pass-Through active.`);
       if (isLocalFile && localFilePath) {
         return res.redirect(302, `/api/local-media/stream?path=${encodeURIComponent(localFilePath)}`);
       }
@@ -3074,13 +3072,14 @@ app.get('/api/youtube/search', async (req, res) => {
     const vaapiDev = getVaapiDevice();
     const useVaapi = (bestEncoder === 'h264_vaapi') && !!vaapiDev;
 
-    const args = ['-threads', '0'];
+    // Fast probing & multi-thread latency reduction
+    const args = ['-probesize', '5000000', '-analyzeduration', '5000000', '-threads', '0'];
     if (useVaapi) {
       args.push('-vaapi_device', vaapiDev);
     }
 
     if (!isLive && startOffset && !isNaN(parseFloat(startOffset))) {
-      args.push('-noaccurate_seek', '-ss', startOffset);
+      args.push('-ss', startOffset);
     }
     
     if (isLive) {
@@ -3095,8 +3094,6 @@ app.get('/api/youtube/search', async (req, res) => {
         '-i', resolvedUrl
       );
     }
-
-
 
     if (isLive) {
       // Allow FFmpeg to auto-map video and audio streams for IPTV playlists
@@ -3132,8 +3129,6 @@ app.get('/api/youtube/search', async (req, res) => {
       isHevc = codecCache.get(targetUrl) as boolean;
     }
 
-
-
     if (isHevc) {
       if (useVaapi) {
         console.log(`[FFmpeg-Proxy] HEVC/10-bit stream detected. Transcoding using Intel VAAPI hardware acceleration (${vaapiDev}).`);
@@ -3142,31 +3137,33 @@ app.get('/api/youtube/search', async (req, res) => {
           '-c:v', 'h264_vaapi',
           '-b:v', '5M',
           '-maxrate', '8M',
-          '-bufsize', '10M'
+          '-bufsize', '10M',
+          '-g', '60', '-keyint_min', '30'
         );
       } else if (bestEncoder !== 'libx264') {
         console.log(`[FFmpeg-Proxy] HEVC/10-bit stream detected. Transcoding to 1080p H.264 using ${bestEncoder} hardware acceleration.`);
         args.push(
           '-c:v', bestEncoder,
-          '-preset', 'fast',
+          '-preset', 'ultrafast',
           '-b:v', '5M',
-          '-vf', 'scale=-2:1080,format=yuv420p'
+          '-vf', 'scale=-2:1080,format=yuv420p',
+          '-g', '60', '-keyint_min', '30'
         );
       } else {
         console.log('[FFmpeg-Proxy] HEVC/10-bit stream detected. Transcoding to 1080p H.264 for browser compatibility (Software).');
         args.push(
           '-c:v', 'libx264', 
           '-preset', 'ultrafast', 
-          '-crf', '26', 
+          '-tune', 'zerolatency',
+          '-crf', '25', 
           '-pix_fmt', 'yuv420p',
-          '-vf', 'scale=-2:1080'
+          '-vf', 'scale=-2:1080',
+          '-g', '60', '-keyint_min', '30'
         );
       }
     } else {
       args.push('-c:v', 'copy');
     }
-
-
 
     const audioLeveling = req.query.audioLeveling === 'true';
     if (audioLeveling && !isLive) {
@@ -3181,7 +3178,8 @@ app.get('/api/youtube/search', async (req, res) => {
 
     args.push(
       '-f', 'mp4',
-      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+      '-movflags', 'frag_keyframe+empty_moov+default_base_moof+faststart',
+      '-flush_packets', '1',
       '-bufsize', bufsize,
       '-max_muxing_queue_size', '1024',
       'pipe:1'

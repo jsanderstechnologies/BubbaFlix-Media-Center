@@ -690,13 +690,23 @@ function MainApp() {
     setSeekTarget(newTime);
     if (seekTimeoutRef.current) clearTimeout(seekTimeoutRef.current);
     
+    // Instant HTML5 native seek if within current video element stream duration
+    const targetVideoTime = newTime - streamOffset;
+    if (videoRef.current && targetVideoTime >= 0 && isFinite(videoRef.current.duration) && videoRef.current.duration > 0 && targetVideoTime <= videoRef.current.duration) {
+      try {
+        videoRef.current.currentTime = targetVideoTime;
+        setSeekTarget(null);
+        return;
+      } catch (e) {}
+    }
+
     seekTimeoutRef.current = setTimeout(() => {
       setStreamOffset(Math.floor(newTime));
       setCurrentTime(0);
       setBufferedSeconds(0);
       setSeekTarget(null);
       setPlayerStatus('BUFFERING...');
-    }, immediate ? 50 : 500);
+    }, immediate ? 50 : 300);
   };
 
   const handleSeek = (secondsToAdd: number) => {
