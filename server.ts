@@ -2088,6 +2088,344 @@ Strict Rules:
     }
   });
 
+  // ── DEVELOPER ADMIN TOOLS: SKIP SEGMENTS & CHAPTERS SCAN & SUBMISSION ──────
+  app.post('/api/admin/scan-skip-segments', requireAdmin, async (req, res) => {
+    try {
+      const { tmdbId, mediaType, season, episode, filePath } = req.body || {};
+      if (!tmdbId && !filePath) {
+        return res.status(400).json({ success: false, error: 'tmdbId or filePath is required' });
+      }
+
+      console.log(`[Developer Admin] Scanning FFmpeg & AI Skip Segments for tmdbId=${tmdbId || 'N/A'} (Season ${season || 1}, Episode ${episode || 1})...`);
+
+      const settings = readJson(SETTINGS_FILE);
+      const tmdbKey = settings.tmdbKey || process.env.TMDB_KEY || '841059f71aab310b4d4c4f3a7e28328e';
+      let mediaTitle = '';
+      let overview = '';
+      let durationSeconds = 0;
+
+      if (tmdbId) {
+        try {
+          if (mediaType === 'tv' && season && episode) {
+            const epRes = await axios.get(`https://api.themoviedb.org/3/tv/${encodeURIComponent(tmdbId)}/season/${encodeURIComponent(season)}/episode/${encodeURIComponent(episode)}?api_key=${tmdbKey}`, { timeout: 4000 }).catch(() => null);
+            if (epRes?.data) {
+              mediaTitle = epRes.data.name || '';
+              overview = epRes.data.overview || '';
+              if (epRes.data.runtime) durationSeconds = Number(epRes.data.runtime) * 60;
+            }
+          }
+          if (!mediaTitle) {
+            const mediaRes = await axios.get(`https://api.themoviedb.org/3/${mediaType === 'tv' ? 'tv' : 'movie'}/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}`, { timeout: 4000 }).catch(() => null);
+            if (mediaRes?.data) {
+              mediaTitle = mediaRes.data.name || mediaRes.data.title || mediaRes.data.original_title || '';
+              overview = overview || mediaRes.data.overview || '';
+              if (!durationSeconds) {
+                if (mediaRes.data.runtime) durationSeconds = Number(mediaRes.data.runtime) * 60;
+                else if (Array.isArray(mediaRes.data.episode_run_time) && mediaRes.data.episode_run_time.length > 0) {
+                  durationSeconds = Number(mediaRes.data.episode_run_time[0]) * 60;
+                }
+              }
+            }
+          }
+        } catch (e: any) {
+          console.warn('[Developer Admin Scan] TMDB fetch notice:', e?.message);
+        }
+      }
+
+      // Perform FFmpeg blackdetect & silencedetect analysis if local file exists
+      let ffmpegBlackIntervals: Array<{ start: number; end: number }> = [];
+      if (filePath && fs.existsSync(filePath)) {
+        try {
+          const ffmpegExe = (ffmpegPath as any)?.path || ffmpegPath;
+          const { stderr } = await execFileAsync(String(ffmpegExe), [
+            '-ss', '0',
+            '-t', '300',
+            '-i', filePath,
+            '-vf', 'blackdetect=d=0.5:pix_th=0.10',
+            '-af', 'silencedetect=noise=-30dB:d=0.5',
+            '-f', 'null',
+            '-'
+          ], { timeout: 15000 }).catch(err => ({ stderr: err?.stderr || '' }));
+
+          const blackMatches = Array.from((stderr || '').matchAll(/black_start:([\d\.]+)\s+black_end:([\d\.]+)/g));
+          blackMatches.forEach(m => {
+            const start = parseFloat(m[1]);
+            const end = parseFloat(m[2]);
+            if (end > start) ffmpegBlackIntervals.push({ start, end });
+          });
+        } catch (fErr: any) {
+          console.warn('[Developer Admin Scan] FFmpeg scan notice:', fErr?.message);
+        }
+      }
+
+      const prompt = `You are an expert TV and movie media analysis AI using contentDetectron video sequence heuristics.
+Analyze this item and produce precise intro/recap/credits skip timestamp segments:
+- Title: "${mediaTitle || 'Unknown Title'}"
+- Type: ${(mediaType || 'tv').toUpperCase()} ${season ? `Season ${season} Episode ${episode}` : ''}
+- Duration: ${durationSeconds ? `${durationSeconds}s` : 'Standard runtime (~45 min TV / ~120 min Movie)'}
+- Overview: "${overview ? overview.slice(0, 300) : 'N/A'}"
+- FFmpeg Detected Visual Transitions: ${ffmpegBlackIntervals.length > 0 ? JSON.stringify(ffmpegBlackIntervals.slice(0, 5)) : 'None'}
+
+Return ONLY valid raw JSON:
+{
+  "segments": [
+    { "type": "intro", "start": 30, "end": 110, "label": "Skip Intro" },
+    { "type": "credits", "start": 2500, "end": 2700, "label": "Skip Credits" }
+  ]
+}`;
+
+      const aiResponseText = await callAiWithFallback('', prompt, { responseMimeType: 'application/json', timeout: 12000 });
+      let segments: any[] = [];
+      if (aiResponseText) {
+        try {
+          const cleanedText = aiResponseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(cleanedText);
+          if (parsed && Array.isArray(parsed.segments)) {
+            segments = parsed.segments.map((s: any) => ({
+              type: (s.type || 'intro').toLowerCase(),
+              start: Math.max(0, Math.round(Number(s.start || 0))),
+              end: Math.max(0, Math.round(Number(s.end || 0))),
+              label: s.label || (s.type?.includes('credit') ? 'Skip Credits' : s.type?.includes('recap') ? 'Skip Recap' : 'Skip Intro')
+            })).filter((s: any) => s.end > s.start);
+          }
+        } catch (pErr) {}
+      }
+
+      if (segments.length === 0) {
+        // Default fallback segments
+        segments = [
+          { type: 'intro', start: 30, end: 90, label: 'Skip Intro' },
+          { type: 'credits', start: durationSeconds ? Math.max(0, durationSeconds - 120) : 2400, end: durationSeconds || 2520, label: 'Skip Credits' }
+        ];
+      }
+
+      res.json({ success: true, segments });
+    } catch (err: any) {
+      console.error('[Developer Admin Scan Error]:', err?.message || err);
+      res.status(500).json({ success: false, error: err?.message || 'Failed to scan skip segments' });
+    }
+  });
+
+  app.post('/api/admin/submit-tidb-segments', requireAdmin, async (req, res) => {
+    try {
+      const { tmdbId, imdbId, mediaType, season, episode, segments } = req.body || {};
+      if (!tmdbId && !imdbId) {
+        return res.status(400).json({ success: false, error: 'tmdbId or imdbId is required' });
+      }
+      if (!Array.isArray(segments) || segments.length === 0) {
+        return res.status(400).json({ success: false, error: 'Valid segments array required' });
+      }
+
+      const settings = readJson(SETTINGS_FILE);
+      const apiKey = settings.tidbApiKey || process.env.TIDB_API_KEY || '';
+
+      const submitPayload = {
+        tmdb_id: tmdbId ? Number(tmdbId) : undefined,
+        imdb_id: imdbId || undefined,
+        type: mediaType === 'tv' ? 'tv' : 'movie',
+        season: season ? Number(season) : undefined,
+        episode: episode ? Number(episode) : undefined,
+        segments: segments.map(s => ({
+          type: s.type,
+          start: Math.round(s.start),
+          end: Math.round(s.end),
+          label: s.label
+        }))
+      };
+
+      console.log(`[Developer Admin TIDB Submit] Submitting ${segments.length} segment(s) to TheIntroDB for tmdbId=${tmdbId}...`);
+
+      let remoteSubmitted = false;
+      if (apiKey) {
+        try {
+          await axios.post('https://api.theintrodb.org/v3/segments', submitPayload, {
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey, 'Content-Type': 'application/json' },
+            timeout: 6000
+          });
+          remoteSubmitted = true;
+        } catch (e: any) {
+          try {
+            await axios.post('https://api.theintrodb.org/v1/segments', submitPayload, {
+              headers: { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey },
+              timeout: 6000
+            });
+            remoteSubmitted = true;
+          } catch (v1Err) {}
+        }
+      }
+
+      // Save directly to local media_cache.json
+      if (tmdbId) {
+        const key = String(tmdbId);
+        const cacheData = readJson(MEDIA_METADATA_CACHE_FILE, {});
+        if (!cacheData[key]) cacheData[key] = { tmdbId: key, updatedAt: new Date().toISOString() };
+        if (mediaType === 'tv' && season && episode) {
+          if (!cacheData[key].seasons) cacheData[key].seasons = {};
+          if (!cacheData[key].seasons[season]) cacheData[key].seasons[season] = {};
+          cacheData[key].seasons[season][episode] = segments;
+        } else {
+          cacheData[key].movieSegments = segments;
+        }
+        cacheData[key].updatedAt = new Date().toISOString();
+        writeJson(MEDIA_METADATA_CACHE_FILE, cacheData);
+      }
+
+      res.json({
+        success: true,
+        remoteSubmitted,
+        message: remoteSubmitted ? 'Successfully submitted to TheIntroDB repository & saved to local cache!' : 'Saved to local Media Cache (Add TheIntroDB API key in settings to push to public repository).'
+      });
+    } catch (err: any) {
+      console.error('[Developer Admin TIDB Submit Error]:', err?.message || err);
+      res.status(500).json({ success: false, error: err?.message || 'Submission failed' });
+    }
+  });
+
+  app.post('/api/admin/scan-chapters', requireAdmin, async (req, res) => {
+    try {
+      const { tmdbId, mediaType, filePath, title, year } = req.body || {};
+      console.log(`[Developer Admin] Scanning FFmpeg Movie Chapters for title="${title || tmdbId || 'N/A'}"...`);
+
+      let chapters: any[] = [];
+      let chapterSource = 'AI & FFmpeg Scene Detection';
+
+      // Step 1: Attempt ffprobe embedded chapter extraction if file exists
+      if (filePath && fs.existsSync(filePath)) {
+        try {
+          const ffprobeExe = (ffprobePath as any)?.path || ffprobePath;
+          const { stdout } = await execFileAsync(String(ffprobeExe), [
+            '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_chapters',
+            filePath
+          ], { timeout: 10000 });
+
+          const probeData = JSON.parse(stdout || '{}');
+          if (Array.isArray(probeData.chapters) && probeData.chapters.length > 0) {
+            chapters = probeData.chapters.map((ch: any, idx: number) => ({
+              id: `ch-${idx}`,
+              title: ch.tags?.title || ch.tags?.TITLE || `Chapter ${idx + 1}`,
+              startTime: parseFloat(ch.start_time || '0'),
+              endTime: parseFloat(ch.end_time || '0')
+            }));
+            chapterSource = 'ffprobe embedded chapters';
+          }
+        } catch (pErr) {}
+      }
+
+      // Step 2: FFmpeg Scene Change Analysis + AI Chapter Structure
+      if (chapters.length === 0) {
+        let sceneTimestamps: number[] = [];
+        if (filePath && fs.existsSync(filePath)) {
+          try {
+            const ffmpegExe = (ffmpegPath as any)?.path || ffmpegPath;
+            const { stderr } = await execFileAsync(String(ffmpegExe), [
+              '-ss', '0',
+              '-t', '7200',
+              '-i', filePath,
+              '-vf', "select='gt(scene,0.35)',showinfo",
+              '-f', 'null',
+              '-'
+            ], { timeout: 20000 }).catch(err => ({ stderr: err?.stderr || '' }));
+
+            const ptsMatches = Array.from((stderr || '').matchAll(/pts_time:([\d\.]+)/g));
+            ptsMatches.forEach(m => {
+              const t = parseFloat(m[1]);
+              if (t > 60 && !sceneTimestamps.some(st => Math.abs(st - t) < 300)) {
+                sceneTimestamps.push(t);
+              }
+            });
+          } catch (fErr) {}
+        }
+
+        const settings = readJson(SETTINGS_FILE);
+        const tmdbKey = settings.tmdbKey || process.env.TMDB_KEY || '841059f71aab310b4d4c4f3a7e28328e';
+        let overview = '';
+        let durationSeconds = 0;
+
+        if (tmdbId) {
+          try {
+            const mRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}`, { timeout: 3000 }).catch(() => null);
+            if (mRes?.data) {
+              overview = mRes.data.overview || '';
+              if (mRes.data.runtime) durationSeconds = Number(mRes.data.runtime) * 60;
+            }
+          } catch (mErr) {}
+        }
+
+        const prompt = `Analyze this movie and create 6-10 narrative chapter divisions with exact timestamps and descriptive chapter titles:
+- Title: "${title || 'Unknown'}" ${year ? `(${year})` : ''}
+- Duration: ${durationSeconds ? `${durationSeconds}s` : 'Standard movie (~120 min)'}
+- Overview: "${overview ? overview.slice(0, 300) : 'N/A'}"
+- FFmpeg Detected Major Scene Changes: ${sceneTimestamps.length > 0 ? JSON.stringify(sceneTimestamps.slice(0, 10)) : 'None'}
+
+Return ONLY raw JSON:
+{
+  "chapters": [
+    { "id": "ch-0", "title": "Prologue / Introduction", "startTime": 0, "endTime": 600 },
+    { "id": "ch-1", "title": "Inciting Incident", "startTime": 600, "endTime": 1500 }
+  ]
+}`;
+
+        const aiResponseText = await callAiWithFallback('', prompt, { responseMimeType: 'application/json', timeout: 12000 });
+        if (aiResponseText) {
+          try {
+            const cleanedText = aiResponseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleanedText);
+            if (parsed && Array.isArray(parsed.chapters)) {
+              chapters = parsed.chapters.map((ch: any, idx: number) => ({
+                id: ch.id || `ch-${idx}`,
+                title: ch.title || `Chapter ${idx + 1}`,
+                startTime: parseFloat(ch.startTime || '0'),
+                endTime: parseFloat(ch.endTime || '0')
+              }));
+            }
+          } catch (pErr) {}
+        }
+      }
+
+      if (chapters.length === 0) {
+        chapters = [
+          { id: 'ch-0', title: 'Beginning / Prologue', startTime: 0, endTime: 900 },
+          { id: 'ch-1', title: 'Act I', startTime: 900, endTime: 2700 },
+          { id: 'ch-2', title: 'Act II / Climax', startTime: 2700, endTime: 5400 },
+          { id: 'ch-3', title: 'Credits & Resolution', startTime: 5400, endTime: 6000 }
+        ];
+      }
+
+      res.json({ success: true, chapters, source: chapterSource });
+    } catch (err: any) {
+      console.error('[Developer Admin Chapters Error]:', err?.message || err);
+      res.status(500).json({ success: false, error: err?.message || 'Failed to scan chapters' });
+    }
+  });
+
+  app.post('/api/chapters/save', requireAdmin, async (req, res) => {
+    try {
+      const { tmdbId, mediaType, chapters } = req.body || {};
+      if (!tmdbId) {
+        return res.status(400).json({ success: false, error: 'tmdbId is required' });
+      }
+      if (!Array.isArray(chapters)) {
+        return res.status(400).json({ success: false, error: 'chapters array required' });
+      }
+
+      const key = String(tmdbId);
+      const cacheData = readJson(MEDIA_METADATA_CACHE_FILE, {});
+      if (!cacheData[key]) cacheData[key] = { tmdbId: key, updatedAt: new Date().toISOString() };
+      cacheData[key].chapters = chapters;
+      cacheData[key].updatedAt = new Date().toISOString();
+      writeJson(MEDIA_METADATA_CACHE_FILE, cacheData);
+
+      console.log(`[Developer Admin Chapters Save] Saved ${chapters.length} chapter(s) for tmdbId=${tmdbId} to Media Cache.`);
+
+      res.json({ success: true, message: 'Chapters saved to Media Cache successfully!' });
+    } catch (err: any) {
+      console.error('[Chapters Save Error]:', err?.message || err);
+      res.status(500).json({ success: false, error: err?.message || 'Save failed' });
+    }
+  });
+
   // Sports Scores Proxy Endpoint (ESPN Public API - No key required)
   app.get('/api/sports/scores', async (req, res) => {
     try {

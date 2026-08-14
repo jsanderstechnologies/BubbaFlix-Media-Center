@@ -174,6 +174,36 @@ export default function MediaModal({
   const [savedProgress, setSavedProgress] = useState<any>(null);
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
 
+  // Developer Admin Tools States & Handlers
+  const [devSkipSegments, setDevSkipSegments] = useState<Array<{ type: string; start: number; end: number; label: string }>>([]);
+  const [devScanningSkip, setDevScanningSkip] = useState(false);
+  const [devSubmittingTidb, setDevSubmittingTidb] = useState(false);
+
+  const [devChapters, setDevChapters] = useState<Array<{ id: string; title: string; startTime: number; endTime: number }>>([]);
+  const [devScanningChapters, setDevScanningChapters] = useState(false);
+  const [devSavingChapters, setDevSavingChapters] = useState(false);
+
+  const updateDevSkipSegment = (index: number, patch: Partial<{ type: string; start: number; end: number; label: string }>) => {
+    setDevSkipSegments(prev => prev.map((s, i) => i === index ? { ...s, ...patch } : s));
+  };
+  const addDevSkipSegment = () => {
+    setDevSkipSegments(prev => [...prev, { type: 'intro', start: 0, end: 90, label: 'Skip Intro' }]);
+  };
+  const removeDevSkipSegment = (index: number) => {
+    setDevSkipSegments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateDevChapter = (index: number, patch: Partial<{ id: string; title: string; startTime: number; endTime: number }>) => {
+    setDevChapters(prev => prev.map((c, i) => i === index ? { ...c, ...patch } : c));
+  };
+  const addDevChapter = () => {
+    const nextStart = devChapters.length > 0 ? (devChapters[devChapters.length - 1].startTime + 600) : 0;
+    setDevChapters(prev => [...prev, { id: `ch-${prev.length}`, title: `Chapter ${prev.length + 1}`, startTime: nextStart, endTime: nextStart + 600 }]);
+  };
+  const removeDevChapter = (index: number) => {
+    setDevChapters(prev => prev.filter((_, i) => i !== index));
+  };
+
   const sanitizeExtraDetails = (raw: any, fallbackYear?: string | number) => {
     if (!raw) return null;
     const directors = Array.isArray(raw.directors)
@@ -770,6 +800,149 @@ export default function MediaModal({
       segs = (extraDetails as any)?.skipSegments || [];
     }
     return Array.isArray(segs) ? segs : [];
+  };
+
+  useEffect(() => {
+    const activeSegs = getActiveSkipSegments();
+    if (activeSegs && activeSegs.length > 0) {
+      setDevSkipSegments(activeSegs.map(s => ({
+        type: s.type || 'intro',
+        start: s.start || 0,
+        end: s.end || 0,
+        label: s.label || 'Skip'
+      })));
+    } else {
+      setDevSkipSegments([]);
+    }
+
+    if (extraDetails?.chapters && Array.isArray(extraDetails.chapters) && extraDetails.chapters.length > 0) {
+      setDevChapters(extraDetails.chapters);
+    } else {
+      setDevChapters([]);
+    }
+  }, [extraDetails, selectedSeason, selectedEpisode]);
+
+  const handleDevScanSkipSegments = async () => {
+    try {
+      setDevScanningSkip(true);
+      const res = await fetch('/api/admin/scan-skip-segments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tmdbId: movie.id,
+          mediaType: isSeries ? 'tv' : 'movie',
+          season: selectedSeason,
+          episode: selectedEpisode,
+          filePath: movie.filePath
+        })
+      }).then(r => r.json());
+
+      if (res?.success && Array.isArray(res.segments)) {
+        setDevSkipSegments(res.segments);
+      } else {
+        alert(res?.error || 'Failed to scan skip segments.');
+      }
+    } catch (e: any) {
+      console.error('Scan skip segments error:', e);
+      alert('Error scanning skip segments.');
+    } finally {
+      setDevScanningSkip(false);
+    }
+  };
+
+  const handleDevSubmitTidb = async () => {
+    try {
+      setDevSubmittingTidb(true);
+      const res = await fetch('/api/admin/submit-tidb-segments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tmdbId: movie.id,
+          imdbId: extraDetails?.imdbId,
+          mediaType: isSeries ? 'tv' : 'movie',
+          season: selectedSeason,
+          episode: selectedEpisode,
+          segments: devSkipSegments
+        })
+      }).then(r => r.json());
+
+      if (res?.success) {
+        alert(res.message || 'Successfully submitted segments!');
+      } else {
+        alert(res?.error || 'Failed to submit segments to TIDB.');
+      }
+    } catch (e: any) {
+      console.error('Submit TIDB error:', e);
+      alert('Error submitting segments to TIDB.');
+    } finally {
+      setDevSubmittingTidb(false);
+    }
+  };
+
+  const handleDevScanChapters = async () => {
+    try {
+      setDevScanningChapters(true);
+      const res = await fetch('/api/admin/scan-chapters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tmdbId: movie.id,
+          mediaType: isSeries ? 'tv' : 'movie',
+          filePath: movie.filePath,
+          title: movie.title || movie.name,
+          year: movie.year
+        })
+      }).then(r => r.json());
+
+      if (res?.success && Array.isArray(res.chapters)) {
+        setDevChapters(res.chapters);
+      } else {
+        alert(res?.error || 'Failed to scan chapters.');
+      }
+    } catch (e: any) {
+      console.error('Scan chapters error:', e);
+      alert('Error scanning chapters.');
+    } finally {
+      setDevScanningChapters(false);
+    }
+  };
+
+  const handleDevSaveChapters = async () => {
+    try {
+      setDevSavingChapters(true);
+      const res = await fetch('/api/chapters/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tmdbId: movie.id,
+          mediaType: isSeries ? 'tv' : 'movie',
+          chapters: devChapters
+        })
+      }).then(r => r.json());
+
+      if (res?.success) {
+        alert(res.message || 'Chapters saved to Media Cache!');
+      } else {
+        alert(res?.error || 'Failed to save chapters.');
+      }
+    } catch (e: any) {
+      console.error('Save chapters error:', e);
+      alert('Error saving chapters.');
+    } finally {
+      setDevSavingChapters(false);
+    }
+  };
+
+  const handleTestPlayDevTimestamp = (startTime: number) => {
+    const streamToPlay = (streams && streams.length > 0) ? (streams[0]?.url || streams[0]?.magnet) : (movie?.filePath || movie?.url);
+    if (!streamToPlay) {
+      alert('Please search or load streams first to test play.');
+      return;
+    }
+    const posterOrLogo = movie?.poster || movie?.backupPoster || undefined;
+    const isHevcMatch = /hevc|x265|h265|10bit|2160p|4k|hdr|remux/i.test(streamToPlay || movie?.filePath || movie?.title || movie?.name || '');
+    const context = { type: isSeries ? 'tv' : 'movie', id: movie.id, season: selectedSeason, episode: selectedEpisode, isHevc: isHevcMatch };
+    onPlay(streamToPlay, posterOrLogo, startTime, context);
   };
 
   const handleOpenFixMatch = () => {
@@ -2130,9 +2303,234 @@ export default function MediaModal({
                                 </div>
                             )}
                         </div>
-                    </div>
-                  );
-                })()}
+
+                        {/* Developer Admin Tools Panel (Visible strictly when Admin & Developer Admin Mode is ON) */}
+                        {user?.role === 'admin' && (userSettings?.developerAdminMode === true || systemSettings?.developerAdminMode === true) && (
+                          <div className="mt-8 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-5 shadow-xl space-y-6">
+                            {/* Header */}
+                            <div className="flex items-center justify-between pb-3 border-b border-indigo-500/20">
+                              <div className="flex items-center gap-2.5">
+                                <div className="p-2 rounded-xl bg-indigo-600/30 border border-indigo-400/40 text-indigo-300">
+                                  <Zap className="w-5 h-5 fill-indigo-400/20" />
+                                </div>
+                                <div>
+                                  <h3 className="text-base font-bold text-white uppercase tracking-wider font-mono">⚡ Developer Admin Tools</h3>
+                                  <p className="text-xs text-indigo-300/70 font-mono">FFmpeg & AI Skip Timestamps, TIDB Submission & Chapter Editor</p>
+                                </div>
+                              </div>
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono">
+                                Admin Only
+                              </span>
+                            </div>
+
+                            {/* Section 1: Skip Segments Editor & TIDB Submission */}
+                            <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                                    <Zap className="w-4 h-4 text-amber-400" /> Intro / Credit Skip Segments
+                                  </h4>
+                                  <p className="text-[11px] text-white/50 font-mono">FFmpeg visual/silence scan + AI sequence detection</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={devScanningSkip}
+                                    onClick={handleDevScanSkipSegments}
+                                    className="focusable px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                                  >
+                                    {devScanningSkip ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                    Scan (FFmpeg + AI)
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Skip Segments List / Editor */}
+                              <div className="space-y-2">
+                                {devSkipSegments.length === 0 ? (
+                                  <div className="text-xs text-white/40 italic py-3 text-center bg-white/[0.02] rounded-lg border border-white/5 font-mono">
+                                    No active skip segments. Click "Scan (FFmpeg + AI)" or add one manually below.
+                                  </div>
+                                ) : (
+                                  devSkipSegments.map((seg, idx) => (
+                                    <div key={idx} className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-white/10 p-2.5 rounded-lg text-xs font-mono">
+                                      <select
+                                        value={seg.type || 'intro'}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          const labelMap: Record<string, string> = { intro: 'Skip Intro', recap: 'Skip Recap', credits: 'Skip Credits' };
+                                          updateDevSkipSegment(idx, { type: val, label: labelMap[val] || 'Skip' });
+                                        }}
+                                        className="bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
+                                      >
+                                        <option value="intro">Intro</option>
+                                        <option value="recap">Recap</option>
+                                        <option value="credits">Credits</option>
+                                      </select>
+
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-white/40 text-[10px]">Start:</span>
+                                        <input
+                                          type="number"
+                                          value={seg.start}
+                                          onChange={(e) => updateDevSkipSegment(idx, { start: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                                          className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
+                                          placeholder="Sec"
+                                        />
+                                        <span className="text-white/40 text-[10px]">({formatTime(seg.start)})</span>
+                                      </div>
+
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-white/40 text-[10px]">End:</span>
+                                        <input
+                                          type="number"
+                                          value={seg.end}
+                                          onChange={(e) => updateDevSkipSegment(idx, { end: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                                          className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
+                                          placeholder="Sec"
+                                        />
+                                        <span className="text-white/40 text-[10px]">({formatTime(seg.end)})</span>
+                                      </div>
+
+                                      <div className="flex items-center gap-1 ml-auto">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleTestPlayDevTimestamp(seg.start)}
+                                          className="focusable px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                          title="Test Play in player at segment start"
+                                        >
+                                          <PlayCircle className="w-3.5 h-3.5" /> Test Play
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeDevSkipSegment(idx)}
+                                          className="focusable px-2 py-1 bg-red-600/60 hover:bg-red-600 text-white rounded text-[11px] font-bold transition-all cursor-pointer"
+                                          title="Delete Segment"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+
+                                <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                                  <button
+                                    type="button"
+                                    onClick={addDevSkipSegment}
+                                    className="focusable text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1 cursor-pointer"
+                                  >
+                                    + Add Segment
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={devSubmittingTidb || devSkipSegments.length === 0}
+                                    onClick={handleDevSubmitTidb}
+                                    className="focusable px-4 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                                  >
+                                    {devSubmittingTidb ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                                    Submit to TheIntroDB (TIDB)
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Section 2: Movie & Media Chapters Editor */}
+                            <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                                    <Video className="w-4 h-4 text-cyan-400" /> Movie Chapters (FFmpeg Scene Detect)
+                                  </h4>
+                                  <p className="text-[11px] text-white/50 font-mono">Extract embedded chapters or scan scene changes with FFmpeg</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={devScanningChapters}
+                                  onClick={handleDevScanChapters}
+                                  className="focusable px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                                >
+                                  {devScanningChapters ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                  Scan Chapters
+                                </button>
+                              </div>
+
+                              {/* Chapters Editor */}
+                              <div className="space-y-2">
+                                {devChapters.length === 0 ? (
+                                  <div className="text-xs text-white/40 italic py-3 text-center bg-white/[0.02] rounded-lg border border-white/5 font-mono">
+                                    No active chapters. Click "Scan Chapters" or add custom chapters below.
+                                  </div>
+                                ) : (
+                                  devChapters.map((ch, idx) => (
+                                    <div key={idx} className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-white/10 p-2.5 rounded-lg text-xs font-mono">
+                                      <input
+                                        type="text"
+                                        value={ch.title}
+                                        onChange={(e) => updateDevChapter(idx, { title: e.target.value })}
+                                        className="flex-1 min-w-[140px] bg-slate-800 text-white border border-white/15 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-cyan-400 font-bold"
+                                        placeholder="Chapter Title"
+                                      />
+
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-white/40 text-[10px]">Start:</span>
+                                        <input
+                                          type="number"
+                                          value={ch.startTime}
+                                          onChange={(e) => updateDevChapter(idx, { startTime: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                                          className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-cyan-400"
+                                          placeholder="Sec"
+                                        />
+                                        <span className="text-white/40 text-[10px]">({formatTime(ch.startTime)})</span>
+                                      </div>
+
+                                      <div className="flex items-center gap-1 ml-auto">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleTestPlayDevTimestamp(ch.startTime)}
+                                          className="focusable px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                          title="Test Play in player at chapter start"
+                                        >
+                                          <PlayCircle className="w-3.5 h-3.5" /> Test Play
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeDevChapter(idx)}
+                                          className="focusable px-2 py-1 bg-red-600/60 hover:bg-red-600 text-white rounded text-[11px] font-bold transition-all cursor-pointer"
+                                          title="Delete Chapter"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+
+                                <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                                  <button
+                                    type="button"
+                                    onClick={addDevChapter}
+                                    className="focusable text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1 cursor-pointer"
+                                  >
+                                    + Add Chapter
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={devSavingChapters || devChapters.length === 0}
+                                    onClick={handleDevSaveChapters}
+                                    className="focusable px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                                  >
+                                    {devSavingChapters ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                    Save & Apply Chapters
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
             </div>
         </div>
       </div>
