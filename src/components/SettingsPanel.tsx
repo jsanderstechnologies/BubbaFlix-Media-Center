@@ -257,9 +257,49 @@ export default function SettingsPanel() {
   const [frontendLogs, setFrontendLogs] = useState<LogEntry[]>([]);
   const [backendLogs, setBackendLogs] = useState<LogEntry[]>([]);
 
+  // Log filter controls
+  const [logProcessCategory, setLogProcessCategory] = useState<string>('all');
+  const [logSourceFilter, setLogSourceFilter] = useState<'all' | 'backend' | 'frontend'>('all');
+  const [logLevelFilter, setLogLevelFilter] = useState<'all' | 'error' | 'warn' | 'info'>('all');
+  const [logSearchQuery, setLogSearchQuery] = useState<string>('');
+
   const debugLogs = useMemo(() => {
-    return [...frontendLogs, ...backendLogs].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  }, [frontendLogs, backendLogs]);
+    let combined = [...frontendLogs, ...backendLogs].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+    if (logSourceFilter !== 'all') {
+      combined = combined.filter(l => l.source === logSourceFilter);
+    }
+
+    if (logLevelFilter !== 'all') {
+      combined = combined.filter(l => {
+        const lvl = (l.level === 'log' ? 'info' : l.level);
+        return lvl === logLevelFilter;
+      });
+    }
+
+    if (logProcessCategory !== 'all') {
+      const cat = logProcessCategory.toLowerCase();
+      combined = combined.filter(l => {
+        const msg = l.message.toLowerCase();
+        if (cat === 'skip-segments') return msg.includes('skip-segment') || msg.includes('tidb') || msg.includes('introdb') || msg.includes('segment');
+        if (cat === 'ffmpeg') return msg.includes('ffmpeg') || msg.includes('transcode') || msg.includes('ffprobe') || msg.includes('stream');
+        if (cat === 'http') return msg.includes('http request') || msg.includes('proxy') || msg.includes('api');
+        if (cat === 'auth') return msg.includes('auth') || msg.includes('email') || msg.includes('user') || msg.includes('login');
+        if (cat === 'iptv') return msg.includes('iptv') || msg.includes('epg') || msg.includes('m3u') || msg.includes('channel');
+        if (cat === 'media-cache') return msg.includes('media cache') || msg.includes('library') || msg.includes('json') || msg.includes('metadata');
+        if (cat === 'debrid') return msg.includes('premiumize') || msg.includes('torrent') || msg.includes('usenet');
+        if (cat === 'errors') return msg.includes('error') || msg.includes('uncaught') || msg.includes('boundary') || l.level === 'error';
+        return true;
+      });
+    }
+
+    if (logSearchQuery.trim()) {
+      const q = logSearchQuery.toLowerCase().trim();
+      combined = combined.filter(l => l.message.toLowerCase().includes(q) || l.timestamp.toLowerCase().includes(q));
+    }
+
+    return combined;
+  }, [frontendLogs, backendLogs, logSourceFilter, logLevelFilter, logProcessCategory, logSearchQuery]);
 
   useEffect(() => {
     if (enableDebugLog) {
@@ -2063,36 +2103,111 @@ export default function SettingsPanel() {
             </div>
 
             {enableDebugLog && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-white">Live Logs</h3>
-                  <button 
-                    onClick={() => logger.clearLogs()}
-                    className="text-xs px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded transition-colors"
-                  >
-                    Clear Logs
-                  </button>
+              <div className="space-y-3 pt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-white">Live Logs</h3>
+                    <span className="text-xs text-white/50 font-mono bg-white/10 px-2 py-0.5 rounded-full">
+                      {debugLogs.length} entries
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        logger.clearLogs();
+                        setBackendLogs([]);
+                      }}
+                      className="text-xs px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-colors font-medium shadow-sm"
+                    >
+                      Clear Logs
+                    </button>
+                  </div>
                 </div>
-                <div className="bg-black/50 border border-white/10 rounded-lg p-4 h-64 overflow-y-auto font-mono text-xs flex flex-col gap-1 custom-scrollbar">
+
+                {/* Process & Search Filters Bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-slate-900/80 p-2.5 rounded-lg border border-white/10 text-xs">
+                  {/* Process Category Filter */}
+                  <div>
+                    <label className="text-[10px] uppercase font-mono text-white/50 block mb-1">Process Filter</label>
+                    <select
+                      value={logProcessCategory}
+                      onChange={(e) => setLogProcessCategory(e.target.value)}
+                      className="w-full bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-red-500"
+                    >
+                      <option value="all">All Processes</option>
+                      <option value="skip-segments">Skip Segments & TIDB</option>
+                      <option value="ffmpeg">FFmpeg & Transcoding</option>
+                      <option value="http">HTTP & Network Requests</option>
+                      <option value="auth">Auth & User Management</option>
+                      <option value="iptv">IPTV & Live EPG</option>
+                      <option value="media-cache">Media Cache & Library</option>
+                      <option value="debrid">Torrents & Debrid</option>
+                      <option value="errors">UI & Exception Errors</option>
+                    </select>
+                  </div>
+
+                  {/* Source Filter */}
+                  <div>
+                    <label className="text-[10px] uppercase font-mono text-white/50 block mb-1">Source</label>
+                    <select
+                      value={logSourceFilter}
+                      onChange={(e) => setLogSourceFilter(e.target.value as any)}
+                      className="w-full bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-red-500"
+                    >
+                      <option value="all">All Sources (FE + BE)</option>
+                      <option value="backend">Backend Only [BE]</option>
+                      <option value="frontend">Frontend Only [FE]</option>
+                    </select>
+                  </div>
+
+                  {/* Level Filter */}
+                  <div>
+                    <label className="text-[10px] uppercase font-mono text-white/50 block mb-1">Log Level</label>
+                    <select
+                      value={logLevelFilter}
+                      onChange={(e) => setLogLevelFilter(e.target.value as any)}
+                      className="w-full bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-red-500"
+                    >
+                      <option value="all">All Levels</option>
+                      <option value="error">Error</option>
+                      <option value="warn">Warn</option>
+                      <option value="info">Info / Log</option>
+                    </select>
+                  </div>
+
+                  {/* Custom Process / Text Search */}
+                  <div>
+                    <label className="text-[10px] uppercase font-mono text-white/50 block mb-1">Search Process / Text</label>
+                    <input
+                      type="text"
+                      placeholder="Filter by process name..."
+                      value={logSearchQuery}
+                      onChange={(e) => setLogSearchQuery(e.target.value)}
+                      className="w-full bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs placeholder:text-white/30 focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-black/80 border border-white/10 rounded-lg p-4 h-72 overflow-y-auto font-mono text-xs flex flex-col gap-1.5 custom-scrollbar">
                   {debugLogs.length === 0 ? (
-                    <div className="text-white/40 italic">Waiting for logs...</div>
+                    <div className="text-white/40 italic py-4 text-center">No logs match the current process filter.</div>
                   ) : (
                     debugLogs.map((log, i) => (
-                      <div key={i} className="flex gap-3">
-                        <span className="text-white/40 shrink-0">[{log.timestamp}]</span>
+                      <div key={i} className="flex gap-2.5 items-start border-b border-white/5 pb-1">
+                        <span className="text-white/40 shrink-0 text-[11px]">[{log.timestamp}]</span>
                         {log.source === 'backend' ? (
-                          <span className="text-purple-400 font-bold shrink-0 w-8">[BE]</span>
+                          <span className="text-purple-400 font-bold shrink-0 text-[11px] bg-purple-950/60 px-1.5 rounded border border-purple-500/30">[BE]</span>
                         ) : (
-                          <span className="text-emerald-400 font-bold shrink-0 w-8">[FE]</span>
+                          <span className="text-emerald-400 font-bold shrink-0 text-[11px] bg-emerald-950/60 px-1.5 rounded border border-emerald-500/30">[FE]</span>
                         )}
-                        <span className={`shrink-0 w-10 uppercase ${
-                          log.level === 'error' ? 'text-red-400' : 
-                          log.level === 'warn' ? 'text-yellow-400' : 
-                          'text-blue-400'
+                        <span className={`shrink-0 text-[11px] font-bold uppercase px-1.5 rounded ${
+                          log.level === 'error' ? 'text-red-400 bg-red-950/60 border border-red-500/30' : 
+                          log.level === 'warn' ? 'text-yellow-400 bg-yellow-950/60 border border-yellow-500/30' : 
+                          'text-blue-400 bg-blue-950/60 border border-blue-500/30'
                         }`}>
                           {log.level}
                         </span>
-                        <span className="text-white/80 break-words whitespace-pre-wrap">{log.message}</span>
+                        <span className="text-white/90 break-words whitespace-pre-wrap flex-1">{log.message}</span>
                       </div>
                     ))
                   )}
