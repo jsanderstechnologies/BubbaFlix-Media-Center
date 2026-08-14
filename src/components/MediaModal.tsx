@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap, Info } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap, Info, FileVideo } from 'lucide-react';
 
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, setDoc, serverTimestamp, onSnapshot } from '../lib/localDb';
 import { db } from '../lib/localDb';
@@ -175,6 +175,7 @@ export default function MediaModal({
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
 
   // Developer Admin Tools States & Handlers
+  const [devSelectedStreamUrl, setDevSelectedStreamUrl] = useState<string>('');
   const [devSkipSegments, setDevSkipSegments] = useState<Array<{ type: string; start: number; end: number; label: string }>>([]);
   const [devScanningSkip, setDevScanningSkip] = useState(false);
   const [devSubmittingTidb, setDevSubmittingTidb] = useState(false);
@@ -833,7 +834,8 @@ export default function MediaModal({
   const handleDevScanSkipSegments = async () => {
     try {
       setDevScanningSkip(true);
-      const activeStream = availableStreams[0]?.url || '';
+      const targetStream = devSelectedStreamUrl || availableStreams[0]?.url || movie.filePath || '';
+      const isLocalPath = targetStream && !targetStream.startsWith('http://') && !targetStream.startsWith('https://') && !targetStream.startsWith('/api/');
       const res = await fetch('/api/admin/scan-skip-segments', {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -842,8 +844,8 @@ export default function MediaModal({
           mediaType: isSeries ? 'tv' : 'movie',
           season: selectedSeason,
           episode: selectedEpisode,
-          filePath: movie.filePath,
-          streamUrl: activeStream
+          filePath: isLocalPath ? targetStream : movie.filePath,
+          streamUrl: isLocalPath ? '' : targetStream
         })
       }).then(r => r.json());
 
@@ -892,15 +894,16 @@ export default function MediaModal({
   const handleDevScanChapters = async () => {
     try {
       setDevScanningChapters(true);
-      const activeStream = availableStreams[0]?.url || '';
+      const targetStream = devSelectedStreamUrl || availableStreams[0]?.url || movie.filePath || '';
+      const isLocalPath = targetStream && !targetStream.startsWith('http://') && !targetStream.startsWith('https://') && !targetStream.startsWith('/api/');
       const res = await fetch('/api/admin/scan-chapters', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           tmdbId: movie.id,
           mediaType: isSeries ? 'tv' : 'movie',
-          filePath: movie.filePath,
-          streamUrl: activeStream,
+          filePath: isLocalPath ? targetStream : movie.filePath,
+          streamUrl: isLocalPath ? '' : targetStream,
           title: movie.title || movie.name,
           year: movie.year
         })
@@ -2331,6 +2334,36 @@ export default function MediaModal({
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono">
                                 Admin Only
                               </span>
+                            </div>
+
+                            {/* Target Stream / File Selector Dropdown */}
+                            <div className="bg-black/60 border border-indigo-500/30 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+                              <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
+                                  <FileVideo className="w-4 h-4 shrink-0" />
+                                </div>
+                                <div>
+                                  <label className="text-xs font-bold text-white font-mono uppercase block">Target Processing Source</label>
+                                  <p className="text-[10px] text-white/50 font-mono">Select specific file or stream for FFmpeg & AI to process</p>
+                                </div>
+                              </div>
+                              <select
+                                value={devSelectedStreamUrl || (availableStreams[0]?.url || movie?.filePath || '')}
+                                onChange={(e) => setDevSelectedStreamUrl(e.target.value)}
+                                className="bg-slate-900 text-indigo-200 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-indigo-400 max-w-md w-full truncate cursor-pointer"
+                              >
+                                {movie?.filePath && (
+                                  <option value={movie.filePath}>📁 Local File: {movie.filePath}</option>
+                                )}
+                                {availableStreams.map((s: any, idx: number) => (
+                                  <option key={idx} value={s.url}>
+                                    {s.type === 'local' ? '📁' : s.isCached ? '⚡' : '🌐'} {s.name || `Stream #${idx + 1}`} ({s.quality || 'Auto'})
+                                  </option>
+                                ))}
+                                {availableStreams.length === 0 && !movie?.filePath && (
+                                  <option value="">No streams or local files discovered yet</option>
+                                )}
+                              </select>
                             </div>
 
                             {/* Section 1: Skip Segments Editor & TIDB Submission */}
