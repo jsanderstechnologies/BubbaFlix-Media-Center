@@ -70,8 +70,8 @@ export function detectDeviceCapabilities(): DeviceCapabilities {
     canDecodeAc3 = true;
   }
 
-  // Direct Play is strictly reserved for Android TV hardware & Custom TV Browser apps with native hardware decoders
-  const canDirectPlay = isAndroidTV || isCustomApp;
+  // Direct Play is disabled in web browser to route all x264 & x265 streams through FFmpeg for buffer management
+  const canDirectPlay = isCustomApp || isExoPlayer;
 
   let deviceName = 'Standard Web Browser';
   if (isCustomApp) deviceName = 'Custom Android TV Browser (Native Hardware Decoder)';

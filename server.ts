@@ -3857,40 +3857,38 @@ app.get('/api/youtube/search', async (req, res) => {
       isHevc = codecCache.get(targetUrl) as boolean;
     }
 
-    if (isHevc) {
-      if (useVaapi) {
-        console.log(`[FFmpeg-Proxy] HEVC/10-bit stream detected. Transcoding using Intel VAAPI hardware acceleration (${vaapiDev}).`);
-        args.push(
-          '-vf', 'format=nv12,hwupload,scale_vaapi=w=-2:h=1080',
-          '-c:v', 'h264_vaapi',
-          '-b:v', '5M',
-          '-maxrate', '8M',
-          '-bufsize', '10M',
-          '-g', '60', '-keyint_min', '30'
-        );
-      } else if (bestEncoder !== 'libx264') {
-        console.log(`[FFmpeg-Proxy] HEVC/10-bit stream detected. Transcoding to 1080p H.264 using ${bestEncoder} hardware acceleration.`);
-        args.push(
-          '-c:v', bestEncoder,
-          '-preset', 'ultrafast',
-          '-b:v', '5M',
-          '-vf', 'scale=-2:1080,format=yuv420p',
-          '-g', '60', '-keyint_min', '30'
-        );
-      } else {
-        console.log('[FFmpeg-Proxy] HEVC/10-bit stream detected. Transcoding to 1080p H.264 for browser compatibility (Software).');
-        args.push(
-          '-c:v', 'libx264', 
-          '-preset', 'ultrafast', 
-          '-tune', 'zerolatency',
-          '-crf', '25', 
-          '-pix_fmt', 'yuv420p',
-          '-vf', 'scale=-2:1080',
-          '-g', '60', '-keyint_min', '30'
-        );
-      }
+    if (useVaapi) {
+      console.log(`[FFmpeg-Proxy] Routing video stream through Intel VAAPI hardware acceleration (${vaapiDev}) for buffer management.`);
+      args.push(
+        '-vf', 'format=nv12,hwupload,scale_vaapi=w=-2:h=1080',
+        '-c:v', 'h264_vaapi',
+        '-b:v', '6M',
+        '-maxrate', '9M',
+        '-bufsize', '12M',
+        '-g', '60', '-keyint_min', '30'
+      );
+    } else if (bestEncoder !== 'libx264') {
+      console.log(`[FFmpeg-Proxy] Routing video stream through ${bestEncoder} hardware acceleration for buffer management.`);
+      args.push(
+        '-c:v', bestEncoder,
+        '-preset', 'ultrafast',
+        '-b:v', '6M',
+        '-maxrate', '9M',
+        '-bufsize', '12M',
+        '-vf', 'scale=-2:1080,format=yuv420p',
+        '-g', '60', '-keyint_min', '30'
+      );
     } else {
-      args.push('-c:v', 'copy');
+      console.log('[FFmpeg-Proxy] Routing video stream through FFmpeg H.264 (x264) engine for smooth buffer management.');
+      args.push(
+        '-c:v', 'libx264', 
+        '-preset', 'ultrafast', 
+        '-tune', 'zerolatency',
+        '-crf', '23', 
+        '-pix_fmt', 'yuv420p',
+        '-vf', 'scale=-2:1080',
+        '-g', '60', '-keyint_min', '30'
+      );
     }
 
     const audioLeveling = req.query.audioLeveling === 'true';
