@@ -23,9 +23,18 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const { systemSettings } = useSettings();
 
-  const { data: movies, isLoading } = useQuery({
+  const [forceReady, setForceReady] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setForceReady(true), 2500);
+    return () => clearTimeout(timer);
+  }, [debouncedSearchQuery, filterGenre]);
+
+  const { data: movies, isLoading: queryLoading } = useQuery({
     queryKey: ['movies', debouncedSearchQuery, filterGenre, systemSettings.tmdbKey],
     queryFn: () => debouncedSearchQuery ? searchMovies(debouncedSearchQuery) : getTrendingMovies(filterGenre),
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -33,6 +42,8 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
       prefetchMediaItems(movies);
     }
   }, [movies]);
+
+  const isLoading = !forceReady && !movies && queryLoading;
 
   if (isLoading) {
     return (

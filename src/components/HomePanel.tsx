@@ -29,33 +29,51 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
       .catch(() => {});
   }, []);
 
+  const [forceReady, setForceReady] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setForceReady(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Fetch multiple sections in parallel
   const { data: trendingMovies, isLoading: loadingTrending } = useQuery({
     queryKey: ['home-trending-movies', systemSettings.tmdbKey],
     queryFn: () => getTrendingMovies(),
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 
   const { data: popularMovies, isLoading: loadingPopularMovies } = useQuery({
     queryKey: ['home-popular-movies', systemSettings.tmdbKey],
     queryFn: getPopularMovies,
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 
   const { data: topRatedMovies, isLoading: loadingTopRatedMovies } = useQuery({
     queryKey: ['home-top-rated-movies', systemSettings.tmdbKey],
     queryFn: getTopRatedMovies,
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 
   const { data: popularTv, isLoading: loadingPopularTv } = useQuery({
     queryKey: ['home-popular-tv', systemSettings.tmdbKey],
     queryFn: getPopularTvSeries,
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 
   const { data: topRatedTv, isLoading: loadingTopRatedTv } = useQuery({
     queryKey: ['home-top-rated-tv', systemSettings.tmdbKey],
     queryFn: getTopRatedTvSeries,
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 
-  const isLoading = loadingTrending || loadingPopularMovies || loadingTopRatedMovies || loadingPopularTv || loadingTopRatedTv;
+  const hasAnyData = !!(trendingMovies?.length || popularMovies?.length || popularTv?.length || topRatedMovies?.length || topRatedTv?.length);
+  const isLoading = !forceReady && !hasAnyData && (loadingTrending && loadingPopularMovies && loadingPopularTv);
 
   if (isLoading) {
     return (

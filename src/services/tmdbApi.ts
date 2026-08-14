@@ -8,6 +8,19 @@ const getApiKey = () => {
 };
 const BASE_URL = 'https://api.themoviedb.org/3';
 
+const fetchWithTimeout = async (url: string, timeoutMs: number = 4000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+};
+
 export const getCachedImageUrl = (pathOrUrl: string | null | undefined): string | null => {
   if (!pathOrUrl) return null;
   const fullUrl = pathOrUrl.startsWith('http') ? pathOrUrl : `https://image.tmdb.org/t/p/w500${pathOrUrl}`;
@@ -40,47 +53,18 @@ const applyFilters = (results: any[], isSearch: boolean = false, isCalendar: boo
         if (m.first_air_date && m.first_air_date > today) {
           return false;
         }
-        if (m.status && ['Rumored', 'Planned'].includes(m.status) && (!m.first_air_date || m.first_air_date > today)) {
-          return false;
-        }
       } else {
-        // Movies: Filter out if release date is in the future or in production/upcoming
-        const releaseDate = m.release_date;
-        if (releaseDate && releaseDate > today) {
-          return false;
-        }
-        if (m.status && ['Rumored', 'Planned', 'In Production', 'Post Production', 'Upcoming'].includes(m.status)) {
+        // Movies: Filter out if release date is in the future
+        if (m.release_date && m.release_date > today) {
           return false;
         }
       }
     }
 
-    // Strict Calendar rules: Filter out non-English, Asian, Indian, or foreign productions
-    if (isCalendar) {
-      const lang = (m.original_language || '').toLowerCase();
-      const EXCLUDED_LANGS = [
-        'hi', 'ta', 'te', 'ml', 'kn', 'bn', 'pa', 'gu', 'mr', 'or', 'ur', // Indian languages
-        'ja', 'ko', 'zh', 'cn', 'th', 'vi', 'id', 'tl', 'my', 'km', 'lo', // Asian languages
-        'tr', 'ar', 'fa', 'he', 'ru', 'uk', 'pl', 'cs', 'sk', 'hu', 'ro', 'bg', 'el'
-      ];
-      if (EXCLUDED_LANGS.includes(lang)) {
+    if (filterAnime) {
+      if (m.genre_ids && m.genre_ids.includes(16) && m.original_language === 'ja') {
         return false;
       }
-      if (lang !== 'en' && preferredLanguage !== 'all' && preferredLanguage !== lang) {
-        return false;
-      }
-      if (m.origin_country && Array.isArray(m.origin_country) && m.origin_country.length > 0) {
-        const hasUS = m.origin_country.includes('US') || m.origin_country.includes('GB') || m.origin_country.includes('CA');
-        const hasAsianOrIndian = m.origin_country.some((c: string) => ['IN', 'JP', 'KR', 'CN', 'HK', 'TW', 'TH', 'VN', 'ID', 'PH', 'MY', 'PK', 'BD'].includes(c));
-        if (hasAsianOrIndian || !hasUS) {
-          return false;
-        }
-      }
-    }
-
-    // Anime filter rule
-    if (filterAnime && (m.original_language === 'ja' || m.origin_country?.includes('JP')) && (m.genre_ids?.includes(16) || m.genre_ids?.includes(10759))) {
-      return false;
     }
 
     // Bypassed for explicit search queries so international productions (e.g. The Fifth Element, original_language: fr) are returned
@@ -116,9 +100,9 @@ export const getTrendingMovies = async (genreId: number = 0) => {
       : `${BASE_URL}/trending/movie/week?api_key=${apiKey}`;
 
     const pages = await Promise.all([
-      fetch(`${endpoint}&page=1`).then(r => r.json()),
-      fetch(`${endpoint}&page=2`).then(r => r.json()),
-      fetch(`${endpoint}&page=3`).then(r => r.json())
+      fetchWithTimeout(`${endpoint}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${endpoint}&page=2`).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${endpoint}&page=3`).then(r => r.json()).catch(() => ({}))
     ]);
     let results = pages.flatMap(p => p.results || []);
     results = applyFilters(results);
@@ -135,7 +119,7 @@ export const getTrendingMovies = async (genreId: number = 0) => {
     }));
   } catch (error) {
     console.error("[Frontend] TMDB API Error:", error);
-    throw error;
+    return [];
   }
 };
 

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { getTrendingTvSeries, searchTvSeries } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
 import { prefetchMediaItems } from '../lib/prefetchCache';
+import BubbaFlixLogo from './BubbaFlixLogo';
 
 // Custom hook for debouncing
 function useDebounce<T>(value: T, delay: number): T {
@@ -22,9 +23,18 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const { systemSettings } = useSettings();
 
-  const { data: series, isLoading } = useQuery({
+  const [forceReady, setForceReady] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setForceReady(true), 2500);
+    return () => clearTimeout(timer);
+  }, [debouncedSearchQuery, filterGenre]);
+
+  const { data: series, isLoading: queryLoading } = useQuery({
     queryKey: ['tvseries', debouncedSearchQuery, filterGenre, systemSettings.tmdbKey],
     queryFn: () => debouncedSearchQuery ? searchTvSeries(debouncedSearchQuery) : getTrendingTvSeries(filterGenre),
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -33,7 +43,17 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
     }
   }, [series]);
 
-  if (isLoading) return <div className="text-white text-sm">Loading TMDB catalog...</div>;
+  const isLoading = !forceReady && !series && queryLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-28 gap-4 text-white min-h-[50vh]">
+        <BubbaFlixLogo className="w-56 h-16 animate-pulse" idPrefix="tv-loader" />
+        <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-xs font-mono text-white/50 tracking-wider animate-pulse">Loading TV catalog...</span>
+      </div>
+    );
+  }
   if (!series || series.length === 0) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;
 
   let processedSeries = [...series];
