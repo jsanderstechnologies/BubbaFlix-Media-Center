@@ -171,22 +171,23 @@ interface BackendLogEntry {
 
 const backendLogs: BackendLogEntry[] = [];
 const MAX_BACKEND_LOGS = 1000;
-const LOG_FILE_PATH = path.join(DATA_DIR, 'app.log');
 
 function writeToLogFile(entryStr: string) {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    const dataDir = path.join(process.cwd(), 'data');
+    const logFilePath = path.join(dataDir, 'app.log');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
     }
-    if (fs.existsSync(LOG_FILE_PATH)) {
-      const stats = fs.statSync(LOG_FILE_PATH);
+    if (fs.existsSync(logFilePath)) {
+      const stats = fs.statSync(logFilePath);
       if (stats.size > 10 * 1024 * 1024) {
-        const oldContent = fs.readFileSync(LOG_FILE_PATH, 'utf8');
+        const oldContent = fs.readFileSync(logFilePath, 'utf8');
         const lines = oldContent.split('\n');
-        fs.writeFileSync(LOG_FILE_PATH, lines.slice(-2000).join('\n'), 'utf8');
+        fs.writeFileSync(logFilePath, lines.slice(-2000).join('\n'), 'utf8');
       }
     }
-    fs.appendFileSync(LOG_FILE_PATH, entryStr + '\n', 'utf8');
+    fs.appendFileSync(logFilePath, entryStr + '\n', 'utf8');
   } catch (err) {
     // Ignore logging disk write errors
   }
