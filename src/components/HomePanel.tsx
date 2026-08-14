@@ -11,6 +11,8 @@ import { useSettings } from '../lib/settings';
 import { Play, Info, Flame, Trophy, Film, Tv, Star, Cpu, Zap, Bot } from 'lucide-react';
 import { prefetchMediaItems } from '../lib/prefetchCache';
 
+import BubbaFlixLogo from './BubbaFlixLogo';
+
 interface HomePanelProps {
   onSelectMedia: (media: any) => void;
   onHoverMedia?: (posterUrl: string) => void;
@@ -57,9 +59,10 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-white">
+      <div className="flex flex-col items-center justify-center py-28 gap-4 text-white min-h-[50vh]">
+        <BubbaFlixLogo className="w-56 h-16 animate-pulse" idPrefix="home-loader" />
         <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-        <span className="text-sm font-medium">Loading home experience...</span>
+        <span className="text-xs font-mono text-white/50 tracking-wider animate-pulse">Loading home experience...</span>
       </div>
     );
   }

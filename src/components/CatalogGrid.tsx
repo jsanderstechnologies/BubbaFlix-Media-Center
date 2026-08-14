@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { getTrendingMovies, searchMovies } from '../services/tmdbApi';
 import { useSettings } from '../lib/settings';
-
 import { prefetchMediaItems } from '../lib/prefetchCache';
+import BubbaFlixLogo from './BubbaFlixLogo';
 
 // Custom hook for debouncing
 function useDebounce<T>(value: T, delay: number): T {
@@ -34,7 +34,15 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
     }
   }, [movies]);
 
-  if (isLoading) return <div className="text-white text-sm">Loading TMDB catalog...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-28 gap-4 text-white min-h-[50vh]">
+        <BubbaFlixLogo className="w-56 h-16 animate-pulse" idPrefix="catalog-loader" />
+        <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-xs font-mono text-white/50 tracking-wider animate-pulse">Loading catalog...</span>
+      </div>
+    );
+  }
   if (!movies || movies.length === 0) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;
 
   let processedMovies = [...movies];

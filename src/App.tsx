@@ -18,6 +18,7 @@ import IptvGuide from './components/IptvGuide';
 import MediaModal from './components/MediaModal';
 import SettingsPanel from './components/SettingsPanel';
 import { AuthButton, AuthModal, useAuth } from './components/Auth';
+import BubbaFlixLogo from './components/BubbaFlixLogo';
 import LibraryGrid from './components/LibraryGrid';
 import { VirtualKeyboard } from './components/VirtualKeyboard';
 import HomePanel from './components/HomePanel';
@@ -1078,39 +1079,7 @@ function MainApp() {
           <Film className="w-7 h-7 text-red-500 absolute" />
         </div>
         <div className="text-center space-y-3 flex flex-col items-center">
-          <svg 
-            viewBox="0 0 320 70" 
-            className="w-64 h-20 select-none drop-shadow-[0_0_25px_rgba(229,9,20,0.4)] animate-pulse" 
-          >
-            <defs>
-              <path id="bubbaflix-loader-curve" d="M 12,56 Q 160,20 308,56" fill="none" />
-              <linearGradient id="bubbaflix-loader-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#ff4d4d" />
-                <stop offset="35%" stopColor="#e50914" />
-                <stop offset="75%" stopColor="#b30000" />
-                <stop offset="100%" stopColor="#7a0000" />
-              </linearGradient>
-              <filter id="bubbaflix-loader-glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.95"/>
-                <feDropShadow dx="0" dy="0" stdDeviation="5.5" floodColor="#e50914" floodOpacity="0.45"/>
-              </filter>
-            </defs>
-            <text 
-              fontFamily="'Bebas Neue', 'Impact', sans-serif" 
-              fontSize="56" 
-              fontWeight="900" 
-              fill="url(#bubbaflix-loader-gradient)" 
-              stroke="url(#bubbaflix-loader-gradient)" 
-              strokeWidth="2.8" 
-              strokeLinejoin="round"
-              letterSpacing="-1.2"
-              filter="url(#bubbaflix-loader-glow)"
-            >
-              <textPath href="#bubbaflix-loader-curve" startOffset="50%" textAnchor="middle">
-                BUBBAFLIX
-              </textPath>
-            </text>
-          </svg>
+          <BubbaFlixLogo className="w-64 h-20 animate-pulse" idPrefix="auth-loader" />
           <p className="text-xs font-mono text-white/50 tracking-wider animate-pulse">Initializing Media Center & Account Session...</p>
         </div>
       </div>
@@ -1236,13 +1205,14 @@ function MainApp() {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#06060a] via-[#06060a]/60 to-[#06060a]/80"></div>
                   </div>
                 )}
-                <div className="relative z-10 flex flex-col items-center gap-4 text-center px-4">
-                  <Loader2 className="w-12 h-12 text-red-500 animate-spin drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]" />
+                <div className="relative z-10 flex flex-col items-center gap-3 text-center px-4">
+                  <BubbaFlixLogo className="w-56 h-16 animate-pulse mb-1" idPrefix="player-loader" />
+                  <Loader2 className="w-10 h-10 text-red-500 animate-spin drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]" />
                   <span className="text-white/80 font-mono text-sm tracking-wider uppercase animate-pulse font-semibold">
                     {playerStatus || 'Loading Stream...'}
                   </span>
                   {selectedMovie && (
-                    <div className="flex flex-col items-center gap-1 mt-2 max-w-lg">
+                    <div className="flex flex-col items-center gap-1 mt-1 max-w-lg">
                       <span className="text-white text-xl font-bold tracking-tight truncate drop-shadow-lg">{selectedMovie.title || selectedMovie.name}</span>
                       {selectedMovie.year && <span className="text-white/60 text-xs font-mono">{selectedMovie.year}</span>}
                     </div>

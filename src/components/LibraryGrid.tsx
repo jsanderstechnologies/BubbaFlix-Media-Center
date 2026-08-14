@@ -5,6 +5,7 @@ import { getCachedImageUrl } from '../services/tmdbApi';
 import { useAuth } from './Auth';
 import { Music, Plus, Play, Pause, Trash2, ChevronLeft, Disc, Volume2, ListMusic, Users, Check } from 'lucide-react';
 import { prefetchMediaItems } from '../lib/prefetchCache';
+import BubbaFlixLogo from './BubbaFlixLogo';
 
 interface Track {
   id: string;
@@ -754,7 +755,13 @@ export function LibraryGrid({
   };
 
   if (loading) {
-    return <div className="text-white text-sm mt-8">Loading library...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-28 gap-4 text-white min-h-[50vh]">
+        <BubbaFlixLogo className="w-56 h-16 animate-pulse" idPrefix="library-loader" />
+        <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-xs font-mono text-white/50 tracking-wider animate-pulse">Loading media library...</span>
+      </div>
+    );
   }
 
   if (!user) {
