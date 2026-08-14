@@ -2,7 +2,7 @@
   <defs>
     <!-- Curve path with slightly more headroom -->
     <path id="bubbaflix-curve" d="M 15,102 Q 180,42 345,102" fill="none" />
-    
+
     <!-- Rich 3D cinematic red gradient -->
     <linearGradient id="bubbaflix-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ff4d4d" />
@@ -17,25 +17,30 @@
       <stop offset="100%" stop-color="#140000" />
     </linearGradient>
 
-    <!-- Expanded glowing filter for the ambient red backglow -->
+    <!-- Expanded glowing filter for the ambient red backglow: smooth two-layer bloom (solid-color blur, no alpha clipping) -->
     <filter id="bubbaflix-glow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="9.0" result="blur" />
-      <feComponentTransfer in="blur" result="boost">
-        <feFuncA type="linear" slope="1.5"/>
-      </feComponentTransfer>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur-wide" />
+      <feFlood flood-color="#ff1a1a" flood-opacity="0.55" result="color-wide" />
+      <feComposite in="color-wide" in2="blur-wide" operator="in" result="glow-wide" />
+
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5" result="blur-tight" />
+      <feFlood flood-color="#ff3030" flood-opacity="0.8" result="color-tight" />
+      <feComposite in="color-tight" in2="blur-tight" operator="in" result="glow-tight" />
+
       <feMerge>
-        <feMergeNode in="boost" />
+        <feMergeNode in="glow-wide" />
+        <feMergeNode in="glow-tight" />
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
   </defs>
 
   <!-- BACKGROUND GLOW LAYER: Duplicate text with neon red color fed into the glow filter -->
-  <text 
-    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
-    font-size="52" 
-    font-weight="900" 
-    fill="#ff1a1a" 
+  <text
+    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif"
+    font-size="52"
+    font-weight="900"
+    fill="#ff1a1a"
     letter-spacing="0.5px"
     filter="url(#bubbaflix-glow)"
     opacity="0.85"
@@ -46,11 +51,11 @@
   </text>
 
   <!-- 3D SHADOW LAYER: Offset down and right slightly to create structural 3D thickness -->
-  <text 
-    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
-    font-size="52" 
-    font-weight="900" 
-    fill="url(#bubbaflix-shadow-gradient)" 
+  <text
+    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif"
+    font-size="52"
+    font-weight="900"
+    fill="url(#bubbaflix-shadow-gradient)"
     stroke="#000000"
     stroke-width="1.8"
     stroke-linejoin="round"
@@ -64,11 +69,11 @@
   </text>
 
   <!-- FOREGROUND LAYER: The main textured gradient text with fine outline -->
-  <text 
-    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
-    font-size="52" 
-    font-weight="900" 
-    fill="url(#bubbaflix-gradient)" 
+  <text
+    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif"
+    font-size="52"
+    font-weight="900"
+    fill="url(#bubbaflix-gradient)"
     stroke="#ffffff"
     stroke-width="0.3"
     stroke-opacity="0.5"
