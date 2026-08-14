@@ -506,7 +506,7 @@ export default function MediaModal({
   useEffect(() => {
     if (!isSeries || seasons.length === 0 || isHidden) return;
 
-    if (selectedSeason === null || selectedEpisode === null) {
+    if (selectedSeason === null) {
       let targetSeason = seasons[0].season_number;
       let targetEpisode = 1;
       let foundUnwatched = false;
@@ -529,7 +529,7 @@ export default function MediaModal({
       setSelectedSeason(targetSeason);
       setSelectedEpisode(targetEpisode);
     }
-  }, [isSeries, seasons, isHidden, selectedSeason, selectedEpisode]);
+  }, [isSeries, seasons, isHidden, selectedSeason]);
 
   const toggleWatched = async (type: 'tv' | 'movie', seasonNum?: number, episodeNum?: number) => {
     if (!user || !movie) return;
@@ -1160,8 +1160,7 @@ export default function MediaModal({
         // different episode counts and this caused ghost episodes to appear.
         if (finalEpisodes.length > 0) {
           if (selectedEpisode === null || !finalEpisodes.some(e => e.episode_number === selectedEpisode)) {
-            const firstUnwatched = finalEpisodes.find(e => !watchedDocs[`s${selectedSeason}_e${e.episode_number}`]);
-            setSelectedEpisode(firstUnwatched ? firstUnwatched.episode_number : finalEpisodes[0].episode_number);
+            setSelectedEpisode(finalEpisodes[0].episode_number);
           }
         }
       })();
