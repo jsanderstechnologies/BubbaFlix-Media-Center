@@ -1077,8 +1077,40 @@ function MainApp() {
           <div className="w-16 h-16 border-4 border-red-600/20 border-t-red-600 rounded-full animate-spin"></div>
           <Film className="w-7 h-7 text-red-500 absolute" />
         </div>
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-black text-white tracking-widest uppercase">BubbaFlix</h1>
+        <div className="text-center space-y-3 flex flex-col items-center">
+          <svg 
+            viewBox="0 0 320 70" 
+            className="w-64 h-20 select-none drop-shadow-[0_0_25px_rgba(229,9,20,0.4)] animate-pulse" 
+          >
+            <defs>
+              <path id="bubbaflix-loader-curve" d="M 12,56 Q 160,20 308,56" fill="none" />
+              <linearGradient id="bubbaflix-loader-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#ff4d4d" />
+                <stop offset="35%" stopColor="#e50914" />
+                <stop offset="75%" stopColor="#b30000" />
+                <stop offset="100%" stopColor="#7a0000" />
+              </linearGradient>
+              <filter id="bubbaflix-loader-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="3" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.95"/>
+                <feDropShadow dx="0" dy="0" stdDeviation="5.5" floodColor="#e50914" floodOpacity="0.45"/>
+              </filter>
+            </defs>
+            <text 
+              fontFamily="'Bebas Neue', 'Impact', sans-serif" 
+              fontSize="56" 
+              fontWeight="900" 
+              fill="url(#bubbaflix-loader-gradient)" 
+              stroke="url(#bubbaflix-loader-gradient)" 
+              strokeWidth="2.8" 
+              strokeLinejoin="round"
+              letterSpacing="-1.2"
+              filter="url(#bubbaflix-loader-glow)"
+            >
+              <textPath href="#bubbaflix-loader-curve" startOffset="50%" textAnchor="middle">
+                BUBBAFLIX
+              </textPath>
+            </text>
+          </svg>
           <p className="text-xs font-mono text-white/50 tracking-wider animate-pulse">Initializing Media Center & Account Session...</p>
         </div>
       </div>
