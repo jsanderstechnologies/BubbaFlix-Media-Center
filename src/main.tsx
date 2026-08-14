@@ -1,9 +1,10 @@
-import {StrictMode, Component, ErrorInfo, ReactNode} from 'react';
-import {createRoot} from 'react-dom/client';
+import { StrictMode, Component, ErrorInfo, ReactNode } from 'react';
+import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import BubbaFlixLogo from './components/BubbaFlixLogo.tsx';
 
-class ErrorBoundary extends Component<{children: ReactNode}, {error: Error | null; retryCount: number}> {
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null; retryCount: number }> {
   private retryTimer: any = null;
 
   constructor(props: any) {
@@ -16,11 +17,27 @@ class ErrorBoundary extends Component<{children: ReactNode}, {error: Error | nul
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.warn('[ErrorBoundary] Caught transient render error, recovering behind loading screen:', error);
-    if (this.retryTimer) clearTimeout(this.retryTimer);
-    this.retryTimer = setTimeout(() => {
-      this.setState(prev => ({ error: null, retryCount: prev.retryCount + 1 }));
-    }, 600);
+    console.error('[ErrorBoundary caught error]', error, info.componentStack);
+    
+    try {
+      fetch('/api/logs/client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: 'error',
+          message: `[ErrorBoundary] ${error?.message || String(error)}`,
+          stack: info?.componentStack || error?.stack || '',
+          url: typeof window !== 'undefined' ? window.location.href : ''
+        })
+      }).catch(() => {});
+    } catch (e) {}
+
+    if (this.state.retryCount < 3) {
+      if (this.retryTimer) clearTimeout(this.retryTimer);
+      this.retryTimer = setTimeout(() => {
+        this.setState(prev => ({ error: null, retryCount: prev.retryCount + 1 }));
+      }, 800);
+    }
   }
 
   componentWillUnmount() {
@@ -31,25 +48,21 @@ class ErrorBoundary extends Component<{children: ReactNode}, {error: Error | nul
     if (this.state.error) {
       return (
         <div 
-          onClick={() => this.setState({ error: null })}
-          style={{
-            position: 'fixed', inset: 0, background: '#060609', color: '#fff',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            zIndex: 999999, cursor: 'pointer', fontFamily: 'system-ui, sans-serif'
-          }}
+          onClick={() => this.setState({ error: null, retryCount: 0 })}
+          className="fixed inset-0 bg-[#060609] text-white flex flex-col items-center justify-center p-6 z-[999999] cursor-pointer select-none"
         >
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', textAlign: 'center', padding: '2rem' }}>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{
-                width: 64, height: 64, border: '4px solid rgba(239,68,68,0.2)', borderTopColor: '#ef4444',
-                borderRadius: '50%', animation: 'spin 1s linear infinite'
-              }}></div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase', margin: 0, color: '#ffffff' }}>BUBBAFLIX</h1>
-              <p style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.05em', margin: 0 }}>
+          <div className="flex flex-col items-center gap-6 text-center max-w-md">
+            <BubbaFlixLogo className="w-64 h-20 animate-pulse" idPrefix="main-error-logo" />
+            <div className="w-12 h-12 border-4 border-red-600/20 border-t-red-600 rounded-full animate-spin"></div>
+            <div className="space-y-2">
+              <p className="text-sm font-mono text-white/70 tracking-wider">
                 Loading Media Center & Syncing Components...
               </p>
+              {this.state.retryCount >= 3 && (
+                <p className="text-xs text-red-400 font-mono bg-red-950/40 border border-red-500/20 px-3 py-2 rounded-lg mt-3">
+                  Click anywhere to reload & recover Media Center session
+                </p>
+              )}
             </div>
           </div>
         </div>
