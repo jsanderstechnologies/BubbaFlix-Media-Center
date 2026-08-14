@@ -1,0 +1,48 @@
+{
+  "short_name": "BubbaFlix",
+  "name": "BubbaFlix Media Center",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/leanback-banner.svg",
+      "type": "image/svg+xml",
+      "sizes": "320x180",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "maskable any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#060609",
+  "theme_color": "#060609",
+  "display": "standalone",
+  "orientation": "landscape",
+  "categories": ["entertainment", "tv", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Home",
+      "url": "/?tab=home"
+    },
+    {
+      "name": "Movies",
+      "url": "/?tab=catalog"
+    },
+    {
+      "name": "TV Series",
+      "url": "/?tab=series"
+    },
+    {
+      "name": "Live TV",
+      "url": "/?tab=tv"
+    }
+  ]
+}
