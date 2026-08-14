@@ -87,7 +87,27 @@ function MainApp() {
   const [isVideoLoaded, setIsVideoLoaded] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const [isIdle, setIsIdle] = useState(false);
+  const updateBufferedAhead = useCallback((videoEl: HTMLVideoElement | null) => {
+    if (!videoEl || !videoEl.buffered || videoEl.buffered.length === 0) {
+      setBufferedSeconds(0);
+      return;
+    }
+    const currTime = videoEl.currentTime || 0;
+    let ahead = 0;
+    for (let i = 0; i < videoEl.buffered.length; i++) {
+      const start = videoEl.buffered.start(i);
+      const end = videoEl.buffered.end(i);
+      if (currTime >= start - 1 && currTime <= end + 1) {
+        ahead = Math.max(0, end - currTime);
+        break;
+      }
+    }
+    if (ahead === 0 && videoEl.buffered.length > 0) {
+      const lastEnd = videoEl.buffered.end(videoEl.buffered.length - 1);
+      ahead = Math.max(0, lastEnd - currTime);
+    }
+    setBufferedSeconds(ahead);
+  }, []);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [movieSearchQuery, setMovieSearchQuery] = useState<string>('');
   const [seriesSearchQuery, setSeriesSearchQuery] = useState<string>('');
@@ -1168,7 +1188,7 @@ function MainApp() {
                       <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Subtitles</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.filter((s: any) => s.codec_type === 'subtitle').length}</span></div>
                     )}
                   {bufferedSeconds > 0 && (
-                    <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Stream Buffer</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{Math.round(bufferedSeconds)}s</span></div>
+                    <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Stream Buffer Ahead</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{Math.round(bufferedSeconds)}s</span></div>
                   )}
                   </div>
                 </div>
@@ -1232,14 +1252,10 @@ function MainApp() {
                   className="w-full h-full object-contain absolute top-0 left-0"
                   onTimeUpdate={(e) => {
                     handleVideoTimeUpdate(e.currentTarget.currentTime);
-                    if (e.currentTarget.buffered.length > 0) {
-                      setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
-                    }
+                    updateBufferedAhead(e.currentTarget);
                   }}
                   onProgress={(e) => {
-                    if (e.currentTarget.buffered.length > 0) {
-                      setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
-                    }
+                    updateBufferedAhead(e.currentTarget);
                   }}
                   onError={(e) => {
                     const error = e.currentTarget.error;
@@ -1284,14 +1300,10 @@ function MainApp() {
                   className="w-full h-full object-contain absolute top-0 left-0"
                   onTimeUpdate={(e) => {
                     handleVideoTimeUpdate(e.currentTarget.currentTime);
-                    if (e.currentTarget.buffered.length > 0) {
-                      setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
-                    }
+                    updateBufferedAhead(e.currentTarget);
                   }}
                   onProgress={(e) => {
-                    if (e.currentTarget.buffered.length > 0) {
-                      setBufferedSeconds(e.currentTarget.buffered.end(e.currentTarget.buffered.length - 1));
-                    }
+                    updateBufferedAhead(e.currentTarget);
                   }}
                   onError={(e) => {
                     const error = e.currentTarget.error;
@@ -1459,7 +1471,7 @@ function MainApp() {
                       {/* Buffered indicator */}
                       <div 
                         className="absolute top-0 left-0 bottom-0 bg-white/30 transition-all duration-300 pointer-events-none" 
-                        style={{ width: `${totalDuration > 0 ? ((streamOffset + bufferedSeconds) / totalDuration) * 100 : 0}%` }}
+                        style={{ width: `${totalDuration > 0 ? (Math.min(totalDuration, streamOffset + currentTime + bufferedSeconds) / totalDuration) * 100 : 0}%` }}
                       />
                       {/* Playback progress */}
                       <div 
