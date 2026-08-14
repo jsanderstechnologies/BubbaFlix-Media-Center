@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal, ChevronDown, ChevronUp, Users, User, Sliders, PlayCircle, Search, Key, Folder, Plus, Trash2, Film, RefreshCw, CheckCircle2, AlertCircle, Globe, Lock, ExternalLink, Copy } from 'lucide-react';
+import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal, ChevronDown, ChevronUp, Users, User, Sliders, PlayCircle, Search, Key, Folder, Plus, Trash2, Film, RefreshCw, CheckCircle2, AlertCircle, Globe, Lock, ExternalLink, Copy, Check } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 
@@ -261,8 +261,30 @@ export default function SettingsPanel() {
   const [logProcessCategory, setLogProcessCategory] = useState<string>('all');
   const [logSourceFilter, setLogSourceFilter] = useState<'all' | 'backend' | 'frontend'>('all');
   const [logLevelFilter, setLogLevelFilter] = useState<'all' | 'error' | 'warn' | 'info'>('all');
-  const [logSearchQuery, setLogSearchQuery] = useState<string>('');
   const [logHeightMode, setLogHeightMode] = useState<'compact' | 'expanded' | 'full'>('compact');
+  const [copiedLogIdx, setCopiedLogIdx] = useState<number | null>(null);
+  const [copiedErrorsWarns, setCopiedErrorsWarns] = useState<boolean>(false);
+
+  const handleCopySingleLog = (log: LogEntry, idx: number) => {
+    const text = `[${log.timestamp}] [${log.source?.toUpperCase() || 'SYS'}] [${log.level.toUpperCase()}]: ${log.message}`;
+    navigator.clipboard.writeText(text);
+    setCopiedLogIdx(idx);
+    setTimeout(() => setCopiedLogIdx(null), 2000);
+  };
+
+  const handleCopyErrorsAndWarnings = () => {
+    const errorWarnLogs = debugLogs.filter(l => l.level === 'error' || l.level === 'warn');
+    if (errorWarnLogs.length === 0) {
+      alert('No error or warning logs found to copy.');
+      return;
+    }
+    const text = errorWarnLogs
+      .map(l => `[${l.timestamp}] [${l.source?.toUpperCase() || 'SYS'}] [${l.level.toUpperCase()}]: ${l.message}`)
+      .join('\n');
+    navigator.clipboard.writeText(text);
+    setCopiedErrorsWarns(true);
+    setTimeout(() => setCopiedErrorsWarns(false), 2500);
+  };
 
   const debugLogs = useMemo(() => {
     let combined = [...frontendLogs, ...backendLogs].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
@@ -2112,7 +2134,15 @@ export default function SettingsPanel() {
                       {debugLogs.length} entries
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={handleCopyErrorsAndWarnings}
+                      className="text-xs px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-lg transition-colors font-medium flex items-center gap-1.5 shadow-sm"
+                      title="Copy all error and warning logs to clipboard"
+                    >
+                      {copiedErrorsWarns ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-amber-400" />}
+                      <span>{copiedErrorsWarns ? 'Copied!' : 'Copy Errors & Warnings'}</span>
+                    </button>
                     <button
                       onClick={() => setLogHeightMode(prev => prev === 'compact' ? 'expanded' : prev === 'expanded' ? 'full' : 'compact')}
                       className="text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1.5 shadow-sm"
@@ -2209,7 +2239,7 @@ export default function SettingsPanel() {
                     <div className="text-white/40 italic py-4 text-center">No logs match the current process filter.</div>
                   ) : (
                     debugLogs.map((log, i) => (
-                      <div key={i} className="flex gap-2.5 items-start border-b border-white/5 pb-1">
+                      <div key={i} className="flex gap-2.5 items-start border-b border-white/5 pb-1 group hover:bg-white/[0.02] p-1 rounded transition-colors">
                         <span className="text-white/40 shrink-0 text-[11px]">[{log.timestamp}]</span>
                         {log.source === 'backend' ? (
                           <span className="text-purple-400 font-bold shrink-0 text-[11px] bg-purple-950/60 px-1.5 rounded border border-purple-500/30">[BE]</span>
@@ -2224,6 +2254,20 @@ export default function SettingsPanel() {
                           {log.level}
                         </span>
                         <span className="text-white/90 break-words whitespace-pre-wrap flex-1">{log.message}</span>
+                        {(log.level === 'error' || log.level === 'warn') && (
+                          <button
+                            onClick={() => handleCopySingleLog(log, i)}
+                            className="opacity-70 hover:opacity-100 p-1 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded transition-all shrink-0 ml-auto flex items-center gap-1 text-[10px] font-sans"
+                            title={`Copy this ${log.level} log entry`}
+                          >
+                            {copiedLogIdx === i ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3 h-3 text-white/70" />
+                            )}
+                            <span className="hidden sm:inline text-[10px] text-white/60">{copiedLogIdx === i ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        )}
                       </div>
                     ))
                   )}
