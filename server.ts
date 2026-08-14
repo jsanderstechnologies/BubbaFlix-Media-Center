@@ -1408,12 +1408,12 @@ async function startServer() {
 
         if (cachedItem) {
           if (mediaType === 'movie' && cachedItem.movieSegments && cachedItem.movieSegments.length > 0) {
-            console.log(`[TIDB Proxy Database Cache Hit] Returning ${cachedItem.movieSegments.length} cached skip segment(s) for movie tmdbId=${tmdbId}`);
+            console.log(`[Skip-Segments Step 0/5 (Local Cache)] Returning ${cachedItem.movieSegments.length} cached skip segment(s) for movie tmdbId=${tmdbId}`);
             return res.json({ success: true, segments: cachedItem.movieSegments, isAiGenerated: false, cached: true });
           } else if (mediaType === 'tv' && season && episode && cachedItem.seasons?.[season]?.[episode]) {
             const epSegs = cachedItem.seasons[season][episode];
             if (Array.isArray(epSegs) && epSegs.length > 0) {
-              console.log(`[TIDB Proxy Database Cache Hit] Returning ${epSegs.length} cached skip segment(s) for TV S${season}E${episode}`);
+              console.log(`[Skip-Segments Step 0/5 (Local Cache)] Returning ${epSegs.length} cached skip segment(s) for TV S${season}E${episode}`);
               return res.json({ success: true, segments: epSegs, isAiGenerated: false, cached: true });
             }
           }
@@ -1434,17 +1434,21 @@ async function startServer() {
           } else if (type === 'movie') {
             tidbUrl += `&type=movie`;
           }
-          console.log(`[TIDB Proxy] Querying v3 API: ${tidbUrl}`);
+          console.log(`[Skip-Segments Step 1/5 (TIDB v3)] Querying API: ${tidbUrl}`);
           const tidbRes = await axios.get(tidbUrl, { headers, timeout: 4000 }).catch(() => null);
           if (tidbRes?.data) {
             const parsed = parseTidbV3Segments(tidbRes.data);
             if (parsed.length > 0) {
               segments.push(...parsed);
-              console.log(`[TIDB Proxy] Found ${segments.length} segment(s) via v3 API`);
+              console.log(`[Skip-Segments Step 1/5 (TIDB v3)] ✅ Found ${segments.length} segment(s)`);
+            } else {
+              console.log(`[Skip-Segments Step 1/5 (TIDB v3)] ❌ No segments found`);
             }
+          } else {
+            console.log(`[Skip-Segments Step 1/5 (TIDB v3)] ❌ Empty/null response`);
           }
         } catch (e: any) {
-          console.warn('[TIDB Proxy] v3 API request failed:', e?.message || e);
+          console.warn('[Skip-Segments Step 1/5 (TIDB v3)] Request failed:', e?.message || e);
         }
       }
 
@@ -1455,7 +1459,7 @@ async function startServer() {
           if (type === 'tv' && season && episode) {
             v1Url += `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`;
           }
-          console.log(`[TIDB Proxy] Querying v1 Fallback API: ${v1Url}`);
+          console.log(`[Skip-Segments Step 2/5 (TIDB v1 Fallback)] Querying API: ${v1Url}`);
           const v1Res = await axios.get(v1Url, { timeout: 4000 }).catch(() => null);
           if (v1Res?.data) {
             const list = Array.isArray(v1Res.data) ? v1Res.data : (v1Res.data.segments || []);
@@ -1473,11 +1477,13 @@ async function startServer() {
               }
             });
             if (segments.length > 0) {
-              console.log(`[TIDB Proxy] Found ${segments.length} segment(s) via v1 Fallback`);
+              console.log(`[Skip-Segments Step 2/5 (TIDB v1 Fallback)] ✅ Found ${segments.length} segment(s)`);
+            } else {
+              console.log(`[Skip-Segments Step 2/5 (TIDB v1 Fallback)] ❌ No segments found`);
             }
           }
         } catch (e: any) {
-          console.warn('[TIDB Proxy] v1 API request failed:', e?.message || e);
+          console.warn('[Skip-Segments Step 2/5 (TIDB v1 Fallback)] Request failed:', e?.message || e);
         }
       }
 
@@ -1493,7 +1499,7 @@ async function startServer() {
           if (type === 'tv' && season && episode) {
             appUrl += `&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`;
           }
-          console.log(`[TIDB Proxy] Querying IntroDB App Fallback API: ${appUrl}`);
+          console.log(`[Skip-Segments Step 3/5 (IntroDB App Fallback)] Querying API: ${appUrl}`);
           const appRes = await axios.get(appUrl, { timeout: 4000 }).catch(() => null);
           if (appRes?.data) {
             const list = Array.isArray(appRes.data) ? appRes.data : (appRes.data.segments || []);
@@ -1511,11 +1517,13 @@ async function startServer() {
               }
             });
             if (segments.length > 0) {
-              console.log(`[TIDB Proxy] Found ${segments.length} segment(s) via IntroDB App Fallback`);
+              console.log(`[Skip-Segments Step 3/5 (IntroDB App Fallback)] ✅ Found ${segments.length} segment(s)`);
+            } else {
+              console.log(`[Skip-Segments Step 3/5 (IntroDB App Fallback)] ❌ No segments found`);
             }
           }
         } catch (e: any) {
-          console.warn('[TIDB Proxy] IntroDB App API request failed:', e?.message || e);
+          console.warn('[Skip-Segments Step 3/5 (IntroDB App Fallback)] Request failed:', e?.message || e);
         }
       }
 
@@ -1523,7 +1531,7 @@ async function startServer() {
       let isAiGenerated = false;
       if (segments.length === 0 && (tmdbId || imdbId)) {
         try {
-          console.log(`[TIDB Proxy AI Fallback] TheIntroDB has no segment data for tmdbId=${tmdbId || 'N/A'}. Launching AI Media Analysis Engine...`);
+          console.log(`[Skip-Segments Step 4/5 (AI Engine Fallback)] No database markers found for tmdbId=${tmdbId || 'N/A'}. Launching AI Media Analysis Engine...`);
           
           const settings = readJson(SETTINGS_FILE);
           const tmdbKey = settings.tmdbKey || process.env.TMDB_KEY || '841059f71aab310b4d4c4f3a7e28328e';
@@ -1565,7 +1573,7 @@ async function startServer() {
                 }
               }
             } catch (e: any) {
-              console.warn('[TIDB Proxy AI Fallback] TMDB metadata fetch error:', e?.message);
+              console.warn('[Skip-Segments Step 4/5 (AI Engine Fallback)] TMDB metadata fetch error:', e?.message);
             }
           }
 
@@ -1620,24 +1628,24 @@ Strict Rules:
 
               if (segments.length > 0) {
                 isAiGenerated = true;
-                console.log(`[TIDB Proxy AI Fallback] AI Analysis successfully generated ${segments.length} segment(s):`, segments.map(s => `${s.label} [${s.start}s-${s.end}s]`).join(', '));
+                console.log(`[Skip-Segments Step 4/5 (AI Engine Fallback)] ✅ AI Analysis successfully generated ${segments.length} segment(s):`, segments.map(s => `${s.label} [${s.start}s-${s.end}s]`).join(', '));
               }
             }
           }
         } catch (aiErr: any) {
-          console.warn('[TIDB Proxy AI Fallback] AI analysis failed:', aiErr?.message || aiErr);
+          console.warn('[Skip-Segments Step 4/5 (AI Engine Fallback)] AI analysis failed:', aiErr?.message || aiErr);
         }
       }
 
       if (segments.length > 0) {
-        console.log(`[TIDB Proxy] Successfully returning ${segments.length} segment(s) ${isAiGenerated ? '(AI Analysis Generated)' : '(TheIntroDB Database)'}:`, segments.map(s => `${s.label} (${s.start}s-${s.end}s)`).join(', '));
+        console.log(`[Skip-Segments Step 5/5 (Cache & Dispatch)] Returning ${segments.length} segment(s) ${isAiGenerated ? '(AI Analysis Generated)' : '(TheIntroDB Database)'}:`, segments.map(s => `${s.label} (${s.start}s-${s.end}s)`).join(', '));
 
         // Submit AI-generated skip segments back to TheIntroDB repository if enabled
         const settings = readJson(SETTINGS_FILE);
         const shouldSubmit = settings.submitTidbSegments !== false && settings.enableTidbSubmission !== false;
         if (isAiGenerated && shouldSubmit && apiKey) {
           try {
-            console.log(`[TIDB Submission] Submitting ${segments.length} AI-generated skip segment(s) back to TheIntroDB for tmdbId=${tmdbId || 'N/A'}...`);
+            console.log(`[Skip-Segments Repository Submission] Submitting ${segments.length} AI-generated skip segment(s) back to TheIntroDB for tmdbId=${tmdbId || 'N/A'}...`);
             const submitPayload = {
               tmdb_id: tmdbId ? Number(tmdbId) : undefined,
               imdb_id: imdbId || undefined,
@@ -1660,24 +1668,24 @@ Strict Rules:
               },
               timeout: 5000
             }).then(() => {
-              console.log(`[TIDB Submission] Successfully submitted skip segments back to TheIntroDB repository!`);
+              console.log(`[Skip-Segments Repository Submission] ✅ Successfully submitted skip segments back to TheIntroDB repository!`);
             }).catch(() => {
               // Fallback submission to v1 endpoint
               axios.post('https://api.theintrodb.org/v1/segments', submitPayload, {
                 headers: { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey },
                 timeout: 5000
               }).then(() => {
-                console.log(`[TIDB Submission] Successfully submitted skip segments back to TheIntroDB v1 endpoint!`);
+                console.log(`[Skip-Segments Repository Submission] ✅ Successfully submitted skip segments back to TheIntroDB v1 endpoint!`);
               }).catch((err: any) => {
-                console.warn('[TIDB Submission Warning] Remote submission returned:', err?.message || err);
+                console.warn('[Skip-Segments Repository Submission Warning] Remote submission returned:', err?.message || err);
               });
             });
           } catch (e: any) {
-            console.warn('[TIDB Submission Error]:', e?.message || e);
+            console.warn('[Skip-Segments Repository Submission Error]:', e?.message || e);
           }
         }
       } else {
-        console.log(`[TIDB Proxy] No skip segments available for target media`);
+        console.log(`[Skip-Segments] ❌ No skip segments available for target media`);
       }
 
       return res.json({ success: true, segments, isAiGenerated });
