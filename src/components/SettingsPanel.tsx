@@ -262,6 +262,7 @@ export default function SettingsPanel() {
   const [logSourceFilter, setLogSourceFilter] = useState<'all' | 'backend' | 'frontend'>('all');
   const [logLevelFilter, setLogLevelFilter] = useState<'all' | 'error' | 'warn' | 'info'>('all');
   const [logSearchQuery, setLogSearchQuery] = useState<string>('');
+  const [logHeightMode, setLogHeightMode] = useState<'compact' | 'expanded' | 'full'>('compact');
 
   const debugLogs = useMemo(() => {
     let combined = [...frontendLogs, ...backendLogs].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
@@ -2112,6 +2113,15 @@ export default function SettingsPanel() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setLogHeightMode(prev => prev === 'compact' ? 'expanded' : prev === 'expanded' ? 'full' : 'compact')}
+                      className="text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1.5 shadow-sm"
+                      title="Cycle Log Window Height Mode (Standard / Expanded / Fit Container)"
+                    >
+                      {logHeightMode === 'compact' && <span>↔️ Standard View</span>}
+                      {logHeightMode === 'expanded' && <span>↕️ Expanded View</span>}
+                      {logHeightMode === 'full' && <span>⤢ Fit Container</span>}
+                    </button>
                     <button 
                       onClick={() => {
                         logger.clearLogs();
@@ -2188,7 +2198,13 @@ export default function SettingsPanel() {
                   </div>
                 </div>
 
-                <div className="bg-black/80 border border-white/10 rounded-lg p-4 h-72 overflow-y-auto font-mono text-xs flex flex-col gap-1.5 custom-scrollbar">
+                <div className={`bg-black/80 border border-white/10 rounded-lg p-4 overflow-y-auto font-mono text-xs flex flex-col gap-1.5 custom-scrollbar transition-all duration-200 ${
+                  logHeightMode === 'full' 
+                    ? 'h-[75vh] min-h-[500px]' 
+                    : logHeightMode === 'expanded' 
+                      ? 'h-[32rem]' 
+                      : 'h-72'
+                }`}>
                   {debugLogs.length === 0 ? (
                     <div className="text-white/40 italic py-4 text-center">No logs match the current process filter.</div>
                   ) : (
