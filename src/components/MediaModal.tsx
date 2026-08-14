@@ -822,18 +822,28 @@ export default function MediaModal({
     }
   }, [extraDetails, selectedSeason, selectedEpisode]);
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token') || (user as any)?.token || '';
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+  };
+
   const handleDevScanSkipSegments = async () => {
     try {
       setDevScanningSkip(true);
+      const activeStream = availableStreams[0]?.url || '';
       const res = await fetch('/api/admin/scan-skip-segments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           tmdbId: movie.id,
           mediaType: isSeries ? 'tv' : 'movie',
           season: selectedSeason,
           episode: selectedEpisode,
-          filePath: movie.filePath
+          filePath: movie.filePath,
+          streamUrl: activeStream
         })
       }).then(r => r.json());
 
@@ -855,7 +865,7 @@ export default function MediaModal({
       setDevSubmittingTidb(true);
       const res = await fetch('/api/admin/submit-tidb-segments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           tmdbId: movie.id,
           imdbId: extraDetails?.imdbId,
@@ -882,13 +892,15 @@ export default function MediaModal({
   const handleDevScanChapters = async () => {
     try {
       setDevScanningChapters(true);
+      const activeStream = availableStreams[0]?.url || '';
       const res = await fetch('/api/admin/scan-chapters', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           tmdbId: movie.id,
           mediaType: isSeries ? 'tv' : 'movie',
           filePath: movie.filePath,
+          streamUrl: activeStream,
           title: movie.title || movie.name,
           year: movie.year
         })
@@ -912,7 +924,7 @@ export default function MediaModal({
       setDevSavingChapters(true);
       const res = await fetch('/api/chapters/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           tmdbId: movie.id,
           mediaType: isSeries ? 'tv' : 'movie',
