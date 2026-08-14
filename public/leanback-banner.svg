@@ -2,7 +2,7 @@
   <defs>
     <!-- Curve path optimized for 320x180 Leanback banner dimensions -->
     <path id="leanback-curve" d="M 16,128 Q 160,76 304,128" fill="none" />
-    
+
     <!-- Rich 3D cinematic red gradient -->
     <linearGradient id="leanback-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ff4d4d" />
@@ -24,14 +24,19 @@
       <stop offset="100%" stop-color="#e50914" stop-opacity="0.6" />
     </linearGradient>
 
-    <!-- Ambient backlight filter -->
-    <filter id="leanback-glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="7.5" result="blur" />
-      <feComponentTransfer in="blur" result="boost">
-        <feFuncA type="linear" slope="1.8"/>
-      </feComponentTransfer>
+    <!-- Ambient backlight filter: smooth two-layer bloom (solid-color blur, no alpha clipping) -->
+    <filter id="leanback-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="blur-wide" />
+      <feFlood flood-color="#ff1a1a" flood-opacity="0.55" result="color-wide" />
+      <feComposite in="color-wide" in2="blur-wide" operator="in" result="glow-wide" />
+
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur-tight" />
+      <feFlood flood-color="#ff3030" flood-opacity="0.8" result="color-tight" />
+      <feComposite in="color-tight" in2="blur-tight" operator="in" result="glow-tight" />
+
       <feMerge>
-        <feMergeNode in="boost" />
+        <feMergeNode in="glow-wide" />
+        <feMergeNode in="glow-tight" />
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
@@ -39,16 +44,16 @@
 
   <!-- Banner Card Base for Android TV Launcher -->
   <rect x="4" y="4" width="312" height="172" rx="20" fill="#08080c" stroke="url(#leanback-card-border)" stroke-width="2.5" />
-  
+
   <!-- Subtle Radial Backlight Pulse -->
   <circle cx="160" cy="90" r="110" fill="#e50914" opacity="0.12" filter="blur(25px)" />
 
   <!-- BACKGROUND GLOW LAYER -->
-  <text 
-    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
-    font-size="44" 
-    font-weight="900" 
-    fill="#ff1a1a" 
+  <text
+    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif"
+    font-size="44"
+    font-weight="900"
+    fill="#ff1a1a"
     letter-spacing="0.5px"
     filter="url(#leanback-glow)"
     opacity="0.85"
@@ -59,11 +64,11 @@
   </text>
 
   <!-- 3D SHADOW LAYER -->
-  <text 
-    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
-    font-size="44" 
-    font-weight="900" 
-    fill="url(#leanback-shadow-gradient)" 
+  <text
+    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif"
+    font-size="44"
+    font-weight="900"
+    fill="url(#leanback-shadow-gradient)"
     stroke="#000000"
     stroke-width="1.5"
     stroke-linejoin="round"
@@ -77,11 +82,11 @@
   </text>
 
   <!-- FOREGROUND MAIN LOGO LAYER -->
-  <text 
-    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif" 
-    font-size="44" 
-    font-weight="900" 
-    fill="url(#leanback-gradient)" 
+  <text
+    font-family="'Bebas Neue', 'Impact', 'Arial Black', sans-serif"
+    font-size="44"
+    font-weight="900"
+    fill="url(#leanback-gradient)"
     stroke="#ffffff"
     stroke-width="0.3"
     stroke-opacity="0.5"
