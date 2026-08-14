@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
 import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap, Info } from 'lucide-react';
 
