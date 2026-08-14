@@ -170,7 +170,27 @@ interface BackendLogEntry {
 }
 
 const backendLogs: BackendLogEntry[] = [];
-const MAX_BACKEND_LOGS = 500;
+const MAX_BACKEND_LOGS = 1000;
+const LOG_FILE_PATH = path.join(DATA_DIR, 'app.log');
+
+function writeToLogFile(entryStr: string) {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (fs.existsSync(LOG_FILE_PATH)) {
+      const stats = fs.statSync(LOG_FILE_PATH);
+      if (stats.size > 10 * 1024 * 1024) {
+        const oldContent = fs.readFileSync(LOG_FILE_PATH, 'utf8');
+        const lines = oldContent.split('\n');
+        fs.writeFileSync(LOG_FILE_PATH, lines.slice(-2000).join('\n'), 'utf8');
+      }
+    }
+    fs.appendFileSync(LOG_FILE_PATH, entryStr + '\n', 'utf8');
+  } catch (err) {
+    // Ignore logging disk write errors
+  }
+}
 
 const originalConsoleLog = console.log;
 const originalConsoleWarn = console.warn;
@@ -181,37 +201,54 @@ function formatLogMessage(args: any[]): string {
 }
 
 console.log = function (...args) {
-  backendLogs.push({
+  const message = formatLogMessage(args);
+  const entry: BackendLogEntry = {
     timestamp: new Date().toISOString(),
     level: 'info',
-    message: formatLogMessage(args),
+    message,
     source: 'backend'
-  });
+  };
+  backendLogs.push(entry);
   if (backendLogs.length > MAX_BACKEND_LOGS) backendLogs.shift();
+  writeToLogFile(`[${entry.timestamp}] [INFO] [backend] ${message}`);
   originalConsoleLog.apply(console, args);
 };
 
 console.warn = function (...args) {
-  backendLogs.push({
+  const message = formatLogMessage(args);
+  const entry: BackendLogEntry = {
     timestamp: new Date().toISOString(),
     level: 'warn',
-    message: formatLogMessage(args),
+    message,
     source: 'backend'
-  });
+  };
+  backendLogs.push(entry);
   if (backendLogs.length > MAX_BACKEND_LOGS) backendLogs.shift();
+  writeToLogFile(`[${entry.timestamp}] [WARN] [backend] ${message}`);
   originalConsoleWarn.apply(console, args);
 };
 
 console.error = function (...args) {
-  backendLogs.push({
+  const message = formatLogMessage(args);
+  const entry: BackendLogEntry = {
     timestamp: new Date().toISOString(),
     level: 'error',
-    message: formatLogMessage(args),
+    message,
     source: 'backend'
-  });
+  };
+  backendLogs.push(entry);
   if (backendLogs.length > MAX_BACKEND_LOGS) backendLogs.shift();
+  writeToLogFile(`[${entry.timestamp}] [ERROR] [backend] ${message}`);
   originalConsoleError.apply(console, args);
 };
+
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]:', err?.stack || err?.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]:', reason && (reason as any).stack ? (reason as any).stack : reason);
+});
 
 /**
  * Fetches and parses a standard streams manifest.json
@@ -1073,6 +1110,26 @@ async function startServer() {
   // /api/admin/logs GET
   app.get('/api/admin/logs', requireAdmin, (req, res) => {
     res.json(backendLogs);
+  });
+
+  // Client-side Error Logging Endpoint
+  app.post('/api/logs/client', (req, res) => {
+    const { level = 'error', message = '', stack = '', url = '' } = req.body || {};
+    if (!message) return res.status(400).json({ error: 'Message required' });
+
+    const logMsg = `[Client] ${message}${url ? ` (URL: ${url})` : ''}${stack ? `\nStack: ${stack}` : ''}`;
+    const entry: BackendLogEntry = {
+      timestamp: new Date().toISOString(),
+      level: level === 'warn' ? 'warn' : 'error',
+      message: logMsg,
+      source: 'frontend'
+    };
+
+    backendLogs.push(entry);
+    if (backendLogs.length > MAX_BACKEND_LOGS) backendLogs.shift();
+    writeToLogFile(`[${entry.timestamp}] [${entry.level.toUpperCase()}] [frontend] ${logMsg}`);
+
+    res.json({ success: true });
   });
 
   // /api/admin/settings PUT

@@ -16,8 +16,26 @@ class DebugLogger {
   private originalError = console.error;
 
   constructor() {
-    this.isEnabled = localStorage.getItem('enableDebugLog') === 'true';
+    this.isEnabled = typeof window !== 'undefined' && localStorage.getItem('enableDebugLog') === 'true';
     this.hijack();
+    this.setupGlobalHandlers();
+  }
+
+  private setupGlobalHandlers() {
+    if (typeof window === 'undefined') return;
+
+    window.addEventListener('error', (event) => {
+      const msg = event.message || 'Uncaught Error';
+      const stack = event.error?.stack || '';
+      this.addLog('error', `[Uncaught Error] ${msg}${stack ? `\nStack: ${stack}` : ''}`);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason;
+      const msg = reason?.message || String(reason || 'Unhandled Promise Rejection');
+      const stack = reason?.stack || '';
+      this.addLog('error', `[Unhandled Promise Rejection] ${msg}${stack ? `\nStack: ${stack}` : ''}`);
+    });
   }
 
   public setEnabled(enabled: boolean) {
@@ -47,27 +65,45 @@ class DebugLogger {
   }
 
   private addLog(level: 'log' | 'warn' | 'error', ...args: any[]) {
-    if (!this.isEnabled) return;
+    // ALWAYS log errors and warnings. Only filter verbose debug logs.
+    if (level === 'log' && !this.isEnabled) return;
     
     const message = args.map(arg => {
       if (arg instanceof Error) {
-        return arg.message;
+        return arg.stack || arg.message;
       }
       return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
     }).join(' ');
 
-    this.logs.push({
-      timestamp: new Date().toISOString().split('T')[1].slice(0, -5), // HH:MM:SS
-      level,
+    const entry: LogEntry = {
+      timestamp: new Date().toISOString().split('T')[1]?.slice(0, -5) || new Date().toISOString(),
+      level: level === 'log' ? 'info' : level,
       message,
       source: 'frontend'
-    });
+    };
+
+    this.logs.push(entry);
 
     if (this.logs.length > this.maxLogs) {
       this.logs.shift();
     }
 
     this.notify();
+
+    // Automatically send errors & warnings to backend log server
+    if (level === 'error' || level === 'warn') {
+      try {
+        fetch('/api/logs/client', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            level,
+            message,
+            url: typeof window !== 'undefined' ? window.location.href : ''
+          })
+        }).catch(() => {});
+      } catch (e) {}
+    }
   }
 
   private hijack() {
