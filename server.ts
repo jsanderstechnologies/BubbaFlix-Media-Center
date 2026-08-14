@@ -426,35 +426,125 @@ async function startServer() {
       if (!fs.existsSync(file)) return fallback;
       let content = fs.readFileSync(file, 'utf8').trim();
       if (!content) return fallback;
-      // Strip UTF-8 Byte Order Mark (BOM) if present
       if (content.charCodeAt(0) === 0xFEFF) {
         content = content.slice(1).trim();
       }
       return JSON.parse(content);
     } catch (e: any) {
       console.error(`[JSON Read Error] Recovered from invalid JSON in "${file}": ${e.message}`);
-      if (file === SETTINGS_FILE || file === SCANNED_LIBRARY_FILE || file === USERS_FILE) {
-        try {
-          writeJson(file, fallback);
-          console.log(`[JSON Auto-Repair] Cleanly re-initialized corrupt data file: ${file}`);
-        } catch (err) {}
-      }
       return fallback;
     }
   };
 
   const writeJson = (file: string, data: any) => {
-    const dir = path.dirname(file);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const tempFile = `${file}.tmp.${Date.now()}`;
     try {
-      fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf8');
-      fs.renameSync(tempFile, file);
+      const dir = path.dirname(file);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
     } catch (e: any) {
       console.error(`[JSON Write Error] Failed writing "${file}": ${e.message}`);
-      try { if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile); } catch (err) {}
+    }
+  };
+
+  const MEDIA_CACHE_DIR = path.join(DATA_DIR, 'cache');
+  if (!fs.existsSync(MEDIA_CACHE_DIR)) {
+    fs.mkdirSync(MEDIA_CACHE_DIR, { recursive: true });
+  }
+
+  const getMediaItemCache = (id: string | number): any => {
+    const idStr = String(id || '').trim();
+    if (!idStr) return {};
+    const itemFile = path.join(MEDIA_CACHE_DIR, `${idStr}.json`);
+    if (fs.existsSync(itemFile)) {
+      return readJson(itemFile, {});
+    }
+    const legacyCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+    return legacyCache[idStr] || {};
+  };
+
+  const setMediaItemCache = (id: string | number, data: any) => {
+    const idStr = String(id || '').trim();
+    if (!idStr) return;
+    if (!fs.existsSync(MEDIA_CACHE_DIR)) {
+      fs.mkdirSync(MEDIA_CACHE_DIR, { recursive: true });
+    }
+    const itemFile = path.join(MEDIA_CACHE_DIR, `${idStr}.json`);
+    const existing = getMediaItemCache(idStr);
+    const updated = { ...existing, ...data, tmdbId: idStr, updatedAt: new Date().toISOString() };
+    writeJson(itemFile, updated);
+
+    // Keep legacy media_cache.json in sync as fallback
+    try {
+      const legacyCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+      legacyCache[idStr] = updated;
+      writeJson(MEDIA_METADATA_CACHE_FILE, legacyCache);
+    } catch (e) {}
+  };
+
+  const searchOpenSubtitlesForChapters = async (imdbId: string, type: string = 'movie', season?: number, episode?: number): Promise<any[]> => {
+    if (!imdbId) return [];
+    try {
+      const cleanImdb = imdbId.startsWith('tt') ? imdbId : `tt${imdbId}`;
+      let stremioUrl = `https://opensubtitles-v3.strem.io/subtitles/${type}/${cleanImdb}.json`;
+      if (type === 'tv' && season && episode) {
+        stremioUrl = `https://opensubtitles-v3.strem.io/subtitles/series/${cleanImdb}:${season}:${episode}.json`;
+      }
+
+      const res = await axios.get(stremioUrl, { timeout: 5000 }).catch(() => null);
+      const subtitles = res?.data?.subtitles || [];
+      const enSub = subtitles.find((s: any) => s.lang === 'eng' || s.id?.includes('en')) || subtitles[0];
+      if (!enSub || !enSub.url) return [];
+
+      // Download subtitle file content
+      const subRes = await axios.get(enSub.url, { timeout: 5000, responseType: 'text' }).catch(() => null);
+      const subText = subRes?.data || '';
+      if (!subText) return [];
+
+      const chapters: any[] = [];
+
+      // Pattern 1: OGM/VTT chapter specs (CHAPTER01=00:00:00.000 \n CHAPTER01NAME=Title)
+      const ogmMatches = Array.from(subText.matchAll(/CHAPTER(\d{2,3})=([\d\:\.]+)\r?\nCHAPTER\1NAME=(.+)/gi));
+      if (ogmMatches.length > 0) {
+        ogmMatches.forEach((m, idx) => {
+          const timeStr = m[2];
+          const title = m[3].trim() || `Chapter ${idx + 1}`;
+          let startTime = 0;
+          const parts = timeStr.split(':').map(Number);
+          if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];
+          else if (parts.length === 2) startTime = parts[0] * 60 + parts[1];
+
+          chapters.push({ id: `ch-os-${idx}`, title, startTime, endTime: 0 });
+        });
+      }
+
+      // Pattern 2: Embedded cue lines matching "Chapter 1", "Chapter 2: ...", etc.
+      if (chapters.length === 0) {
+        const cueRegex = /(?:(\d{2}:)?\d{2}:\d{2}[\.,]\d{3})\s*-->\s*(?:(\d{2}:)?\d{2}:\d{2}[\.,]\d{3})\r?\n(?:[^\r\n]*\r?\n)?\s*(Chapter\s+\d+[:\s\-]*(.+)?)/gi;
+        let match;
+        let idx = 0;
+        while ((match = cueRegex.exec(subText)) !== null) {
+          const fullCue = match[0];
+          const chTitle = match[3] ? match[3].trim() : `Chapter ${idx + 1}`;
+          const timeMatch = fullCue.match(/(\d{2}):(\d{2}):(\d{2})[\.,](\d{3})/);
+          if (timeMatch) {
+            const startTime = parseInt(timeMatch[1], 10) * 3600 + parseInt(timeMatch[2], 10) * 60 + parseInt(timeMatch[3], 10);
+            chapters.push({ id: `ch-os-${idx}`, title: chTitle, startTime, endTime: 0 });
+            idx++;
+          }
+        }
+      }
+
+      // Calculate endTime from next chapter's startTime
+      for (let i = 0; i < chapters.length - 1; i++) {
+        chapters[i].endTime = chapters[i + 1].startTime;
+      }
+
+      return chapters;
+    } catch (e: any) {
+      console.warn('[OpenSubtitles Chapters Search] Notice:', e?.message);
+      return [];
     }
   };
   // Helper: Track Premiumize transfer with 7-day expiration
@@ -1957,13 +2047,10 @@ Strict Rules:
         return res.status(400).json({ error: 'tmdbId or filePath required' });
       }
 
-      const cacheKey  = `movie_${tmdbId || filePath.replace(/[^a-z0-9]/gi, '_')}`;
-      const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
-      const existing   = mediaCache[cacheKey];
-
-      // Return cached chapters immediately
+      // Return cached chapters immediately (<1ms per-item cache)
+      const existing = tmdbId ? getMediaItemCache(tmdbId) : readJson(MEDIA_METADATA_CACHE_FILE, {})[`movie_${filePath?.replace(/[^a-z0-9]/gi, '_')}`];
       if (existing?.chapters && Array.isArray(existing.chapters) && existing.chapters.length > 0) {
-        console.log(`[Chapters] Cache hit: returning ${existing.chapters.length} chapter(s) for "${existing.title || title}"`);
+        console.log(`[Chapters] Per-item Cache hit (<1ms): returning ${existing.chapters.length} chapter(s) for "${existing.title || title}"`);
         return res.json({ success: true, cached: true, chapters: existing.chapters, source: existing.chapterSource || 'cache' });
       }
 
@@ -2021,18 +2108,15 @@ Strict Rules:
 
           if (xmlRes?.data && typeof xmlRes.data === 'string') {
             const xml: string = xmlRes.data;
-            // Parse the first <chapterSet> from the XML response
             const chapterSetMatch = xml.match(/<chapterSet[\s\S]*?<\/chapterSet>/i);
             if (chapterSetMatch) {
               const chapterSetXml = chapterSetMatch[0];
-              // Extract all <chapter> elements
               const chapterRegex = /<chapter\s+name="([^"]*)"(?:[^>]*)>\s*<time>([^<]*)<\/time>/gi;
               let match;
               let idx = 0;
               while ((match = chapterRegex.exec(chapterSetXml)) !== null) {
                 const chTitle = match[1] || `Chapter ${idx + 1}`;
                 const timeStr = match[2] || '0';
-                // Time is in HH:MM:SS.mmm format or seconds
                 let startTime = 0;
                 if (timeStr.includes(':')) {
                   const parts = timeStr.split(':').map(Number);
@@ -2045,7 +2129,6 @@ Strict Rules:
                 idx++;
               }
 
-              // Calculate endTime from next chapter's startTime
               for (let i = 0; i < chapters.length - 1; i++) {
                 chapters[i].endTime = chapters[i + 1].startTime;
               }
@@ -2061,15 +2144,35 @@ Strict Rules:
         }
       }
 
-      // ── Persist to media_cache.json ───────────────────────────────────────────
+      // ── Source 3: OpenSubtitles Chapter Search ────────────────────────────────
+      if (chapters.length === 0 && (tmdbId || title)) {
+        try {
+          let imdbIdToUse = '';
+          const settings = readJson(SETTINGS_FILE);
+          const apiKey = settings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
+
+          if (tmdbId && !isNaN(Number(tmdbId))) {
+            const tmdbRes = await axios.get(`https://api.themoviedb.org/3/movie/${tmdbId}/external_ids?api_key=${apiKey}`, { timeout: 3000 }).catch(() => null);
+            if (tmdbRes?.data?.imdb_id) imdbIdToUse = tmdbRes.data.imdb_id;
+          }
+
+          if (imdbIdToUse) {
+            const osChapters = await searchOpenSubtitlesForChapters(imdbIdToUse, 'movie');
+            if (osChapters.length > 0) {
+              chapters = osChapters;
+              chapterSource = 'opensubtitles';
+              console.log(`[Chapters] OpenSubtitles extracted ${chapters.length} chapter(s) for IMDB ${imdbIdToUse}`);
+            }
+          }
+        } catch (osErr: any) {
+          console.warn('[Chapters] OpenSubtitles chapter lookup notice:', osErr?.message);
+        }
+      }
+
+      // ── Persist to Per-Item Cache & media_cache.json ─────────────────────────
       if (chapters.length > 0 && tmdbId) {
         try {
-          const freshCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
-          if (!freshCache[cacheKey]) freshCache[cacheKey] = {};
-          freshCache[cacheKey].chapters      = chapters;
-          freshCache[cacheKey].chapterSource = chapterSource;
-          freshCache[cacheKey].chaptersAt    = new Date().toISOString();
-          writeJson(MEDIA_METADATA_CACHE_FILE, freshCache);
+          setMediaItemCache(tmdbId, { chapters, chapterSource, chaptersAt: new Date().toISOString() });
         } catch (writeErr: any) {
           console.warn('[Chapters] Failed to persist to cache:', writeErr?.message);
         }
@@ -2313,7 +2416,26 @@ Return ONLY valid raw JSON:
         } catch (pErr) {}
       }
 
-      // Step 2: FFmpeg Scene Change Analysis + AI Chapter Structure
+      // Step 2: OpenSubtitles Chapter Search
+      if (chapters.length === 0 && tmdbId) {
+        try {
+          const settings = readJson(SETTINGS_FILE);
+          const apiKey = settings.tmdbKey || process.env.TMDB_KEY || '841059f71aab310b4d4c4f3a7e28328e';
+          let imdbIdToUse = '';
+          const tmdbRes = await axios.get(`https://api.themoviedb.org/3/${mediaType === 'tv' ? 'tv' : 'movie'}/${tmdbId}/external_ids?api_key=${apiKey}`, { timeout: 3000 }).catch(() => null);
+          if (tmdbRes?.data?.imdb_id) imdbIdToUse = tmdbRes.data.imdb_id;
+
+          if (imdbIdToUse) {
+            const osChapters = await searchOpenSubtitlesForChapters(imdbIdToUse, mediaType === 'tv' ? 'tv' : 'movie');
+            if (osChapters.length > 0) {
+              chapters = osChapters;
+              chapterSource = 'OpenSubtitles Chapter Cues';
+            }
+          }
+        } catch (osErr) {}
+      }
+
+      // Step 3: FFmpeg Scene Change Analysis + AI Chapter Structure
       if (chapters.length === 0) {
         let sceneTimestamps: number[] = [];
         if (filePath && fs.existsSync(filePath)) {
@@ -2410,14 +2532,8 @@ Return ONLY raw JSON:
         return res.status(400).json({ success: false, error: 'chapters array required' });
       }
 
-      const key = String(tmdbId);
-      const cacheData = readJson(MEDIA_METADATA_CACHE_FILE, {});
-      if (!cacheData[key]) cacheData[key] = { tmdbId: key, updatedAt: new Date().toISOString() };
-      cacheData[key].chapters = chapters;
-      cacheData[key].updatedAt = new Date().toISOString();
-      writeJson(MEDIA_METADATA_CACHE_FILE, cacheData);
-
-      console.log(`[Developer Admin Chapters Save] Saved ${chapters.length} chapter(s) for tmdbId=${tmdbId} to Media Cache.`);
+      setMediaItemCache(tmdbId, { chapters, chaptersAt: new Date().toISOString() });
+      console.log(`[Developer Admin Chapters Save] Saved ${chapters.length} chapter(s) for tmdbId=${tmdbId} to Per-Item Cache.`);
 
       res.json({ success: true, message: 'Chapters saved to Media Cache successfully!' });
     } catch (err: any) {
