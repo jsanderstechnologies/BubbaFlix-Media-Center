@@ -11,6 +11,14 @@ const cpuCores = os.cpus()?.length || 4;
 process.env.UV_THREADPOOL_SIZE = String(Math.max(4, cpuCores * 2));
 console.log(`[System Multithreading] Server detected ${cpuCores} CPU cores. Set UV_THREADPOOL_SIZE=${process.env.UV_THREADPOOL_SIZE}`);
 
+const getFfmpegThreadArgs = (isBackground: boolean = false): string[] => {
+  if (isBackground) {
+    return ['-threads', '2'];
+  }
+  const transcodeThreads = Math.max(2, Math.min(8, Math.floor(cpuCores * 0.75)));
+  return ['-threads', String(transcodeThreads)];
+};
+
 import { createServer as createViteServer } from 'vite';
 import axios from 'axios';
 import parser from 'iptv-playlist-parser';
@@ -2240,6 +2248,7 @@ Strict Rules:
         try {
           const ffmpegExe = (ffmpegPath as any)?.path || ffmpegPath;
           const { stderr } = await execFileAsync(String(ffmpegExe), [
+            ...getFfmpegThreadArgs(true),
             '-ss', '0',
             '-t', '300',
             '-i', mediaSourceToScan,
@@ -2442,6 +2451,7 @@ Return ONLY valid raw JSON:
           try {
             const ffmpegExe = (ffmpegPath as any)?.path || ffmpegPath;
             const { stderr } = await execFileAsync(String(ffmpegExe), [
+              ...getFfmpegThreadArgs(true),
               '-ss', '0',
               '-t', '7200',
               '-i', mediaSourceToScan,
@@ -3801,7 +3811,7 @@ app.get('/api/youtube/search', async (req, res) => {
     // Fast probing & multi-thread latency reduction for instant seeks & playback
     const probeSize = isLocalFile ? '500000' : '1000000';
     const analyzeDur = isLocalFile ? '500000' : '1000000';
-    const args = ['-probesize', probeSize, '-analyzeduration', analyzeDur, '-threads', '0'];
+    const args = ['-probesize', probeSize, '-analyzeduration', analyzeDur, ...getFfmpegThreadArgs(false)];
     if (useVaapi) {
       args.push('-vaapi_device', vaapiDev);
     }

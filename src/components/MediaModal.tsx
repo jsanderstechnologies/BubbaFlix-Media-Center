@@ -1474,86 +1474,84 @@ export default function MediaModal({
         body: JSON.stringify({ title: movie.title || movie.name, season: selectedSeason, episode: selectedEpisode, year: seriesYear, refresh: true })
       }).then(r => r.json()).catch(() => null);
 
-      Promise.all([
-        fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode, extraDetails?.imdbId || undefined),
-        iptvPromise,
-        localMediaPromise,
-        pmCloudPromise
-      ]).then(async ([data, iptvRes, localRes, pmCloudRes]) => {
-        if (!isActive) return;
-        
-        const updatedData: any[] = [...initialData];
+      setLoading(false);
 
-        if (pmCloudRes?.success && Array.isArray(pmCloudRes.data)) {
-          pmCloudRes.data.forEach((pmStream: any) => {
-            updatedData.unshift(pmStream);
-          });
-        }
-
-        if (localRes?.success && Array.isArray(localRes.data)) {
-          localRes.data.forEach((localStream: any) => {
-            updatedData.push(localStream);
-          });
-        }
-
-        if (iptvRes?.success && Array.isArray(iptvRes.data)) {
-          iptvRes.data.forEach((iptvStream: any) => {
-            updatedData.push(iptvStream);
-          });
-        }
-
-        (data || []).forEach((stream) => {
-            updatedData.push({ ...stream });
-        });
+      let aggregatedStreams: any[] = [...initialData];
+      
+      const updateProgressiveStreams = (newStreams: any[]) => {
+        if (!isActive || !Array.isArray(newStreams) || newStreams.length === 0) return;
+        aggregatedStreams = [...aggregatedStreams, ...newStreams];
+        const filteredData = filterAndSortTvStreams(aggregatedStreams);
+        setStreams(filteredData);
 
         const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
         if (pmKey) {
           const torrentHashes = Array.from(new Set(
-            updatedData
-              .filter((s: any) => s.type === 'torrent' && s.hash)
+            filteredData
+              .filter((s: any) => s.type === 'torrent' && s.hash && !s.isPremiumizeChecked)
               .map((s: any) => s.hash.toLowerCase())
           ));
           if (torrentHashes.length > 0) {
-            try {
-              const pmRes = await fetch('/api/premiumize/cache/check', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pmKey}` },
-                body: JSON.stringify({ hashes: torrentHashes })
-              });
-              if (pmRes.ok) {
-                const pmData = await pmRes.json();
-                const responseArr = pmData.response || [];
-                let hashIdx = 0;
-                updatedData.forEach((s: any) => {
-                  if (s.type === 'torrent' && s.hash) {
-                    if (responseArr[hashIdx] === true) {
-                      s.isPremiumize = true;
-                      s.isCached = true;
-                      s.availability = 'Cached (Premiumize ⚡)';
-                    }
-                    hashIdx++;
+            fetch('/api/premiumize/cache/check', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pmKey}` },
+              body: JSON.stringify({ hashes: torrentHashes })
+            }).then(r => r.ok ? r.json() : null).then(pmData => {
+              if (!isActive || !pmData?.response) return;
+              const responseArr = pmData.response || [];
+              let hashIdx = 0;
+              filteredData.forEach((s: any) => {
+                if (s.type === 'torrent' && s.hash && !s.isPremiumizeChecked) {
+                  s.isPremiumizeChecked = true;
+                  if (responseArr[hashIdx] === true) {
+                    s.isPremiumize = true;
+                    s.isCached = true;
+                    s.availability = 'Cached (Premiumize ⚡)';
                   }
-                });
-              }
-            } catch (e) {}
+                  hashIdx++;
+                }
+              });
+              setStreams(filterAndSortTvStreams([...filteredData]));
+            }).catch(() => {});
           }
         }
+      };
 
-        const filteredData = filterAndSortTvStreams(updatedData);
+      // 1. Local media streams (Instant <10ms)
+      localMediaPromise.then(localRes => {
+        if (localRes?.success && Array.isArray(localRes.data)) {
+          updateProgressiveStreams(localRes.data);
+        }
+      });
 
-        if (!isActive) return;
-        setStreams(filteredData);
+      // 2. Personal Cloud streams
+      pmCloudPromise.then(pmCloudRes => {
+        if (pmCloudRes?.success && Array.isArray(pmCloudRes.data)) {
+          updateProgressiveStreams(pmCloudRes.data);
+        }
+      });
 
-        const hasActive = filteredData.some((s: any) => s.isAdding || (s.downloadProgress !== undefined && s.downloadProgress < 100));
-        setLoading(false);
-        setPollingActive(hasActive);
+      // 3. IPTV VOD streams
+      iptvPromise.then(iptvRes => {
+        if (iptvRes?.success && Array.isArray(iptvRes.data)) {
+          updateProgressiveStreams(iptvRes.data);
+        }
+      });
+
+      // 4. Torrent indexer search streams
+      fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode, extraDetails?.imdbId || undefined)
+        .then(tData => {
+          if (Array.isArray(tData)) {
+            updateProgressiveStreams(tData);
+          }
+        });
 
 
         if (user && movie) {
             const q = query(collection(db, 'favorites'), where('userId', '==', user.uid), where('tmdbId', '==', movie.id));
             getDocs(q).then(snapshot => {
                 if (snapshot.docs.length > 0) {
-                    const bestStream = filteredData.length > 0 ? filteredData[0] : null;
+                    const bestStream = aggregatedStreams.length > 0 ? aggregatedStreams[0] : null;
                     if (bestStream) {
                         updateDoc(doc(db, 'favorites', snapshot.docs[0].id), {
                             streamInfo: {
@@ -1566,7 +1564,6 @@ export default function MediaModal({
                 }
             }).catch(err => console.error("Failed to check favorites for streamInfo update", err));
         }
-      });
     }
     return () => { isActive = false; };
   }, [isSeries, selectedSeason, selectedEpisode, movie, userSettings]);
