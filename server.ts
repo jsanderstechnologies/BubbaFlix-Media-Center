@@ -3893,18 +3893,46 @@ app.get('/api/youtube/search', async (req, res) => {
         });
       }
 
-      // Parse requested Season & Episode from search query `q` (e.g. "Bones S01E01")
+      // Parse requested Season & Episode and Show Title from search query `q` or `req.query.title`
       const qStr = String(q || '');
+      const reqTitleParam = req.query.title ? String(req.query.title) : null;
+      const reqTitle = (reqTitleParam || qStr.replace(/\bs\d{1,2}(e\d{1,3})?\b.*$/i, '').replace(/\b\d{1,2}x\d{1,2}\b.*$/i, '')).trim();
+
       const sMatch = qStr.match(/\bs(\d{1,2})e(\d{1,2})\b/i) || qStr.match(/\b(\d{1,2})x(\d{1,2})\b/i);
       const reqSeason = sMatch ? parseInt(sMatch[1], 10) : null;
       const reqEpisode = sMatch ? parseInt(sMatch[2], 10) : null;
 
-      // Filter to enforce magnet links only and match requested season & episode if specified
+      const cleanTitleForComparison = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      const extractShowTitleFromTorrentName = (torrentName: string) => {
+        const normalized = torrentName.replace(/[\._\-]+/g, ' ').trim();
+        const match = normalized.match(/^(.*?)(?:\b(s|season\s*)\d{1,2}(e\d{1,3})?\b|\b\d{1,2}x\d{1,2}\b|\b(19|20)\d{2}\b|\b(2160p|1080p|720p|480p|web-dl|bluray|hdtv)\b)/i);
+        return (match && match[1] && match[1].trim().length > 0) ? match[1].trim() : normalized;
+      };
+
+      // Filter to enforce magnet links only, strict show title match, and requested season & episode if specified
       const magnetOnlyTorrents = mappedTorrents.filter(t => {
         if (!t.magnet || !t.magnet.startsWith('magnet:?xt=urn:btih:') || !t.hash) return false;
         if (!t.name) return true;
 
         const tName = t.name.toLowerCase();
+
+        // Enforce Show Title strictness if target show title is specified
+        if (reqTitle) {
+          const expectedTitleClean = cleanTitleForComparison(reqTitle);
+          if (expectedTitleClean.length > 1) {
+            const torrentShowTitle = extractShowTitleFromTorrentName(t.name);
+            const torrentShowTitleClean = cleanTitleForComparison(torrentShowTitle);
+
+            const isMatch = torrentShowTitleClean.startsWith(expectedTitleClean) || 
+                            torrentShowTitleClean.includes(expectedTitleClean) || 
+                            expectedTitleClean.includes(torrentShowTitleClean);
+
+            // Reject false matches (e.g. "The Truth About My Murder S01E01 Bones In The Forest" != "Bones")
+            if (!isMatch || (expectedTitleClean.length <= 6 && torrentShowTitleClean.length > expectedTitleClean.length + 8 && !torrentShowTitleClean.startsWith(expectedTitleClean))) {
+              return false;
+            }
+          }
+        }
 
         // Enforce Season strictness
         if (reqSeason !== null) {

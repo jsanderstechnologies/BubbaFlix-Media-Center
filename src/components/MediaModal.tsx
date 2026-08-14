@@ -61,7 +61,7 @@ const fetchStreamsForTvSeries = async (title: string, season?: number, episode?:
     const sStr = season ? `S${season.toString().padStart(2, '0')}` : '';
     const eStr = episode ? `E${episode.toString().padStart(2, '0')}` : '';
     const q = `${title} ${sStr}${eStr}`.trim();
-    const url = `/api/torrents/search?q=${encodeURIComponent(q)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
+    const url = `/api/torrents/search?q=${encodeURIComponent(q)}&title=${encodeURIComponent(title)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
     const res = await fetch(url).then(r => r.json());
     if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
       return res.data.map((t: any, idx: number) => ({
@@ -82,7 +82,7 @@ const fetchStreamsForTvSeries = async (title: string, season?: number, episode?:
     // Fallback: search Season pack (e.g. "Game of Thrones S01")
     if (season) {
       const seasonQuery = `${title} ${sStr}`.trim();
-      const fallbackUrl = `/api/torrents/search?q=${encodeURIComponent(seasonQuery)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
+      const fallbackUrl = `/api/torrents/search?q=${encodeURIComponent(seasonQuery)}&title=${encodeURIComponent(title)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
       const fallbackRes = await fetch(fallbackUrl).then(r => r.json()).catch(() => null);
       if (fallbackRes?.success && Array.isArray(fallbackRes.data)) {
         return fallbackRes.data.map((t: any, idx: number) => ({
