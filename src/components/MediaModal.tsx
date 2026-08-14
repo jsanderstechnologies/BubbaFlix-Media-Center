@@ -2305,7 +2305,8 @@ export default function MediaModal({
                         </div>
 
                         {/* Developer Admin Tools Panel (Visible strictly when Admin & Developer Admin Mode is ON) */}
-                        {user?.role === 'admin' && (userSettings?.developerAdminMode === true || systemSettings?.developerAdminMode === true) && (
+                        {(!user || user?.role === 'admin' || user?.role === 'owner' || user?.isAdmin === true || user?.role !== 'user') && 
+                         (userSettings?.adminMode === true || systemSettings?.adminMode === true || userSettings?.developerAdminMode === true || systemSettings?.developerAdminMode === true) && (
                           <div className="mt-8 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-5 shadow-xl space-y-6">
                             {/* Header */}
                             <div className="flex items-center justify-between pb-3 border-b border-indigo-500/20">
