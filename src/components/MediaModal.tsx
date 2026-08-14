@@ -502,11 +502,16 @@ export default function MediaModal({
     return null;
   };
 
-  // Auto-populate to the first unwatched season and episode when opening series modal
-  useEffect(() => {
-    if (!isSeries || seasons.length === 0 || isHidden) return;
+  const hasInitializedSeasonRef = useRef<Record<string, boolean>>({});
 
-    if (selectedSeason === null) {
+  // Auto-populate to the first unwatched season and episode ONCE when opening series modal
+  useEffect(() => {
+    if (!isSeries || seasons.length === 0 || isHidden || !movie) return;
+    const movieIdKey = String(movie.id || movie.realTmdbId || movie.tmdbId || 'unknown');
+
+    if (!hasInitializedSeasonRef.current[movieIdKey]) {
+      hasInitializedSeasonRef.current[movieIdKey] = true;
+
       let targetSeason = seasons[0].season_number;
       let targetEpisode = 1;
       let foundUnwatched = false;
@@ -529,7 +534,7 @@ export default function MediaModal({
       setSelectedSeason(targetSeason);
       setSelectedEpisode(targetEpisode);
     }
-  }, [isSeries, seasons, isHidden, selectedSeason]);
+  }, [isSeries, seasons, isHidden, movie, watchedDocs]);
 
   const toggleWatched = async (type: 'tv' | 'movie', seasonNum?: number, episodeNum?: number) => {
     if (!user || !movie) return;
@@ -579,12 +584,17 @@ export default function MediaModal({
   };
 
   const isSeasonFullyWatched = (seasonNum: number): boolean => {
-    const epCount = episodes.length > 0 && selectedSeason === seasonNum
-      ? episodes.length
-      : (seasons.find(s => s.season_number === seasonNum)?.episode_count || 0);
-
+    const seasonObj = seasons.find(s => s.season_number === seasonNum);
+    const epList = episodes.length > 0 && selectedSeason === seasonNum
+      ? episodes
+      : (seasonObj?.episodes || []);
+    
+    if (epList.length > 0) {
+      return epList.every(e => !!watchedDocs[`s${seasonNum}_e${e.episode_number}`]);
+    }
+    
+    const epCount = seasonObj?.episode_count || 0;
     if (epCount === 0) return false;
-
     for (let eNum = 1; eNum <= epCount; eNum++) {
       if (!watchedDocs[`s${seasonNum}_e${eNum}`]) return false;
     }
@@ -597,14 +607,23 @@ export default function MediaModal({
     const isFullyWatched = isSeasonFullyWatched(seasonNum);
     const targetState = !isFullyWatched;
 
-    const epCount = episodes.length > 0 && selectedSeason === seasonNum
-      ? episodes.length
-      : (seasons.find(s => s.season_number === seasonNum)?.episode_count || 1);
+    const seasonObj = seasons.find(s => s.season_number === seasonNum);
+    const epList = episodes.length > 0 && selectedSeason === seasonNum
+      ? episodes
+      : (seasonObj?.episodes || []);
+
+    let epNumbers: number[] = [];
+    if (epList.length > 0) {
+      epNumbers = epList.map((e: any) => e.episode_number);
+    } else {
+      const epCount = seasonObj?.episode_count || 24;
+      epNumbers = Array.from({ length: epCount }, (_, i) => i + 1);
+    }
 
     const updatedDocsMap = { ...watchedDocs };
     const promises: Promise<any>[] = [];
 
-    for (let eNum = 1; eNum <= epCount; eNum++) {
+    for (const eNum of epNumbers) {
       const key = `s${seasonNum}_e${eNum}`;
       updatedDocsMap[key] = targetState;
       const docId = `${user.uid}_${targetId}_s${seasonNum}_e${eNum}`;
