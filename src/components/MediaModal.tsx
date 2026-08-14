@@ -502,7 +502,7 @@ export default function MediaModal({
     return null;
   };
 
-  // Auto-populate or auto-advance to the next unwatched season and episode
+  // Auto-populate to the first unwatched season and episode when opening series modal
   useEffect(() => {
     if (!isSeries || seasons.length === 0 || isHidden) return;
 
@@ -528,19 +528,8 @@ export default function MediaModal({
 
       setSelectedSeason(targetSeason);
       setSelectedEpisode(targetEpisode);
-      return;
     }
-
-    // If currently selected episode has been finished / marked as watched, automatically advance to next unwatched episode
-    const currentEpKey = `s${selectedSeason}_e${selectedEpisode}`;
-    if (watchedDocs[currentEpKey]) {
-      const nextEp = getNextUnwatchedEpisode(selectedSeason, selectedEpisode, seasons, episodes, watchedDocs);
-      if (nextEp && (nextEp.season !== selectedSeason || nextEp.episode !== selectedEpisode)) {
-        setSelectedSeason(nextEp.season);
-        setSelectedEpisode(nextEp.episode);
-      }
-    }
-  }, [isSeries, seasons, episodes, watchedDocs, selectedSeason, selectedEpisode, isHidden]);
+  }, [isSeries, seasons, isHidden, selectedSeason, selectedEpisode]);
 
   const toggleWatched = async (type: 'tv' | 'movie', seasonNum?: number, episodeNum?: number) => {
     if (!user || !movie) return;
