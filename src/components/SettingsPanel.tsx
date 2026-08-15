@@ -63,15 +63,15 @@ export default function SettingsPanel() {
   const queryClient = useQueryClient();
   const [openSections, setOpenSections] = useState<string[]>([]);
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
-  const [activeTab, setActiveTab] = useState(isAdmin ? 'user_prefs' : 'user_prefs');
-  
+  const { systemSettings, userSettings, updateSystemSettings, updateUserSettings, zoom, updateZoom } = useSettings();
+  const isAdmin = !user || user?.role === 'admin' || user?.role === 'owner' || (user as any)?.isAdmin === true || systemSettings?.disableLogin === true || localStorage.getItem('disableLogin') === 'true';
+  const [activeTab, setActiveTab] = useState('user_prefs');
+
   const toggleSection = (section: string) => {
     setOpenSections(prev => 
       prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
     );
   };
-  const { systemSettings, userSettings, updateSystemSettings, updateUserSettings, zoom, updateZoom } = useSettings();
 
   const [userPrefs, setUserPrefs] = useState(userSettings);
   const [localZoom, setLocalZoom] = useState(zoom);

@@ -9,7 +9,6 @@ interface UserData {
   role: string;
   status: string;
   registeredAt: string | null;
-  allowedSections?: string[];
 }
 
 export default function AdminPanel() {
@@ -27,9 +26,13 @@ export default function AdminPanel() {
   const [error, setError] = useState<string | null>(null);
   const [resetModalData, setResetModalData] = useState<{username: string, password: string} | null>(null);
 
+  const getAdminToken = () => {
+    return localStorage.getItem('token') || localStorage.getItem('authToken') || (user as any)?.token || '';
+  };
+
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = getAdminToken();
       const res = await fetch('/api/admin/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -48,7 +51,7 @@ export default function AdminPanel() {
     setAddError('');
     setGeneratedPasswordResult(null);
     try {
-      const token = localStorage.getItem('authToken');
+      const token = getAdminToken();
       const body: any = { email: newEmail, username: newUsername, role: newRole, emailPassword };
       if (!emailPassword && newPassword) body.password = newPassword;
       const res = await fetch('/api/admin/users', {
@@ -94,7 +97,7 @@ export default function AdminPanel() {
     setUsers(prev => prev.map(u => u.uid === uid ? { ...u, allowedSections: newAllowed } : u));
 
     try {
-      const token = localStorage.getItem('authToken');
+      const token = getAdminToken();
       const res = await fetch(`/api/admin/users/${uid}/permissions`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -109,7 +112,7 @@ export default function AdminPanel() {
 
   const handleApprove = async (uid: string) => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = getAdminToken();
       const res = await fetch(`/api/admin/users/${uid}/approve`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
@@ -122,7 +125,7 @@ export default function AdminPanel() {
   const handleDeny = async (uid: string) => {
     if (!confirm('Deny this registration? The user will not be able to log in.')) return;
     try {
-      const token = localStorage.getItem('authToken');
+      const token = getAdminToken();
       const res = await fetch(`/api/admin/users/${uid}/deny`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
@@ -135,7 +138,7 @@ export default function AdminPanel() {
   const handleLock = async (uid: string) => {
     if (!confirm('Lock this user? They will be immediately disconnected and unable to log in.')) return;
     try {
-      const token = localStorage.getItem('authToken');
+      const token = getAdminToken();
       const res = await fetch(`/api/admin/users/${uid}/lock`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
@@ -147,7 +150,7 @@ export default function AdminPanel() {
 
   const handleUnlock = async (uid: string) => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = getAdminToken();
       const res = await fetch(`/api/admin/users/${uid}/unlock`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
@@ -160,7 +163,7 @@ export default function AdminPanel() {
   const handleResetPassword = async (uid: string, username: string) => {
     if (!confirm(`Are you sure you want to reset the password for ${username}? They will receive an email if configured.`)) return;
     try {
-      const token = localStorage.getItem('authToken');
+      const token = getAdminToken();
       const res = await fetch(`/api/admin/users/${uid}/reset-password`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
@@ -176,7 +179,7 @@ export default function AdminPanel() {
   const handleDeleteUser = async (uid: string) => {
     if (!confirm('Are you sure you want to delete this user? All their data will be lost.')) return;
     try {
-      const token = localStorage.getItem('authToken');
+      const token = getAdminToken();
       const res = await fetch(`/api/admin/users/${uid}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
