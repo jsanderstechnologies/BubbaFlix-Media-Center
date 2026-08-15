@@ -72,6 +72,14 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
     retry: 1,
   });
 
+  useEffect(() => {
+    const list: any[] = [];
+    if (trendingMovies) list.push(...trendingMovies);
+    if (popularMovies) list.push(...popularMovies);
+    if (popularTv) list.push(...popularTv);
+    if (list.length > 0) prefetchMediaItems(list);
+  }, [trendingMovies, popularMovies, popularTv]);
+
   const hasAnyData = !!(trendingMovies?.length || popularMovies?.length || popularTv?.length || topRatedMovies?.length || topRatedTv?.length);
   const isLoading = !forceReady && !hasAnyData && (loadingTrending && loadingPopularMovies && loadingPopularTv);
 
@@ -84,14 +92,6 @@ export default function HomePanel({ onSelectMedia, onHoverMedia }: HomePanelProp
       </div>
     );
   }
-
-  useEffect(() => {
-    const list: any[] = [];
-    if (trendingMovies) list.push(...trendingMovies);
-    if (popularMovies) list.push(...popularMovies);
-    if (popularTv) list.push(...popularTv);
-    if (list.length > 0) prefetchMediaItems(list);
-  }, [trendingMovies, popularMovies, popularTv]);
 
   // Choose the spotlights for both TV Series and Movies
   const tvHeroItem = popularTv?.[0] || topRatedTv?.[0];
