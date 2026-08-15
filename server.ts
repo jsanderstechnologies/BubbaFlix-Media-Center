@@ -2694,41 +2694,42 @@ Return ONLY raw JSON:
       }
     }
 
-    // 3. TERTIARY PROVIDER: OPENROUTER FREE API (Public Open Access Tier)
-    const openRouterAuthKey = openRouterKey || 'pk-free-open-access';
-    const openRouterModels = [
-      'meta-llama/llama-3.2-3b-instruct:free',
-      'google/gemma-2-9b-it:free',
-      'qwen/qwen-2.5-72b-instruct:free',
-      'deepseek/deepseek-r1:free'
-    ];
+    // 3. TERTIARY PROVIDER: OPENROUTER FREE API (Only if API Key is configured)
+    if (openRouterKey) {
+      const openRouterModels = [
+        'meta-llama/llama-3.2-3b-instruct:free',
+        'google/gemma-2-9b-it:free',
+        'qwen/qwen-2.5-72b-instruct:free',
+        'deepseek/deepseek-r1:free'
+      ];
 
-    for (const orModel of openRouterModels) {
-      try {
-        const res = await axios.post(
-          'https://openrouter.ai/api/v1/chat/completions',
-          {
-            model: orModel,
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.1
-          },
-          {
-            timeout: timeoutMs,
-            headers: {
-              'Authorization': `Bearer ${openRouterAuthKey}`,
-              'HTTP-Referer': 'https://bubbaflix.app',
-              'X-Title': 'BubbaFlix Media Center',
-              'Content-Type': 'application/json'
+      for (const orModel of openRouterModels) {
+        try {
+          const res = await axios.post(
+            'https://openrouter.ai/api/v1/chat/completions',
+            {
+              model: orModel,
+              messages: [{ role: 'user', content: prompt }],
+              temperature: 0.1
+            },
+            {
+              timeout: timeoutMs,
+              headers: {
+                'Authorization': `Bearer ${openRouterKey}`,
+                'HTTP-Referer': 'https://bubbaflix.app',
+                'X-Title': 'BubbaFlix Media Center',
+                'Content-Type': 'application/json'
+              }
             }
+          );
+          const text = res.data?.choices?.[0]?.message?.content;
+          if (text) {
+            console.log(`[AI System] Obtained response from OpenRouter AI Fallback (${orModel})`);
+            return text;
           }
-        );
-        const text = res.data?.choices?.[0]?.message?.content;
-        if (text) {
-          console.log(`[AI System] Obtained response from OpenRouter Free AI Fallback (${orModel})`);
-          return text;
+        } catch (err: any) {
+          errors.push(`OpenRouter (${orModel}): ${err.response?.data?.error?.message || err.message}`);
         }
-      } catch (err: any) {
-        errors.push(`OpenRouter (${orModel}): ${err.response?.data?.error?.message || err.message}`);
       }
     }
 
@@ -2742,7 +2743,7 @@ Return ONLY raw JSON:
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.1
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
       const text = res.data?.choices?.[0]?.message?.content;
       if (text) {
@@ -2751,7 +2752,8 @@ Return ONLY raw JSON:
       }
     } catch (e) {}
 
-    throw new Error(`All AI Providers Failed or Unconfigured: [${errors.join('; ')}]`);
+    console.warn(`[AI System] No active AI provider responded (${errors.length > 0 ? errors.join('; ') : 'No AI API keys configured'}). Falling back to FFmpeg visual transition & heuristic analysis.`);
+    return '';
   }
 
   // Alias callGeminiApi to callAiWithFallback for full backward compatibility
