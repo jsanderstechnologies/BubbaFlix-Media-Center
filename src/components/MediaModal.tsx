@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
 import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap, Info, FileVideo } from 'lucide-react';
 
@@ -148,6 +148,12 @@ export default function MediaModal({
   isHidden?: boolean
 }) {
   const [streams, setStreams] = useState<any[]>([]);
+  const availableStreams = useMemo(() => {
+    return streams.filter(s => {
+      if (s.type === 'local' || s.type === 'iptv' || s.type === 'premiumize_cloud' || s.inPersonalCloud) return true;
+      return Boolean(s.isPremiumize || s.isCached || s.url);
+    });
+  }, [streams]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { systemSettings, userSettings } = useSettings();
@@ -2252,7 +2258,7 @@ export default function MediaModal({
                 )}
 
 
-                {(() => {
+{(() => {
                   const isReadyOrActive = (s: any) => {
                     if (s.type === 'local' || s.type === 'iptv' || s.type === 'premiumize_cloud' || s.inPersonalCloud) return true;
                     if (s.downloadState || s.downloadProgress !== undefined || s.isAdding) return true;
@@ -2261,7 +2267,7 @@ export default function MediaModal({
 
                   const activeStreams = streams.filter(isReadyOrActive);
                   // Filter out un-cached plain torrents so only streams that qualify for the Premiumize cached badge (or local/iptv/cloud streams) are displayed
-                  const availableStreams = streams.filter(s => {
+                  const displayAvailableStreams = streams.filter(s => {
                     if (isReadyOrActive(s)) return false;
                     if (s.type === 'local' || s.type === 'iptv' || s.type === 'premiumize_cloud' || s.inPersonalCloud) return true;
                     return Boolean(s.isPremiumize || s.isCached);
@@ -2280,38 +2286,44 @@ export default function MediaModal({
                             </div>
                           </div>
                         )}
-                        {/* Instant Cloud, Local & Active Streams Container */}
-                        <div className="flex flex-col shrink-0">
-                            <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                Ready to Play / Active <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                            </h3>
-                            <div className="flex flex-col gap-3">
-                                {activeStreams.length > 0 ? (
-                                    activeStreams.map(stream => renderStream(stream))
-                                ) : (
-                                    <div className="text-white/40 text-xs italic py-2">No active cloud storage items or local streams found.</div>
+                        
+                        {/* Active Streams */}
+                        {activeStreams.length > 0 && (
+                          <div className="flex flex-col gap-3">
+                            <div className="text-xs font-bold uppercase tracking-wider text-white/50 flex items-center justify-between">
+                              <span>Active Downloads & Played Streams</span>
+                              <span className="text-[10px] text-white/40">{activeStreams.length} active</span>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              {activeStreams.map(stream => renderStream(stream))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Available Streams */}
+                        <div className="flex flex-col flex-1 min-h-0">
+                            <div className="text-xs font-bold uppercase tracking-wider text-white/50 mb-3 flex items-center justify-between">
+                                <span>Available High-Quality Streams</span>
+                                {loading && (
+                                  <div className="flex items-center gap-1.5 text-xs text-red-400 animate-pulse font-normal lowercase">
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                    <span>Searching...</span>
+                                  </div>
                                 )}
                             </div>
-                        </div>
-
-                        {/* Search Results Container */}
-                        <div className="flex flex-col flex-1 min-h-0">
-                            <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4 flex items-center gap-2 flex-shrink-0">
-                                Available Stream Sources <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                            </h3>
-                            {loading ? (
-                                <div className="text-white/60 text-xs italic py-4 flex items-center gap-2 bg-white/[0.01] p-4 rounded-xl border border-white/5">
+                            {loading && displayAvailableStreams.length === 0 ? (
+                                <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5 flex items-center gap-2">
                                   <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                                   </span>
                                   <span>Searching Stream Indexers...</span>
                                 </div>
-                            ) : availableStreams.length === 0 ? (
+                            ) : displayAvailableStreams.length === 0 ? (
                                 <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5">No indexed streams found.</div>
                             ) : (
                                 <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-4">
-                                    {availableStreams.map(stream => renderStream(stream))}
+                                    {displayAvailableStreams.map(stream => renderStream(stream))}
                                 </div>
                             )}
                         </div>
