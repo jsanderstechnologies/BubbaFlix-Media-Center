@@ -1143,13 +1143,13 @@ function MainApp() {
     <>
       <AuthModal />
       {firstAdminPassword && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-lg px-4">
-          <div className="bg-amber-950/95 border border-amber-500/40 rounded-2xl p-4 shadow-2xl backdrop-blur-md flex gap-4 items-start">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-amber-300 font-bold text-sm mb-1">Your Admin Password (save this now!)</p>
+        <div className="fixed top-4 right-4 z-[9999] bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 rounded-xl p-4 shadow-2xl backdrop-blur-xl max-w-md animate-bounce-short">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-amber-400 font-bold text-sm mb-1">
+                <Sparkles className="w-4 h-4" /> Auto Admin Enabled
+              </div>
+              <p className="text-white/90 text-xs font-semibold mb-1">Single-user mode. Login credentials:</p>
               <p className="text-white/60 text-xs mb-2">This is the only time your auto-generated password will be shown.</p>
               <code className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-amber-300 font-mono text-lg font-bold tracking-widest select-all">{firstAdminPassword}</code>
             </div>
@@ -1209,31 +1209,20 @@ function MainApp() {
                     <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Bitrate</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{Math.round((mediaInfo.format?.bit_rate || 0)/1000)} kbps</span></div>
                     {mediaInfo.streams?.filter((s: any) => s.codec_type === 'video')[0] && (
                       <>
-                        <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Video Codec</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.find((s: any) => s.codec_type === 'video').codec_name?.toUpperCase() || 'N/A'}</span></div>
                         <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Resolution</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.find((s: any) => s.codec_type === 'video').width}x{mediaInfo.streams.find((s: any) => s.codec_type === 'video').height}</span></div>
+                        <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Video Codec</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.find((s: any) => s.codec_type === 'video').codec_name?.toUpperCase()}</span></div>
                       </>
                     )}
-
-                    {mediaInfo.streams?.filter((s: any) => s.codec_type === 'audio').length > 0 && (
-                      <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Audio Tracks</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.filter((s: any) => s.codec_type === 'audio').length}</span></div>
+                    {mediaInfo.streams?.filter((s: any) => s.codec_type === 'audio')[0] && (
+                      <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Audio Codec</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.find((s: any) => s.codec_type === 'audio').codec_name?.toUpperCase()}</span></div>
                     )}
-                    {mediaInfo.streams?.filter((s: any) => s.codec_type === 'subtitle').length > 0 && (
-                      <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Subtitles</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{mediaInfo.streams.filter((s: any) => s.codec_type === 'subtitle').length}</span></div>
-                    )}
-                  {bufferedSeconds > 0 && (
-                    <div className="flex justify-between items-center"><span className="text-white/50 font-medium">Stream Buffer Ahead</span> <span className="text-white font-mono bg-white/5 px-2 py-1 rounded">{Math.round(bufferedSeconds)}s</span></div>
-                  )}
                   </div>
                 </div>
               )}
           </div>
           <div 
-            className="flex-1 w-full h-full relative flex items-center justify-center bg-black overflow-hidden cursor-pointer"
-            onClick={(e) => {
-              const target = e.target as HTMLElement;
-              if (target.closest('button, input, select, a, [role="button"], .pointer-events-auto, .popover-container')) {
-                return;
-              }
+            className="w-full h-full relative cursor-pointer"
+            onClick={() => {
               if (videoRef.current) {
                 if (isVideoPlaying) {
                   videoRef.current.pause();
@@ -1246,7 +1235,7 @@ function MainApp() {
           >
             {/* Glowing Loader & TMDB Backdrop Player Overlay while video is loading/buffering */}
             {!isVideoLoaded && (
-              <div className="absolute inset-0 z-40 bg-[#06060a] flex flex-col items-center justify-center pointer-events-none">
+              <div className={`absolute inset-0 z-40 bg-[#06060a] flex flex-col items-center justify-center ${playerStatus.startsWith('ERROR:') ? 'pointer-events-auto' : 'pointer-events-none'}`}>
                 {playingContext?.activePoster && (
                   <div className="absolute inset-0 overflow-hidden opacity-35">
                     <img 
@@ -1258,17 +1247,31 @@ function MainApp() {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#06060a] via-[#06060a]/60 to-[#06060a]/80"></div>
                   </div>
                 )}
-                <div className="relative z-10 flex flex-col items-center gap-3 text-center px-4">
+                <div className="relative z-10 flex flex-col items-center gap-3 text-center px-4 max-w-lg">
                   <BubbaFlixLogo className="w-56 h-16 animate-pulse mb-1" idPrefix="player-loader" />
-                  <Loader2 className="w-10 h-10 text-red-500 animate-spin drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]" />
-                  <span className="text-white/80 font-mono text-sm tracking-wider uppercase animate-pulse font-semibold">
+                  {!playerStatus.startsWith('ERROR:') ? (
+                    <Loader2 className="w-10 h-10 text-red-500 animate-spin drop-shadow-[0_0_15px_rgba(239,68,68,0.6)]" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 mb-1">
+                      <X className="w-6 h-6" />
+                    </div>
+                  )}
+                  <span className={`font-mono text-sm tracking-wider uppercase font-semibold ${playerStatus.startsWith('ERROR:') ? 'text-red-400' : 'text-white/80 animate-pulse'}`}>
                     {playerStatus || 'Loading Stream...'}
                   </span>
                   {selectedMovie && (
-                    <div className="flex flex-col items-center gap-1 mt-1 max-w-lg">
+                    <div className="flex flex-col items-center gap-1 mt-1">
                       <span className="text-white text-xl font-bold tracking-tight truncate drop-shadow-lg">{selectedMovie.title || selectedMovie.name}</span>
                       {selectedMovie.year && <span className="text-white/60 text-xs font-mono">{selectedMovie.year}</span>}
                     </div>
+                  )}
+                  {playerStatus.startsWith('ERROR:') && (
+                    <button
+                      onClick={closePlayer}
+                      className="focusable mt-4 px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm tracking-wide shadow-xl transition-all cursor-pointer focus:outline-none focus:ring-4 focus:ring-red-400"
+                    >
+                      Return to Stream Selection
+                    </button>
                   )}
                 </div>
               </div>
@@ -1290,15 +1293,7 @@ function MainApp() {
                   onProgress={(e) => {
                     updateBufferedAhead(e.currentTarget);
                   }}
-                  onError={(e) => {
-                    const error = e.currentTarget.error;
-                    console.error("Built-in Player Error", { 
-                      code: error?.code, 
-                      message: error?.message, 
-                      src: e.currentTarget.src 
-                    });
-                    setPlayerStatus("ERROR: Video failed to load.");
-                  }}
+                  onError={handlePlayerVideoError}
                   onPlay={() => { 
                     setIsVideoPlaying(true); 
                     setIsVideoLoaded(true);
@@ -1338,33 +1333,7 @@ function MainApp() {
                   onProgress={(e) => {
                     updateBufferedAhead(e.currentTarget);
                   }}
-                  onError={(e) => {
-                    const error = e.currentTarget.error;
-                    console.error("Built-in Player Error", { 
-                      code: error?.code, 
-                      message: error?.message, 
-                      src: e.currentTarget.src 
-                    });
-
-                    // Automatic IPTV Stream Failover to Backup URL
-                    if (playingContext?.backupUrls && Array.isArray(playingContext.backupUrls) && playingContext.backupUrls.length > 0) {
-                      const nextBackupIndex = (playingContext.backupIndex || 0);
-                      if (nextBackupIndex < playingContext.backupUrls.length) {
-                        const backupUrl = playingContext.backupUrls[nextBackupIndex];
-                        console.warn(`[Stream Failover] Main stream failed. Automatically switching to Backup #${nextBackupIndex + 1}: ${backupUrl}`);
-                        
-                        setPlayingContext({
-                          ...playingContext,
-                          backupIndex: nextBackupIndex + 1
-                        });
-                        setPlayingUrl(backupUrl);
-                        setPlayerStatus(`SWITCHING TO BACKUP #${nextBackupIndex + 1}...`);
-                        return;
-                      }
-                    }
-
-                    setPlayerStatus("ERROR: Video failed to load.");
-                  }}
+                  onError={handlePlayerVideoError}
                   onPlay={() => { 
                     setIsVideoPlaying(true); 
                     setIsVideoLoaded(true);
