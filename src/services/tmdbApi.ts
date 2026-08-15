@@ -472,21 +472,24 @@ export const getPopularMovies = async (): Promise<any[]> => {
     ];
   }
   try {
-    const res = await fetch(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=1`);
-    if (!res.ok) throw new Error("Failed to fetch popular movies");
+    const res = await fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=1`, 5000);
+    if (!res.ok) {
+      console.warn(`[TMDB] Popular movies returned HTTP ${res.status}`);
+      return [];
+    }
     const data = await res.json();
     return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
       id: m.id,
       title: m.title,
       year: m.release_date?.substring(0, 4) || 'N/A',
       rating: m.vote_average?.toFixed(1) || '0.0',
-      poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+      poster: getCachedImageUrl(m.poster_path),
       overview: m.overview,
       genres: m.genre_ids || [],
       type: 'movie'
     }));
-  } catch (e) {
-    console.error(e);
+  } catch (e: any) {
+    console.warn('[TMDB] Network error fetching popular movies:', e?.message || e);
     return [];
   }
 };
@@ -500,21 +503,24 @@ export const getTopRatedMovies = async (): Promise<any[]> => {
     ];
   }
   try {
-    const res = await fetch(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=1`);
-    if (!res.ok) throw new Error("Failed to fetch top rated movies");
+    const res = await fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=1`, 5000);
+    if (!res.ok) {
+      console.warn(`[TMDB] Top rated movies returned HTTP ${res.status}`);
+      return [];
+    }
     const data = await res.json();
     return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
       id: m.id,
       title: m.title,
       year: m.release_date?.substring(0, 4) || 'N/A',
       rating: m.vote_average?.toFixed(1) || '0.0',
-      poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+      poster: getCachedImageUrl(m.poster_path),
       overview: m.overview,
       genres: m.genre_ids || [],
       type: 'movie'
     }));
-  } catch (e) {
-    console.error(e);
+  } catch (e: any) {
+    console.warn('[TMDB] Network error fetching top rated movies:', e?.message || e);
     return [];
   }
 };
@@ -528,21 +534,24 @@ export const getPopularTvSeries = async (): Promise<any[]> => {
     ];
   }
   try {
-    const res = await fetch(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=1`);
-    if (!res.ok) throw new Error("Failed to fetch popular tv series");
+    const res = await fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=1`, 5000);
+    if (!res.ok) {
+      console.warn(`[TMDB] Popular TV series returned HTTP ${res.status}`);
+      return [];
+    }
     const data = await res.json();
     return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
       id: m.id,
       title: m.name,
       year: m.first_air_date?.substring(0, 4) || 'N/A',
       rating: m.vote_average?.toFixed(1) || '0.0',
-      poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+      poster: getCachedImageUrl(m.poster_path),
       overview: m.overview,
       genres: m.genre_ids || [],
       type: 'series'
     }));
-  } catch (e) {
-    console.error(e);
+  } catch (e: any) {
+    console.warn('[TMDB] Network error fetching popular TV series:', e?.message || e);
     return [];
   }
 };
@@ -556,21 +565,24 @@ export const getTopRatedTvSeries = async (): Promise<any[]> => {
     ];
   }
   try {
-    const res = await fetch(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=1`);
-    if (!res.ok) throw new Error("Failed to fetch top rated tv series");
+    const res = await fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=1`, 5000);
+    if (!res.ok) {
+      console.warn(`[TMDB] Top rated TV series returned HTTP ${res.status}`);
+      return [];
+    }
     const data = await res.json();
     return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
       id: m.id,
       title: m.name,
       year: m.first_air_date?.substring(0, 4) || 'N/A',
       rating: m.vote_average?.toFixed(1) || '0.0',
-      poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null,
+      poster: getCachedImageUrl(m.poster_path),
       overview: m.overview,
       genres: m.genre_ids || [],
       type: 'series'
     }));
-  } catch (e) {
-    console.error(e);
+  } catch (e: any) {
+    console.warn('[TMDB] Network error fetching top rated TV series:', e?.message || e);
     return [];
   }
 };
