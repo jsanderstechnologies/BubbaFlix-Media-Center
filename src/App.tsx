@@ -55,6 +55,39 @@ function MainApp() {
   const [playerStatus, setPlayerStatus] = useState<string>('STREAM READY');
   const [isTranscoding, setIsTranscoding] = useState<boolean>(true);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isIdle, setIsIdle] = useState(false);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetIdleTimer = useCallback(() => {
+    setIsIdle(false);
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      setIsIdle(true);
+    }, 4000);
+  }, []);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      setIsIdle(false);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      return;
+    }
+
+    resetIdleTimer();
+
+    const handleUserActivity = () => resetIdleTimer();
+
+    window.addEventListener('mousemove', handleUserActivity);
+    window.addEventListener('keydown', handleUserActivity);
+    window.addEventListener('touchstart', handleUserActivity);
+
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+      window.removeEventListener('touchstart', handleUserActivity);
+    };
+  }, [isPlaying, resetIdleTimer]);
   const [playingUrl, setPlayingUrl] = useState<string>('');
   const [playingContext, setPlayingContext] = useState<any>(null);
   const [logoUrl, setLogoUrl] = useState<string>('');
