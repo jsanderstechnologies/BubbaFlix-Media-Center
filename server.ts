@@ -1141,7 +1141,7 @@ async function startServer() {
       u.token === token || (Array.isArray(u.tokens) && u.tokens.includes(token))
     ) : null;
 
-    if (!user && (settings.disableLogin || settings.adminMode || !users || Object.keys(users).length <= 1)) {
+    if (!user && (settings.disableLogin || settings.adminMode || settings.developerAdminMode || !users || Object.keys(users).length <= 1)) {
       user = Object.values(users as Record<string, any>).find((u: any) => u.role === 'admin') || {
         uid: 'dev-admin-id', email: 'dev@admin.local', username: 'Dev Admin', role: 'admin', status: 'approved'
       };

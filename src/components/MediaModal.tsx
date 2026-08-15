@@ -830,7 +830,7 @@ export default function MediaModal({
   }, [extraDetails, selectedSeason, selectedEpisode]);
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token') || (user as any)?.token || '';
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken') || (user as any)?.token || '';
     return {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {})
