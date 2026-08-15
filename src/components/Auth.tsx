@@ -33,13 +33,14 @@ export function useAuth() {
     
     const token = localStorage.getItem('authToken');
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     fetch('/api/auth/me', {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       signal: controller.signal
     })
       .then(res => {
+        if (!res) return null;
         if (res.status === 401) {
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
@@ -57,7 +58,10 @@ export function useAuth() {
         }
       })
       .catch(err => {
-        console.warn('[Auth] Network error verifying session, maintaining offline session:', err);
+        if (err?.name === 'AbortError' || String(err?.message || err).includes('aborted')) {
+          return;
+        }
+        console.warn('[Auth] Network error verifying session, maintaining offline session:', err?.message || err);
       })
       .finally(() => {
         clearTimeout(timeoutId);
@@ -66,6 +70,7 @@ export function useAuth() {
 
     return () => {
       clearTimeout(timeoutId);
+      controller.abort();
       globalSetUser = globalSetUser.filter(fn => fn !== setUserState);
     };
   }, []);
