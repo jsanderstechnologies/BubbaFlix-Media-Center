@@ -261,6 +261,7 @@ export default function SettingsPanel() {
   const [logProcessCategory, setLogProcessCategory] = useState<string>('all');
   const [logSourceFilter, setLogSourceFilter] = useState<'all' | 'backend' | 'frontend'>('all');
   const [logLevelFilter, setLogLevelFilter] = useState<'all' | 'error' | 'warn' | 'info'>('all');
+  const [logSearchQuery, setLogSearchQuery] = useState<string>('');
   const [logHeightMode, setLogHeightMode] = useState<'compact' | 'expanded' | 'full'>('compact');
   const [copiedLogIdx, setCopiedLogIdx] = useState<number | null>(null);
   const [copiedErrorsWarns, setCopiedErrorsWarns] = useState<boolean>(false);
@@ -333,7 +334,7 @@ export default function SettingsPanel() {
       let interval: NodeJS.Timeout;
       if (isAdmin) {
         const fetchLogs = async () => {
-          const token = localStorage.getItem('authToken');
+          const token = localStorage.getItem('token') || localStorage.getItem('authToken') || (user as any)?.token || '';
           if (token) {
             const bLogs = await logger.fetchBackendLogs(token);
             setBackendLogs(bLogs);
