@@ -38,28 +38,32 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
   });
 
   useEffect(() => {
-    if (movies && movies.length > 0) {
+    if (!debouncedSearchQuery && movies && movies.length > 0) {
       prefetchMediaItems(movies);
     }
-  }, [movies]);
+  }, [movies, debouncedSearchQuery]);
+
+  const handleSelectMovie = (movie: any) => {
+    if (movie) prefetchMediaItems([movie]);
+    onSelectMovie(movie);
+  };
 
   const isLoading = !forceReady && !movies && queryLoading;
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-28 gap-4 text-white min-h-[50vh]">
-        <BubbaFlixLogo className="w-56 h-16 animate-pulse" idPrefix="catalog-loader" />
         <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-        <span className="text-xs font-mono text-white/50 tracking-wider animate-pulse">Loading catalog...</span>
+        <span className="text-sm font-medium text-white/70">Loading movie catalog...</span>
       </div>
     );
   }
   if (!movies || movies.length === 0) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;
 
-  let processedMovies = [...movies];
+  let processedMovies = [...(movies || [])];
   
   if (filterGenre > 0) {
-    processedMovies = processedMovies.filter((m: any) => m.genres && m.genres.includes(filterGenre));
+    processedMovies = processedMovies.filter((m: any) => m.genre_ids?.includes(filterGenre));
   }
 
   const getSortableTitle = (title?: string) => {
@@ -67,11 +71,11 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
     return title.trim().replace(/^(the|a|an)\s+/i, '').trim();
   };
 
-  if (sortOption === 'newest') {
-    processedMovies.sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
-  } else if (sortOption === 'oldest') {
-    processedMovies.sort((a, b) => (parseInt(a.year) || 0) - (parseInt(b.year) || 0));
-  } else if (sortOption === 'rating_high') {
+  if (sortOption === 'year_desc' || sortOption === 'newest') {
+    processedMovies.sort((a, b) => parseInt(b.year || '0', 10) - parseInt(a.year || '0', 10));
+  } else if (sortOption === 'year_asc' || sortOption === 'oldest') {
+    processedMovies.sort((a, b) => parseInt(a.year || '0', 10) - parseInt(b.year || '0', 10));
+  } else if (sortOption === 'rating_desc' || sortOption === 'rating') {
     processedMovies.sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
   } else if (sortOption === 'rating_low') {
     processedMovies.sort((a, b) => parseFloat(a.rating) - parseFloat(b.rating));
@@ -91,7 +95,7 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
         <div 
           key={movie.id} 
           className="focusable group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 focus:scale-105 rounded-xl transition-all duration-200" 
-          onClick={() => onSelectMovie(movie)}
+          onClick={() => handleSelectMovie(movie)}
           onMouseEnter={() => onHoverMedia?.(movie.poster)}
           onMouseLeave={() => onHoverMedia?.('')}
           tabIndex={0}
@@ -99,7 +103,7 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
             if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) {
               e.preventDefault();
               e.stopPropagation();
-              onSelectMovie(movie);
+              handleSelectMovie(movie);
             }
           }}
         >

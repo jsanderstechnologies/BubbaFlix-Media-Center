@@ -331,12 +331,12 @@ export default function SearchPanel({
 
   const [selectedVideoModal, setSelectedVideoModal] = useState<any | null>(null);
 
-  useEffect(() => {
-    const list: any[] = [];
-    if (movies) list.push(...movies);
-    if (tvSeries) list.push(...tvSeries);
-    if (list.length > 0) prefetchMediaItems(list);
-  }, [movies, tvSeries]);
+  const handleMediaSelect = (mediaItem: any) => {
+    if (mediaItem) {
+      prefetchMediaItems([mediaItem]);
+    }
+    onSelectMedia(mediaItem);
+  };
 
   // Fetch YouTube Music Videos
   const { data: musicVideos, isLoading: loadingVideos } = useQuery({
@@ -464,7 +464,7 @@ export default function SearchPanel({
                     <div 
                       key={item.id} 
                       className="focusable w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:scale-105 rounded-xl transition-all duration-200"
-                      onClick={() => onSelectMedia(item)}
+                      onClick={() => handleMediaSelect(item)}
                       onMouseEnter={() => onHoverMedia?.(item.poster)}
                       onMouseLeave={() => onHoverMedia?.('')}
                       tabIndex={0}
@@ -472,7 +472,7 @@ export default function SearchPanel({
                         if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) {
                           e.preventDefault();
                           e.stopPropagation();
-                          onSelectMedia(item);
+                          handleMediaSelect(item);
                         }
                       }}
                     >
@@ -527,7 +527,7 @@ export default function SearchPanel({
                     <div 
                       key={item.id} 
                       className="focusable w-36 sm:w-44 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:scale-105 rounded-xl transition-all duration-200"
-                      onClick={() => onSelectMedia({ ...item, type: 'series' })}
+                      onClick={() => handleMediaSelect({ ...item, type: 'series' })}
                       onMouseEnter={() => onHoverMedia?.(item.poster)}
                       onMouseLeave={() => onHoverMedia?.('')}
                       tabIndex={0}
@@ -535,7 +535,7 @@ export default function SearchPanel({
                         if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) {
                           e.preventDefault();
                           e.stopPropagation();
-                          onSelectMedia({ ...item, type: 'series' });
+                          handleMediaSelect({ ...item, type: 'series' });
                         }
                       }}
                     >

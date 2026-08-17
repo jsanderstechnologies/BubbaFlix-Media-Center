@@ -38,10 +38,15 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
   });
 
   useEffect(() => {
-    if (series && series.length > 0) {
+    if (!debouncedSearchQuery && series && series.length > 0) {
       prefetchMediaItems(series);
     }
-  }, [series]);
+  }, [series, debouncedSearchQuery]);
+
+  const handleSelectSeries = (item: any) => {
+    if (item) prefetchMediaItems([item]);
+    onSelectSeries(item);
+  };
 
   const isLoading = !forceReady && !series && queryLoading;
 
@@ -91,7 +96,7 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
         <div 
           key={item.id} 
           className="focusable group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 focus:scale-105 rounded-xl transition-all duration-200" 
-          onClick={() => onSelectSeries(item)}
+          onClick={() => handleSelectSeries(item)}
           onMouseEnter={() => onHoverMedia?.(item.poster)}
           onMouseLeave={() => onHoverMedia?.('')}
           tabIndex={0}
@@ -99,7 +104,7 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
             if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) {
               e.preventDefault();
               e.stopPropagation();
-              onSelectSeries(item);
+              handleSelectSeries(item);
             }
           }}
         >
