@@ -121,13 +121,14 @@ function getFFmpegNetworkArgs(url: string): string[] {
     args.push('-tls_verify', '0');
   }
   args.push(
-    '-rw_timeout', '5000000',
+    '-rw_timeout', '8000000',
+    '-multiple_requests', '1',
     '-reconnect', '1',
     '-reconnect_at_eof', '1',
     '-reconnect_streamed', '1',
     '-reconnect_on_network_error', '1',
     '-reconnect_on_http_error', '4xx,5xx',
-    '-reconnect_delay_max', '2'
+    '-reconnect_delay_max', '5'
   );
   return args;
 }
@@ -3957,7 +3958,10 @@ app.get('/api/youtube/search', async (req, res) => {
     ffmpegProcess.stderr.on('data', (data) => {
       const str = data.toString();
       errorOutput += str;
-      if (str.toLowerCase().includes('error') || str.includes('Invalid data found') || str.includes('failed')) {
+      const isTransientReconnect = str.includes('Will reconnect') || str.includes('Stream ends prematurely') || str.includes('IO error: Input/output error');
+      if (isTransientReconnect) {
+        console.log('[FFmpeg Network Reconnect]', str.trim());
+      } else if (str.toLowerCase().includes('error') || str.includes('Invalid data found') || str.includes('failed')) {
         console.error('[FFmpeg-Proxy] STDERR:', str);
       }
     });
