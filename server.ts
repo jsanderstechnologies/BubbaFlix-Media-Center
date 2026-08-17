@@ -2666,7 +2666,7 @@ Return ONLY raw JSON:
 
     // 2. SECONDARY PROVIDER: GROQ API (100% Free High-Speed LPU Tier)
     if (groqKey) {
-      const groqModels = ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'llama-3.2-3b-preview', 'mixtral-8x7b-32768', 'gemma2-9b-it'];
+      const groqModels = ['llama3-70b-8192', 'llama3-8b-8192', 'llama-3.3-70b-specdec', 'deepseek-r1-distill-llama-70b', 'qwen-2.5-32b', 'llama-3.2-1b-preview'];
       for (const gModel of groqModels) {
         try {
           const res = await axios.post(
@@ -2699,10 +2699,14 @@ Return ONLY raw JSON:
     // 3. TERTIARY PROVIDER: OPENROUTER FREE API (Only if API Key is configured)
     if (openRouterKey) {
       const openRouterModels = [
-        'meta-llama/llama-3.2-3b-instruct:free',
-        'google/gemma-2-9b-it:free',
-        'qwen/qwen-2.5-72b-instruct:free',
-        'deepseek/deepseek-r1:free'
+        'meta-llama/llama-3.3-70b-instruct:free',
+        'meta-llama/llama-3.3-70b-instruct',
+        'meta-llama/llama-3.2-3b-instruct',
+        'deepseek/deepseek-r1:free',
+        'deepseek/deepseek-chat',
+        'qwen/qwen-2.5-72b-instruct',
+        'google/gemma-2-9b-it',
+        'mistralai/mistral-7b-instruct:free'
       ];
 
       for (const orModel of openRouterModels) {
