@@ -14,6 +14,8 @@ export interface IptvProvider {
   xtreamPassword?: string;
   enabled: boolean;
   isPrimary?: boolean;
+  enabledGroups?: string[];
+  sportsGroups?: string[];
 }
 
 export interface CustomChannelConfig {

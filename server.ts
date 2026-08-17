@@ -2774,12 +2774,20 @@ Return ONLY raw JSON:
 
       // Filter channels to relevant sports or event channels to keep prompt size efficient
       let candidateChannels: any[] = [];
-      const sportsGroups = settings.sportsIptvGroups || [];
+      let sportsGroups: string[] = settings.sportsIptvGroups || [];
+      if (settings.iptvProviders && Array.isArray(settings.iptvProviders)) {
+        for (const p of settings.iptvProviders) {
+          if (p.enabled && p.sportsGroups && Array.isArray(p.sportsGroups) && p.sportsGroups.length > 0) {
+            sportsGroups = Array.from(new Set([...sportsGroups, ...p.sportsGroups]));
+          }
+        }
+      }
 
       if (sportsGroups.length > 0) {
+        const sSet = new Set(sportsGroups);
         candidateChannels = channels.filter((ch: any) => {
           const groupTitle = ch.group?.title || ch.group || '';
-          return sportsGroups.includes(groupTitle);
+          return sSet.has(groupTitle);
         }).slice(0, 150);
       } else {
         const sportsKeywords = [sport, homeTeam, awayTeam, 'sport', 'espn', 'fox', 'cbs', 'nbc', 'bally', 'tnt', 'tbs', 'nfl', 'nba', 'mlb', 'nhl', 'redzone', 'ppv', 'network', 'stadium', 'sec', 'acc', 'bigten', 'big10', 'pac12'];
@@ -5275,11 +5283,11 @@ app.get('/api/youtube/search', async (req, res) => {
       }
 
       // Collect all active IPTV providers
-      const activeProviders: Array<{ id: string; name: string; url: string }> = [];
+      const activeProviders: Array<{ id: string; name: string; url: string; enabledGroups?: string[] }> = [];
       if (settings.iptvProviders && Array.isArray(settings.iptvProviders)) {
         for (const p of settings.iptvProviders) {
           if (p.enabled && p.url) {
-            activeProviders.push({ id: p.id, name: p.name, url: p.url });
+            activeProviders.push({ id: p.id, name: p.name, url: p.url, enabledGroups: p.enabledGroups });
           }
         }
       }
@@ -5295,7 +5303,14 @@ app.get('/api/youtube/search', async (req, res) => {
         activeProviders.map(async (prov) => {
           try {
             const parsed = await parseM3U(prov.url);
-            const items = parsed.items || [];
+            let items = parsed.items || [];
+            if (prov.enabledGroups && Array.isArray(prov.enabledGroups) && prov.enabledGroups.length > 0) {
+              const groupSet = new Set(prov.enabledGroups);
+              items = items.filter((item: any) => {
+                const gTitle = item.group?.title || item.group || '';
+                return groupSet.has(gTitle);
+              });
+            }
             return items.map((item: any, idx: number) => ({
               ...item,
               id: item.tvg?.id || `${prov.id}-ch-${idx}`,

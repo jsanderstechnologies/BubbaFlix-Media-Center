@@ -167,6 +167,87 @@ export default function SettingsPanel() {
   const [sportsGroups, setSportsGroups] = useState<string[]>(() => systemSettings.sportsIptvGroups || []);
   const [enableEztv, setEnableEztv] = useState<boolean>(() => systemSettings.enableEztv === true);
 
+  const [providerGroupsMap, setProviderGroupsMap] = useState<Record<string, { loading: boolean; groups: string[] }>>({});
+  const [expandedGroupProviderId, setExpandedGroupProviderId] = useState<string | null>(null);
+
+  const fetchProviderGroups = async (prov: IptvProvider) => {
+    let targetUrl = prov.url;
+    if (prov.type === 'xtream' && (prov.serverUrl || prov.xtreamServer) && (prov.username || prov.xtreamUsername) && (prov.password || prov.xtreamPassword)) {
+      const sUrl = (prov.serverUrl || prov.xtreamServer || '').trim().replace(/\/+$/, '');
+      const uName = (prov.username || prov.xtreamUsername || '').trim();
+      const pPass = (prov.password || prov.xtreamPassword || '').trim();
+      targetUrl = `${sUrl}/get.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}&type=m3u_plus`;
+    }
+
+    if (!targetUrl) {
+      alert("Please enter a valid Server URL or M3U Playlist URL for this provider first.");
+      return;
+    }
+
+    setProviderGroupsMap(prev => ({ ...prev, [prov.id]: { loading: true, groups: prev[prov.id]?.groups || [] } }));
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch('/api/m3u', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: targetUrl })
+      });
+      const data = await res.json();
+      const items = Array.isArray(data) ? data : (data.items || []);
+      const discovered = Array.from(new Set<string>(items.map((item: any) => item.group?.title || item.group || '').filter((g: string) => typeof g === 'string' && g.trim().length > 0))).sort();
+      setProviderGroupsMap(prev => ({ ...prev, [prov.id]: { loading: false, groups: discovered } }));
+    } catch (err: any) {
+      console.error("[Provider Groups Fetch Error]", err);
+      setProviderGroupsMap(prev => ({ ...prev, [prov.id]: { loading: false, groups: [] } }));
+      alert(`Failed to fetch groups for ${prov.name}: ${err.message || err}`);
+    }
+  };
+
+  const toggleProviderEnabledGroup = (provIndex: number, group: string) => {
+    const updated = [...iptvProviders];
+    const curGroups = updated[provIndex].enabledGroups || [];
+    if (curGroups.includes(group)) {
+      updated[provIndex].enabledGroups = curGroups.filter(g => g !== group);
+    } else {
+      updated[provIndex].enabledGroups = [...curGroups, group];
+    }
+    setIptvProviders(updated);
+  };
+
+  const toggleAllProviderEnabledGroups = (provIndex: number, allAvailable: string[]) => {
+    const updated = [...iptvProviders];
+    const curGroups = updated[provIndex].enabledGroups || [];
+    if (curGroups.length === allAvailable.length) {
+      updated[provIndex].enabledGroups = [];
+    } else {
+      updated[provIndex].enabledGroups = [...allAvailable];
+    }
+    setIptvProviders(updated);
+  };
+
+  const toggleProviderSportsGroup = (provIndex: number, group: string) => {
+    const updated = [...iptvProviders];
+    const curGroups = updated[provIndex].sportsGroups || [];
+    if (curGroups.includes(group)) {
+      updated[provIndex].sportsGroups = curGroups.filter(g => g !== group);
+    } else {
+      updated[provIndex].sportsGroups = [...curGroups, group];
+    }
+    setIptvProviders(updated);
+  };
+
+  const toggleAllProviderSportsGroups = (provIndex: number, allAvailable: string[]) => {
+    const updated = [...iptvProviders];
+    const curGroups = updated[provIndex].sportsGroups || [];
+    if (curGroups.length === allAvailable.length) {
+      updated[provIndex].sportsGroups = [];
+    } else {
+      updated[provIndex].sportsGroups = [...allAvailable];
+    }
+    setIptvProviders(updated);
+  };
+
   const [mediaFolders, setMediaFolders] = useState<Array<{ id: string; path: string; mediaType: 'movie' | 'series' }>>(() => {
     return systemSettings.mediaFolders || [];
   });
@@ -1884,6 +1965,141 @@ export default function SettingsPanel() {
                             </div>
                           </div>
                         )}
+
+                        {/* Per-Provider Groups & Sports Filter Panel */}
+                        <div className="pt-3 border-t border-white/10">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const isExpanded = expandedGroupProviderId === prov.id;
+                              if (!isExpanded) {
+                                setExpandedGroupProviderId(prov.id);
+                                if (!providerGroupsMap[prov.id]) {
+                                  fetchProviderGroups(prov);
+                                }
+                              } else {
+                                setExpandedGroupProviderId(null);
+                              }
+                            }}
+                            className="flex items-center gap-2 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+                          >
+                            <Filter className="w-3.5 h-3.5" />
+                            <span>
+                              {expandedGroupProviderId === prov.id ? 'Hide Group Filters' : '📋 Manage Playlist Groups & Sports Categories'}
+                            </span>
+                            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono font-normal">
+                              {prov.enabledGroups?.length ? `${prov.enabledGroups.length} Groups` : 'All Groups'} | {prov.sportsGroups?.length || 0} Sports
+                            </span>
+                          </button>
+
+                          {expandedGroupProviderId === prov.id && (
+                            <div className="mt-4 p-4 bg-black/40 border border-white/10 rounded-xl space-y-4 animate-in fade-in duration-200">
+                              {providerGroupsMap[prov.id]?.loading ? (
+                                <div className="flex items-center justify-center gap-2 py-6 text-xs text-white/60 font-mono">
+                                  <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+                                  Loading categories for {prov.name}...
+                                </div>
+                              ) : (providerGroupsMap[prov.id]?.groups || []).length === 0 ? (
+                                <div className="flex items-center justify-between gap-4 py-3 px-2">
+                                  <span className="text-xs text-white/50 italic">No group data loaded yet. Click fetch to scan this provider's categories.</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => fetchProviderGroups(prov)}
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shrink-0 cursor-pointer"
+                                  >
+                                    Fetch Provider Groups
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="space-y-6">
+                                  <div className="flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => fetchProviderGroups(prov)}
+                                      className="flex items-center gap-1 text-[11px] text-white/60 hover:text-white font-mono cursor-pointer"
+                                    >
+                                      <RefreshCw className="w-3 h-3" /> Refresh Discovered Groups
+                                    </button>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* 1. Playlist Categories Filter */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                                          <span>📺 Enabled Playlist Categories</span>
+                                          <span className="text-[10px] text-indigo-300 bg-indigo-950 px-2 py-0.5 rounded font-mono">
+                                            {prov.enabledGroups?.length ? `${prov.enabledGroups.length}/${providerGroupsMap[prov.id].groups.length}` : 'All Included'}
+                                          </span>
+                                        </label>
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleAllProviderEnabledGroups(index, providerGroupsMap[prov.id].groups)}
+                                          className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+                                        >
+                                          {(prov.enabledGroups?.length === providerGroupsMap[prov.id].groups.length) ? 'Deselect All' : 'Select All'}
+                                        </button>
+                                      </div>
+                                      <p className="text-[11px] text-white/40">Only channels matching selected categories will be loaded from this provider. If empty, all categories are included.</p>
+
+                                      <div className="bg-black/50 border border-white/10 rounded-xl p-3 max-h-52 overflow-y-auto space-y-1.5 custom-scrollbar">
+                                        {providerGroupsMap[prov.id].groups.map(group => {
+                                          const isChecked = (prov.enabledGroups || []).includes(group);
+                                          return (
+                                            <div
+                                              key={`enabled-g-${group}`}
+                                              onClick={() => toggleProviderEnabledGroup(index, group)}
+                                              className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/5 cursor-pointer text-xs select-none"
+                                            >
+                                              {isChecked ? <CheckSquare className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> : <Square className="w-3.5 h-3.5 text-white/30 shrink-0" />}
+                                              <span className={isChecked ? 'text-white font-medium truncate' : 'text-white/60 truncate'}>{group}</span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    {/* 2. Live Sports Categories Filter */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                                          <span>⚽ Live Sports Categories</span>
+                                          <span className="text-[10px] text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded font-mono">
+                                            {prov.sportsGroups?.length || 0} Selected
+                                          </span>
+                                        </label>
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleAllProviderSportsGroups(index, providerGroupsMap[prov.id].groups)}
+                                          className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                                        >
+                                          {(prov.sportsGroups?.length === providerGroupsMap[prov.id].groups.length) ? 'Deselect All' : 'Select All'}
+                                        </button>
+                                      </div>
+                                      <p className="text-[11px] text-white/40">Categories targeted when searching for live sports events on this provider.</p>
+
+                                      <div className="bg-black/50 border border-white/10 rounded-xl p-3 max-h-52 overflow-y-auto space-y-1.5 custom-scrollbar">
+                                        {providerGroupsMap[prov.id].groups.map(group => {
+                                          const isChecked = (prov.sportsGroups || []).includes(group);
+                                          return (
+                                            <div
+                                              key={`sports-g-${group}`}
+                                              onClick={() => toggleProviderSportsGroup(index, group)}
+                                              className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/5 cursor-pointer text-xs select-none"
+                                            >
+                                              {isChecked ? <CheckSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <Square className="w-3.5 h-3.5 text-white/30 shrink-0" />}
+                                              <span className={isChecked ? 'text-white font-medium truncate' : 'text-white/60 truncate'}>{group}</span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })
