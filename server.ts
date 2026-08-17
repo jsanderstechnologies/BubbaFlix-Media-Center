@@ -294,7 +294,7 @@ export async function parseM3U(source: string) {
     let fileContent = "";
     if (source.startsWith('http://') || source.startsWith('https://')) {
       console.log(`[Backend] Fetching remote M3U file at: ${source}`);
-      const response = await axios.get(source, { responseType: 'text' });
+      const response = await axios.get(source, { responseType: 'text', timeout: 10000 });
       fileContent = response.data;
     } else {
       console.log(`[Backend] Reading local M3U file at: ${source}`);
@@ -306,9 +306,11 @@ export async function parseM3U(source: string) {
     
     console.log(`[Backend] Successfully parsed M3U. Found ${result.items.length} items.`);
     return result;
-  } catch (error) {
-    console.error("[Backend] Error parsing M3U file:", error);
-    throw error;
+  } catch (error: any) {
+    const status = error.response?.status ? `HTTP ${error.response.status}` : (error.code || 'FETCH_ERROR');
+    const errMsg = error.response?.statusText || error.message || String(error);
+    console.error(`[Backend] Error fetching/parsing M3U (${source}): ${status} - ${errMsg}`);
+    throw new Error(`M3U Error (${status}): ${errMsg}`);
   }
 }
 
@@ -332,7 +334,7 @@ export async function parseEPG(source: string) {
     let fileContent = "";
     if (source.startsWith('http://') || source.startsWith('https://')) {
       console.log(`[Backend] Fetching remote EPG file at: ${source}`);
-      const response = await axios.get(source, { responseType: 'text' });
+      const response = await axios.get(source, { responseType: 'text', timeout: 15000 });
       fileContent = response.data;
     } else {
       console.log(`[Backend] Reading local EPG file at: ${source}`);
@@ -346,9 +348,11 @@ export async function parseEPG(source: string) {
     epgCache.set(source, { timestamp: now, data: result });
     
     return result;
-  } catch (error) {
-    console.error("[Backend] Error parsing EPG file:", error);
-    throw error;
+  } catch (error: any) {
+    const status = error.response?.status ? `HTTP ${error.response.status}` : (error.code || 'FETCH_ERROR');
+    const errMsg = error.response?.statusText || error.message || String(error);
+    console.error(`[Backend] Error fetching/parsing EPG (${source}): ${status} - ${errMsg}`);
+    throw new Error(`EPG Error (${status}): ${errMsg}`);
   }
 }
 
@@ -5322,8 +5326,8 @@ app.get('/api/youtube/search', async (req, res) => {
               providerName: prov.name,
               rawUrl: item.url
             }));
-          } catch (e) {
-            console.error(`[M3U Provider Error] Failed to parse M3U for ${prov.name}:`, e);
+          } catch (e: any) {
+            console.error(`[M3U Provider Error] Failed to parse M3U for ${prov.name} (${prov.url}): ${e.message || e}`);
             return [];
           }
         })
