@@ -2666,7 +2666,7 @@ Return ONLY raw JSON:
 
     // 2. SECONDARY PROVIDER: GROQ API (100% Free High-Speed LPU Tier)
     if (groqKey) {
-      const groqModels = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'mixtral-8x7b-32768'];
+      const groqModels = ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'llama-3.2-3b-preview', 'mixtral-8x7b-32768', 'gemma2-9b-it'];
       for (const gModel of groqModels) {
         try {
           const res = await axios.post(
