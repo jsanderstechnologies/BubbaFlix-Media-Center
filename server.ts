@@ -306,8 +306,9 @@ export async function parseM3U(source: string) {
     console.log(`[Backend] Successfully parsed M3U. Found ${result.items.length} items.`);
     return result;
   } catch (error: any) {
-    const status = error.response?.status ? `HTTP ${error.response.status}` : (error.code || 'FETCH_ERROR');
-    const errMsg = error.response?.statusText || error.message || String(error);
+    const isAxios = error.isAxiosError || !!error.response;
+    const status = isAxios && error.response?.status ? `HTTP ${error.response.status}` : (error.code || 'PARSER_ERROR');
+    const errMsg = error.message || error.response?.statusText || String(error);
     console.error(`[Backend] Error fetching/parsing M3U (${source}): ${status} - ${errMsg}`);
     throw new Error(`M3U Error (${status}): ${errMsg}`);
   }
@@ -348,8 +349,9 @@ export async function parseEPG(source: string) {
     
     return result;
   } catch (error: any) {
-    const status = error.response?.status ? `HTTP ${error.response.status}` : (error.code || 'FETCH_ERROR');
-    const errMsg = error.response?.statusText || error.message || String(error);
+    const isAxios = error.isAxiosError || !!error.response;
+    const status = isAxios && error.response?.status ? `HTTP ${error.response.status}` : (error.code || 'PARSER_ERROR');
+    const errMsg = error.message || error.response?.statusText || String(error);
     console.error(`[Backend] Error fetching/parsing EPG (${source}): ${status} - ${errMsg}`);
     throw new Error(`EPG Error (${status}): ${errMsg}`);
   }
@@ -5360,7 +5362,29 @@ app.get('/api/youtube/search', async (req, res) => {
         allChannels = resultChannels;
       }
 
-      res.json({ header: { attrs: {} }, items: allChannels, channels: allChannels });
+      // Sanitize channels to compact properties to prevent JSON stringification limits (RangeError: Invalid string length)
+      const sanitized = allChannels.map((item: any, idx: number) => {
+        const titleStr = item.title || item.name || `Channel ${idx + 1}`;
+        const groupTitle = typeof item.group === 'string' ? item.group : (item.group?.title || '');
+        return {
+          id: item.id || `ch-${idx}`,
+          name: titleStr,
+          title: titleStr,
+          group: { title: groupTitle },
+          tvg: {
+            id: item.tvg?.id || item.id || '',
+            name: item.tvg?.name || titleStr,
+            logo: item.tvg?.logo || item.logo || '',
+            url: item.tvg?.url || ''
+          },
+          url: item.url || item.rawUrl || '',
+          providerId: item.providerId || '',
+          providerName: item.providerName || '',
+          backupUrls: item.backupUrls || []
+        };
+      });
+
+      res.json({ header: { attrs: {} }, items: sanitized });
     } catch (error: any) {
       console.error('[Multi-Provider M3U Error]', error);
       res.status(500).json({ error: error.message });
