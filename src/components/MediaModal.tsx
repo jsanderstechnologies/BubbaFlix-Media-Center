@@ -2290,82 +2290,108 @@ export default function MediaModal({
                           </div>
                         )}
                         
-                        {/* Active Streams Dropdown List */}
+                        {/* Active Streams Dropdown Selector List */}
                         {activeStreams.length > 0 && (
-                          <div className="flex flex-col border border-white/10 rounded-2xl bg-black/40 overflow-hidden shadow-lg transition-all duration-200">
-                            <button
-                              type="button"
-                              onClick={() => setIsActiveStreamsOpen(prev => !prev)}
-                              className="px-4 py-3 bg-white/5 hover:bg-white/10 flex items-center justify-between cursor-pointer select-none transition-colors"
-                            >
-                              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
-                                <Download className="w-4 h-4 text-emerald-400" />
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider flex items-center gap-1.5">
+                                <Download className="w-3.5 h-3.5 text-emerald-400" />
                                 <span>Active Downloads & Played Streams</span>
-                                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-semibold">
-                                  {activeStreams.length} {activeStreams.length === 1 ? 'stream' : 'streams'}
-                                </span>
+                              </label>
+                              <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                                {activeStreams.length} Active
+                              </span>
+                            </div>
+                            <div className="relative">
+                              <select
+                                value=""
+                                onChange={(e) => {
+                                  const targetUrl = e.target.value;
+                                  if (targetUrl) {
+                                    const matchStream = activeStreams.find(s => (s.url || s.filePath) === targetUrl);
+                                    triggerPlay(targetUrl, matchStream);
+                                  }
+                                }}
+                                className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
+                              >
+                                <option value="" disabled className="bg-[#12121a] text-white/50">
+                                  -- Select Active Stream to Play ({activeStreams.length} Available) --
+                                </option>
+                                {activeStreams.map((s, idx) => (
+                                  <option key={s.id || idx} value={s.url || s.filePath} className="bg-[#12121a] text-white">
+                                    ⚡ {s.name || s.title || `Active Stream #${idx + 1}`} ({s.quality || 'Auto'})
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+                                ▼
                               </div>
-                              <div className="flex items-center gap-2 text-white/60">
-                                <span className="text-[11px] font-mono text-white/40">
-                                  {isActiveStreamsOpen ? 'Click to collapse' : 'Click to expand'}
-                                </span>
-                                {isActiveStreamsOpen ? <ChevronUp className="w-4 h-4 text-white/70" /> : <ChevronDown className="w-4 h-4 text-white/70" />}
-                              </div>
-                            </button>
-
-                            {isActiveStreamsOpen && (
-                              <div className="p-3 flex flex-col gap-2 bg-black/20 animate-in fade-in duration-200">
-                                {activeStreams.map(stream => renderStream(stream))}
-                              </div>
-                            )}
+                            </div>
+                            <div className="flex flex-col gap-2 mt-1">
+                              {activeStreams.map(stream => renderStream(stream))}
+                            </div>
                           </div>
                         )}
 
-                        {/* Available High-Quality Streams Dropdown List */}
-                        <div className="flex flex-col border border-white/10 rounded-2xl bg-black/40 overflow-hidden shadow-lg transition-all duration-200 flex-1 min-h-0">
-                          <button
-                            type="button"
-                            onClick={() => setIsAvailableStreamsOpen(prev => !prev)}
-                            className="px-4 py-3 bg-white/5 hover:bg-white/10 flex items-center justify-between cursor-pointer select-none transition-colors"
-                          >
-                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
-                              <Sparkles className="w-4 h-4 text-sky-400" />
-                              <span>Available High-Quality Streams</span>
-                              <span className="text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 px-2 py-0.5 rounded-full font-mono font-semibold">
-                                {displayAvailableStreams.length} {displayAvailableStreams.length === 1 ? 'stream' : 'streams'}
-                              </span>
+                        {/* Available High Quality Streams Dropdown Selector List */}
+                        <div className="flex flex-col gap-1.5 flex-1 min-h-0">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                              <span>Available High Quality Streams</span>
+                            </label>
+                            <div className="flex items-center gap-2">
                               {loading && (
-                                <div className="flex items-center gap-1.5 text-xs text-red-400 animate-pulse font-normal lowercase ml-2">
+                                <div className="flex items-center gap-1.5 text-xs text-red-400 animate-pulse font-normal lowercase">
                                   <RefreshCw className="w-3 h-3 animate-spin" />
                                   <span>Searching...</span>
                                 </div>
                               )}
-                            </div>
-                            <div className="flex items-center gap-2 text-white/60">
-                              <span className="text-[11px] font-mono text-white/40">
-                                {isAvailableStreamsOpen ? 'Click to collapse' : 'Click to expand'}
+                              <span className="text-[10px] text-sky-300 font-mono bg-sky-950/60 border border-sky-500/30 px-2 py-0.5 rounded-full font-bold">
+                                {displayAvailableStreams.length} Indexed
                               </span>
-                              {isAvailableStreamsOpen ? <ChevronUp className="w-4 h-4 text-white/70" /> : <ChevronDown className="w-4 h-4 text-white/70" />}
                             </div>
-                          </button>
+                          </div>
 
-                          {isAvailableStreamsOpen && (
-                            <div className="p-3 flex flex-col flex-1 min-h-0 bg-black/20 animate-in fade-in duration-200 overflow-hidden">
-                              {loading && displayAvailableStreams.length === 0 ? (
-                                <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5 flex items-center gap-2">
-                                  <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                                  </span>
-                                  <span>Searching Stream Indexers...</span>
-                                </div>
-                              ) : displayAvailableStreams.length === 0 ? (
-                                <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5">No indexed streams found.</div>
-                              ) : (
-                                <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-2">
-                                  {displayAvailableStreams.map(stream => renderStream(stream))}
-                                </div>
-                              )}
+                          <div className="relative">
+                            <select
+                              value=""
+                              onChange={(e) => {
+                                const targetUrl = e.target.value;
+                                if (targetUrl) {
+                                  const matchStream = displayAvailableStreams.find(s => (s.url || s.filePath) === targetUrl);
+                                  triggerPlay(targetUrl, matchStream);
+                                }
+                              }}
+                              className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
+                            >
+                              <option value="" disabled className="bg-[#12121a] text-white/50">
+                                {loading ? '-- Searching Stream Indexers... --' : displayAvailableStreams.length === 0 ? '-- No Indexed Streams Found --' : `-- Select High Quality Stream to Play (${displayAvailableStreams.length} Available) --`}
+                              </option>
+                              {displayAvailableStreams.map((s, idx) => (
+                                <option key={s.id || idx} value={s.url || s.filePath} className="bg-[#12121a] text-white">
+                                  {s.type === 'local' ? '📁' : s.isCached ? '⚡' : '🌐'} {s.name || s.title || `Stream #${idx + 1}`} ({s.quality || 'Auto'}) {s.sizeStr ? `[${s.sizeStr}]` : ''} {s.source ? `- ${s.source}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+                              ▼
+                            </div>
+                          </div>
+
+                          {loading && displayAvailableStreams.length === 0 ? (
+                            <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5 flex items-center gap-2 mt-1">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                              </span>
+                              <span>Searching Stream Indexers...</span>
+                            </div>
+                          ) : displayAvailableStreams.length === 0 ? (
+                            <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5 mt-1">No indexed streams found.</div>
+                          ) : (
+                            <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-4 mt-1">
+                              {displayAvailableStreams.map(stream => renderStream(stream))}
                             </div>
                           )}
                         </div>
