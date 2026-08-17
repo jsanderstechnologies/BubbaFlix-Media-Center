@@ -121,7 +121,6 @@ function getFFmpegNetworkArgs(url: string): string[] {
     args.push('-tls_verify', '0');
   }
   args.push(
-    '-timeout', '5000000',
     '-rw_timeout', '5000000',
     '-reconnect', '1',
     '-reconnect_at_eof', '1',
