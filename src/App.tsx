@@ -915,6 +915,27 @@ function MainApp() {
     setMediaInfo(null);
   };
 
+  const handlePlayerVideoError = (e: any) => {
+    const errCode = e?.currentTarget?.error?.code || 'UNKNOWN';
+    const errMsg = e?.currentTarget?.error?.message || 'Video stream format or connection error';
+    logger.error(`[Video Player Error] Code ${errCode}: ${errMsg}`, { url: playingUrl });
+
+    // Check if there are backup stream URLs to try
+    if (playingContext?.backupUrls && Array.isArray(playingContext.backupUrls) && playingContext.backupUrls.length > 0) {
+      const nextBackupUrl = playingContext.backupUrls[0];
+      const remainingBackups = playingContext.backupUrls.slice(1);
+      logger.info(`[Video Player Backup Failover] Switching to backup URL: ${nextBackupUrl}`);
+      setPlayingContext({ ...playingContext, backupUrls: remainingBackups });
+      setPlayingUrl(nextBackupUrl);
+      setPlayerStatus('FAILING OVER TO BACKUP STREAM...');
+      return;
+    }
+
+    setIsVideoLoaded(false);
+    setIsVideoPlaying(false);
+    setPlayerStatus(`ERROR: Unable to play video stream. ${errMsg}`);
+  };
+
   useEffect(() => {
     if (isPlaying) {
       setIsVideoLoaded(false);

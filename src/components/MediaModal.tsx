@@ -265,7 +265,7 @@ export default function MediaModal({
 
   const triggerPlay = (dlUrl: string, targetStream?: any) => {
     if (!isFavorite) {
-      toggleFavorite();
+      toggleFavorite().catch(err => console.warn("Auto-favorite on play warning:", err));
     }
     const posterOrLogo = movie?.poster || movie?.backupPoster || undefined;
     if (savedProgress && savedProgress.currentTime > 0 && savedProgress.percentage < 95) {
