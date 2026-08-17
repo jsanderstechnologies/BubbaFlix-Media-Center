@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap, Info, FileVideo } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap, Info, FileVideo, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, setDoc, serverTimestamp, onSnapshot } from '../lib/localDb';
 import { db } from '../lib/localDb';
@@ -179,6 +179,9 @@ export default function MediaModal({
   const [dynamicOverview, setDynamicOverview] = useState<string>('');
   const [savedProgress, setSavedProgress] = useState<any>(null);
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
+
+  const [isActiveStreamsOpen, setIsActiveStreamsOpen] = useState(true);
+  const [isAvailableStreamsOpen, setIsAvailableStreamsOpen] = useState(true);
 
   // Developer Admin Tools States & Handlers
   const [devSelectedStreamUrl, setDevSelectedStreamUrl] = useState<string>('');
@@ -2287,31 +2290,68 @@ export default function MediaModal({
                           </div>
                         )}
                         
-                        {/* Active Streams */}
+                        {/* Active Streams Dropdown List */}
                         {activeStreams.length > 0 && (
-                          <div className="flex flex-col gap-3">
-                            <div className="text-xs font-bold uppercase tracking-wider text-white/50 flex items-center justify-between">
-                              <span>Active Downloads & Played Streams</span>
-                              <span className="text-[10px] text-white/40">{activeStreams.length} active</span>
-                            </div>
-                            <div className="flex flex-col gap-2">
-                              {activeStreams.map(stream => renderStream(stream))}
-                            </div>
+                          <div className="flex flex-col border border-white/10 rounded-2xl bg-black/40 overflow-hidden shadow-lg transition-all duration-200">
+                            <button
+                              type="button"
+                              onClick={() => setIsActiveStreamsOpen(prev => !prev)}
+                              className="px-4 py-3 bg-white/5 hover:bg-white/10 flex items-center justify-between cursor-pointer select-none transition-colors"
+                            >
+                              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+                                <Download className="w-4 h-4 text-emerald-400" />
+                                <span>Active Downloads & Played Streams</span>
+                                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-semibold">
+                                  {activeStreams.length} {activeStreams.length === 1 ? 'stream' : 'streams'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-white/60">
+                                <span className="text-[11px] font-mono text-white/40">
+                                  {isActiveStreamsOpen ? 'Click to collapse' : 'Click to expand'}
+                                </span>
+                                {isActiveStreamsOpen ? <ChevronUp className="w-4 h-4 text-white/70" /> : <ChevronDown className="w-4 h-4 text-white/70" />}
+                              </div>
+                            </button>
+
+                            {isActiveStreamsOpen && (
+                              <div className="p-3 flex flex-col gap-2 bg-black/20 animate-in fade-in duration-200">
+                                {activeStreams.map(stream => renderStream(stream))}
+                              </div>
+                            )}
                           </div>
                         )}
 
-                        {/* Available Streams */}
-                        <div className="flex flex-col flex-1 min-h-0">
-                            <div className="text-xs font-bold uppercase tracking-wider text-white/50 mb-3 flex items-center justify-between">
-                                <span>Available High-Quality Streams</span>
-                                {loading && (
-                                  <div className="flex items-center gap-1.5 text-xs text-red-400 animate-pulse font-normal lowercase">
-                                    <RefreshCw className="w-3 h-3 animate-spin" />
-                                    <span>Searching...</span>
-                                  </div>
-                                )}
+                        {/* Available High-Quality Streams Dropdown List */}
+                        <div className="flex flex-col border border-white/10 rounded-2xl bg-black/40 overflow-hidden shadow-lg transition-all duration-200 flex-1 min-h-0">
+                          <button
+                            type="button"
+                            onClick={() => setIsAvailableStreamsOpen(prev => !prev)}
+                            className="px-4 py-3 bg-white/5 hover:bg-white/10 flex items-center justify-between cursor-pointer select-none transition-colors"
+                          >
+                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+                              <Sparkles className="w-4 h-4 text-sky-400" />
+                              <span>Available High-Quality Streams</span>
+                              <span className="text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 px-2 py-0.5 rounded-full font-mono font-semibold">
+                                {displayAvailableStreams.length} {displayAvailableStreams.length === 1 ? 'stream' : 'streams'}
+                              </span>
+                              {loading && (
+                                <div className="flex items-center gap-1.5 text-xs text-red-400 animate-pulse font-normal lowercase ml-2">
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                  <span>Searching...</span>
+                                </div>
+                              )}
                             </div>
-                            {loading && displayAvailableStreams.length === 0 ? (
+                            <div className="flex items-center gap-2 text-white/60">
+                              <span className="text-[11px] font-mono text-white/40">
+                                {isAvailableStreamsOpen ? 'Click to collapse' : 'Click to expand'}
+                              </span>
+                              {isAvailableStreamsOpen ? <ChevronUp className="w-4 h-4 text-white/70" /> : <ChevronDown className="w-4 h-4 text-white/70" />}
+                            </div>
+                          </button>
+
+                          {isAvailableStreamsOpen && (
+                            <div className="p-3 flex flex-col flex-1 min-h-0 bg-black/20 animate-in fade-in duration-200 overflow-hidden">
+                              {loading && displayAvailableStreams.length === 0 ? (
                                 <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5 flex items-center gap-2">
                                   <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -2319,13 +2359,15 @@ export default function MediaModal({
                                   </span>
                                   <span>Searching Stream Indexers...</span>
                                 </div>
-                            ) : displayAvailableStreams.length === 0 ? (
+                              ) : displayAvailableStreams.length === 0 ? (
                                 <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5">No indexed streams found.</div>
-                            ) : (
-                                <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-4">
-                                    {displayAvailableStreams.map(stream => renderStream(stream))}
+                              ) : (
+                                <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-2">
+                                  {displayAvailableStreams.map(stream => renderStream(stream))}
                                 </div>
-                            )}
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         {/* Developer Admin Tools Panel (Visible strictly when Admin & Developer Admin Mode is ON) */}
