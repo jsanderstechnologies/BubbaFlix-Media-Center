@@ -116,13 +116,13 @@ const _dirname = _filename ? path.dirname(_filename) : '';
 let bestH264Encoder: string | null = null;
 
 function getFFmpegNetworkArgs(url: string): string[] {
-  const args: string[] = ['-user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'];
+  const args: string[] = ['-user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) VLC/3.0.18'];
   if (url.startsWith('https')) {
     args.push('-tls_verify', '0');
   }
   args.push(
-    '-rw_timeout', '8000000',
-    '-multiple_requests', '1',
+    '-rw_timeout', '10000000',
+    '-seekable', '1',
     '-reconnect', '1',
     '-reconnect_at_eof', '1',
     '-reconnect_streamed', '1',
@@ -3958,7 +3958,7 @@ app.get('/api/youtube/search', async (req, res) => {
     ffmpegProcess.stderr.on('data', (data) => {
       const str = data.toString();
       errorOutput += str;
-      const isTransientReconnect = str.includes('Will reconnect') || str.includes('Stream ends prematurely') || str.includes('IO error: Input/output error');
+      const isTransientReconnect = str.includes('Will reconnect') || str.includes('Stream ends prematurely') || str.includes('IO error') || str.includes('End of file');
       if (isTransientReconnect) {
         console.log('[FFmpeg Network Reconnect]', str.trim());
       } else if (str.toLowerCase().includes('error') || str.includes('Invalid data found') || str.includes('failed')) {
