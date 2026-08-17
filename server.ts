@@ -2047,6 +2047,102 @@ Strict Rules:
     }
   });
 
+  // ─── Stream Caching Endpoints ─────────────────────────────────────────────
+  // Persists discovered streams for movies & TV series to media_cache.json
+  // and retrieves them instantly on detail screen open.
+  app.post('/api/media/save-streams', async (req, res) => {
+    try {
+      const { tmdbId, type, season, episode, streams } = req.body || {};
+      if ((!tmdbId && tmdbId !== 0) || !Array.isArray(streams) || streams.length === 0) {
+        return res.status(400).json({ error: 'tmdbId and valid streams array are required' });
+      }
+
+      const mediaType = (type === 'tv' || type === 'series' || type === 'show') ? 'tv' : 'movie';
+      const cacheKey = `${mediaType}_${tmdbId}`;
+      const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+      
+      const itemEntry = mediaCache[cacheKey] || {
+        id: tmdbId,
+        type: mediaType,
+        title: '',
+        cachedStreams: []
+      };
+
+      const sanitizedStreams = streams.slice(0, 40).map((s: any) => ({
+        id: s.id || s.hash || s.url,
+        name: s.name || s.title || 'Stream',
+        title: s.title || s.name || 'Stream',
+        type: s.type || 'torrent',
+        url: s.url || s.magnet || s.filePath || '',
+        magnet: s.magnet || s.url || '',
+        filePath: s.filePath || '',
+        quality: s.quality || 'Auto',
+        sizeStr: s.sizeStr || '',
+        seeds: s.seeds || 0,
+        peers: s.peers || 0,
+        isCached: s.isCached || false,
+        isPremiumize: s.isPremiumize || false,
+        source: s.source || 'Cached'
+      }));
+
+      if (mediaType === 'movie') {
+        itemEntry.cachedStreams = sanitizedStreams;
+      } else {
+        itemEntry.cachedStreams = sanitizedStreams;
+        if (season !== undefined && season !== null && episode !== undefined && episode !== null) {
+          itemEntry.seasons = itemEntry.seasons || {};
+          itemEntry.seasons[season] = itemEntry.seasons[season] || {};
+          itemEntry.seasons[season][episode] = itemEntry.seasons[season][episode] || {};
+          itemEntry.seasons[season][episode].cachedStreams = sanitizedStreams;
+        }
+      }
+
+      itemEntry.streamsUpdatedAt = new Date().toISOString();
+      mediaCache[cacheKey] = itemEntry;
+      writeJson(MEDIA_METADATA_CACHE_FILE, mediaCache);
+
+      console.log(`[Media Cache Engine] Saved ${sanitizedStreams.length} stream(s) for ${cacheKey}${season !== undefined && season !== null ? ` S${season}E${episode}` : ''}`);
+      return res.json({ success: true, count: sanitizedStreams.length });
+    } catch (err: any) {
+      console.error('[Media Save Streams Error]:', err?.message || err);
+      return res.status(500).json({ error: err?.message || 'Error saving streams' });
+    }
+  });
+
+  app.post('/api/media/cached-streams', async (req, res) => {
+    try {
+      const { tmdbId, type, season, episode } = req.body || {};
+      if (!tmdbId && tmdbId !== 0) {
+        return res.status(400).json({ error: 'tmdbId is required' });
+      }
+
+      const mediaType = (type === 'tv' || type === 'series' || type === 'show') ? 'tv' : 'movie';
+      const cacheKey = `${mediaType}_${tmdbId}`;
+      const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+      const itemEntry = mediaCache[cacheKey];
+
+      if (!itemEntry) {
+        return res.json({ success: true, streams: [] });
+      }
+
+      let streams: any[] = [];
+      if (mediaType === 'movie') {
+        streams = itemEntry.cachedStreams || [];
+      } else {
+        if (season !== undefined && season !== null && episode !== undefined && episode !== null) {
+          streams = itemEntry.seasons?.[season]?.[episode]?.cachedStreams || itemEntry.cachedStreams || [];
+        } else {
+          streams = itemEntry.cachedStreams || [];
+        }
+      }
+
+      return res.json({ success: true, streams });
+    } catch (err: any) {
+      console.error('[Media Cached Streams Error]:', err?.message || err);
+      return res.status(500).json({ error: err?.message || 'Error fetching cached streams' });
+    }
+  });
+
   // ─── Chapter Database Endpoint ────────────────────────────────────────────────
   // Extracts chapters from embedded file metadata (ffprobe) with a fallback to
   // the Plex ChapterDB legacy archive. Results are persisted to media_cache.json.

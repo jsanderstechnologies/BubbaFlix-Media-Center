@@ -183,6 +183,61 @@ export default function MediaModal({
   const [isActiveStreamsOpen, setIsActiveStreamsOpen] = useState(true);
   const [isAvailableStreamsOpen, setIsAvailableStreamsOpen] = useState(true);
 
+  const savePersistedStreams = (finalStreamsList: any[]) => {
+    const targetTmdbId = movie?.realTmdbId || movie?.tmdbId || movie?.id;
+    if (!targetTmdbId || !Array.isArray(finalStreamsList) || finalStreamsList.length === 0) return;
+    fetch('/api/media/save-streams', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tmdbId: targetTmdbId,
+        type: (movie?.type === 'series' || movie?.type === 'tv' || !!movie?.first_air_date) ? 'tv' : 'movie',
+        season: selectedSeason,
+        episode: selectedEpisode,
+        streams: finalStreamsList
+      })
+    }).catch(() => {});
+  };
+
+  // Load cached streams instantly when media item or episode detail screen opens
+  useEffect(() => {
+    let isSubscribed = true;
+    const targetTmdbId = movie?.realTmdbId || movie?.tmdbId || movie?.id;
+    if (!targetTmdbId) return;
+
+    const mediaType = (movie?.type === 'series' || movie?.type === 'tv' || !!movie?.first_air_date) ? 'tv' : 'movie';
+    fetch('/api/media/cached-streams', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tmdbId: targetTmdbId,
+        type: mediaType,
+        season: selectedSeason,
+        episode: selectedEpisode
+      })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (isSubscribed && data?.success && Array.isArray(data.streams) && data.streams.length > 0) {
+          console.log(`[MediaModal] Instantly loaded ${data.streams.length} saved stream(s) for ${movie?.title || movie?.name}`);
+          setStreams(prev => {
+            const combined = [...data.streams, ...prev];
+            const seen = new Set<string>();
+            return combined.filter(s => {
+              if (!s || (!s.url && !s.filePath)) return false;
+              const key = (s.url || s.filePath || s.name || '').toLowerCase().trim();
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => { isSubscribed = false; };
+  }, [movie, selectedSeason, selectedEpisode]);
+
   // Developer Admin Tools States & Handlers
   const [devSelectedStreamUrl, setDevSelectedStreamUrl] = useState<string>('');
   const [devSkipSegments, setDevSkipSegments] = useState<Array<{ type: string; start: number; end: number; label: string }>>([]);
@@ -1288,7 +1343,9 @@ export default function MediaModal({
               }
 
               const hasActive = updatedData.some((s: any) => s.isAdding || (s.downloadProgress !== undefined && s.downloadProgress < 100));
-              setStreams(applyFiltersAndSort(updatedData));
+              const finalFilteredMovieStreams = applyFiltersAndSort(updatedData);
+              setStreams(finalFilteredMovieStreams);
+              savePersistedStreams(finalFilteredMovieStreams);
               setLoading(false);
               setPollingActive(hasActive);
           });
@@ -1495,6 +1552,7 @@ export default function MediaModal({
         aggregatedStreams = [...aggregatedStreams, ...newStreams];
         const filteredData = filterAndSortTvStreams(aggregatedStreams);
         setStreams(filteredData);
+        savePersistedStreams(filteredData);
 
         const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
         if (pmKey) {
@@ -1523,7 +1581,9 @@ export default function MediaModal({
                   hashIdx++;
                 }
               });
-              setStreams(filterAndSortTvStreams([...filteredData]));
+              const finalTvCheckStreams = filterAndSortTvStreams([...filteredData]);
+              setStreams(finalTvCheckStreams);
+              savePersistedStreams(finalTvCheckStreams);
             }).catch(() => {});
           }
         }
