@@ -5096,9 +5096,46 @@ app.get('/api/youtube/search', async (req, res) => {
     const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     try {
-      // 1. Xtream Codes API Search
-      if (xtreamServer && xtreamUsername && xtreamPassword) {
-        const serverUrl = xtreamServer.endsWith('/') ? xtreamServer.slice(0, -1) : xtreamServer;
+      // 1. Xtream Codes API Search Across All Configured Xtream Providers
+      const xtreamSources: Array<{ serverUrl: string; username: string; password: string; name: string }> = [];
+
+      if (settings.iptvProviders && Array.isArray(settings.iptvProviders)) {
+        for (const p of settings.iptvProviders) {
+          if (!p.enabled) continue;
+          let sUrl = (p.serverUrl || p.xtreamServer || '').trim();
+          let uName = (p.username || p.xtreamUsername || '').trim();
+          let pPass = (p.password || p.xtreamPassword || '').trim();
+
+          if (!sUrl && p.url) {
+            const m = p.url.match(/^(https?:\/\/[^\/]+)\/get\.php\?username=([^&]+)&password=([^&]+)/);
+            if (m) {
+              sUrl = m[1];
+              uName = decodeURIComponent(m[2]);
+              pPass = decodeURIComponent(m[3]);
+            }
+          }
+
+          if (sUrl && uName && pPass) {
+            if (!xtreamSources.some(x => x.serverUrl === sUrl && x.username === uName)) {
+              xtreamSources.push({ serverUrl: sUrl, username: uName, password: pPass, name: p.name || 'Xtream Provider' });
+            }
+          }
+        }
+      }
+
+      if (xtreamSources.length === 0 && settings.xtreamServer && settings.xtreamUsername && settings.xtreamPassword) {
+        xtreamSources.push({
+          serverUrl: settings.xtreamServer,
+          username: settings.xtreamUsername,
+          password: settings.xtreamPassword,
+          name: 'Primary Xtream Provider'
+        });
+      }
+
+      for (const xtr of xtreamSources) {
+        const serverUrl = xtr.serverUrl.endsWith('/') ? xtr.serverUrl.slice(0, -1) : xtr.serverUrl;
+        const xtreamUsername = xtr.username;
+        const xtreamPassword = xtr.password;
 
         if (type === 'series' && season !== undefined && episode !== undefined) {
           const seriesRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_series`, { timeout: 7000 }).catch(() => null);
@@ -5121,12 +5158,12 @@ app.get('/api/youtube/search', async (req, res) => {
                     const streamName = `${matchSeries.name || title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} ${ep.title ? '- ' + ep.title : ''}`;
                     results.push({
                       id: `iptv_series_${epId}`,
-                      name: `IPTV Direct Stream - ${streamName}`,
+                      name: `IPTV Direct Stream (${xtr.name}) - ${streamName}`,
                       title: ep.title || title,
                       quality: detectStreamQuality(streamName),
                       sizeStr: 'IPTV Stream',
                       type: 'iptv',
-                      source: 'IPTV Provider',
+                      source: xtr.name,
                       url: `${serverUrl}/series/${xtreamUsername}/${xtreamPassword}/${epId}.${ext}`,
                       isCached: true,
                       availability: 'IPTV Direct'
@@ -5146,12 +5183,12 @@ app.get('/api/youtube/search', async (req, res) => {
                 const ext = m.container_extension || 'mp4';
                 results.push({
                   id: `iptv_movie_${m.stream_id}`,
-                  name: `IPTV Direct Stream - ${streamName}`,
+                  name: `IPTV Direct Stream (${xtr.name}) - ${streamName}`,
                   title: streamName,
                   quality: detectStreamQuality(streamName),
                   sizeStr: 'IPTV Stream',
                   type: 'iptv',
-                  source: 'IPTV Provider',
+                  source: xtr.name,
                   url: `${serverUrl}/movie/${xtreamUsername}/${xtreamPassword}/${m.stream_id}.${ext}`,
                   isCached: true,
                   availability: 'IPTV Direct'

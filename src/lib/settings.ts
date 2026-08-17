@@ -6,9 +6,14 @@ export interface IptvProvider {
   type: 'm3u' | 'xtream';
   url: string;
   epgUrl?: string;
+  serverUrl?: string;
   username?: string;
   password?: string;
+  xtreamServer?: string;
+  xtreamUsername?: string;
+  xtreamPassword?: string;
   enabled: boolean;
+  isPrimary?: boolean;
 }
 
 export interface CustomChannelConfig {

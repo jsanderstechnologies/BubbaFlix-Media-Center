@@ -126,11 +126,39 @@ export default function SettingsPanel() {
   const [preferredLanguage, setPreferredLanguage] = useState(systemSettings.preferredLanguage || userSettings.preferredLanguage || 'all');
   const [adminMode, setAdminMode] = useState(userSettings.adminMode === true);
 
-  const [iptvProviders, setIptvProviders] = useState(() => {
+  const [iptvProviders, setIptvProviders] = useState<IptvProvider[]>(() => {
     if (systemSettings.iptvProviders && Array.isArray(systemSettings.iptvProviders) && systemSettings.iptvProviders.length > 0) {
       return systemSettings.iptvProviders;
     }
-    return [{ id: 'default-m3u', name: 'Primary M3U Provider', type: 'm3u' as const, url: systemSettings.iptvUrl || '', enabled: true }];
+    if (systemSettings.xtreamServer && systemSettings.xtreamUsername && systemSettings.xtreamPassword) {
+      const server = systemSettings.xtreamServer.replace(/\/+$/, '');
+      const user = systemSettings.xtreamUsername;
+      const pass = systemSettings.xtreamPassword;
+      return [{
+        id: 'primary-xtream',
+        name: 'Primary Xtream Provider',
+        type: 'xtream' as const,
+        serverUrl: server,
+        username: user,
+        password: pass,
+        xtreamServer: server,
+        xtreamUsername: user,
+        xtreamPassword: pass,
+        url: `${server}/get.php?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}&type=m3u_plus`,
+        epgUrl: systemSettings.epgUrl || '',
+        enabled: true,
+        isPrimary: true
+      }];
+    }
+    return [{
+      id: 'primary-m3u',
+      name: 'Primary M3U Provider',
+      type: 'm3u' as const,
+      url: systemSettings.iptvUrl || '',
+      epgUrl: systemSettings.epgUrl || '',
+      enabled: true,
+      isPrimary: true
+    }];
   });
   const [customChannels, setCustomChannels] = useState<Record<string, any>>(() => systemSettings.customChannels || {});
   const [isDeduplicating, setIsDeduplicating] = useState(false);
@@ -513,18 +541,58 @@ export default function SettingsPanel() {
   }, [parsedM3u, channelSearch, enabledGroups]);
 
   const handleSave = async () => {
+    const processedProviders = iptvProviders.map((prov, idx) => {
+      if (prov.type === 'xtream') {
+        const sUrl = (prov.serverUrl || prov.xtreamServer || '').trim().replace(/\/+$/, '');
+        const uName = (prov.username || prov.xtreamUsername || '').trim();
+        const pPass = (prov.password || prov.xtreamPassword || '').trim();
+        const m3uUrl = (sUrl && uName && pPass) ? `${sUrl}/get.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}&type=m3u_plus` : (prov.url || '');
+        const eUrl = prov.epgUrl || ((sUrl && uName && pPass) ? `${sUrl}/xmltv.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}` : '');
+        return {
+          ...prov,
+          serverUrl: sUrl,
+          xtreamServer: sUrl,
+          username: uName,
+          xtreamUsername: uName,
+          password: pPass,
+          xtreamPassword: pPass,
+          url: m3uUrl,
+          epgUrl: eUrl,
+          isPrimary: idx === 0
+        };
+      } else {
+        return {
+          ...prov,
+          isPrimary: idx === 0
+        };
+      }
+    });
+
+    setIptvProviders(processedProviders);
+
+    const primaryProv = processedProviders.find(p => p.enabled) || processedProviders[0];
     let finalIptvUrl = iptvUrl;
     let finalEpgUrl = epgUrl;
-    
-    if (providerType === 'xtream' && xtreamServer && xtreamUsername && xtreamPassword) {
-      const serverUrl = xtreamServer.endsWith('/') ? xtreamServer.slice(0, -1) : xtreamServer;
-      finalIptvUrl = `${serverUrl}/get.php?username=${xtreamUsername}&password=${xtreamPassword}&type=m3u_plus`;
-      finalEpgUrl = `${serverUrl}/xmltv.php?username=${xtreamUsername}&password=${xtreamPassword}`;
-      setIptvUrl(finalIptvUrl);
-      setEpgUrl(finalEpgUrl);
+    let finalXtreamServer = xtreamServer;
+    let finalXtreamUsername = xtreamUsername;
+    let finalXtreamPassword = xtreamPassword;
+
+    if (primaryProv) {
+      if (primaryProv.type === 'xtream') {
+        finalXtreamServer = primaryProv.serverUrl || '';
+        finalXtreamUsername = primaryProv.username || '';
+        finalXtreamPassword = primaryProv.password || '';
+        finalIptvUrl = primaryProv.url || '';
+        finalEpgUrl = primaryProv.epgUrl || '';
+      } else {
+        finalIptvUrl = primaryProv.url || '';
+        finalEpgUrl = primaryProv.epgUrl || '';
+        finalXtreamServer = '';
+        finalXtreamUsername = '';
+        finalXtreamPassword = '';
+      }
     }
     
-    localStorage.setItem('providerType', providerType);
     localStorage.setItem('enableDebugLog', enableDebugLog.toString());
     localStorage.setItem('hideUnreleasedMedia', hideUnreleasedMedia.toString());
     logger.setEnabled(enableDebugLog);
@@ -554,10 +622,10 @@ export default function SettingsPanel() {
       iptvUrl: finalIptvUrl,
       epgUrl: finalEpgUrl,
       epgOffset,
-      xtreamServer,
-      xtreamUsername,
-      xtreamPassword,
-      iptvProviders,
+      xtreamServer: finalXtreamServer,
+      xtreamUsername: finalXtreamUsername,
+      xtreamPassword: finalXtreamPassword,
+      iptvProviders: processedProviders,
       customChannels,
       streamBufferSeconds,
       enableUsenetSearch,
@@ -1542,189 +1610,314 @@ export default function SettingsPanel() {
 
         {activeTab === 'iptv' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-              <div className="space-y-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
                 <div>
-                  <h3 className="text-base font-medium text-white">Primary IPTV Configuration</h3>
-                  <p className="text-xs text-white/50">Setup your primary IPTV provider (M3U or Xtream Codes).</p>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Tv className="w-5 h-5 text-indigo-400" />
+                    <span>IPTV Stream Providers</span>
+                  </h3>
+                  <p className="text-xs text-white/50 mt-0.5">
+                    Configure and manage all your IPTV services. Each provider supports Xtream Codes API (Server URL, Username, Password) or M3U Playlist URLs without double-entering credentials.
+                  </p>
                 </div>
-                
-                <div className="flex gap-4 mb-4">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
-                    onClick={() => setProviderType('m3u')}
-                    className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${providerType === 'm3u' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-transparent border-white/10 text-white/50 hover:bg-white/5'}`}
+                    onClick={() => {
+                      const newProv: IptvProvider = {
+                        id: `prov-${Date.now()}`,
+                        name: `Xtream Provider #${iptvProviders.length + 1}`,
+                        type: 'xtream',
+                        serverUrl: '',
+                        username: '',
+                        password: '',
+                        url: '',
+                        epgUrl: '',
+                        enabled: true
+                      };
+                      setIptvProviders([...iptvProviders, newProv]);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow"
                   >
-                    M3U Playlist
+                    <Plus className="w-3.5 h-3.5" /> Add Xtream Provider
                   </button>
                   <button
                     type="button"
-                    onClick={() => setProviderType('xtream')}
-                    className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${providerType === 'xtream' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-transparent border-white/10 text-white/50 hover:bg-white/5'}`}
+                    onClick={() => {
+                      const newProv: IptvProvider = {
+                        id: `prov-${Date.now()}`,
+                        name: `M3U Provider #${iptvProviders.length + 1}`,
+                        type: 'm3u',
+                        url: '',
+                        epgUrl: '',
+                        enabled: true
+                      };
+                      setIptvProviders([...iptvProviders, newProv]);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow"
                   >
-                    Xtream Codes API
+                    <Plus className="w-3.5 h-3.5" /> Add M3U Provider
                   </button>
                 </div>
+              </div>
 
-                {providerType === 'm3u' ? (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-white block mb-1">M3U Playlist URL</label>
-                      <input
-                        type="url"
-                        value={iptvUrl}
-                        onChange={e => setIptvUrl(e.target.value)}
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors"
-                        placeholder="https://example.com/playlist.m3u"
-                      />
-                    </div>
+              {/* Providers Cards List */}
+              <div className="space-y-4">
+                {iptvProviders.length === 0 ? (
+                  <div className="text-center py-8 text-white/40 text-sm italic bg-black/20 rounded-xl border border-white/5 p-4">
+                    No IPTV providers configured. Click "Add Xtream Provider" or "Add M3U Provider" above to get started.
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-white block mb-1">Server URL</label>
-                      <input
-                        type="url"
-                        value={xtreamServer}
-                        onChange={e => setXtreamServer(e.target.value)}
-                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors"
-                        placeholder="http://example.com:8080"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-white block mb-1">Username</label>
-                        <input
-                          type="text"
-                          value={xtreamUsername}
-                          onChange={e => setXtreamUsername(e.target.value)}
-                          className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors"
-                          placeholder="Username"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-white block mb-1">Password</label>
-                        <input
-                          type="password"
-                          value={xtreamPassword}
-                          onChange={e => setXtreamPassword(e.target.value)}
-                          className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors"
-                          placeholder="Password"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  iptvProviders.map((prov, index) => {
+                    const isPrimary = index === 0;
+                    return (
+                      <div key={prov.id || `prov-${index}`} className={`border rounded-2xl p-5 space-y-4 transition-all ${prov.enabled ? 'bg-black/40 border-white/15' : 'bg-black/20 border-white/5 opacity-60'}`}>
+                        {/* Header & Controls */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {/* Move Up/Down Controls */}
+                            <div className="flex flex-col gap-0.5">
+                              <button
+                                type="button"
+                                disabled={index === 0}
+                                onClick={() => {
+                                  if (index === 0) return;
+                                  const updated = [...iptvProviders];
+                                  const temp = updated[index];
+                                  updated[index] = updated[index - 1];
+                                  updated[index - 1] = temp;
+                                  setIptvProviders(updated);
+                                }}
+                                className="text-white/40 hover:text-white disabled:opacity-20 text-xs p-0.5 cursor-pointer"
+                                title="Move Up (Higher Priority)"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                disabled={index === iptvProviders.length - 1}
+                                onClick={() => {
+                                  if (index === iptvProviders.length - 1) return;
+                                  const updated = [...iptvProviders];
+                                  const temp = updated[index];
+                                  updated[index] = updated[index + 1];
+                                  updated[index + 1] = temp;
+                                  setIptvProviders(updated);
+                                }}
+                                className="text-white/40 hover:text-white disabled:opacity-20 text-xs p-0.5 cursor-pointer"
+                                title="Move Down"
+                              >
+                                ▼
+                              </button>
+                            </div>
 
-                <div className="pt-4 border-t border-white/10">
-                  <label className="text-sm font-medium text-white block mb-1">EPG XMLTV URL (Optional)</label>
-                  <p className="text-xs text-white/50 mb-2">Provide a custom EPG guide URL. If using Xtream Codes, this can be left blank to use the default server EPG.</p>
-                  <input
-                    type="url"
-                    value={epgUrl}
-                    onChange={e => setEpgUrl(e.target.value)}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500 transition-colors"
-                    placeholder="https://example.com/epg.xml"
-                  />
+                            <input
+                              type="text"
+                              value={prov.name}
+                              onChange={(e) => {
+                                const updated = [...iptvProviders];
+                                updated[index].name = e.target.value;
+                                setIptvProviders(updated);
+                              }}
+                              className="bg-black/50 border border-white/10 rounded-xl px-3 py-1.5 text-white font-bold text-sm outline-none focus:border-indigo-500 w-56"
+                              placeholder="Provider Name"
+                            />
+
+                            {/* Primary Badge */}
+                            {isPrimary && prov.enabled && (
+                              <span className="flex items-center gap-1 text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full shadow-sm">
+                                ⭐ Primary Source
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {/* Type Switcher */}
+                            <div className="flex bg-black/60 rounded-xl p-1 border border-white/10">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...iptvProviders];
+                                  updated[index].type = 'xtream';
+                                  setIptvProviders(updated);
+                                }}
+                                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${prov.type === 'xtream' ? 'bg-indigo-600 text-white shadow' : 'text-white/50 hover:text-white'}`}
+                              >
+                                Xtream Codes API
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...iptvProviders];
+                                  updated[index].type = 'm3u';
+                                  setIptvProviders(updated);
+                                }}
+                                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${prov.type === 'm3u' ? 'bg-purple-600 text-white shadow' : 'text-white/50 hover:text-white'}`}
+                              >
+                                M3U Playlist
+                              </button>
+                            </div>
+
+                            {/* Enable Switch */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...iptvProviders];
+                                updated[index].enabled = !updated[index].enabled;
+                                setIptvProviders(updated);
+                              }}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${prov.enabled ? 'bg-emerald-600' : 'bg-slate-700'}`}
+                              title={prov.enabled ? 'Enabled' : 'Disabled'}
+                            >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${prov.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+
+                            {/* Delete Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIptvProviders(iptvProviders.filter((_, i) => i !== index));
+                              }}
+                              className="text-white/40 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                              title="Remove Provider"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Provider Credentials / Form */}
+                        {prov.type === 'xtream' ? (
+                          <div className="space-y-4 pt-1">
+                            <div>
+                              <label className="text-xs font-semibold text-white/70 block mb-1">Server / Host URL</label>
+                              <input
+                                type="url"
+                                value={prov.serverUrl || prov.xtreamServer || ''}
+                                onChange={(e) => {
+                                  const updated = [...iptvProviders];
+                                  updated[index].serverUrl = e.target.value;
+                                  updated[index].xtreamServer = e.target.value;
+                                  setIptvProviders(updated);
+                                }}
+                                className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-white font-mono text-xs outline-none focus:border-indigo-500 transition-colors"
+                                placeholder="http://example.com:8080"
+                              />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-xs font-semibold text-white/70 block mb-1">Username</label>
+                                <input
+                                  type="text"
+                                  value={prov.username || prov.xtreamUsername || ''}
+                                  onChange={(e) => {
+                                    const updated = [...iptvProviders];
+                                    updated[index].username = e.target.value;
+                                    updated[index].xtreamUsername = e.target.value;
+                                    setIptvProviders(updated);
+                                  }}
+                                  className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-white text-xs outline-none focus:border-indigo-500 transition-colors"
+                                  placeholder="Username"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-semibold text-white/70 block mb-1">Password</label>
+                                <input
+                                  type="password"
+                                  value={prov.password || prov.xtreamPassword || ''}
+                                  onChange={(e) => {
+                                    const updated = [...iptvProviders];
+                                    updated[index].password = e.target.value;
+                                    updated[index].xtreamPassword = e.target.value;
+                                    setIptvProviders(updated);
+                                  }}
+                                  className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-white text-xs outline-none focus:border-indigo-500 transition-colors"
+                                  placeholder="Password"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-xs font-semibold text-white/70 block mb-1">Custom EPG XMLTV URL (Optional)</label>
+                              <input
+                                type="url"
+                                value={prov.epgUrl || ''}
+                                onChange={(e) => {
+                                  const updated = [...iptvProviders];
+                                  updated[index].epgUrl = e.target.value;
+                                  setIptvProviders(updated);
+                                }}
+                                className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-white font-mono text-xs outline-none focus:border-indigo-500 transition-colors"
+                                placeholder="Leave blank to use default Xtream server EPG (xmltv.php)"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-4 pt-1">
+                            <div>
+                              <label className="text-xs font-semibold text-white/70 block mb-1">M3U Playlist URL</label>
+                              <input
+                                type="url"
+                                value={prov.url}
+                                onChange={(e) => {
+                                  const updated = [...iptvProviders];
+                                  updated[index].url = e.target.value;
+                                  setIptvProviders(updated);
+                                }}
+                                className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-white font-mono text-xs outline-none focus:border-indigo-500 transition-colors"
+                                placeholder="https://example.com/playlist.m3u"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-semibold text-white/70 block mb-1">Custom EPG XMLTV URL (Optional)</label>
+                              <input
+                                type="url"
+                                value={prov.epgUrl || ''}
+                                onChange={(e) => {
+                                  const updated = [...iptvProviders];
+                                  updated[index].epgUrl = e.target.value;
+                                  setIptvProviders(updated);
+                                }}
+                                className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-white font-mono text-xs outline-none focus:border-indigo-500 transition-colors"
+                                placeholder="https://example.com/epg.xml"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* EPG Timezone Offset */}
+              <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <label className="text-sm font-medium text-white block">EPG Timezone Offset</label>
+                  <p className="text-xs text-white/50">Adjust EPG guide program times to match your local timezone.</p>
                 </div>
+                <select
+                  value={epgOffset}
+                  onChange={e => setEpgOffset(e.target.value)}
+                  className="bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-white outline-none focus:border-indigo-500 text-sm font-mono"
+                >
+                  <option value="-12">-12 Hours</option>
+                  <option value="-8">-8 Hours (PST)</option>
+                  <option value="-7">-7 Hours (MST)</option>
+                  <option value="-6">-6 Hours (CST)</option>
+                  <option value="-5">-5 Hours (EST)</option>
+                  <option value="0">0 Hours (UTC)</option>
+                  <option value="1">+1 Hour</option>
+                  <option value="2">+2 Hours</option>
+                  <option value="5">+5 Hours</option>
+                  <option value="8">+8 Hours</option>
+                </select>
               </div>
             </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-              {/* Multi-Provider IPTV Manager & Channel Customization Table */}
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-                <div>
-                  <h3 className="text-base font-medium text-white">IPTV Stream Providers</h3>
-                  <p className="text-xs text-white/50">Add multiple M3U playlist URLs or Xtream Codes servers.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newProv = { id: `prov-${Date.now()}`, name: `Provider #${iptvProviders.length + 1}`, type: 'm3u' as const, url: '', epgUrl: '', enabled: true };
-                    setIptvProviders([...iptvProviders, newProv]);
-                  }}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Provider
-                </button>
-              </div>
-
-              {/* Providers List */}
-              <div className="space-y-3">
-                {iptvProviders.map((prov, index) => (
-                  <div key={prov.id} className="bg-black/30 border border-white/10 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 flex-1">
-                        <input
-                          type="text"
-                          value={prov.name}
-                          onChange={(e) => {
-                            const updated = [...iptvProviders];
-                            updated[index].name = e.target.value;
-                            setIptvProviders(updated);
-                          }}
-                          className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-white font-bold text-sm outline-none focus:border-indigo-500 w-48"
-                          placeholder="Provider Name"
-                        />
-                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${prov.type === 'm3u' ? 'bg-indigo-950 text-indigo-300 border border-indigo-500/30' : 'bg-purple-950 text-purple-300 border border-purple-500/30'}`}>
-                          {prov.type.toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updated = [...iptvProviders];
-                            updated[index].enabled = !updated[index].enabled;
-                            setIptvProviders(updated);
-                          }}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${prov.enabled ? 'bg-emerald-600' : 'bg-slate-700'}`}
-                        >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${prov.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIptvProviders(iptvProviders.filter((_, i) => i !== index));
-                          }}
-                          className="text-white/40 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <input
-                        type="text"
-                        value={prov.url}
-                        onChange={(e) => {
-                          const updated = [...iptvProviders];
-                          updated[index].url = e.target.value;
-                          setIptvProviders(updated);
-                        }}
-                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs outline-none focus:border-indigo-500"
-                        placeholder="M3U Playlist URL or Xtream Host..."
-                      />
-                      <input
-                        type="text"
-                        value={prov.epgUrl || ''}
-                        onChange={(e) => {
-                          const updated = [...iptvProviders];
-                          updated[index].epgUrl = e.target.value;
-                          setIptvProviders(updated);
-                        }}
-                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs outline-none focus:border-indigo-500"
-                        placeholder="Custom EPG XMLTV URL (Optional)..."
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Channel Customization & Gemini AI Matcher */}
-              <div className="pt-6 border-t border-white/10 space-y-4">
+            {/* Channel Customization & Gemini AI Matcher Card */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6">
+              <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h3 className="text-base font-medium text-white flex items-center gap-2">
@@ -1943,7 +2136,6 @@ export default function SettingsPanel() {
               </div>
             </div>
           </div>
-        </div>
         )}
 
         {activeTab === 'playback' && (
