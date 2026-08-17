@@ -838,10 +838,10 @@ export function LibraryGrid({
   const alphabetList = ['ALL', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
   const availableLetters = new Set(filteredMedia.map(getItemFirstChar));
 
-  const [displayCount, setDisplayCount] = useState(60);
+  const [displayCount, setDisplayCount] = useState(120);
 
   useEffect(() => {
-    setDisplayCount(60);
+    setDisplayCount(120);
   }, [activeTab, selectedLetter]);
 
   const displayMedia = selectedLetter && selectedLetter !== 'ALL'
@@ -1012,7 +1012,7 @@ export function LibraryGrid({
               {displayMedia.length > displayCount && (
                 <div className="mt-8 text-center">
                   <button
-                    onClick={() => setDisplayCount(prev => prev + 60)}
+                    onClick={() => setDisplayCount(prev => prev + 120)}
                     className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg hover:scale-105 cursor-pointer"
                   >
                     Load More ({displayMedia.length - displayCount} Remaining)

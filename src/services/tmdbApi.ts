@@ -102,11 +102,13 @@ export const getTrendingMovies = async (genreId: number = 0) => {
     const pages = await Promise.all([
       fetchWithTimeout(`${endpoint}&page=1`).then(r => r.json()).catch(() => ({})),
       fetchWithTimeout(`${endpoint}&page=2`).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${endpoint}&page=3`).then(r => r.json()).catch(() => ({}))
+      fetchWithTimeout(`${endpoint}&page=3`).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${endpoint}&page=4`).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${endpoint}&page=5`).then(r => r.json()).catch(() => ({}))
     ]);
     let results = pages.flatMap(p => p.results || []);
     results = applyFilters(results);
-    return results.slice(0, 50).map((m: any) => ({
+    return results.slice(0, 100).map((m: any) => ({
       id: m.id,
       title: m.title,
       year: m.release_date?.substring(0, 4) || 'N/A',
@@ -276,13 +278,15 @@ export const getTrendingTvSeries = async (genreId: number = 0) => {
       : `${BASE_URL}/trending/tv/week?api_key=${apiKey}`;
 
     const pages = await Promise.all([
-      fetch(`${endpoint}&page=1`).then(r => r.json()),
-      fetch(`${endpoint}&page=2`).then(r => r.json()),
-      fetch(`${endpoint}&page=3`).then(r => r.json())
+      fetch(`${endpoint}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${endpoint}&page=2`).then(r => r.json()).catch(() => ({})),
+      fetch(`${endpoint}&page=3`).then(r => r.json()).catch(() => ({})),
+      fetch(`${endpoint}&page=4`).then(r => r.json()).catch(() => ({})),
+      fetch(`${endpoint}&page=5`).then(r => r.json()).catch(() => ({}))
     ]);
     let results = pages.flatMap(p => p.results || []);
     results = applyFilters(results);
-    return results.slice(0, 50).map((m: any) => ({
+    return results.slice(0, 100).map((m: any) => ({
       id: m.id,
       title: m.name,
       year: m.first_air_date?.substring(0, 4) || 'N/A',
@@ -472,13 +476,15 @@ export const getPopularMovies = async (): Promise<any[]> => {
     ];
   }
   try {
-    const res = await fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=1`, 5000);
-    if (!res.ok) {
-      console.warn(`[TMDB] Popular movies returned HTTP ${res.status}`);
-      return [];
-    }
-    const data = await res.json();
-    return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
+    const pages = await Promise.all([
+      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=1`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=2`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=3`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=4`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=5`, 5000).then(r => r.json()).catch(() => ({}))
+    ]);
+    const results = pages.flatMap(p => p.results || []);
+    return applyFilters(results).slice(0, 100).map((m: any) => ({
       id: m.id,
       title: m.title,
       year: m.release_date?.substring(0, 4) || 'N/A',
@@ -503,13 +509,15 @@ export const getTopRatedMovies = async (): Promise<any[]> => {
     ];
   }
   try {
-    const res = await fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=1`, 5000);
-    if (!res.ok) {
-      console.warn(`[TMDB] Top rated movies returned HTTP ${res.status}`);
-      return [];
-    }
-    const data = await res.json();
-    return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
+    const pages = await Promise.all([
+      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=1`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=2`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=3`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=4`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=5`, 5000).then(r => r.json()).catch(() => ({}))
+    ]);
+    const results = pages.flatMap(p => p.results || []);
+    return applyFilters(results).slice(0, 100).map((m: any) => ({
       id: m.id,
       title: m.title,
       year: m.release_date?.substring(0, 4) || 'N/A',
@@ -534,13 +542,15 @@ export const getPopularTvSeries = async (): Promise<any[]> => {
     ];
   }
   try {
-    const res = await fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=1`, 5000);
-    if (!res.ok) {
-      console.warn(`[TMDB] Popular TV series returned HTTP ${res.status}`);
-      return [];
-    }
-    const data = await res.json();
-    return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
+    const pages = await Promise.all([
+      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=1`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=2`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=3`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=4`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=5`, 5000).then(r => r.json()).catch(() => ({}))
+    ]);
+    const results = pages.flatMap(p => p.results || []);
+    return applyFilters(results).slice(0, 100).map((m: any) => ({
       id: m.id,
       title: m.name,
       year: m.first_air_date?.substring(0, 4) || 'N/A',
@@ -565,13 +575,15 @@ export const getTopRatedTvSeries = async (): Promise<any[]> => {
     ];
   }
   try {
-    const res = await fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=1`, 5000);
-    if (!res.ok) {
-      console.warn(`[TMDB] Top rated TV series returned HTTP ${res.status}`);
-      return [];
-    }
-    const data = await res.json();
-    return applyFilters(data.results || []).slice(0, 20).map((m: any) => ({
+    const pages = await Promise.all([
+      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=1`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=2`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=3`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=4`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=5`, 5000).then(r => r.json()).catch(() => ({}))
+    ]);
+    const results = pages.flatMap(p => p.results || []);
+    return applyFilters(results).slice(0, 100).map((m: any) => ({
       id: m.id,
       title: m.name,
       year: m.first_air_date?.substring(0, 4) || 'N/A',
