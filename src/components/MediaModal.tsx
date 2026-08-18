@@ -471,7 +471,7 @@ export default function MediaModal({
   const [selectedTrailerKey, setSelectedTrailerKey] = useState<string | null>(null);
 
   const savePersistedStreams = (finalStreamsList: any[]) => {
-    const targetTmdbId = movie?.realTmdbId || movie?.tmdbId || movie?.id;
+    const targetTmdbId = resolvedTmdbId || movie?.realTmdbId || movie?.tmdbId || movie?.id;
     if (!targetTmdbId || !Array.isArray(finalStreamsList) || finalStreamsList.length === 0) return;
     fetch('/api/media/save-streams', {
       method: 'POST',
@@ -489,7 +489,7 @@ export default function MediaModal({
   // Load cached streams instantly when media item or episode detail screen opens
   useEffect(() => {
     let isSubscribed = true;
-    const targetTmdbId = movie?.realTmdbId || movie?.tmdbId || movie?.id;
+    const targetTmdbId = resolvedTmdbId || movie?.realTmdbId || movie?.tmdbId || movie?.id;
     if (!targetTmdbId) return;
 
     const mediaType = (movie?.type === 'series' || movie?.type === 'tv' || !!movie?.first_air_date) ? 'tv' : 'movie';
@@ -523,7 +523,7 @@ export default function MediaModal({
       .catch(() => {});
 
     return () => { isSubscribed = false; };
-  }, [movie, selectedSeason, selectedEpisode]);
+  }, [movie, selectedSeason, selectedEpisode, resolvedTmdbId]);
 
   // Pause background prefetch queue while detail modal is open to ensure 100% top priority for user requests
   useEffect(() => {
@@ -783,15 +783,29 @@ export default function MediaModal({
       setSelectedStreamId(null);
     }
   }, [streams]);
-  const [prevMovieId, setPrevMovieId] = useState(movie?.id);
-  if (movie?.id !== prevMovieId) {
-    setPrevMovieId(movie?.id);
+  const currentMovieKey = movie
+    ? `${movie.id || ''}_${movie.tmdbId || ''}_${movie.realTmdbId || ''}_${movie.title || movie.name || ''}`
+    : null;
+  const [prevMovieKey, setPrevMovieKey] = useState<string | null>(null);
+
+  if (currentMovieKey !== prevMovieKey) {
+    setPrevMovieKey(currentMovieKey);
     setStreams([]);
     setSelectedStreamId(null);
     setSelectedSeason(null);
     setSelectedEpisode(null);
     setSeasons([]);
     setEpisodes([]);
+    setDynamicLogoUrl('');
+    setDynamicOverview('');
+    setExtraDetails(null);
+    setResolvedTmdbId(null);
+    setMpaaRating('');
+    setSavedProgress(null);
+    setResumePromptStream(null);
+    setDevSkipSegments([]);
+    setDevChapters([]);
+    setDevSelectedStreamUrl('');
   }
   const [seriesDetailsLoading, setSeriesDetailsLoading] = useState(false);
   const [pollingActive, setPollingActive] = useState(false);
@@ -1376,7 +1390,7 @@ export default function MediaModal({
       }
     }
     return () => { isActive = false; };
-  }, [movie, isSeries, userSettings]);
+  }, [movie, isSeries, userSettings, resolvedTmdbId]);
 
   // Load TV Season Details (Episodes list) when selectedSeason changes
   useEffect(() => {
