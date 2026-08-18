@@ -1902,17 +1902,11 @@ Strict Rules:
             metadata.overview = d.overview || metadata.overview;
             
             // Prefer English / textless posters & backdrops
-            let selectedPoster = d.poster_path;
-            if (d.images?.posters && Array.isArray(d.images.posters) && d.images.posters.length > 0) {
-              const enPoster = d.images.posters.find((p: any) => p.iso_639_1 === 'en') || d.images.posters.find((p: any) => !p.iso_639_1);
-              if (enPoster?.file_path) selectedPoster = enPoster.file_path;
-            }
+            const enPoster = d.images?.posters?.find((p: any) => p.iso_639_1 === 'en') || d.images?.posters?.find((p: any) => !p.iso_639_1);
+            const selectedPoster = enPoster?.file_path || d.poster_path;
 
-            let selectedBackdrop = d.backdrop_path;
-            if (d.images?.backdrops && Array.isArray(d.images.backdrops) && d.images.backdrops.length > 0) {
-              const enBackdrop = d.images.backdrops.find((b: any) => b.iso_639_1 === 'en') || d.images.backdrops.find((b: any) => !b.iso_639_1);
-              if (enBackdrop?.file_path) selectedBackdrop = enBackdrop.file_path;
-            }
+            const enBackdrop = d.images?.backdrops?.find((b: any) => b.iso_639_1 === 'en') || d.images?.backdrops?.find((b: any) => !b.iso_639_1);
+            const selectedBackdrop = enBackdrop?.file_path || d.backdrop_path;
 
             metadata.poster = selectedPoster ? `https://image.tmdb.org/t/p/w500${selectedPoster}` : metadata.poster;
             metadata.backdrop = selectedBackdrop ? `https://image.tmdb.org/t/p/original${selectedBackdrop}` : metadata.backdrop;

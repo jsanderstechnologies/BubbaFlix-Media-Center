@@ -695,6 +695,24 @@ export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) =
       profilePath: getCachedImageUrl(member.profile_path)
     }));
 
+    let posterPath = details.poster_path;
+    if (details.images?.posters && Array.isArray(details.images.posters) && details.images.posters.length > 0) {
+      const enPoster = details.images.posters.find((p: any) => p.iso_639_1 === 'en') || details.images.posters.find((p: any) => !p.iso_639_1);
+      if (enPoster?.file_path) posterPath = enPoster.file_path;
+    }
+
+    let backdropPath = details.backdrop_path;
+    if (details.images?.backdrops && Array.isArray(details.images.backdrops) && details.images.backdrops.length > 0) {
+      const enBackdrop = details.images.backdrops.find((b: any) => b.iso_639_1 === 'en') || details.images.backdrops.find((b: any) => !b.iso_639_1);
+      if (enBackdrop?.file_path) backdropPath = enBackdrop.file_path;
+    }
+
+    let logoUrl = null;
+    if (details.images?.logos && Array.isArray(details.images.logos) && details.images.logos.length > 0) {
+      const enLogo = details.images.logos.find((l: any) => l.iso_639_1 === 'en') || details.images.logos.find((l: any) => !l.iso_639_1) || details.images.logos[0];
+      if (enLogo?.file_path) logoUrl = getCachedImageUrl(enLogo.file_path);
+    }
+
     return {
       directors,
       producers,
@@ -706,7 +724,10 @@ export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) =
       tagline: details.tagline || '',
       imdbId: details.imdb_id || details.external_ids?.imdb_id || null,
       trailerKey,
-      trailers
+      trailers,
+      poster: posterPath ? getCachedImageUrl(posterPath) : null,
+      backdrop: backdropPath ? getCachedImageUrl(backdropPath) : null,
+      logoUrl
     };
   } catch (error) {
     console.error("[Frontend] Error fetching media credits and details:", error);

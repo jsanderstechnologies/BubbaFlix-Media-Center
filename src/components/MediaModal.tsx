@@ -175,9 +175,14 @@ export default function MediaModal({
     skipSegments?: any[];
     seasons?: any;
     chapters?: { id: string; title: string; startTime: number; endTime: number }[];
+    backdrop?: string | null;
+    poster?: string | null;
+    logoUrl?: string | null;
   } | null>(null);
   const [extraLoading, setExtraLoading] = useState(false);
   const [dynamicLogoUrl, setDynamicLogoUrl] = useState<string>('');
+  const [dynamicBackdropUrl, setDynamicBackdropUrl] = useState<string>('');
+  const [dynamicPosterUrl, setDynamicPosterUrl] = useState<string>('');
   const [dynamicOverview, setDynamicOverview] = useState<string>('');
   const [savedProgress, setSavedProgress] = useState<any>(null);
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
@@ -255,8 +260,11 @@ export default function MediaModal({
     const chapters: { id: string; title: string; startTime: number; endTime: number }[] = Array.isArray(raw.chapters)
       ? raw.chapters.map((ch: any) => ({ id: ch.id || '', title: ch.title || '', startTime: Number(ch.startTime) || 0, endTime: Number(ch.endTime) || 0 }))
       : [];
+    const backdrop = raw.backdrop || null;
+    const poster = raw.poster || null;
+    const logoUrl = raw.logoUrl || null;
 
-    return { directors, writers, producers, releaseDate, cast, genres, tagline, imdbId, skipSegments, seasons, chapters };
+    return { directors, writers, producers, releaseDate, cast, genres, tagline, imdbId, skipSegments, seasons, chapters, backdrop, poster, logoUrl };
   };
 
 
@@ -434,6 +442,8 @@ export default function MediaModal({
             if (!isActive || !res?.success || !res.data) return;
             const cached = res.data;
             if (cached.logoUrl) setDynamicLogoUrl(cached.logoUrl);
+            if (cached.backdrop) setDynamicBackdropUrl(cached.backdrop);
+            if (cached.poster) setDynamicPosterUrl(cached.poster);
             if (cached.mpaaRating) setMpaaRating(cached.mpaaRating);
             if (cached.overview) setDynamicOverview(cached.overview);
             const sanitized = sanitizeExtraDetails(cached, movie.year);
@@ -460,6 +470,8 @@ export default function MediaModal({
             if (!isActive || !res?.success || !res.data) return;
             const fresh = res.data;
             if (fresh.logoUrl) setDynamicLogoUrl(fresh.logoUrl);
+            if (fresh.backdrop) setDynamicBackdropUrl(fresh.backdrop);
+            if (fresh.poster) setDynamicPosterUrl(fresh.poster);
             if (fresh.mpaaRating) setMpaaRating(fresh.mpaaRating);
             if (fresh.overview) setDynamicOverview(fresh.overview);
             const sanitized = sanitizeExtraDetails(fresh, movie.year);
@@ -853,6 +865,8 @@ export default function MediaModal({
     setSeasons([]);
     setEpisodes([]);
     setDynamicLogoUrl('');
+    setDynamicBackdropUrl('');
+    setDynamicPosterUrl('');
     setDynamicOverview('');
     setExtraDetails(null);
     setResolvedTmdbId(null);
@@ -2045,10 +2059,10 @@ export default function MediaModal({
   return (
     <div id="media-modal" className={`fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn ${isHidden ? 'hidden' : ''}`}>
       {/* Full-Screen TMDB Backdrop Image overlay with glassmorphic transparency */}
-      {(movie.backdrop || movie.poster || movie.backupPoster) && (
+      {(dynamicBackdropUrl || extraDetails?.backdrop || movie.backdrop || movie.poster || movie.backupPoster) && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <img 
-            src={movie.backdrop || movie.poster || movie.backupPoster} 
+            src={dynamicBackdropUrl || extraDetails?.backdrop || movie.backdrop || movie.poster || movie.backupPoster} 
             alt="" 
             className="w-full h-full object-cover opacity-30 blur-lg scale-105 transition-all duration-700" 
             referrerPolicy="no-referrer" 
@@ -2059,7 +2073,7 @@ export default function MediaModal({
 
       <div inert={resumePromptStream ? true : undefined} className="relative z-10 bg-[#0c0c12]/75 backdrop-blur-2xl border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
         <div className="relative h-32 sm:h-40 md:h-48 shrink-0">
-            {movie.poster && <img src={movie.poster} className="w-full h-full object-cover opacity-30 blur-sm" referrerPolicy="no-referrer" />}
+            {(dynamicPosterUrl || extraDetails?.poster || movie.poster) && <img src={dynamicPosterUrl || extraDetails?.poster || movie.poster} className="w-full h-full object-cover opacity-30 blur-sm" referrerPolicy="no-referrer" />}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12]/90 via-[#0c0c12]/40 to-transparent"></div>
             <button 
               type="button" 
