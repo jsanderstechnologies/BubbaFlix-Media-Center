@@ -2115,7 +2115,6 @@ Strict Rules:
       if (mediaType === 'movie') {
         itemEntry.cachedStreams = sanitizedStreams;
       } else {
-        itemEntry.cachedStreams = sanitizedStreams;
         if (season !== undefined && season !== null && episode !== undefined && episode !== null) {
           itemEntry.seasons = itemEntry.seasons || {};
           itemEntry.seasons[season] = itemEntry.seasons[season] || {};
@@ -2169,7 +2168,6 @@ Strict Rules:
       if (mediaType === 'movie') {
         itemEntry.lastPlayedStream = lastPlayedObj;
       } else {
-        itemEntry.lastPlayedStream = lastPlayedObj;
         if (season !== undefined && season !== null && episode !== undefined && episode !== null) {
           itemEntry.seasons = itemEntry.seasons || {};
           itemEntry.seasons[season] = itemEntry.seasons[season] || {};
@@ -2212,11 +2210,11 @@ Strict Rules:
         lastPlayedStream = itemEntry.lastPlayedStream || null;
       } else {
         if (season !== undefined && season !== null && episode !== undefined && episode !== null) {
-          streams = itemEntry.seasons?.[season]?.[episode]?.cachedStreams || itemEntry.cachedStreams || [];
-          lastPlayedStream = itemEntry.seasons?.[season]?.[episode]?.lastPlayedStream || itemEntry.lastPlayedStream || null;
+          streams = itemEntry.seasons?.[season]?.[episode]?.cachedStreams || [];
+          lastPlayedStream = itemEntry.seasons?.[season]?.[episode]?.lastPlayedStream || null;
         } else {
-          streams = itemEntry.cachedStreams || [];
-          lastPlayedStream = itemEntry.lastPlayedStream || null;
+          streams = [];
+          lastPlayedStream = null;
         }
       }
 

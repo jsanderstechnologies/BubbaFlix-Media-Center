@@ -486,6 +486,7 @@ export default function MediaModal({
   const [episodes, setEpisodes] = useState<any[]>([]);
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
   const [watchedDocs, setWatchedDocs] = useState<Record<string, boolean>>({});
+  const [watchedDocsLoaded, setWatchedDocsLoaded] = useState<boolean>(false);
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [selectedTrailerKey, setSelectedTrailerKey] = useState<string | null>(null);
 
@@ -512,6 +513,12 @@ export default function MediaModal({
     if (!targetTmdbId) return;
 
     const mediaType = (movie?.type === 'series' || movie?.type === 'tv' || !!movie?.first_air_date) ? 'tv' : 'movie';
+    if (mediaType === 'tv' && (selectedSeason === null || selectedEpisode === null)) {
+      setStreams([]);
+      setLastPlayedStream(null);
+      return;
+    }
+
     fetch('/api/media/cached-streams', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -526,35 +533,34 @@ export default function MediaModal({
       .then(data => {
         if (isSubscribed && data?.success) {
           const lp = data.lastPlayedStream || null;
-          if (lp) setLastPlayedStream(lp);
+          setLastPlayedStream(lp);
           if (Array.isArray(data.streams) && data.streams.length > 0) {
-            console.log(`[MediaModal] Instantly loaded ${data.streams.length} saved stream(s) for ${movie?.title || movie?.name}`);
-            setStreams(prev => {
-              const combined = [...data.streams, ...prev];
-              const seen = new Set<string>();
-              const unique = combined.filter(s => {
-                if (!s || (!s.url && !s.filePath && !s.magnet)) return false;
-                const key = (s.url || s.filePath || s.magnet || s.name || '').toLowerCase().trim();
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-              });
-              if (lp) {
-                const lpIdx = unique.findIndex(s => {
-                  const urlA = (s.url || s.filePath || s.magnet || s.name || '').toLowerCase().trim();
-                  const urlB = (lp.url || lp.filePath || lp.magnet || lp.name || '').toLowerCase().trim();
-                  return (urlA && urlB && urlA === urlB) || (s.id && lp.id && String(s.id) === String(lp.id));
-                });
-                if (lpIdx > 0) {
-                  const [match] = unique.splice(lpIdx, 1);
-                  match.isLastPlayed = true;
-                  unique.unshift(match);
-                } else if (lpIdx === 0) {
-                  unique[0].isLastPlayed = true;
-                }
-              }
-              return unique;
+            console.log(`[MediaModal] Instantly loaded ${data.streams.length} saved stream(s) for ${movie?.title || movie?.name}${mediaType === 'tv' ? ` S${selectedSeason}E${selectedEpisode}` : ''}`);
+            const seen = new Set<string>();
+            const unique = data.streams.filter((s: any) => {
+              if (!s || (!s.url && !s.filePath && !s.magnet)) return false;
+              const key = (s.url || s.filePath || s.magnet || s.name || '').toLowerCase().trim();
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
             });
+            if (lp) {
+              const lpIdx = unique.findIndex((s: any) => {
+                const urlA = (s.url || s.filePath || s.magnet || s.name || '').toLowerCase().trim();
+                const urlB = (lp.url || lp.filePath || lp.magnet || lp.name || '').toLowerCase().trim();
+                return (urlA && urlB && urlA === urlB) || (s.id && lp.id && String(s.id) === String(lp.id));
+              });
+              if (lpIdx > 0) {
+                const [match] = unique.splice(lpIdx, 1);
+                match.isLastPlayed = true;
+                unique.unshift(match);
+              } else if (lpIdx === 0) {
+                unique[0].isLastPlayed = true;
+              }
+            }
+            setStreams(unique);
+          } else {
+            setStreams([]);
           }
         }
       })
@@ -572,7 +578,11 @@ export default function MediaModal({
   }, []);
 
   useEffect(() => {
-    if (!user || !movie || isHidden) return;
+    if (!user) {
+      setWatchedDocsLoaded(true);
+      return;
+    }
+    if (!movie || isHidden) return;
     const targetId = resolvedTmdbId || movie.realTmdbId || movie.tmdbId || movie.id;
     const q = query(
       collection(db, 'user_watched'),
@@ -596,7 +606,11 @@ export default function MediaModal({
         }
       });
       setWatchedDocs(docsMap);
-    }, err => console.error("Error subscribing to user_watched status:", err));
+      setWatchedDocsLoaded(true);
+    }, err => {
+      console.error("Error subscribing to user_watched status:", err);
+      setWatchedDocsLoaded(true);
+    });
 
     return () => unsubscribe();
   }, [user, movie, isHidden, resolvedTmdbId]);
@@ -650,6 +664,8 @@ export default function MediaModal({
   // Auto-populate to the first unwatched season and episode ONCE when opening series modal
   useEffect(() => {
     if (!isSeries || seasons.length === 0 || isHidden || !movie) return;
+    if (user && !watchedDocsLoaded) return;
+
     const movieIdKey = String(movie.id || movie.realTmdbId || movie.tmdbId || 'unknown');
 
     if (!hasInitializedSeasonRef.current[movieIdKey]) {
@@ -677,7 +693,7 @@ export default function MediaModal({
       setSelectedSeason(targetSeason);
       setSelectedEpisode(targetEpisode);
     }
-  }, [isSeries, seasons, isHidden, movie, watchedDocs]);
+  }, [isSeries, seasons, isHidden, movie, watchedDocs, watchedDocsLoaded, user]);
 
   const toggleWatched = async (type: 'tv' | 'movie', seasonNum?: number, episodeNum?: number) => {
     if (!user || !movie) return;
@@ -828,6 +844,8 @@ export default function MediaModal({
 
   if (currentMovieKey !== prevMovieKey) {
     setPrevMovieKey(currentMovieKey);
+    hasInitializedSeasonRef.current = {};
+    setWatchedDocsLoaded(false);
     setStreams([]);
     setSelectedStreamId(null);
     setSelectedSeason(null);
