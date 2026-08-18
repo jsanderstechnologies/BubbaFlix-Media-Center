@@ -2064,17 +2064,19 @@ export default function MediaModal({
           <img 
             src={dynamicBackdropUrl || extraDetails?.backdrop || movie.backdrop || movie.poster || movie.backupPoster} 
             alt="" 
-            className="w-full h-full object-cover opacity-30 blur-lg scale-105 transition-all duration-700" 
+            className="w-full h-full object-cover opacity-60 blur-md scale-105 transition-all duration-700" 
             referrerPolicy="no-referrer" 
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12]/90 via-[#0c0c12]/70 to-[#0c0c12]/60"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12]/85 via-[#0c0c12]/45 to-[#0c0c12]/30"></div>
         </div>
       )}
 
-      <div inert={resumePromptStream ? true : undefined} className="relative z-10 bg-[#0c0c12]/75 backdrop-blur-2xl border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
-        <div className="relative h-32 sm:h-40 md:h-48 shrink-0">
-            {(dynamicPosterUrl || extraDetails?.poster || movie.poster) && <img src={dynamicPosterUrl || extraDetails?.poster || movie.poster} className="w-full h-full object-cover opacity-30 blur-sm" referrerPolicy="no-referrer" />}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12]/90 via-[#0c0c12]/40 to-transparent"></div>
+      <div inert={resumePromptStream ? true : undefined} className="relative z-10 bg-[#0c0c12]/45 backdrop-blur-md border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
+        <div className="relative h-36 sm:h-48 md:h-56 shrink-0">
+            {(dynamicBackdropUrl || extraDetails?.backdrop || dynamicPosterUrl || extraDetails?.poster || movie.backdrop || movie.poster) && (
+              <img src={dynamicBackdropUrl || extraDetails?.backdrop || dynamicPosterUrl || extraDetails?.poster || movie.backdrop || movie.poster} className="w-full h-full object-cover opacity-60" referrerPolicy="no-referrer" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/40 to-transparent"></div>
             <button 
               type="button" 
               onClick={onClose} 
