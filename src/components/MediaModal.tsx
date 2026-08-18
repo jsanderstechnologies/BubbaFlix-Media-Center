@@ -182,6 +182,7 @@ export default function MediaModal({
   const [savedProgress, setSavedProgress] = useState<any>(null);
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
   const [lastPlayedStream, setLastPlayedStream] = useState<any>(null);
+  const [manualTidbLoading, setManualTidbLoading] = useState(false);
 
   const [isActiveStreamsOpen, setIsActiveStreamsOpen] = useState(true);
   const [isAvailableStreamsOpen, setIsAvailableStreamsOpen] = useState(true);
@@ -959,6 +960,58 @@ export default function MediaModal({
       setDevChapters([]);
     }
   }, [extraDetails, selectedSeason, selectedEpisode]);
+
+  const handleManualTidbSearch = async () => {
+    const targetTmdbId = resolvedTmdbId || movie?.realTmdbId || movie?.tmdbId || (typeof movie?.id === 'number' ? movie.id : (!isNaN(Number(movie?.id)) ? Number(movie.id) : null));
+    if (!targetTmdbId) {
+      alert("Missing TMDB ID for this title. Try clicking 'Fix Match' first.");
+      return;
+    }
+
+    try {
+      setManualTidbLoading(true);
+      const mediaType = isSeries ? 'tv' : 'movie';
+      const seasonParam = isSeries && selectedSeason !== null ? `&season=${selectedSeason}` : '';
+      const epParam = isSeries && selectedEpisode !== null ? `&episode=${selectedEpisode}` : '';
+      const tidbKey = systemSettings.tidbApiKey || localStorage.getItem('tidbApiKey') || '';
+      const keyParam = tidbKey ? `&apiKey=${encodeURIComponent(tidbKey)}` : '';
+      const url = `/api/skip-segments?tmdbId=${targetTmdbId}&type=${mediaType}${seasonParam}${epParam}&force=true${keyParam}`;
+
+      const res = await fetch(url).then(r => r.json());
+
+      if (res?.success && Array.isArray(res.segments) && res.segments.length > 0) {
+        setExtraDetails((prev: any) => {
+          if (!prev) return prev;
+          if (isSeries && selectedSeason !== null && selectedEpisode !== null) {
+            const seasons = { ...(prev.seasons || {}) };
+            const seasonData = { ...(seasons[selectedSeason] || {}) };
+            seasonData[selectedEpisode] = res.segments;
+            seasons[selectedSeason] = seasonData;
+            return { ...prev, seasons, skipSegments: res.segments };
+          }
+          return { ...prev, skipSegments: res.segments };
+        });
+
+        setDevSkipSegments(res.segments.map((s: any) => ({
+          type: s.type || 'intro',
+          start: s.start || 0,
+          end: s.end || 0,
+          label: s.label || 'Skip'
+        })));
+
+        const count = res.segments.length;
+        const labels = Array.from(new Set(res.segments.map((s: any) => s.label || (s.type === 'credits' ? 'Skip Credits' : 'Skip Intro')))).join(', ');
+        alert(`Found ${count} TheIntroDB skip segment(s) (${labels})${isSeries && selectedSeason !== null && selectedEpisode !== null ? ` for S${selectedSeason}E${selectedEpisode}` : ''}!`);
+      } else {
+        alert(`No TheIntroDB skip segments found${isSeries && selectedSeason !== null && selectedEpisode !== null ? ` for S${selectedSeason}E${selectedEpisode}` : ''}.`);
+      }
+    } catch (err: any) {
+      console.error('Manual TIDB search error:', err);
+      alert('Failed to search TheIntroDB: ' + (err.message || 'Server error'));
+    } finally {
+      setManualTidbLoading(false);
+    }
+  };
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token') || localStorage.getItem('authToken') || (user as any)?.token || '';
@@ -2064,6 +2117,18 @@ export default function MediaModal({
                     <Sparkles className="w-4 h-4 text-red-500" />
                     Fix Match
                   </button>
+                  {isSeries && (
+                    <button
+                      type="button"
+                      onClick={handleManualTidbSearch}
+                      disabled={manualTidbLoading}
+                      className="focusable flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0 bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 disabled:opacity-50 cursor-pointer"
+                      title="Manually search TheIntroDB (TIDB) for intro and credit skip timestamps"
+                    >
+                      {manualTidbLoading ? <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" /> : <Zap className="w-4 h-4 text-amber-400" />}
+                      <span>{manualTidbLoading ? 'Searching TIDB...' : 'Search TIDB Skips'}</span>
+                    </button>
+                  )}
                   {user && !isSeries && (
                     <button 
                       type="button"
@@ -2374,6 +2439,33 @@ export default function MediaModal({
                                     </div>
                                 </div>
                             )}
+                            <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-1">
+                              <button
+                                type="button"
+                                onClick={handleManualTidbSearch}
+                                disabled={manualTidbLoading}
+                                className="focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-indigo-950/60 text-indigo-300 border-indigo-500/40 hover:bg-indigo-900/60 hover:border-indigo-400 disabled:opacity-50 shadow-sm"
+                                title="Manually query TheIntroDB (TIDB) repository for episode intro & credit skip markers"
+                              >
+                                {manualTidbLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" /> : <Zap className="w-3.5 h-3.5 text-amber-400" />}
+                                <span>{manualTidbLoading ? 'Searching TIDB...' : 'Search TIDB Skips'}</span>
+                              </button>
+                              {getSkipBadgeText() ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowSkipInfoModal(true)}
+                                  className="focusable text-[10px] font-mono text-indigo-300/90 bg-indigo-950/40 border border-indigo-500/30 hover:bg-indigo-900/40 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                                  title="View skip timestamp details"
+                                >
+                                  <Zap className="w-3 h-3 text-indigo-400" />
+                                  <span>TIDB: {getSkipBadgeText()}</span>
+                                </button>
+                              ) : (
+                                <span className="text-[10px] font-mono text-white/40 italic">
+                                  No TIDB skips cached
+                                </span>
+                              )}
+                            </div>
                         </div>
                     )}
                   </div>
@@ -3025,7 +3117,19 @@ export default function MediaModal({
 
             {/* Modal Footer */}
             <div className="px-6 py-4 bg-black/80 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-white/50 font-mono">Powered by TheIntroDB v3</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-white/50 font-mono">Powered by TheIntroDB v3</span>
+                <button
+                  type="button"
+                  onClick={handleManualTidbSearch}
+                  disabled={manualTidbLoading}
+                  className="focusable px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Force live search of TheIntroDB repository"
+                >
+                  {manualTidbLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" /> : <Zap className="w-3.5 h-3.5 text-amber-400" />}
+                  <span>{manualTidbLoading ? 'Searching...' : 'Search TIDB Live'}</span>
+                </button>
+              </div>
               <button 
                 onClick={() => setShowSkipInfoModal(false)}
                 className="focusable px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer shadow-lg shadow-indigo-600/30"

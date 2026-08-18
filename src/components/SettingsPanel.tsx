@@ -6,16 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminPanel from './AdminPanel';
 import { useAuth } from './Auth';
 import { logger, LogEntry } from '../lib/logger';
-import { useSettings } from '../lib/settings';
-
-interface IptvProvider {
-  id: string;
-  name: string;
-  url: string;
-  epgUrl?: string;
-  enabledGroups?: string[];
-  sportsGroups?: string[];
-}
+import { useSettings, IptvProvider } from '../lib/settings';
 
 const fetchM3U = async (url: string) => {
   if (!url) return null;

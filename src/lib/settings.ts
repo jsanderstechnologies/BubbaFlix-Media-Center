@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 export interface IptvProvider {
   id: string;
   name: string;
-  type: 'm3u' | 'xtream';
+  type?: 'm3u' | 'xtream' | string;
   url: string;
   epgUrl?: string;
   serverUrl?: string;
@@ -12,7 +12,7 @@ export interface IptvProvider {
   xtreamServer?: string;
   xtreamUsername?: string;
   xtreamPassword?: string;
-  enabled: boolean;
+  enabled?: boolean;
   isPrimary?: boolean;
   enabledGroups?: string[];
   sportsGroups?: string[];
@@ -67,10 +67,11 @@ export interface SystemSettings {
   submitTidbSegments?: boolean;
   enableTidbSubmission?: boolean;
   enableIntroSkip?: boolean;
+  adminMode?: boolean;
+  developerAdminMode?: boolean;
 }
 
 export interface UserSettings {
-
   resolutions?: string[];
   audioLanguage?: string;
   ccLanguage?: string;
@@ -85,6 +86,7 @@ export interface UserSettings {
   weatherLocation?: string;
   temperatureUnit?: 'F' | 'C';
   adminMode?: boolean;
+  developerAdminMode?: boolean;
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {

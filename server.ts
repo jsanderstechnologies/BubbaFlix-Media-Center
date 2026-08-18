@@ -1503,8 +1503,9 @@ async function startServer() {
         return res.json({ success: false, message: 'Missing tmdbId or imdbId', segments: [] });
       }
 
-      // 0. Check local database cache for instant 0ms latency
-      if (tmdbId) {
+      // 0. Check local database cache for instant 0ms latency (unless force refresh requested)
+      const forceRefresh = req.query.force === 'true' || req.query.refresh === 'true';
+      if (tmdbId && !forceRefresh) {
         const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
         const mediaType = (type === 'tv' || type === 'series') ? 'tv' : 'movie';
         const cacheKey = `${mediaType}_${tmdbId}`;
