@@ -1649,7 +1649,7 @@ async function startServer() {
           if (tmdbId) {
             try {
               if (type === 'tv' && season && episode) {
-                const epRes = await axios.get(`https://api.themoviedb.org/3/tv/${encodeURIComponent(tmdbId)}/season/${encodeURIComponent(season)}/episode/${encodeURIComponent(episode)}?api_key=${tmdbKey}`, { timeout: 3000 }).catch(() => null);
+                const epRes = await axios.get(`https://api.themoviedb.org/3/tv/${encodeURIComponent(tmdbId)}/season/${encodeURIComponent(season)}/episode/${encodeURIComponent(episode)}?api_key=${tmdbKey}&language=en-US`, { timeout: 3000 }).catch(() => null);
                 if (epRes?.data) {
                   mediaTitle = epRes.data.name || '';
                   overview = epRes.data.overview || '';
@@ -1658,7 +1658,7 @@ async function startServer() {
                   }
                 }
                 if (!mediaTitle) {
-                  const tvRes = await axios.get(`https://api.themoviedb.org/3/tv/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}`, { timeout: 3000 }).catch(() => null);
+                  const tvRes = await axios.get(`https://api.themoviedb.org/3/tv/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}&language=en-US`, { timeout: 3000 }).catch(() => null);
                   if (tvRes?.data) {
                     mediaTitle = tvRes.data.name || tvRes.data.original_name || '';
                     overview = overview || tvRes.data.overview || '';
@@ -1668,7 +1668,7 @@ async function startServer() {
                   }
                 }
               } else {
-                const movRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}`, { timeout: 3000 }).catch(() => null);
+                const movRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}&language=en-US`, { timeout: 3000 }).catch(() => null);
                 if (movRes?.data) {
                   mediaTitle = movRes.data.title || movRes.data.original_title || '';
                   overview = movRes.data.overview || '';
@@ -1892,24 +1892,38 @@ Strict Rules:
         updatedAt: new Date().toISOString()
       };
 
-      // 1. Fetch TMDB Details, Logos & Credits
+      // 1. Fetch TMDB Details, Logos & Credits in English (en-US & en/null image language)
       if (tmdbId) {
         try {
-          const tmdbRes = await axios.get(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${tmdbApiKey}&append_to_response=images,credits,release_dates,content_ratings`, { timeout: 6000 }).catch(() => null);
+          const tmdbRes = await axios.get(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${tmdbApiKey}&language=en-US&include_image_language=en,null&append_to_response=images,credits,release_dates,content_ratings`, { timeout: 6000 }).catch(() => null);
           if (tmdbRes?.data) {
             const d = tmdbRes.data;
             metadata.title = d.title || d.name || metadata.title;
             metadata.overview = d.overview || metadata.overview;
-            metadata.poster = d.poster_path ? `https://image.tmdb.org/t/p/w500${d.poster_path}` : metadata.poster;
-            metadata.backdrop = d.backdrop_path ? `https://image.tmdb.org/t/p/original${d.backdrop_path}` : metadata.backdrop;
+            
+            // Prefer English / textless posters & backdrops
+            let selectedPoster = d.poster_path;
+            if (d.images?.posters && Array.isArray(d.images.posters) && d.images.posters.length > 0) {
+              const enPoster = d.images.posters.find((p: any) => p.iso_639_1 === 'en') || d.images.posters.find((p: any) => !p.iso_639_1);
+              if (enPoster?.file_path) selectedPoster = enPoster.file_path;
+            }
+
+            let selectedBackdrop = d.backdrop_path;
+            if (d.images?.backdrops && Array.isArray(d.images.backdrops) && d.images.backdrops.length > 0) {
+              const enBackdrop = d.images.backdrops.find((b: any) => b.iso_639_1 === 'en') || d.images.backdrops.find((b: any) => !b.iso_639_1);
+              if (enBackdrop?.file_path) selectedBackdrop = enBackdrop.file_path;
+            }
+
+            metadata.poster = selectedPoster ? `https://image.tmdb.org/t/p/w500${selectedPoster}` : metadata.poster;
+            metadata.backdrop = selectedBackdrop ? `https://image.tmdb.org/t/p/original${selectedBackdrop}` : metadata.backdrop;
             metadata.releaseDate = d.release_date || d.first_air_date || metadata.releaseDate;
             metadata.runtime = d.runtime || (d.episode_run_time ? d.episode_run_time[0] : 0);
             metadata.genres = d.genres ? d.genres.map((g: any) => g.name) : [];
             metadata.tmdbSeasons = d.seasons || [];
             
-            // Logos
+            // English Logos
             if (d.images?.logos && Array.isArray(d.images.logos) && d.images.logos.length > 0) {
-              const enLogo = d.images.logos.find((l: any) => l.iso_639_1 === 'en') || d.images.logos[0];
+              const enLogo = d.images.logos.find((l: any) => l.iso_639_1 === 'en') || d.images.logos.find((l: any) => !l.iso_639_1) || d.images.logos[0];
               if (enLogo?.file_path) {
                 metadata.logoUrl = `https://image.tmdb.org/t/p/original${enLogo.file_path}`;
               }
@@ -2402,7 +2416,7 @@ Strict Rules:
       if (tmdbId) {
         try {
           if (mediaType === 'tv' && season && episode) {
-            const epRes = await axios.get(`https://api.themoviedb.org/3/tv/${encodeURIComponent(tmdbId)}/season/${encodeURIComponent(season)}/episode/${encodeURIComponent(episode)}?api_key=${tmdbKey}`, { timeout: 4000 }).catch(() => null);
+            const epRes = await axios.get(`https://api.themoviedb.org/3/tv/${encodeURIComponent(tmdbId)}/season/${encodeURIComponent(season)}/episode/${encodeURIComponent(episode)}?api_key=${tmdbKey}&language=en-US`, { timeout: 4000 }).catch(() => null);
             if (epRes?.data) {
               mediaTitle = epRes.data.name || '';
               overview = epRes.data.overview || '';
@@ -2410,7 +2424,7 @@ Strict Rules:
             }
           }
           if (!mediaTitle) {
-            const mediaRes = await axios.get(`https://api.themoviedb.org/3/${mediaType === 'tv' ? 'tv' : 'movie'}/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}`, { timeout: 4000 }).catch(() => null);
+            const mediaRes = await axios.get(`https://api.themoviedb.org/3/${mediaType === 'tv' ? 'tv' : 'movie'}/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}&language=en-US`, { timeout: 4000 }).catch(() => null);
             if (mediaRes?.data) {
               mediaTitle = mediaRes.data.name || mediaRes.data.title || mediaRes.data.original_title || '';
               overview = overview || mediaRes.data.overview || '';
@@ -2663,7 +2677,7 @@ Return ONLY valid raw JSON:
 
         if (tmdbId) {
           try {
-            const mRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}`, { timeout: 3000 }).catch(() => null);
+            const mRes = await axios.get(`https://api.themoviedb.org/3/movie/${encodeURIComponent(tmdbId)}?api_key=${tmdbKey}&language=en-US`, { timeout: 3000 }).catch(() => null);
             if (mRes?.data) {
               overview = mRes.data.overview || '';
               if (mRes.data.runtime) durationSeconds = Number(mRes.data.runtime) * 60;
@@ -6217,7 +6231,7 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
       for (const qStr of searchQueries) {
         if (!qStr || qStr.length < 2) continue;
 
-        let searchUrl = `https://api.themoviedb.org/3/search/${primaryEndpoint}?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
+        let searchUrl = `https://api.themoviedb.org/3/search/${primaryEndpoint}?api_key=${apiKey}&language=en-US&include_image_language=en,null&query=${encodeURIComponent(qStr)}`;
         if (item.year && item.year !== 'Local' && item.year.length === 4) {
           searchUrl += item.type === 'series' ? `&first_air_date_year=${item.year}` : `&year=${item.year}`;
         }
@@ -6228,7 +6242,7 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
         });
 
         if (!match) {
-          const fallbackUrl = `https://api.themoviedb.org/3/search/${primaryEndpoint}?api_key=${apiKey}&query=${encodeURIComponent(qStr)}`;
+          const fallbackUrl = `https://api.themoviedb.org/3/search/${primaryEndpoint}?api_key=${apiKey}&language=en-US&include_image_language=en,null&query=${encodeURIComponent(qStr)}`;
           tmdbRes = await axios.get(fallbackUrl, { timeout: 3000 }).catch(() => null);
           match = tmdbRes?.data?.results?.find((r: any) => {
             const rYear = (r.release_date || r.first_air_date || '').split('-')[0];

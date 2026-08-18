@@ -346,7 +346,7 @@ export default function MediaModal({
       const apiKey = systemSettings.tmdbKey || localStorage.getItem('tmdbKey') || '841059f71aab310b4d4c4f3a7e28328e';
       const endpoint = isSeries ? 'tv' : 'movie';
       try {
-        const searchUrl = `https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(cleanTitle)}${!isSeries && movie.year ? `&year=${movie.year}` : ''}`;
+        const searchUrl = `https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&language=en-US&include_image_language=en,null&query=${encodeURIComponent(cleanTitle)}${!isSeries && movie.year ? `&year=${movie.year}` : ''}`;
         const res = await fetch(searchUrl).then(r => r.json()).catch(() => null);
         if (res?.results?.[0]?.id) {
           const foundId = res.results[0].id;
@@ -355,7 +355,7 @@ export default function MediaModal({
             setResolvedTmdbId(foundId);
           }
         } else {
-          const multiUrl = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(cleanTitle)}`;
+          const multiUrl = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&language=en-US&include_image_language=en,null&query=${encodeURIComponent(cleanTitle)}`;
           const multiRes = await fetch(multiUrl).then(r => r.json()).catch(() => null);
           const match = multiRes?.results?.find((r: any) => isSeries ? (r.media_type === 'tv' || r.first_air_date) : (r.media_type === 'movie' || r.release_date));
           if (match?.id && isActive) {
@@ -1182,7 +1182,7 @@ export default function MediaModal({
     setFixMatchSearching(true);
     try {
       const apiKey = systemSettings.tmdbKey || '841059f71aab310b4d4c4f3a7e28328e';
-      const searchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&query=${encodeURIComponent(queryStr.trim())}`;
+      const searchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&language=en-US&include_image_language=en,null&query=${encodeURIComponent(queryStr.trim())}`;
       const res = await fetch(searchUrl);
       if (res.ok) {
         const data = await res.json();
@@ -1280,7 +1280,7 @@ export default function MediaModal({
             try {
               const cleanTitle = (movie.title || movie.name || '').replace(/\b(remastered|extended|uncut|1080p|720p|4k)\b/gi, '').trim();
               const apiKey = localStorage.getItem('tmdbKey') || '841059f71aab310b4d4c4f3a7e28328e';
-              const searchRes = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${apiKey}&query=${encodeURIComponent(cleanTitle)}`).then(r => r.json()).catch(() => null);
+              const searchRes = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${apiKey}&language=en-US&include_image_language=en,null&query=${encodeURIComponent(cleanTitle)}`).then(r => r.json()).catch(() => null);
               if (searchRes?.results?.[0]?.id) {
                 targetTmdbId = searchRes.results[0].id;
                 movie.realTmdbId = targetTmdbId;

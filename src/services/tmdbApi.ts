@@ -96,8 +96,8 @@ export const getTrendingMovies = async (genreId: number = 0) => {
 
   try {
     const endpoint = genreId > 0 
-      ? `${BASE_URL}/discover/movie?api_key=${apiKey}&with_genres=${genreId}&sort_by=popularity.desc&primary_release_date.lte=${today}`
-      : `${BASE_URL}/trending/movie/week?api_key=${apiKey}`;
+      ? `${BASE_URL}/discover/movie?api_key=${apiKey}&language=en-US&include_image_language=en,null&with_genres=${genreId}&sort_by=popularity.desc&primary_release_date.lte=${today}`
+      : `${BASE_URL}/trending/movie/week?api_key=${apiKey}&language=en-US&include_image_language=en,null`;
 
     const pages = await Promise.all([
       fetchWithTimeout(`${endpoint}&page=1`).then(r => r.json()).catch(() => ({})),
@@ -137,8 +137,8 @@ export const searchMovies = async (query: string) => {
   try {
     // 1. Search movies by title
     const pages = await Promise.all([
-      fetch(`${BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()).catch(() => ({})),
-      fetch(`${BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=2`).then(r => r.json()).catch(() => ({}))
+      fetch(`${BASE_URL}/search/movie?api_key=${apiKey}&language=en-US&include_image_language=en,null&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/search/movie?api_key=${apiKey}&language=en-US&include_image_language=en,null&query=${encodeURIComponent(query)}&page=2`).then(r => r.json()).catch(() => ({}))
     ]);
     let movieResults = pages.flatMap(p => p?.results || []);
 
@@ -197,9 +197,21 @@ export const getTvSeriesDetails = async (seriesId: number) => {
   const apiKey = getApiKey();
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${BASE_URL}/tv/${seriesId}?api_key=${apiKey}&append_to_response=external_ids`);
+    const res = await fetch(`${BASE_URL}/tv/${seriesId}?api_key=${apiKey}&language=en-US&include_image_language=en,null&append_to_response=external_ids,images`);
     if (!res.ok) throw new Error("Failed to fetch tv series details");
     const data = await res.json();
+
+    // Prefer English/textless images
+    if (data?.images) {
+      if (Array.isArray(data.images.posters) && data.images.posters.length > 0) {
+        const enPoster = data.images.posters.find((p: any) => p.iso_639_1 === 'en') || data.images.posters.find((p: any) => !p.iso_639_1);
+        if (enPoster?.file_path) data.poster_path = enPoster.file_path;
+      }
+      if (Array.isArray(data.images.backdrops) && data.images.backdrops.length > 0) {
+        const enBackdrop = data.images.backdrops.find((b: any) => b.iso_639_1 === 'en') || data.images.backdrops.find((b: any) => !b.iso_639_1);
+        if (enBackdrop?.file_path) data.backdrop_path = enBackdrop.file_path;
+      }
+    }
 
     // Fallback to TVDB for poster or backdrop if TMDB images are missing
     if (data && (!data.poster_path || !data.backdrop_path)) {
@@ -225,7 +237,7 @@ export const getTvSeasonDetails = async (seriesId: number, seasonNumber: number)
   // 1. If TMDB Key is present, query TMDB with explicit en-US language for official localized episode titles
   if (apiKey) {
     try {
-      const res = await fetch(`${BASE_URL}/tv/${seriesId}/season/${seasonNumber}?api_key=${apiKey}&language=en-US`);
+      const res = await fetch(`${BASE_URL}/tv/${seriesId}/season/${seasonNumber}?api_key=${apiKey}&language=en-US&include_image_language=en,null`);
       if (res.ok) {
         const tmdbData = await res.json();
         if (tmdbData && Array.isArray(tmdbData.episodes) && tmdbData.episodes.length > 0) {
@@ -274,8 +286,8 @@ export const getTrendingTvSeries = async (genreId: number = 0) => {
 
   try {
     const endpoint = genreId > 0
-      ? `${BASE_URL}/discover/tv?api_key=${apiKey}&with_genres=${genreId}&sort_by=popularity.desc&first_air_date.lte=${today}`
-      : `${BASE_URL}/trending/tv/week?api_key=${apiKey}`;
+      ? `${BASE_URL}/discover/tv?api_key=${apiKey}&language=en-US&include_image_language=en,null&with_genres=${genreId}&sort_by=popularity.desc&first_air_date.lte=${today}`
+      : `${BASE_URL}/trending/tv/week?api_key=${apiKey}&language=en-US&include_image_language=en,null`;
 
     const pages = await Promise.all([
       fetch(`${endpoint}&page=1`).then(r => r.json()).catch(() => ({})),
@@ -394,8 +406,8 @@ export const searchTvSeries = async (query: string) => {
   try {
     // 1. Search TV by title
     const pages = await Promise.all([
-      fetch(`${BASE_URL}/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()).catch(() => ({})),
-      fetch(`${BASE_URL}/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}&page=2`).then(r => r.json()).catch(() => ({}))
+      fetch(`${BASE_URL}/search/tv?api_key=${apiKey}&language=en-US&include_image_language=en,null&query=${encodeURIComponent(query)}&page=1`).then(r => r.json()).catch(() => ({})),
+      fetch(`${BASE_URL}/search/tv?api_key=${apiKey}&language=en-US&include_image_language=en,null&query=${encodeURIComponent(query)}&page=2`).then(r => r.json()).catch(() => ({}))
     ]);
     let tvResults = pages.flatMap(p => p?.results || []);
 
@@ -477,11 +489,11 @@ export const getPopularMovies = async (): Promise<any[]> => {
   }
   try {
     const pages = await Promise.all([
-      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=1`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=2`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=3`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=4`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&page=5`, 5000).then(r => r.json()).catch(() => ({}))
+      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=1`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=2`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=3`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=4`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/popular?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=5`, 5000).then(r => r.json()).catch(() => ({}))
     ]);
     const results = pages.flatMap(p => p.results || []);
     return applyFilters(results).slice(0, 100).map((m: any) => ({
@@ -510,11 +522,11 @@ export const getTopRatedMovies = async (): Promise<any[]> => {
   }
   try {
     const pages = await Promise.all([
-      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=1`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=2`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=3`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=4`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&page=5`, 5000).then(r => r.json()).catch(() => ({}))
+      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=1`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=2`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=3`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=4`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/movie/top_rated?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=5`, 5000).then(r => r.json()).catch(() => ({}))
     ]);
     const results = pages.flatMap(p => p.results || []);
     return applyFilters(results).slice(0, 100).map((m: any) => ({
@@ -543,11 +555,11 @@ export const getPopularTvSeries = async (): Promise<any[]> => {
   }
   try {
     const pages = await Promise.all([
-      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=1`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=2`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=3`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=4`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&page=5`, 5000).then(r => r.json()).catch(() => ({}))
+      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=1`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=2`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=3`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=4`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/popular?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=5`, 5000).then(r => r.json()).catch(() => ({}))
     ]);
     const results = pages.flatMap(p => p.results || []);
     return applyFilters(results).slice(0, 100).map((m: any) => ({
@@ -576,11 +588,11 @@ export const getTopRatedTvSeries = async (): Promise<any[]> => {
   }
   try {
     const pages = await Promise.all([
-      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=1`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=2`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=3`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=4`, 5000).then(r => r.json()).catch(() => ({})),
-      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&page=5`, 5000).then(r => r.json()).catch(() => ({}))
+      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=1`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=2`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=3`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=4`, 5000).then(r => r.json()).catch(() => ({})),
+      fetchWithTimeout(`${BASE_URL}/tv/top_rated?api_key=${apiKey}&language=en-US&include_image_language=en,null&page=5`, 5000).then(r => r.json()).catch(() => ({}))
     ]);
     const results = pages.flatMap(p => p.results || []);
     return applyFilters(results).slice(0, 100).map((m: any) => ({
@@ -622,9 +634,9 @@ export const getMediaCreditsAndDetails = async (id: number, isSeries: boolean) =
   try {
     const type = isSeries ? 'tv' : 'movie';
     const [detailsRes, creditsRes, videosRes] = await Promise.all([
-      fetch(`${BASE_URL}/${type}/${id}?api_key=${apiKey}`),
-      fetch(`${BASE_URL}/${type}/${id}/credits?api_key=${apiKey}`),
-      fetch(`${BASE_URL}/${type}/${id}/videos?api_key=${apiKey}`)
+      fetch(`${BASE_URL}/${type}/${id}?api_key=${apiKey}&language=en-US&include_image_language=en,null&append_to_response=images`),
+      fetch(`${BASE_URL}/${type}/${id}/credits?api_key=${apiKey}&language=en-US`),
+      fetch(`${BASE_URL}/${type}/${id}/videos?api_key=${apiKey}&language=en-US`)
     ]);
 
     const details = detailsRes.ok ? await detailsRes.json() : {};
