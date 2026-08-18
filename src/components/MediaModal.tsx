@@ -675,7 +675,7 @@ export default function MediaModal({
 
   const hasInitializedSeasonRef = useRef<Record<string, boolean>>({});
 
-  // Auto-populate to the first unwatched season and episode ONCE when opening series modal
+  // Auto-populate to last played episode or first unwatched season/episode ONCE when opening series modal
   useEffect(() => {
     if (!isSeries || seasons.length === 0 || isHidden || !movie) return;
     if (user && !watchedDocsLoaded) return;
@@ -684,30 +684,48 @@ export default function MediaModal({
 
     if (!hasInitializedSeasonRef.current[movieIdKey]) {
       hasInitializedSeasonRef.current[movieIdKey] = true;
+      const targetTmdbId = resolvedTmdbId || movie.realTmdbId || movie.tmdbId || movie.id;
 
-      let targetSeason = seasons[0].season_number;
-      let targetEpisode = 1;
-      let foundUnwatched = false;
+      fetch('/api/media/cached-streams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tmdbId: targetTmdbId, type: 'tv' })
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(res => {
+          let targetSeason = seasons[0].season_number;
+          let targetEpisode = 1;
 
-      for (const s of seasons) {
-        const sNum = s.season_number;
-        const epCount = s.episode_count || s.episodes?.length || 0;
-        for (let eNum = 1; eNum <= epCount; eNum++) {
-          const key = `s${sNum}_e${eNum}`;
-          if (!watchedDocs[key]) {
-            targetSeason = sNum;
-            targetEpisode = eNum;
-            foundUnwatched = true;
-            break;
+          if (res?.success && res.lastPlayedSeason !== undefined && res.lastPlayedSeason !== null && res.lastPlayedEpisode !== undefined && res.lastPlayedEpisode !== null) {
+            targetSeason = res.lastPlayedSeason;
+            targetEpisode = res.lastPlayedEpisode;
+          } else {
+            let foundUnwatched = false;
+            for (const s of seasons) {
+              const sNum = s.season_number;
+              const epCount = s.episode_count || s.episodes?.length || 0;
+              for (let eNum = 1; eNum <= epCount; eNum++) {
+                const key = `s${sNum}_e${eNum}`;
+                if (!watchedDocs[key]) {
+                  targetSeason = sNum;
+                  targetEpisode = eNum;
+                  foundUnwatched = true;
+                  break;
+                }
+              }
+              if (foundUnwatched) break;
+            }
           }
-        }
-        if (foundUnwatched) break;
-      }
 
-      setSelectedSeason(targetSeason);
-      setSelectedEpisode(targetEpisode);
+          setSelectedSeason(targetSeason);
+          setSelectedEpisode(targetEpisode);
+        })
+        .catch(() => {
+          setSelectedSeason(seasons[0].season_number);
+          setSelectedEpisode(1);
+        });
     }
-  }, [isSeries, seasons, isHidden, movie, watchedDocs, watchedDocsLoaded, user]);
+  }, [isSeries, seasons, isHidden, movie, watchedDocs, watchedDocsLoaded, user, resolvedTmdbId]);
 
   const toggleWatched = async (type: 'tv' | 'movie', seasonNum?: number, episodeNum?: number) => {
     if (!user || !movie) return;
@@ -843,10 +861,12 @@ export default function MediaModal({
 
   useEffect(() => {
     if (streams.length > 0) {
-      const idxNum = Number(selectedStreamId);
-      if (selectedStreamId === null || isNaN(idxNum) || idxNum < 0 || idxNum >= streams.length) {
-        setSelectedStreamId('0');
-      }
+      setSelectedStreamId(prev => {
+        if (prev && streams.some((s: any) => (s.id || s.url) === prev)) {
+          return prev;
+        }
+        return streams[0].id || streams[0].url || '0';
+      });
     } else {
       setSelectedStreamId(null);
     }
@@ -1617,9 +1637,12 @@ export default function MediaModal({
         // episode number from another season, since different seasons have
         // different episode counts and this caused ghost episodes to appear.
         if (finalEpisodes.length > 0) {
-          if (selectedEpisode === null || !finalEpisodes.some(e => e.episode_number === selectedEpisode)) {
-            setSelectedEpisode(finalEpisodes[0].episode_number);
-          }
+          setSelectedEpisode(prevEp => {
+            if (prevEp !== null && finalEpisodes.some(e => e.episode_number === prevEp)) {
+              return prevEp;
+            }
+            return finalEpisodes[0].episode_number;
+          });
         }
       })();
     }

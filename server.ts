@@ -2187,6 +2187,9 @@ Strict Rules:
           itemEntry.seasons[season] = itemEntry.seasons[season] || {};
           itemEntry.seasons[season][episode] = itemEntry.seasons[season][episode] || {};
           itemEntry.seasons[season][episode].lastPlayedStream = lastPlayedObj;
+          itemEntry.lastPlayedSeason = season;
+          itemEntry.lastPlayedEpisode = episode;
+          itemEntry.lastPlayedStream = lastPlayedObj;
         } else {
           itemEntry.lastPlayedStream = lastPlayedObj;
         }
@@ -2220,7 +2223,7 @@ Strict Rules:
       const itemEntry = mediaCache[cacheKey] || getMediaItemCache(cacheKey) || getMediaItemCache(tmdbId);
 
       if (!itemEntry || Object.keys(itemEntry).length === 0) {
-        return res.json({ success: true, streams: [], lastPlayedStream: null });
+        return res.json({ success: true, streams: [], lastPlayedStream: null, lastPlayedSeason: null, lastPlayedEpisode: null });
       }
 
       let streams: any[] = [];
@@ -2238,7 +2241,13 @@ Strict Rules:
         }
       }
 
-      return res.json({ success: true, streams, lastPlayedStream });
+      return res.json({
+        success: true,
+        streams,
+        lastPlayedStream,
+        lastPlayedSeason: itemEntry.lastPlayedSeason || null,
+        lastPlayedEpisode: itemEntry.lastPlayedEpisode || null
+      });
     } catch (err: any) {
       console.error('[Media Cached Streams Error]:', err?.message || err);
       return res.status(500).json({ error: err?.message || 'Error fetching cached streams' });
