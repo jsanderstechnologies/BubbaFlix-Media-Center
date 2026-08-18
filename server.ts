@@ -1744,49 +1744,75 @@ Strict Rules:
       if (segments.length > 0) {
         console.log(`[Skip-Segments Step 5/5 (Cache & Dispatch)] Returning ${segments.length} segment(s) ${isAiGenerated ? '(AI Analysis Generated)' : '(TheIntroDB Database)'}:`, segments.map(s => `${s.label} (${s.start}s-${s.end}s)`).join(', '));
 
+        // Always persist discovered or AI-generated skip segments to local media_cache.json disk cache
+        if (tmdbId) {
+          try {
+            const mediaType = (type === 'tv' || type === 'series' || type === 'show') ? 'tv' : 'movie';
+            const cacheKey = `${mediaType}_${tmdbId}`;
+            const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+            const itemEntry = mediaCache[cacheKey] || { id: tmdbId, type: mediaType, title: '' };
+            if (mediaType === 'movie') {
+              itemEntry.movieSegments = segments;
+            } else if (season !== undefined && episode !== undefined) {
+              itemEntry.seasons = itemEntry.seasons || {};
+              itemEntry.seasons[season] = itemEntry.seasons[season] || {};
+              itemEntry.seasons[season][episode] = segments;
+            }
+            itemEntry.updatedAt = new Date().toISOString();
+            mediaCache[cacheKey] = itemEntry;
+            writeJson(MEDIA_METADATA_CACHE_FILE, mediaCache);
+            console.log(`[Media Cache Engine] Persisted ${segments.length} skip segment(s) to local cache for ${cacheKey}`);
+          } catch (cErr: any) {
+            console.warn('[Media Cache Engine Notice]:', cErr?.message || cErr);
+          }
+        }
+
         // Submit AI-generated skip segments back to TheIntroDB repository if enabled
         const settings = readJson(SETTINGS_FILE);
         const shouldSubmit = settings.submitTidbSegments !== false && settings.enableTidbSubmission !== false;
         if (isAiGenerated && shouldSubmit && apiKey) {
-          try {
-            console.log(`[Skip-Segments Repository Submission] Submitting ${segments.length} AI-generated skip segment(s) back to TheIntroDB for tmdbId=${tmdbId || 'N/A'}...`);
-            const submitPayload = {
-              tmdb_id: tmdbId ? Number(tmdbId) : undefined,
-              imdb_id: imdbId || undefined,
-              type: type === 'tv' ? 'tv' : 'movie',
-              season: season ? Number(season) : undefined,
-              episode: episode ? Number(episode) : undefined,
-              segments: segments.map(s => ({
-                type: s.type,
-                start: s.start,
-                end: s.end,
-                label: s.label
-              }))
-            };
+          (async () => {
+            try {
+              console.log(`[Skip-Segments Repository Submission] Submitting ${segments.length} AI-generated skip segment(s) back to TheIntroDB for tmdbId=${tmdbId || 'N/A'}...`);
+              const submitPayload = {
+                tmdb_id: tmdbId ? Number(tmdbId) : undefined,
+                imdb_id: imdbId || undefined,
+                type: type === 'tv' ? 'tv' : 'movie',
+                season: season ? Number(season) : undefined,
+                episode: episode ? Number(episode) : undefined,
+                segments: segments.map(s => ({
+                  type: s.type,
+                  start: Math.round(s.start),
+                  end: Math.round(s.end),
+                  label: s.label
+                }))
+              };
 
-            axios.post('https://api.theintrodb.org/v3/segments', submitPayload, {
-              headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'x-api-key': apiKey,
-                'Content-Type': 'application/json'
-              },
-              timeout: 5000
-            }).then(() => {
-              console.log(`[Skip-Segments Repository Submission] ✅ Successfully submitted skip segments back to TheIntroDB repository!`);
-            }).catch(() => {
-              // Fallback submission to v1 endpoint
-              axios.post('https://api.theintrodb.org/v1/segments', submitPayload, {
-                headers: { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey },
-                timeout: 5000
-              }).then(() => {
-                console.log(`[Skip-Segments Repository Submission] ✅ Successfully submitted skip segments back to TheIntroDB v1 endpoint!`);
-              }).catch((err: any) => {
-                console.warn('[Skip-Segments Repository Submission Warning] Remote submission returned:', err?.message || err);
-              });
-            });
-          } catch (e: any) {
-            console.warn('[Skip-Segments Repository Submission Error]:', e?.message || e);
-          }
+              const endpoints = [
+                'https://api.theintrodb.org/v3/media',
+                'https://api.theintrodb.org/v3/submit',
+                'https://api.theintrodb.org/v1/submit',
+                'https://api.theintrodb.org/v3/segments'
+              ];
+              let submitted = false;
+              for (const ep of endpoints) {
+                try {
+                  const subRes = await axios.post(ep, submitPayload, {
+                    headers: { 'Authorization': `Bearer ${apiKey}`, 'x-api-key': apiKey, 'Content-Type': 'application/json' },
+                    timeout: 4000
+                  });
+                  if (subRes.status >= 200 && subRes.status < 300) {
+                    console.log(`[Skip-Segments Repository Submission] ✅ Successfully submitted skip segments to TheIntroDB repository (${ep})!`);
+                    submitted = true;
+                    break;
+                  }
+                } catch (_) {}
+              }
+              if (!submitted) {
+                console.log(`[Skip-Segments Repository Submission Notice] Remote repository endpoints unavailable. Segments are fully preserved in local cache.`);
+              }
+            } catch (_) {}
+          })();
         }
       } else {
         console.log(`[Skip-Segments] ❌ No skip segments available for target media`);
