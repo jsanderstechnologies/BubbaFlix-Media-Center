@@ -1,18 +1,35 @@
 /**
  * Background Media Cache Service for BubbaFlix
- * Prefetches metadata, posters, logos, MPAA ratings, cast/crew, and all-season TIDB v3 skip segments
- * in background batches across all screens (Home, Catalog, TV Series, Search, Library, Upcoming).
+ * Low-priority background prefetching for metadata, posters, logos, and TIDB skip segments.
+ * Automatically pauses whenever detail screens are active to guarantee 100% top priority for user requests.
  */
 
 const requestedKeys = new Set<string>();
 const prefetchQueue: Array<{ tmdbId: number; type: string; title: string }> = [];
 let isProcessingQueue = false;
+let isPrefetchPaused = false;
+
+export function pausePrefetchQueue(paused: boolean) {
+  isPrefetchPaused = paused;
+  if (!paused) {
+    scheduleNextProcess();
+  }
+}
+
+const scheduleNextProcess = () => {
+  if (isPrefetchPaused || prefetchQueue.length === 0 || isProcessingQueue) return;
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(() => processQueue(), { timeout: 3000 });
+  } else {
+    setTimeout(() => processQueue(), 500);
+  }
+};
 
 const processQueue = async () => {
-  if (isProcessingQueue || prefetchQueue.length === 0) return;
+  if (isProcessingQueue || isPrefetchPaused || prefetchQueue.length === 0) return;
   isProcessingQueue = true;
 
-  while (prefetchQueue.length > 0) {
+  while (prefetchQueue.length > 0 && !isPrefetchPaused) {
     const item = prefetchQueue.shift();
     if (!item) break;
 
@@ -28,15 +45,19 @@ const processQueue = async () => {
           tmdbId: item.tmdbId,
           type: item.type,
           title: item.title
-        })
-      });
+        }),
+        priority: 'low'
+      } as any);
     } catch (e) {}
 
-    // Throttle 150ms between requests to maintain zero impact on UI smoothness
-    await new Promise(res => setTimeout(res, 150));
+    // Throttle 400ms between requests to maintain zero impact on UI & active user detail requests
+    await new Promise(res => setTimeout(res, 400));
   }
 
   isProcessingQueue = false;
+  if (!isPrefetchPaused && prefetchQueue.length > 0) {
+    scheduleNextProcess();
+  }
 };
 
 export function prefetchMediaItems(items: any[]) {
@@ -62,5 +83,5 @@ export function prefetchMediaItems(items: any[]) {
     }
   });
 
-  processQueue();
+  scheduleNextProcess();
 }

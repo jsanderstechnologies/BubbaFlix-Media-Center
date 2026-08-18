@@ -6,6 +6,7 @@ import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, s
 import { db } from '../lib/localDb';
 import { useAuth } from './Auth';
 import { useSettings } from '../lib/settings';
+import { pausePrefetchQueue } from '../lib/prefetchCache';
 import SpatialNavigation from 'spatial-navigation-js';
 
 const fetchStreamsForMovie = async (title: string, year?: string, imdbId?: string): Promise<any[]> => {
@@ -522,6 +523,14 @@ export default function MediaModal({
 
     return () => { isSubscribed = false; };
   }, [movie, selectedSeason, selectedEpisode]);
+
+  // Pause background prefetch queue while detail modal is open to ensure 100% top priority for user requests
+  useEffect(() => {
+    pausePrefetchQueue(true);
+    return () => {
+      pausePrefetchQueue(false);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user || !movie || isHidden) return;
