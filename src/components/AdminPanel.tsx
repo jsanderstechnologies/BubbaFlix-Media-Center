@@ -9,6 +9,7 @@ interface UserData {
   role: string;
   status: string;
   registeredAt: string | null;
+  allowedSections?: string[];
 }
 
 export default function AdminPanel() {

@@ -1227,7 +1227,7 @@ async function startServer() {
       timestamp: new Date().toISOString(),
       level: level === 'warn' ? 'warn' : 'error',
       message: logMsg,
-      source: 'frontend'
+      source: 'frontend' as any
     };
 
     backendLogs.push(entry);

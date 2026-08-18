@@ -8,6 +8,15 @@ import { useAuth } from './Auth';
 import { logger, LogEntry } from '../lib/logger';
 import { useSettings } from '../lib/settings';
 
+interface IptvProvider {
+  id: string;
+  name: string;
+  url: string;
+  epgUrl?: string;
+  enabledGroups?: string[];
+  sportsGroups?: string[];
+}
+
 const fetchM3U = async (url: string) => {
   if (!url) return null;
   const res = await fetch('/api/m3u', {
