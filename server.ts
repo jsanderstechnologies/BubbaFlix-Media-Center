@@ -2096,7 +2096,7 @@ Strict Rules:
       const cacheKey = `${mediaType}_${tmdbId}`;
       const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
       
-      const itemEntry = mediaCache[cacheKey] || {
+      const itemEntry = mediaCache[cacheKey] || getMediaItemCache(cacheKey) || getMediaItemCache(tmdbId) || {
         id: tmdbId,
         type: mediaType,
         title: '',
@@ -2128,12 +2128,18 @@ Strict Rules:
           itemEntry.seasons[season] = itemEntry.seasons[season] || {};
           itemEntry.seasons[season][episode] = itemEntry.seasons[season][episode] || {};
           itemEntry.seasons[season][episode].cachedStreams = sanitizedStreams;
+        } else {
+          itemEntry.cachedStreams = sanitizedStreams;
         }
       }
 
       itemEntry.streamsUpdatedAt = new Date().toISOString();
       mediaCache[cacheKey] = itemEntry;
       writeJson(MEDIA_METADATA_CACHE_FILE, mediaCache);
+      setMediaItemCache(cacheKey, itemEntry);
+      if (String(tmdbId) !== cacheKey) {
+        setMediaItemCache(tmdbId, itemEntry);
+      }
 
       console.log(`[Media Cache Engine] Saved ${sanitizedStreams.length} stream(s) for ${cacheKey}${season !== undefined && season !== null ? ` S${season}E${episode}` : ''}`);
       return res.json({ success: true, count: sanitizedStreams.length });
@@ -2154,7 +2160,7 @@ Strict Rules:
       const cacheKey = `${mediaType}_${tmdbId}`;
       const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
 
-      const itemEntry = mediaCache[cacheKey] || {
+      const itemEntry = mediaCache[cacheKey] || getMediaItemCache(cacheKey) || getMediaItemCache(tmdbId) || {
         id: tmdbId,
         type: mediaType,
         title: ''
@@ -2181,11 +2187,17 @@ Strict Rules:
           itemEntry.seasons[season] = itemEntry.seasons[season] || {};
           itemEntry.seasons[season][episode] = itemEntry.seasons[season][episode] || {};
           itemEntry.seasons[season][episode].lastPlayedStream = lastPlayedObj;
+        } else {
+          itemEntry.lastPlayedStream = lastPlayedObj;
         }
       }
 
       mediaCache[cacheKey] = itemEntry;
       writeJson(MEDIA_METADATA_CACHE_FILE, mediaCache);
+      setMediaItemCache(cacheKey, itemEntry);
+      if (String(tmdbId) !== cacheKey) {
+        setMediaItemCache(tmdbId, itemEntry);
+      }
 
       console.log(`[Media Cache Engine] Saved last played stream for ${cacheKey}${season !== undefined && season !== null ? ` S${season}E${episode}` : ''}`);
       return res.json({ success: true });
@@ -2205,9 +2217,9 @@ Strict Rules:
       const mediaType = (type === 'tv' || type === 'series' || type === 'show') ? 'tv' : 'movie';
       const cacheKey = `${mediaType}_${tmdbId}`;
       const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
-      const itemEntry = mediaCache[cacheKey];
+      const itemEntry = mediaCache[cacheKey] || getMediaItemCache(cacheKey) || getMediaItemCache(tmdbId);
 
-      if (!itemEntry) {
+      if (!itemEntry || Object.keys(itemEntry).length === 0) {
         return res.json({ success: true, streams: [], lastPlayedStream: null });
       }
 
@@ -2218,11 +2230,11 @@ Strict Rules:
         lastPlayedStream = itemEntry.lastPlayedStream || null;
       } else {
         if (season !== undefined && season !== null && episode !== undefined && episode !== null) {
-          streams = itemEntry.seasons?.[season]?.[episode]?.cachedStreams || [];
-          lastPlayedStream = itemEntry.seasons?.[season]?.[episode]?.lastPlayedStream || null;
+          streams = itemEntry.seasons?.[season]?.[episode]?.cachedStreams || itemEntry.cachedStreams || [];
+          lastPlayedStream = itemEntry.seasons?.[season]?.[episode]?.lastPlayedStream || itemEntry.lastPlayedStream || null;
         } else {
-          streams = [];
-          lastPlayedStream = null;
+          streams = itemEntry.cachedStreams || [];
+          lastPlayedStream = itemEntry.lastPlayedStream || null;
         }
       }
 

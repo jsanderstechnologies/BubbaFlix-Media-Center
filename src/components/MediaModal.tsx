@@ -188,6 +188,7 @@ export default function MediaModal({
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
   const [lastPlayedStream, setLastPlayedStream] = useState<any>(null);
   const [manualTidbLoading, setManualTidbLoading] = useState(false);
+  const currentTvFetchKeyRef = useRef<string>('');
 
   const [isActiveStreamsOpen, setIsActiveStreamsOpen] = useState(true);
   const [isAvailableStreamsOpen, setIsAvailableStreamsOpen] = useState(true);
@@ -504,13 +505,14 @@ export default function MediaModal({
 
   const savePersistedStreams = (finalStreamsList: any[]) => {
     const targetTmdbId = resolvedTmdbId || movie?.realTmdbId || movie?.tmdbId || movie?.id;
-    if (!targetTmdbId || !Array.isArray(finalStreamsList) || finalStreamsList.length === 0) return;
+    if ((!targetTmdbId && targetTmdbId !== 0) || !Array.isArray(finalStreamsList) || finalStreamsList.length === 0) return;
+    const isTv = isSeries || movie?.type === 'series' || movie?.type === 'tv' || !!movie?.first_air_date || (selectedSeason !== null && selectedEpisode !== null);
     fetch('/api/media/save-streams', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tmdbId: targetTmdbId,
-        type: (movie?.type === 'series' || movie?.type === 'tv' || !!movie?.first_air_date) ? 'tv' : 'movie',
+        type: isTv ? 'tv' : 'movie',
         season: selectedSeason,
         episode: selectedEpisode,
         streams: finalStreamsList
@@ -1628,8 +1630,9 @@ export default function MediaModal({
   useEffect(() => {
     let isActive = true;
     if (isSeries && selectedSeason !== null && selectedEpisode !== null && movie) {
+      const selectionKey = `${movie.id || movie.realTmdbId || movie.tmdbId || ''}_S${selectedSeason}E${selectedEpisode}`;
+      currentTvFetchKeyRef.current = selectionKey;
       setLoading(true);
-      setStreams([]);
 
       const currentEp = episodes.find(e => e.episode_number === selectedEpisode);
       const initialData: any[] = [];
@@ -1744,15 +1747,16 @@ export default function MediaModal({
         body: JSON.stringify({ title: movie.title || movie.name, season: selectedSeason, episode: selectedEpisode, year: seriesYear, refresh: true })
       }).then(r => r.json()).catch(() => null);
 
-      setLoading(false);
-
       let aggregatedStreams: any[] = [...initialData];
       
       const updateProgressiveStreams = (newStreams: any[]) => {
-        if (!isActive || !Array.isArray(newStreams) || newStreams.length === 0) return;
+        if (currentTvFetchKeyRef.current !== selectionKey || !Array.isArray(newStreams) || newStreams.length === 0) return;
         aggregatedStreams = [...aggregatedStreams, ...newStreams];
         const filteredData = filterAndSortTvStreams(aggregatedStreams);
         setStreams(filteredData);
+        if (filteredData.length > 0) {
+          setSelectedStreamId(prev => (prev && filteredData.some((s: any) => (s.id || s.url) === prev)) ? prev : (filteredData[0].id || filteredData[0].url));
+        }
         savePersistedStreams(filteredData);
 
         const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
@@ -1768,7 +1772,7 @@ export default function MediaModal({
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pmKey}` },
               body: JSON.stringify({ hashes: torrentHashes })
             }).then(r => r.ok ? r.json() : null).then(pmData => {
-              if (!isActive || !pmData?.response) return;
+              if (currentTvFetchKeyRef.current !== selectionKey || !pmData?.response) return;
               const responseArr = pmData.response || [];
               const cachedSet = new Set<string>();
               torrentHashes.forEach((h, idx) => {
@@ -1818,8 +1822,16 @@ export default function MediaModal({
       // 4. Torrent indexer search streams
       fetchStreamsForTvSeries(movie.title || movie.name, selectedSeason, selectedEpisode, extraDetails?.imdbId || undefined)
         .then(tData => {
-          if (Array.isArray(tData)) {
+          if (currentTvFetchKeyRef.current === selectionKey && Array.isArray(tData)) {
             updateProgressiveStreams(tData);
+          }
+          if (currentTvFetchKeyRef.current === selectionKey) {
+            setLoading(false);
+          }
+        })
+        .catch(() => {
+          if (currentTvFetchKeyRef.current === selectionKey) {
+            setLoading(false);
           }
         });
 
