@@ -3417,6 +3417,9 @@ Do not include markdown blocks or extra text.`;
     if (!targetUrl || typeof targetUrl !== 'string') {
       return res.status(400).send("URL is required");
     }
+    if (targetUrl.startsWith('magnet:')) {
+      return res.json({ streams: [], format: {}, duration: 0 });
+    }
 
     console.log(`[FFprobe-Proxy] Probing media info for: ${targetUrl}`);
 
@@ -3772,6 +3775,9 @@ app.get('/api/youtube/search', async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl || typeof targetUrl !== 'string') {
       return res.status(400).send("URL is required");
+    }
+    if (targetUrl.startsWith('magnet:')) {
+      return res.json({ duration: 0 });
     }
 
     console.log(`[FFprobe-Proxy] Getting duration for: ${targetUrl}`);
@@ -4154,15 +4160,21 @@ app.get('/api/youtube/search', async (req, res) => {
       }
     });
 
+    let isClientDisconnected = false;
+
     ffmpegProcess.on('close', (code) => {
       console.log(`[FFmpeg] Process exited with code ${code}`);
-      if (code !== 0 && code !== 255) {
-        console.error(`[FFmpeg] Error: ${errorOutput}`);
+      if (!isClientDisconnected && code !== 0 && code !== 255 && code !== null) {
+        const errorLines = errorOutput.split('\n').filter(l => l.toLowerCase().includes('error') || l.includes('Invalid data')).slice(-5).join('\n');
+        if (errorLines) {
+          console.error(`[FFmpeg] Transcode Error Output:\n${errorLines}`);
+        }
       }
       res.end();
     });
 
     req.on('close', () => {
+      isClientDisconnected = true;
       console.log(`[FFmpeg] Client disconnected, killing ffmpeg process`);
       ffmpegProcess.kill('SIGKILL');
     });

@@ -63,7 +63,7 @@ const fetchStreamsForTvSeries = async (title: string, season?: number, episode?:
     const eStr = episode ? `E${episode.toString().padStart(2, '0')}` : '';
     const q = `${title} ${sStr}${eStr}`.trim();
     const url = `/api/torrents/search?q=${encodeURIComponent(q)}&title=${encodeURIComponent(title)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
-    const res = await fetch(url).then(r => r.json());
+    const res = await fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
     if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
       return res.data.map((t: any, idx: number) => ({
         id: t.id || t.hash || `torrent_tv_${idx}_${(t.name || '').replace(/[^a-z0-9]/g, '')}`,
@@ -84,7 +84,7 @@ const fetchStreamsForTvSeries = async (title: string, season?: number, episode?:
     if (season) {
       const seasonQuery = `${title} ${sStr}`.trim();
       const fallbackUrl = `/api/torrents/search?q=${encodeURIComponent(seasonQuery)}&title=${encodeURIComponent(title)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
-      const fallbackRes = await fetch(fallbackUrl).then(r => r.json()).catch(() => null);
+      const fallbackRes = await fetch(fallbackUrl).then(r => r.ok ? r.json() : null).catch(() => null);
       if (fallbackRes?.success && Array.isArray(fallbackRes.data)) {
         return fallbackRes.data.map((t: any, idx: number) => ({
           id: t.id || t.hash || `torrent_tv_fb_${idx}_${(t.name || '').replace(/[^a-z0-9]/g, '')}`,
