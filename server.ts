@@ -4376,13 +4376,24 @@ app.get('/api/youtube/search', async (req, res) => {
         prompt = `I am searching for the TV show or Movie "${query}". I have the following list of file result names. Please filter out any results that do not definitively belong to this show/movie, for example if they belong to a different show with a similar name.\n\nCRITICAL: Results may be Usenet archives (.rar, .par2, .nzb), video files (.mkv, .mp4), or contain scene release group names. These ARE VALID matches if the underlying title matches the query. Do not filter out results just because they are archives or split into parts.${animeFilterInstruction}${langInstruction} You must also strictly filter out any music albums, audiobooks, soundtracks, or software/games that happen to share the same name.${hwFilterInstruction} Return ONLY a valid JSON array of indices (0-indexed) of the results that are CORRECT matches. Do not include any markdown formatting, backticks, or other text. Just the JSON array.\n\nList:\n${list}`;
       }
 
-      const text = await callGeminiApi(settings.geminiApiKey, prompt, { timeout: 45000 });
-      const cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const indices = JSON.parse(cleanText);
+      const text = await callGeminiApi(settings.geminiApiKey, prompt, { responseMimeType: "application/json", timeout: 45000 });
+      let cleanText = (text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+      const arrayMatch = cleanText.match(/\[[\s\S]*?\]/);
+      if (arrayMatch) {
+        cleanText = arrayMatch[0];
+      }
+
+      let indices: any = null;
+      try {
+        indices = JSON.parse(cleanText);
+      } catch (parseErr: any) {
+        console.warn(`[Gemini Filter] Non-JSON format returned by AI provider for "${query}". Applying title matching fallback.`);
+        return candidateItems.filter(item => isValidTitleMatch(query, item.name || item.title || ''));
+      }
       
       if (Array.isArray(indices)) {
         console.log(`[Gemini Filter] Filtered from ${candidateItems.length} to ${indices.length} items for "${query}"`);
-        const resultItems = indices.map(i => candidateItems[i]).filter(Boolean);
+        const resultItems = indices.map((i: number) => candidateItems[i]).filter(Boolean);
         return resultItems.filter(item => isValidTitleMatch(query, item.name || item.title || ''));
       }
       return candidateItems.filter(item => isValidTitleMatch(query, item.name || item.title || ''));
@@ -4392,7 +4403,7 @@ app.get('/api/youtube/search', async (req, res) => {
       if (status === 429 || errMsg.includes('429')) {
         console.warn(`[Gemini Filter Warning]: Gemini API quota / rate limit reached (429). Applying strict title matching.`);
       } else {
-        console.warn(`[Gemini Filter Warning] (${status || 'Network Error'}): ${errMsg}. Applying strict title matching.`);
+        console.warn(`[Gemini Filter Warning] (${status || 'API Error'}): ${errMsg}. Applying strict title matching.`);
       }
       return candidateItems.filter(item => isValidTitleMatch(query, item.name || item.title || ''));
     }
