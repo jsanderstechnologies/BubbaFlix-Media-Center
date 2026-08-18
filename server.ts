@@ -2809,6 +2809,7 @@ Return ONLY raw JSON:
     const timeoutMs = options.timeout || 30000;
 
     const errors: string[] = [];
+    const perAttemptTimeout = Math.min(options.timeout || 6000, 6000);
 
     // 1. PRIMARY PROVIDER: GOOGLE GEMINI API
     const isGeminiInCooldown = Date.now() < geminiCooldownUntil;
@@ -2818,15 +2819,8 @@ Return ONLY raw JSON:
       console.warn(`[AI System] Gemini API is currently in rate-limit cooldown (${remainingSec}s remaining). Cascading to fallback AI provider...`);
       errors.push('Gemini 429 Rate Limit Cooldown Active');
     } else if (rawGeminiKey) {
-      const models = [
-        'gemini-2.5-flash',
-        'gemini-2.0-flash-exp',
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro-latest',
-        'gemini-1.5-pro'
-      ];
-      const apiVersions = ['v1beta', 'v1'];
+      const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+      const apiVersions = ['v1beta'];
       let modelSuccess = false;
 
       for (const model of models) {
@@ -2841,7 +2835,7 @@ Return ONLY raw JSON:
             const res = await axios.post(
               `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${rawGeminiKey}`,
               payload,
-              { timeout: timeoutMs, headers: { 'Content-Type': 'application/json' } }
+              { timeout: perAttemptTimeout, headers: { 'Content-Type': 'application/json' } }
             );
 
             const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -2858,9 +2852,6 @@ Return ONLY raw JSON:
               modelSuccess = false;
               break;
             }
-            if (status === 404) {
-              continue;
-            }
             errors.push(`Gemini (${model}/${ver}): ${err.message}`);
             break;
           }
@@ -2870,7 +2861,7 @@ Return ONLY raw JSON:
 
     // 2. SECONDARY PROVIDER: GROQ API (100% Free High-Speed LPU Tier)
     if (groqKey) {
-      const groqModels = ['llama3-70b-8192', 'llama3-8b-8192', 'llama-3.3-70b-specdec', 'deepseek-r1-distill-llama-70b', 'qwen-2.5-32b', 'llama-3.2-1b-preview'];
+      const groqModels = ['llama-3.3-70b-versatile', 'llama3-70b-8192'];
       for (const gModel of groqModels) {
         try {
           const res = await axios.post(
@@ -2882,7 +2873,7 @@ Return ONLY raw JSON:
               ...(options.responseMimeType === 'application/json' ? { response_format: { type: 'json_object' } } : {})
             },
             {
-              timeout: timeoutMs,
+              timeout: perAttemptTimeout,
               headers: {
                 'Authorization': `Bearer ${groqKey}`,
                 'Content-Type': 'application/json'
@@ -2904,13 +2895,7 @@ Return ONLY raw JSON:
     if (openRouterKey) {
       const openRouterModels = [
         'meta-llama/llama-3.3-70b-instruct:free',
-        'meta-llama/llama-3.3-70b-instruct',
-        'meta-llama/llama-3.2-3b-instruct',
-        'deepseek/deepseek-r1:free',
-        'deepseek/deepseek-chat',
-        'qwen/qwen-2.5-72b-instruct',
-        'google/gemma-2-9b-it',
-        'mistralai/mistral-7b-instruct:free'
+        'google/gemma-2-9b-it:free'
       ];
 
       for (const orModel of openRouterModels) {
@@ -2923,7 +2908,7 @@ Return ONLY raw JSON:
               temperature: 0.1
             },
             {
-              timeout: timeoutMs,
+              timeout: perAttemptTimeout,
               headers: {
                 'Authorization': `Bearer ${openRouterKey}`,
                 'HTTP-Referer': 'https://bubbaflix.app',
@@ -4376,7 +4361,7 @@ app.get('/api/youtube/search', async (req, res) => {
         prompt = `I am searching for the TV show or Movie "${query}". I have the following list of file result names. Please filter out any results that do not definitively belong to this show/movie, for example if they belong to a different show with a similar name.\n\nCRITICAL: Results may be Usenet archives (.rar, .par2, .nzb), video files (.mkv, .mp4), or contain scene release group names. These ARE VALID matches if the underlying title matches the query. Do not filter out results just because they are archives or split into parts.${animeFilterInstruction}${langInstruction} You must also strictly filter out any music albums, audiobooks, soundtracks, or software/games that happen to share the same name.${hwFilterInstruction} Return ONLY a valid JSON array of indices (0-indexed) of the results that are CORRECT matches. Do not include any markdown formatting, backticks, or other text. Just the JSON array.\n\nList:\n${list}`;
       }
 
-      const text = await callGeminiApi(settings.geminiApiKey, prompt, { responseMimeType: "application/json", timeout: 45000 });
+      const text = await callGeminiApi(settings.geminiApiKey, prompt, { responseMimeType: "application/json", timeout: 6000 });
       let cleanText = (text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
       const arrayMatch = cleanText.match(/\[[\s\S]*?\]/);
       if (arrayMatch) {
