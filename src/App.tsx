@@ -1188,7 +1188,7 @@ function MainApp() {
       >
       {isPlaying && (!(window as any).mediaAPI || userSettings.playerPath === 'builtin') && (
         <div id="player-container" className="fixed inset-0 z-[100] bg-black flex flex-col">
-          <div className={`absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-[110] bg-gradient-to-b from-black/80 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
+          <div data-player-control="true" className={`absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-[110] bg-gradient-to-b from-black/80 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
             <div className="flex gap-4 pointer-events-auto items-center">
               <button 
                 onClick={closePlayer}
@@ -1243,7 +1243,12 @@ function MainApp() {
           </div>
           <div 
             className="w-full h-full relative cursor-pointer"
-            onClick={() => {
+            onClick={(e) => {
+              const target = e.target as HTMLElement | null;
+              if (target && target.closest('button, input, select, textarea, [data-player-control="true"]')) {
+                setIsIdle(false);
+                return;
+              }
               if (videoRef.current) {
                 if (isVideoPlaying) {
                   videoRef.current.pause();
@@ -1406,7 +1411,7 @@ function MainApp() {
                   </div>
                 );
               })()}
-              <div className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-5 z-[110] bg-gradient-to-t from-black/95 via-black/70 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
+              <div data-player-control="true" className={`absolute bottom-0 left-0 right-0 p-8 pb-12 flex flex-col gap-5 z-[110] bg-gradient-to-t from-black/95 via-black/70 to-transparent pointer-events-none transition-opacity duration-500 ${isIdle ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="flex items-center gap-6 pointer-events-auto w-full max-w-6xl mx-auto">
                   {/* 10s and 30s Forward/Reverse Skip Buttons */}
                   <div className="flex items-center gap-3">
