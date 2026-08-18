@@ -6267,10 +6267,9 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
             item.rating = match.vote_average.toFixed(1);
           }
 
-          // Persist enriched entry directly into media_cache.json
+          // Persist enriched entry directly into per-item cache and media_cache.json
           const entryCacheKey = `${mediaType}_${match.id}`;
-          const currentCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
-          currentCache[entryCacheKey] = {
+          setMediaItemCache(entryCacheKey, {
             id: match.id,
             type: mediaType,
             title: item.title,
@@ -6278,8 +6277,7 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
             poster: proxyUrl,
             backdrop: match.backdrop_path ? `/api/image-proxy?url=${encodeURIComponent(`https://image.tmdb.org/t/p/original${match.backdrop_path}`)}` : '',
             updatedAt: new Date().toISOString()
-          };
-          writeJson(MEDIA_METADATA_CACHE_FILE, currentCache);
+          });
           
           if (!item.rating || item.rating === '0' || item.rating === '0.0') {
             try {

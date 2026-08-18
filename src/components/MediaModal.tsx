@@ -2539,7 +2539,7 @@ export default function MediaModal({
                   <div className="relative">
                     <select
                       value={selectedStreamId ?? '0'}
-                      disabled={loading || streams.length === 0}
+                      disabled={streams.length === 0}
                       onChange={(e) => {
                         setSelectedStreamId(e.target.value);
                       }}
