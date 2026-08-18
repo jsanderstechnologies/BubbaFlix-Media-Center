@@ -5562,7 +5562,7 @@ app.get('/api/youtube/search', async (req, res) => {
       }
 
       if (!providerM3uUrl) {
-        return res.json([]);
+        return res.json({ header: { attrs: {} }, items: [], channels: [] });
       }
 
       const parsed = await parseM3U(providerM3uUrl);
@@ -5631,7 +5631,11 @@ app.get('/api/youtube/search', async (req, res) => {
         };
       });
 
-      return res.json(sanitized);
+      return res.json({
+        header: { attrs: {} },
+        items: sanitized,
+        channels: sanitized
+      });
     } catch (err: any) {
       console.error('[API /api/m3u Error]:', err?.message || err);
       return res.status(500).json({ error: err?.message || 'Failed to process M3U playlist' });

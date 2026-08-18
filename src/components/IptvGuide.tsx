@@ -3,22 +3,21 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSettings } from '../lib/settings';
 
-const fetchM3U = async (url: string) => {
+const fetchM3U = async () => {
   const res = await fetch('/api/m3u', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url })
+    body: JSON.stringify({})
   });
   if (!res.ok) throw new Error("Failed to fetch M3U");
   return res.json();
 };
 
-const fetchEPG = async (url: string) => {
-  if (!url) return null;
+const fetchEPG = async () => {
   const res = await fetch('/api/epg', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url })
+    body: JSON.stringify({})
   });
   if (!res.ok) throw new Error("Failed to fetch EPG");
   return res.json();
@@ -28,10 +27,15 @@ interface IptvGuideProps {
   onPlayStream: (url: string, logo?: string, resumeTime?: number, context?: any) => void;
 }
 
+const getGroupTitle = (c: any): string => {
+  if (!c) return '';
+  if (typeof c.group === 'string') return c.group.trim();
+  if (c.group?.title && typeof c.group.title === 'string') return c.group.title.trim();
+  return '';
+};
+
 export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
   const { systemSettings, userSettings } = useSettings();
-  const [playlistUrl] = useState(systemSettings.iptvUrl || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus');
-  const [epgUrl] = useState(systemSettings.epgUrl || 'http://cord-cutter.net:8080/xmltv.php?username=foyers1@rogers.com&password=9jguFdUq3Y');
   const [epgOffsetHours] = useState(Number(systemSettings.epgOffset || 0));
   const epgOffsetMs = epgOffsetHours * 60 * 60 * 1000;
   
@@ -45,48 +49,52 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
   }, []);
   
   const { data: parsedM3u, isLoading: isM3uLoading, error: m3uError } = useQuery({
-    queryKey: ['m3u', playlistUrl],
-    queryFn: () => fetchM3U(playlistUrl),
+    queryKey: ['m3u'],
+    queryFn: fetchM3U,
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: parsedEpg, isLoading: isEpgLoading } = useQuery({
-    queryKey: ['epg', epgUrl],
-    queryFn: () => fetchEPG(epgUrl),
+    queryKey: ['epg'],
+    queryFn: fetchEPG,
     staleTime: 60 * 60 * 1000,
     refetchInterval: 60 * 60 * 1000, // Update hourly in background
-    enabled: !!epgUrl,
   });
 
-  const rawChannels = parsedM3u?.items || [];
+  const rawChannels = useMemo(() => {
+    if (Array.isArray(parsedM3u)) return parsedM3u;
+    if (parsedM3u && Array.isArray(parsedM3u.items)) return parsedM3u.items;
+    if (parsedM3u && Array.isArray(parsedM3u.channels)) return parsedM3u.channels;
+    return [];
+  }, [parsedM3u]);
   
   const enabledGroups = useMemo(() => {
     return userSettings?.enabledGroups || null;
   }, [userSettings]);
 
   const channels = useMemo(() => {
-    if (enabledGroups === null) return rawChannels; // Never configured
-    if (enabledGroups.length === 0) return []; // Explicitly empty
-    return rawChannels.filter((c: any) => c.group?.title && enabledGroups.includes(c.group.title.trim()));
+    if (!enabledGroups || enabledGroups.length === 0) return rawChannels;
+    return rawChannels.filter((c: any) => {
+      const g = getGroupTitle(c);
+      return !g || enabledGroups.includes(g);
+    });
   }, [rawChannels, enabledGroups]);
   
   const categories = useMemo(() => {
     const groups = new Set<string>();
     channels.forEach((c: any) => {
-      if (c.group?.title) {
-        groups.add(c.group.title.trim());
-      }
+      const g = getGroupTitle(c);
+      if (g) groups.add(g);
     });
     return ['All Channels', ...Array.from(groups).sort()];
   }, [channels]);
 
   const filteredChannels = useMemo(() => {
     if (selectedCategory === 'All Channels') return channels;
-    return channels.filter((c: any) => c.group?.title?.trim() === selectedCategory);
+    return channels.filter((c: any) => getGroupTitle(c) === selectedCategory);
   }, [channels, selectedCategory]);
 
-  // For the UI we might just show the first 100 channels to avoid lag if it's huge
-  const displayChannels = filteredChannels.slice(0, 100);
+  const displayChannels = filteredChannels.slice(0, 300);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(1000);
@@ -163,10 +171,18 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
     return blocks;
   }, [baseTime, timelineDurationHours, timeBlockIntervalMinutes]);
 
-  const getProgramsForTimeline = (channelId: string) => {
-    if (!parsedEpg?.programs || !channelId) return [];
+  const getProgramsForTimeline = (channel: any) => {
+    if (!parsedEpg?.programs || !channel) return [];
     
-    const channelPrograms = parsedEpg.programs.filter((p: any) => p.channel === channelId);
+    const chId = (channel.tvg?.id || channel.id || '').toString().toLowerCase();
+    const chName = (channel.name || channel.title || '').toString().toLowerCase();
+    const chTvgName = (channel.tvg?.name || '').toString().toLowerCase();
+
+    const channelPrograms = parsedEpg.programs.filter((p: any) => {
+      if (!p.channel) return false;
+      const pc = String(p.channel).toLowerCase();
+      return (chId && pc === chId) || (chName && pc === chName) || (chTvgName && pc === chTvgName);
+    });
     if (!channelPrograms.length) return [];
 
     const timelineStartTime = baseTime.getTime();
@@ -377,7 +393,7 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
               )}
               
               {!isM3uLoading && !m3uError && displayChannels.map((channel: any, i: number) => {
-                const programs = channel.tvg?.id ? getProgramsForTimeline(channel.tvg.id) : [];
+                const programs = getProgramsForTimeline(channel);
                 
                 return (
                 <div 
