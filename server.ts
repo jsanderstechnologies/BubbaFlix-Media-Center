@@ -5283,6 +5283,83 @@ app.get('/api/youtube/search', async (req, res) => {
     return '1080p'; // Default modern IPTV VOD & Direct streams to 1080p Full HD
   }
 
+  // API Route: Discover categories/groups for a specific IPTV provider
+  app.post("/api/iptv/provider-groups", async (req, res) => {
+    try {
+      const { type, serverUrl, username, password, url } = req.body || {};
+      const groupsSet = new Set<string>();
+
+      if (type === 'xtream' || serverUrl) {
+        let sUrl = (serverUrl || '').trim().replace(/\/+$/, '');
+        let uName = (username || '').trim();
+        let pPass = (password || '').trim();
+
+        if (!sUrl && url) {
+          const m = url.match(/^(https?:\/\/[^\/]+)\/get\.php\?username=([^&]+)&password=([^&]+)/);
+          if (m) {
+            sUrl = m[1];
+            uName = decodeURIComponent(m[2]);
+            pPass = decodeURIComponent(m[3]);
+          }
+        }
+
+        if (sUrl && uName && pPass) {
+          const [liveRes, vodRes, seriesRes] = await Promise.all([
+            axios.get(`${sUrl}/player_api.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}&action=get_live_categories`, { timeout: 8000 }).catch(() => null),
+            axios.get(`${sUrl}/player_api.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}&action=get_vod_categories`, { timeout: 8000 }).catch(() => null),
+            axios.get(`${sUrl}/player_api.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}&action=get_series_categories`, { timeout: 8000 }).catch(() => null)
+          ]);
+
+          if (Array.isArray(liveRes?.data)) {
+            liveRes.data.forEach((c: any) => { if (c?.category_name) groupsSet.add(c.category_name.trim()); });
+          }
+          if (Array.isArray(vodRes?.data)) {
+            vodRes.data.forEach((c: any) => { if (c?.category_name) groupsSet.add(c.category_name.trim()); });
+          }
+          if (Array.isArray(seriesRes?.data)) {
+            seriesRes.data.forEach((c: any) => { if (c?.category_name) groupsSet.add(c.category_name.trim()); });
+          }
+        }
+
+        // Fallback: parse full M3U URL if API categories returned empty
+        if (groupsSet.size === 0 && sUrl && uName && pPass) {
+          const m3uUrl = `${sUrl}/get.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}&type=m3u_plus`;
+          try {
+            const parsed = await parseM3U(m3uUrl);
+            (parsed.items || []).forEach((item: any) => {
+              const gName = item.group?.title || (typeof item.group === 'string' ? item.group : '');
+              if (gName && gName.trim()) groupsSet.add(gName.trim());
+            });
+          } catch (e) {}
+        }
+      }
+
+      if (groupsSet.size === 0 && (url || serverUrl)) {
+        let m3uTarget = url;
+        if (!m3uTarget && serverUrl && username && password) {
+          const sUrl = serverUrl.trim().replace(/\/+$/, '');
+          m3uTarget = `${sUrl}/get.php?username=${encodeURIComponent(username.trim())}&password=${encodeURIComponent(password.trim())}&type=m3u_plus`;
+        }
+        if (m3uTarget) {
+          try {
+            const parsed = await parseM3U(m3uTarget);
+            (parsed.items || []).forEach((item: any) => {
+              const gName = item.group?.title || (typeof item.group === 'string' ? item.group : '');
+              if (gName && gName.trim()) groupsSet.add(gName.trim());
+            });
+          } catch (e) {}
+        }
+      }
+
+      const sortedGroups = Array.from(groupsSet).sort();
+      console.log(`[IPTV Provider Groups] Discovered ${sortedGroups.length} categories/groups`);
+      return res.json({ success: true, groups: sortedGroups });
+    } catch (err: any) {
+      console.error("[IPTV Provider Groups Error]:", err?.message || err);
+      return res.status(500).json({ success: false, error: err?.message || "Error fetching provider groups", groups: [] });
+    }
+  });
+
   // API Route: Search IPTV Provider for VOD Movie and TV Series Streams
   app.get("/api/iptv/vod/search", async (req, res) => {
     const { title, type, season, episode, year } = req.query;
@@ -5291,121 +5368,107 @@ app.get('/api/youtube/search', async (req, res) => {
     }
 
     const settings = readJson(SETTINGS_FILE);
-    const iptvUrl = settings.iptvUrl || '';
-    const xtreamServer = settings.xtreamServer || '';
-    const xtreamUsername = settings.xtreamUsername || '';
-    const xtreamPassword = settings.xtreamPassword || '';
-
     const results: any[] = [];
-    const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     try {
-      // 1. Xtream Codes API Search Across All Configured Xtream Providers
-      const xtreamSources: Array<{ serverUrl: string; username: string; password: string; name: string }> = [];
-
+      // Find the single active enabled IPTV provider
+      let activeProvider: any = null;
       if (settings.iptvProviders && Array.isArray(settings.iptvProviders)) {
-        for (const p of settings.iptvProviders) {
-          if (!p.enabled) continue;
-          let sUrl = (p.serverUrl || p.xtreamServer || '').trim();
-          let uName = (p.username || p.xtreamUsername || '').trim();
-          let pPass = (p.password || p.xtreamPassword || '').trim();
-
-          if (!sUrl && p.url) {
-            const m = p.url.match(/^(https?:\/\/[^\/]+)\/get\.php\?username=([^&]+)&password=([^&]+)/);
-            if (m) {
-              sUrl = m[1];
-              uName = decodeURIComponent(m[2]);
-              pPass = decodeURIComponent(m[3]);
-            }
-          }
-
-          if (sUrl && uName && pPass) {
-            if (!xtreamSources.some(x => x.serverUrl === sUrl && x.username === uName)) {
-              xtreamSources.push({ serverUrl: sUrl, username: uName, password: pPass, name: p.name || 'Xtream Provider' });
-            }
-          }
-        }
+        activeProvider = settings.iptvProviders.find((p: any) => p.enabled);
       }
 
-      if (xtreamSources.length === 0 && settings.xtreamServer && settings.xtreamUsername && settings.xtreamPassword) {
-        xtreamSources.push({
+      if (!activeProvider && settings.xtreamServer && settings.xtreamUsername && settings.xtreamPassword) {
+        activeProvider = {
+          name: 'Primary Xtream Provider',
+          type: 'xtream',
           serverUrl: settings.xtreamServer,
           username: settings.xtreamUsername,
-          password: settings.xtreamPassword,
-          name: 'Primary Xtream Provider'
-        });
+          password: settings.xtreamPassword
+        };
       }
 
-      for (const xtr of xtreamSources) {
-        const serverUrl = xtr.serverUrl.endsWith('/') ? xtr.serverUrl.slice(0, -1) : xtr.serverUrl;
-        const xtreamUsername = xtr.username;
-        const xtreamPassword = xtr.password;
+      if (activeProvider) {
+        let serverUrl = (activeProvider.serverUrl || activeProvider.xtreamServer || '').trim().replace(/\/+$/, '');
+        let xtreamUsername = (activeProvider.username || activeProvider.xtreamUsername || '').trim();
+        let xtreamPassword = (activeProvider.password || activeProvider.xtreamPassword || '').trim();
 
-        if (type === 'series' && season !== undefined && episode !== undefined) {
-          const seriesRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_series`, { timeout: 7000 }).catch(() => null);
-          if (seriesRes?.data && Array.isArray(seriesRes.data)) {
-            const matchSeries = seriesRes.data.find((s: any) => {
-              const sName = s.name || s.title || '';
-              return isValidTitleMatch(title as string, sName, year as string);
-            });
+        if (!serverUrl && activeProvider.url) {
+          const m = activeProvider.url.match(/^(https?:\/\/[^\/]+)\/get\.php\?username=([^&]+)&password=([^&]+)/);
+          if (m) {
+            serverUrl = m[1];
+            xtreamUsername = decodeURIComponent(m[2]);
+            xtreamPassword = decodeURIComponent(m[3]);
+          }
+        }
 
-            if (matchSeries?.series_id) {
-              const infoRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_series_info&series_id=${matchSeries.series_id}`, { timeout: 7000 }).catch(() => null);
-              if (infoRes?.data?.episodes) {
-                const sKey = String(season);
-                const seasonEpisodes = infoRes.data.episodes[sKey] || infoRes.data.episodes[Number(season)];
-                if (Array.isArray(seasonEpisodes)) {
-                  const ep = seasonEpisodes.find((e: any) => String(e.episode_num || e.episode) === String(episode));
-                  if (ep && (ep.id || ep.stream_id)) {
-                    const epId = ep.id || ep.stream_id;
-                    const ext = ep.container_extension || ep.extension || 'mp4';
-                    const streamName = `${matchSeries.name || title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} ${ep.title ? '- ' + ep.title : ''}`;
-                    results.push({
-                      id: `iptv_series_${epId}`,
-                      name: `IPTV Direct Stream (${xtr.name}) - ${streamName}`,
-                      title: ep.title || title,
-                      quality: detectStreamQuality(streamName),
-                      sizeStr: 'IPTV Stream',
-                      type: 'iptv',
-                      source: xtr.name,
-                      url: `${serverUrl}/series/${xtreamUsername}/${xtreamPassword}/${epId}.${ext}`,
-                      isCached: true,
-                      availability: 'IPTV Direct'
-                    });
+        if (serverUrl && xtreamUsername && xtreamPassword) {
+          if (type === 'series' && season !== undefined && episode !== undefined) {
+            const seriesRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_series`, { timeout: 7000 }).catch(() => null);
+            if (seriesRes?.data && Array.isArray(seriesRes.data)) {
+              const matchSeries = seriesRes.data.find((s: any) => {
+                const sName = s.name || s.title || '';
+                return isValidTitleMatch(title as string, sName, year as string);
+              });
+
+              if (matchSeries?.series_id) {
+                const infoRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_series_info&series_id=${matchSeries.series_id}`, { timeout: 7000 }).catch(() => null);
+                if (infoRes?.data?.episodes) {
+                  const sKey = String(season);
+                  const seasonEpisodes = infoRes.data.episodes[sKey] || infoRes.data.episodes[Number(season)];
+                  if (Array.isArray(seasonEpisodes)) {
+                    const ep = seasonEpisodes.find((e: any) => String(e.episode_num || e.episode) === String(episode));
+                    if (ep && (ep.id || ep.stream_id)) {
+                      const epId = ep.id || ep.stream_id;
+                      const ext = ep.container_extension || ep.extension || 'mp4';
+                      const streamName = `${matchSeries.name || title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} ${ep.title ? '- ' + ep.title : ''}`;
+                      results.push({
+                        id: `iptv_series_${epId}`,
+                        name: `IPTV Direct Stream (${activeProvider.name || 'Xtream'}) - ${streamName}`,
+                        title: ep.title || title,
+                        quality: detectStreamQuality(streamName),
+                        sizeStr: 'IPTV Stream',
+                        type: 'iptv',
+                        source: activeProvider.name || 'IPTV Provider',
+                        url: `${serverUrl}/series/${xtreamUsername}/${xtreamPassword}/${epId}.${ext}`,
+                        isCached: true,
+                        availability: 'IPTV Direct'
+                      });
+                    }
                   }
                 }
               }
             }
-          }
-        } else {
-          // Search VOD Movies
-          const vodRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_vod_streams`, { timeout: 7000 }).catch(() => null);
-          if (vodRes?.data && Array.isArray(vodRes.data)) {
-            vodRes.data.forEach((m: any) => {
-              const streamName = m.name || m.title || '';
-              if (isValidTitleMatch(title as string, streamName, year as string)) {
-                const ext = m.container_extension || 'mp4';
-                results.push({
-                  id: `iptv_movie_${m.stream_id}`,
-                  name: `IPTV Direct Stream (${xtr.name}) - ${streamName}`,
-                  title: streamName,
-                  quality: detectStreamQuality(streamName),
-                  sizeStr: 'IPTV Stream',
-                  type: 'iptv',
-                  source: xtr.name,
-                  url: `${serverUrl}/movie/${xtreamUsername}/${xtreamPassword}/${m.stream_id}.${ext}`,
-                  isCached: true,
-                  availability: 'IPTV Direct'
-                });
-              }
-            });
+          } else {
+            // Search VOD Movies
+            const vodRes = await axios.get(`${serverUrl}/player_api.php?username=${xtreamUsername}&password=${xtreamPassword}&action=get_vod_streams`, { timeout: 7000 }).catch(() => null);
+            if (vodRes?.data && Array.isArray(vodRes.data)) {
+              vodRes.data.forEach((m: any) => {
+                const streamName = m.name || m.title || '';
+                if (isValidTitleMatch(title as string, streamName, year as string)) {
+                  const ext = m.container_extension || 'mp4';
+                  results.push({
+                    id: `iptv_movie_${m.stream_id}`,
+                    name: `IPTV Direct Stream (${activeProvider.name || 'Xtream'}) - ${streamName}`,
+                    title: streamName,
+                    quality: detectStreamQuality(streamName),
+                    sizeStr: 'IPTV Stream',
+                    type: 'iptv',
+                    source: activeProvider.name || 'IPTV Provider',
+                    url: `${serverUrl}/movie/${xtreamUsername}/${xtreamPassword}/${m.stream_id}.${ext}`,
+                    isCached: true,
+                    availability: 'IPTV Direct'
+                  });
+                }
+              });
+            }
           }
         }
       }
 
-      // 2. M3U Playlist Search
-      if (iptvUrl && results.length === 0) {
-        const m3uRes = await axios.get(iptvUrl, { timeout: 10000 }).catch(() => null);
+      // Fallback: M3U Playlist Search for active provider if empty
+      const activeM3uUrl = activeProvider?.url || settings.iptvUrl;
+      if (activeM3uUrl && results.length === 0) {
+        const m3uRes = await axios.get(activeM3uUrl, { timeout: 10000 }).catch(() => null);
         if (m3uRes?.data && typeof m3uRes.data === 'string') {
           const lines = m3uRes.data.split('\n');
           let currentExtInf = '';
@@ -5417,12 +5480,13 @@ app.get('/api/youtube/search', async (req, res) => {
               const url = line;
               const extNameMatch = currentExtInf.match(/,#EXTINF:.*?,(.*)$/) || currentExtInf.match(/,(.*)$/);
               const channelName = extNameMatch ? extNameMatch[1].trim() : '';
-              const normalizedName = channelName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
               let isMatch = false;
               if (type === 'series' && season !== undefined && episode !== undefined) {
                 const sPattern = `s${String(season).padStart(2, '0')}e${String(episode).padStart(2, '0')}`;
                 const sPattern2 = `${season}x${String(episode).padStart(2, '0')}`;
+                const normalizedName = channelName.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const normalizedTitle = (title as string).toLowerCase().replace(/[^a-z0-9]/g, '');
                 if (normalizedName.includes(normalizedTitle) && (normalizedName.includes(sPattern) || normalizedName.includes(sPattern2))) {
                   isMatch = true;
                 }
@@ -5440,7 +5504,7 @@ app.get('/api/youtube/search', async (req, res) => {
                   quality: detectStreamQuality(channelName),
                   sizeStr: 'IPTV Stream',
                   type: 'iptv',
-                  source: 'IPTV Provider',
+                  source: activeProvider?.name || 'IPTV Provider',
                   url: url,
                   isCached: true,
                   availability: 'IPTV Direct'
@@ -5466,74 +5530,70 @@ app.get('/api/youtube/search', async (req, res) => {
   });
 
 
-  // API Route: Aggregate M3U Playlists across all enabled IPTV providers & apply custom channel configs
+  // API Route: Aggregate M3U Playlist from single active IPTV provider & apply custom channel configs
   app.post("/api/m3u", async (req, res) => {
     try {
       const { url } = req.body;
       const settings = readJson(SETTINGS_FILE);
 
-      // If specific URL requested explicitly, parse single URL
-      if (url && !url.includes('get.php') && !settings.iptvProviders?.length) {
+      // If specific custom URL requested explicitly, parse single URL directly
+      if (url) {
         const parsed = await parseM3U(url);
         return res.json(parsed);
       }
 
-      // Collect all active IPTV providers
-      const activeProviders: Array<{ id: string; name: string; url: string; enabledGroups?: string[] }> = [];
+      // Single active provider selection: pick the single enabled provider
+      let activeProvider: any = null;
       if (settings.iptvProviders && Array.isArray(settings.iptvProviders)) {
-        for (const p of settings.iptvProviders) {
-          if (p.enabled && p.url) {
-            activeProviders.push({ id: p.id, name: p.name, url: p.url, enabledGroups: p.enabledGroups });
-          }
-        }
+        activeProvider = settings.iptvProviders.find((p: any) => p.enabled);
       }
 
-      // If no multi-providers configured, fallback to legacy default iptvUrl
-      if (activeProviders.length === 0) {
-        const fallbackUrl = url || settings.iptvUrl || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus';
-        activeProviders.push({ id: 'default', name: 'Primary IPTV Provider', url: fallbackUrl });
+      if (!activeProvider) {
+        const fallbackUrl = settings.iptvUrl || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus';
+        activeProvider = { id: 'default', name: 'Primary IPTV Provider', url: fallbackUrl };
       }
 
-      // Fetch & parse M3Us in parallel
-      const parsedLists = await Promise.all(
-        activeProviders.map(async (prov) => {
-          try {
-            const parsed = await parseM3U(prov.url);
-            let items = parsed.items || [];
-            if (prov.enabledGroups && Array.isArray(prov.enabledGroups) && prov.enabledGroups.length > 0) {
-              const groupSet = new Set(prov.enabledGroups);
-              items = items.filter((item: any) => {
-                const gTitle = item.group?.title || item.group || '';
-                return groupSet.has(gTitle);
-              });
-            }
-            return items.map((item: any, idx: number) => ({
-              ...item,
-              id: item.tvg?.id || `${prov.id}-ch-${idx}`,
-              providerId: prov.id,
-              providerName: prov.name,
-              rawUrl: item.url
-            }));
-          } catch (e: any) {
-            console.error(`[M3U Provider Error] Failed to parse M3U for ${prov.name} (${prov.url}): ${e.message || e}`);
-            return [];
-          }
-        })
-      );
+      let providerM3uUrl = activeProvider.url || '';
+      if (!providerM3uUrl && (activeProvider.serverUrl || activeProvider.xtreamServer) && (activeProvider.username || activeProvider.xtreamUsername) && (activeProvider.password || activeProvider.xtreamPassword)) {
+        const sUrl = (activeProvider.serverUrl || activeProvider.xtreamServer || '').trim().replace(/\/+$/, '');
+        const uName = (activeProvider.username || activeProvider.xtreamUsername || '').trim();
+        const pPass = (activeProvider.password || activeProvider.xtreamPassword || '').trim();
+        providerM3uUrl = `${sUrl}/get.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}&type=m3u_plus`;
+      }
 
-      let allChannels = parsedLists.flat();
+      if (!providerM3uUrl) {
+        return res.json([]);
+      }
+
+      const parsed = await parseM3U(providerM3uUrl);
+      let items = parsed.items || [];
+
+      // Filter by provider enabledGroups if configured
+      if (activeProvider.enabledGroups && Array.isArray(activeProvider.enabledGroups) && activeProvider.enabledGroups.length > 0) {
+        const groupSet = new Set(activeProvider.enabledGroups);
+        items = items.filter((item: any) => {
+          const gTitle = item.group?.title || (typeof item.group === 'string' ? item.group : '');
+          return groupSet.has(gTitle);
+        });
+      }
+
+      const allChannels = items.map((item: any, idx: number) => ({
+        ...item,
+        id: item.tvg?.id || `${activeProvider.id || 'prov'}-ch-${idx}`,
+        providerId: activeProvider.id || 'prov',
+        providerName: activeProvider.name || 'IPTV Provider',
+        rawUrl: item.url
+      }));
+
+      // Apply custom channel overrides
       const customChannels: Record<string, any> = settings.customChannels || {};
+      let resultChannels: any[] = [];
 
-      // If custom channel mappings exist, apply renames, logo updates, backups, and hidden status
       if (Object.keys(customChannels).length > 0) {
-        const resultChannels: any[] = [];
-        const handledChannelIds = new Set<string>();
-
         for (const ch of allChannels) {
           const cfg = customChannels[ch.id];
           if (cfg) {
-            if (cfg.hidden) continue; // Skip hidden channels
-            handledChannelIds.add(ch.id);
+            if (cfg.hidden) continue;
             resultChannels.push({
               ...ch,
               name: cfg.name || ch.name,
@@ -5546,11 +5606,12 @@ app.get('/api/youtube/search', async (req, res) => {
             resultChannels.push(ch);
           }
         }
-        allChannels = resultChannels;
+      } else {
+        resultChannels = allChannels;
       }
 
-      // Sanitize channels to compact properties to prevent JSON stringification limits (RangeError: Invalid string length)
-      const sanitized = allChannels.map((item: any, idx: number) => {
+      // Sanitize channels to compact properties
+      const sanitized = resultChannels.map((item: any, idx: number) => {
         const titleStr = item.title || item.name || `Channel ${idx + 1}`;
         const groupTitle = typeof item.group === 'string' ? item.group : (item.group?.title || '');
         return {
@@ -5559,22 +5620,21 @@ app.get('/api/youtube/search', async (req, res) => {
           title: titleStr,
           group: { title: groupTitle },
           tvg: {
-            id: item.tvg?.id || item.id || '',
+            id: item.tvg?.id || '',
             name: item.tvg?.name || titleStr,
             logo: item.tvg?.logo || item.logo || '',
             url: item.tvg?.url || ''
           },
           url: item.url || item.rawUrl || '',
-          providerId: item.providerId || '',
-          providerName: item.providerName || '',
-          backupUrls: item.backupUrls || []
+          providerId: item.providerId || activeProvider.id,
+          providerName: item.providerName || activeProvider.name
         };
       });
 
-      res.json({ header: { attrs: {} }, items: sanitized });
-    } catch (error: any) {
-      console.error('[Multi-Provider M3U Error]', error);
-      res.status(500).json({ error: error.message });
+      return res.json(sanitized);
+    } catch (err: any) {
+      console.error('[API /api/m3u Error]:', err?.message || err);
+      return res.status(500).json({ error: err?.message || 'Failed to process M3U playlist' });
     }
   });
 
@@ -6679,58 +6739,49 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
 
 
   // API Route: Test parsing EPG
-
   app.post("/api/epg", async (req, res) => {
     try {
       const { url } = req.body;
       const settings = readJson(SETTINGS_FILE);
 
-      // If specific URL requested explicitly and no providers configured
       if (url && !settings.iptvProviders?.length) {
         const parsed = await parseEPG(url);
         return res.json(parsed);
       }
 
-      const activeEpgUrls: string[] = [];
+      let activeEpgUrl = '';
       if (settings.iptvProviders && Array.isArray(settings.iptvProviders)) {
-        for (const p of settings.iptvProviders) {
-          if (p.enabled && p.epgUrl) {
-            activeEpgUrls.push(p.epgUrl);
-          } else if (p.enabled && p.type === 'xtream' && p.url) {
-             // For xtream type, we can derive the epgUrl from the M3U url if not explicitly provided
-             const xtreamMatch = p.url.match(/^(https?:\/\/[^\/]+)\/get\.php\?username=([^&]+)&password=([^&]+)/);
-             if (xtreamMatch) {
+        const activeProv = settings.iptvProviders.find((p: any) => p.enabled);
+        if (activeProv) {
+          if (activeProv.epgUrl) {
+            activeEpgUrl = activeProv.epgUrl;
+          } else {
+            const sUrl = (activeProv.serverUrl || activeProv.xtreamServer || '').trim().replace(/\/+$/, '');
+            const uName = (activeProv.username || activeProv.xtreamUsername || '').trim();
+            const pPass = (activeProv.password || activeProv.xtreamPassword || '').trim();
+            if (sUrl && uName && pPass) {
+              activeEpgUrl = `${sUrl}/xmltv.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}`;
+            } else if (activeProv.url) {
+              const xtreamMatch = activeProv.url.match(/^(https?:\/\/[^\/]+)\/get\.php\?username=([^&]+)&password=([^&]+)/);
+              if (xtreamMatch) {
                 const [_, server, user, pass] = xtreamMatch;
-                activeEpgUrls.push(`${server}/xmltv.php?username=${user}&password=${pass}`);
-             }
+                activeEpgUrl = `${server}/xmltv.php?username=${user}&password=${pass}`;
+              }
+            }
           }
         }
       }
 
-      if (activeEpgUrls.length === 0) {
-        const fallbackUrl = url || settings.epgUrl;
-        if (fallbackUrl) activeEpgUrls.push(fallbackUrl);
+      if (!activeEpgUrl) {
+        activeEpgUrl = url || settings.epgUrl;
       }
 
-      if (activeEpgUrls.length === 0) {
-         return res.json({ channels: [], programs: [] }); // Return empty if none
+      if (!activeEpgUrl) {
+        return res.json({ channels: [], programs: [] });
       }
 
-      const parsedLists = await Promise.all(
-        activeEpgUrls.map(async (u) => {
-          try {
-            return await parseEPG(u);
-          } catch (e) {
-            console.error(`[EPG Parse Error] Failed to parse ${u}:`, e);
-            return { channels: [], programs: [] };
-          }
-        })
-      );
-
-      const allChannels = parsedLists.map(p => p.channels || []).flat();
-      const allPrograms = parsedLists.map(p => p.programs || []).flat();
-
-      res.json({ channels: allChannels, programs: allPrograms });
+      const parsed = await parseEPG(activeEpgUrl);
+      return res.json(parsed);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

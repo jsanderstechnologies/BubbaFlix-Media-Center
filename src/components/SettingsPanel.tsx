@@ -171,15 +171,12 @@ export default function SettingsPanel() {
   const [expandedGroupProviderId, setExpandedGroupProviderId] = useState<string | null>(null);
 
   const fetchProviderGroups = async (prov: IptvProvider) => {
-    let targetUrl = prov.url;
-    if (prov.type === 'xtream' && (prov.serverUrl || prov.xtreamServer) && (prov.username || prov.xtreamUsername) && (prov.password || prov.xtreamPassword)) {
-      const sUrl = (prov.serverUrl || prov.xtreamServer || '').trim().replace(/\/+$/, '');
-      const uName = (prov.username || prov.xtreamUsername || '').trim();
-      const pPass = (prov.password || prov.xtreamPassword || '').trim();
-      targetUrl = `${sUrl}/get.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}&type=m3u_plus`;
-    }
+    const sUrl = (prov.serverUrl || prov.xtreamServer || '').trim();
+    const uName = (prov.username || prov.xtreamUsername || '').trim();
+    const pPass = (prov.password || prov.xtreamPassword || '').trim();
+    const m3uUrl = (prov.url || '').trim();
 
-    if (!targetUrl) {
+    if (!sUrl && !m3uUrl) {
       alert("Please enter a valid Server URL or M3U Playlist URL for this provider first.");
       return;
     }
@@ -188,15 +185,24 @@ export default function SettingsPanel() {
 
     try {
       const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/m3u', {
+      const res = await fetch('/api/iptv/provider-groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ url: targetUrl })
+        body: JSON.stringify({
+          id: prov.id,
+          type: prov.type,
+          serverUrl: sUrl,
+          username: uName,
+          password: pPass,
+          url: m3uUrl
+        })
       });
       const data = await res.json();
-      const items = Array.isArray(data) ? data : (data.items || []);
-      const discovered = Array.from(new Set<string>(items.map((item: any) => item.group?.title || item.group || '').filter((g: string) => typeof g === 'string' && g.trim().length > 0))).sort();
-      setProviderGroupsMap(prev => ({ ...prev, [prov.id]: { loading: false, groups: discovered } }));
+      if (data.success && Array.isArray(data.groups)) {
+        setProviderGroupsMap(prev => ({ ...prev, [prov.id]: { loading: false, groups: data.groups } }));
+      } else {
+        throw new Error(data.error || "Failed to load provider groups");
+      }
     } catch (err: any) {
       console.error("[Provider Groups Fetch Error]", err);
       setProviderGroupsMap(prev => ({ ...prev, [prov.id]: { loading: false, groups: [] } }));
@@ -1717,7 +1723,7 @@ export default function SettingsPanel() {
                         epgUrl: '',
                         enabled: true
                       };
-                      setIptvProviders([...iptvProviders, newProv]);
+                      setIptvProviders(iptvProviders.map(p => ({ ...p, enabled: false })).concat(newProv));
                     }}
                     className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow"
                   >
@@ -1734,7 +1740,7 @@ export default function SettingsPanel() {
                         epgUrl: '',
                         enabled: true
                       };
-                      setIptvProviders([...iptvProviders, newProv]);
+                      setIptvProviders(iptvProviders.map(p => ({ ...p, enabled: false })).concat(newProv));
                     }}
                     className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow"
                   >
@@ -1840,12 +1846,15 @@ export default function SettingsPanel() {
                               </button>
                             </div>
 
-                            {/* Enable Switch */}
+                            {/* Enable Switch (Single Active Provider) */}
                             <button
                               type="button"
                               onClick={() => {
-                                const updated = [...iptvProviders];
-                                updated[index].enabled = !updated[index].enabled;
+                                const isEnabling = !prov.enabled;
+                                const updated = iptvProviders.map((p, i) => ({
+                                  ...p,
+                                  enabled: i === index ? isEnabling : (isEnabling ? false : p.enabled)
+                                }));
                                 setIptvProviders(updated);
                               }}
                               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${prov.enabled ? 'bg-emerald-600' : 'bg-slate-700'}`}
