@@ -2109,6 +2109,59 @@ Strict Rules:
     }
   });
 
+  app.post('/api/media/save-last-played', async (req, res) => {
+    try {
+      const { tmdbId, type, season, episode, stream } = req.body || {};
+      if ((!tmdbId && tmdbId !== 0) || !stream) {
+        return res.status(400).json({ error: 'tmdbId and valid stream object are required' });
+      }
+
+      const mediaType = (type === 'tv' || type === 'series' || type === 'show') ? 'tv' : 'movie';
+      const cacheKey = `${mediaType}_${tmdbId}`;
+      const mediaCache = readJson(MEDIA_METADATA_CACHE_FILE, {});
+
+      const itemEntry = mediaCache[cacheKey] || {
+        id: tmdbId,
+        type: mediaType,
+        title: ''
+      };
+
+      const lastPlayedObj = {
+        id: stream.id || stream.hash || stream.url,
+        name: stream.name || stream.title || 'Stream',
+        title: stream.title || stream.name || 'Stream',
+        type: stream.type || 'torrent',
+        url: stream.url || stream.magnet || stream.filePath || '',
+        magnet: stream.magnet || stream.url || '',
+        filePath: stream.filePath || '',
+        quality: stream.quality || 'Auto',
+        sizeStr: stream.sizeStr || '',
+        updatedAt: new Date().toISOString()
+      };
+
+      if (mediaType === 'movie') {
+        itemEntry.lastPlayedStream = lastPlayedObj;
+      } else {
+        itemEntry.lastPlayedStream = lastPlayedObj;
+        if (season !== undefined && season !== null && episode !== undefined && episode !== null) {
+          itemEntry.seasons = itemEntry.seasons || {};
+          itemEntry.seasons[season] = itemEntry.seasons[season] || {};
+          itemEntry.seasons[season][episode] = itemEntry.seasons[season][episode] || {};
+          itemEntry.seasons[season][episode].lastPlayedStream = lastPlayedObj;
+        }
+      }
+
+      mediaCache[cacheKey] = itemEntry;
+      writeJson(MEDIA_METADATA_CACHE_FILE, mediaCache);
+
+      console.log(`[Media Cache Engine] Saved last played stream for ${cacheKey}${season !== undefined && season !== null ? ` S${season}E${episode}` : ''}`);
+      return res.json({ success: true });
+    } catch (err: any) {
+      console.error('[Media Save Last Played Error]:', err?.message || err);
+      return res.status(500).json({ error: err?.message || 'Error saving last played stream' });
+    }
+  });
+
   app.post('/api/media/cached-streams', async (req, res) => {
     try {
       const { tmdbId, type, season, episode } = req.body || {};
@@ -2122,21 +2175,25 @@ Strict Rules:
       const itemEntry = mediaCache[cacheKey];
 
       if (!itemEntry) {
-        return res.json({ success: true, streams: [] });
+        return res.json({ success: true, streams: [], lastPlayedStream: null });
       }
 
       let streams: any[] = [];
+      let lastPlayedStream: any = null;
       if (mediaType === 'movie') {
         streams = itemEntry.cachedStreams || [];
+        lastPlayedStream = itemEntry.lastPlayedStream || null;
       } else {
         if (season !== undefined && season !== null && episode !== undefined && episode !== null) {
           streams = itemEntry.seasons?.[season]?.[episode]?.cachedStreams || itemEntry.cachedStreams || [];
+          lastPlayedStream = itemEntry.seasons?.[season]?.[episode]?.lastPlayedStream || itemEntry.lastPlayedStream || null;
         } else {
           streams = itemEntry.cachedStreams || [];
+          lastPlayedStream = itemEntry.lastPlayedStream || null;
         }
       }
 
-      return res.json({ success: true, streams });
+      return res.json({ success: true, streams, lastPlayedStream });
     } catch (err: any) {
       console.error('[Media Cached Streams Error]:', err?.message || err);
       return res.status(500).json({ error: err?.message || 'Error fetching cached streams' });

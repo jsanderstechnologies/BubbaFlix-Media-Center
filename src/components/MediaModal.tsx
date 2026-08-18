@@ -181,6 +181,7 @@ export default function MediaModal({
   const [dynamicOverview, setDynamicOverview] = useState<string>('');
   const [savedProgress, setSavedProgress] = useState<any>(null);
   const [resumePromptStream, setResumePromptStream] = useState<string | null>(null);
+  const [lastPlayedStream, setLastPlayedStream] = useState<any>(null);
 
   const [isActiveStreamsOpen, setIsActiveStreamsOpen] = useState(true);
   const [isAvailableStreamsOpen, setIsAvailableStreamsOpen] = useState(true);
@@ -269,6 +270,23 @@ export default function MediaModal({
   };
 
   const triggerPlay = (dlUrl: string, targetStream?: any) => {
+    if (targetStream) {
+      setLastPlayedStream(targetStream);
+      const targetTmdbId = resolvedTmdbId || movie?.realTmdbId || movie?.tmdbId || movie?.id;
+      if (targetTmdbId) {
+        fetch('/api/media/save-last-played', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tmdbId: targetTmdbId,
+            type: (movie?.type === 'series' || movie?.type === 'tv' || !!movie?.first_air_date) ? 'tv' : 'movie',
+            season: selectedSeason,
+            episode: selectedEpisode,
+            stream: targetStream
+          })
+        }).catch(() => {});
+      }
+    }
     if (!isFavorite) {
       toggleFavorite().catch(err => console.warn("Auto-favorite on play warning:", err));
     }
@@ -505,19 +523,38 @@ export default function MediaModal({
     })
       .then(r => r.json())
       .then(data => {
-        if (isSubscribed && data?.success && Array.isArray(data.streams) && data.streams.length > 0) {
-          console.log(`[MediaModal] Instantly loaded ${data.streams.length} saved stream(s) for ${movie?.title || movie?.name}`);
-          setStreams(prev => {
-            const combined = [...data.streams, ...prev];
-            const seen = new Set<string>();
-            return combined.filter(s => {
-              if (!s || (!s.url && !s.filePath)) return false;
-              const key = (s.url || s.filePath || s.name || '').toLowerCase().trim();
-              if (seen.has(key)) return false;
-              seen.add(key);
-              return true;
+        if (isSubscribed && data?.success) {
+          const lp = data.lastPlayedStream || null;
+          if (lp) setLastPlayedStream(lp);
+          if (Array.isArray(data.streams) && data.streams.length > 0) {
+            console.log(`[MediaModal] Instantly loaded ${data.streams.length} saved stream(s) for ${movie?.title || movie?.name}`);
+            setStreams(prev => {
+              const combined = [...data.streams, ...prev];
+              const seen = new Set<string>();
+              const unique = combined.filter(s => {
+                if (!s || (!s.url && !s.filePath && !s.magnet)) return false;
+                const key = (s.url || s.filePath || s.magnet || s.name || '').toLowerCase().trim();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+              if (lp) {
+                const lpIdx = unique.findIndex(s => {
+                  const urlA = (s.url || s.filePath || s.magnet || s.name || '').toLowerCase().trim();
+                  const urlB = (lp.url || lp.filePath || lp.magnet || lp.name || '').toLowerCase().trim();
+                  return (urlA && urlB && urlA === urlB) || (s.id && lp.id && String(s.id) === String(lp.id));
+                });
+                if (lpIdx > 0) {
+                  const [match] = unique.splice(lpIdx, 1);
+                  match.isLastPlayed = true;
+                  unique.unshift(match);
+                } else if (lpIdx === 0) {
+                  unique[0].isLastPlayed = true;
+                }
+              }
+              return unique;
             });
-          });
+          }
         }
       })
       .catch(() => {});
@@ -806,6 +843,7 @@ export default function MediaModal({
     setDevSkipSegments([]);
     setDevChapters([]);
     setDevSelectedStreamUrl('');
+    setLastPlayedStream(null);
   }
   const [seriesDetailsLoading, setSeriesDetailsLoading] = useState(false);
   const [pollingActive, setPollingActive] = useState(false);
@@ -1251,7 +1289,17 @@ export default function MediaModal({
           };
 
           let allowedRes = userSettings?.resolutions || ['4K', '1080p', '720p'];
-          const applyFiltersAndSort = (streams: any[]) => {
+          const isSameStream = (a: any, b: any) => {
+            if (!a || !b) return false;
+            const urlA = (a.url || a.filePath || a.magnet || a.name || '').toLowerCase().trim();
+            const urlB = (b.url || b.filePath || b.magnet || b.name || '').toLowerCase().trim();
+            if (urlA && urlB && urlA === urlB) return true;
+            if (a.id && b.id && String(a.id) === String(b.id)) return true;
+            if (a.hash && b.hash && a.hash.toLowerCase() === b.hash.toLowerCase()) return true;
+            return false;
+          };
+
+          const applyFiltersAndSort = (streams: any[], lpOverride?: any) => {
               const seenIdentifiers = new Set<string>();
               const uniqueStreams = streams.filter(s => {
                 if (!s) return false;
@@ -1274,12 +1322,26 @@ export default function MediaModal({
                   if (desc.includes('720p')) return allowedRes.includes('720p');
                   return true;
               });
-              return filtered.sort((a, b) => {
+              const sorted = filtered.sort((a, b) => {
                   const rankA = getStreamPriorityRank(a);
                   const rankB = getStreamPriorityRank(b);
                   if (rankA !== rankB) return rankA - rankB;
                   return (b.seeds || 0) - (a.seeds || 0);
               });
+
+              const targetLP = lpOverride || lastPlayedStream;
+              if (targetLP) {
+                const lpIdx = sorted.findIndex(s => isSameStream(s, targetLP));
+                if (lpIdx > 0) {
+                  const [match] = sorted.splice(lpIdx, 1);
+                  match.isLastPlayed = true;
+                  sorted.unshift(match);
+                } else if (lpIdx === 0) {
+                  sorted[0].isLastPlayed = true;
+                }
+              }
+
+              return sorted;
           };
 
 
@@ -1520,7 +1582,7 @@ export default function MediaModal({
         return 4;                                 // 4. Torrent Search
       };
 
-      const filterAndSortTvStreams = (streamsToFilter: any[]) => {
+      const filterAndSortTvStreams = (streamsToFilter: any[], lpOverride?: any) => {
         const seenUrls = new Set<string>();
         const uniqueData = streamsToFilter.filter((s: any) => {
           if (!s || !s.url) return false;
@@ -1542,12 +1604,30 @@ export default function MediaModal({
           return true;
         });
 
-        return filteredData.sort((a: any, b: any) => {
+        const sorted = filteredData.sort((a: any, b: any) => {
           const rankA = getStreamPriorityRank(a);
           const rankB = getStreamPriorityRank(b);
           if (rankA !== rankB) return rankA - rankB;
           return (b.seeds || 0) - (a.seeds || 0);
         });
+
+        const targetLP = lpOverride || lastPlayedStream;
+        if (targetLP) {
+          const lpIdx = sorted.findIndex((s: any) => {
+            const urlA = (s.url || s.filePath || s.magnet || s.name || '').toLowerCase().trim();
+            const urlB = (targetLP.url || targetLP.filePath || targetLP.magnet || targetLP.name || '').toLowerCase().trim();
+            return (urlA && urlB && urlA === urlB) || (s.id && targetLP.id && String(s.id) === String(targetLP.id));
+          });
+          if (lpIdx > 0) {
+            const [match] = sorted.splice(lpIdx, 1);
+            match.isLastPlayed = true;
+            sorted.unshift(match);
+          } else if (lpIdx === 0) {
+            sorted[0].isLastPlayed = true;
+          }
+        }
+
+        return sorted;
       };
 
       if (initialData.length > 0) {
@@ -2337,6 +2417,7 @@ export default function MediaModal({
                         </option>
                       ) : (
                         streams.map((stream, idx) => {
+                          const lastPlayedTag = stream.isLastPlayed ? '▶ [LAST PLAYED] ' : '';
                           const qualityTag = stream.quality ? `[${stream.quality}] ` : '';
                           const nameTag = stream.name || stream.title || 'Unknown Stream';
                           const sizeTag = stream.sizeStr || stream.size ? ` (${stream.sizeStr || stream.size})` : '';
@@ -2353,7 +2434,7 @@ export default function MediaModal({
                           
                           return (
                             <option key={idx} value={String(idx)} className="bg-[#12121a] text-white py-1">
-                              {`${qualityTag}${nameTag}${sizeTag}${sourceTag}${statusTag}`}
+                              {`${lastPlayedTag}${qualityTag}${nameTag}${sizeTag}${sourceTag}${statusTag}`}
                             </option>
                           );
                         })
