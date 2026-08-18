@@ -3880,6 +3880,11 @@ app.get('/api/youtube/search', async (req, res) => {
       return res.status(400).send("URL is required");
     }
 
+    if (targetUrl.startsWith('magnet:')) {
+      console.warn(`[FFmpeg-Proxy] Cannot transcode raw magnet link: ${targetUrl}`);
+      return res.status(400).json({ error: "Magnet links cannot be played directly via FFmpeg. They must be resolved via Premiumize first." });
+    }
+
     console.log(`[FFmpeg-Proxy] Starting transcode stream for: ${targetUrl}`);
 
     res.header('Content-Type', 'video/mp4');

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { getTvSeriesDetails, getTvSeasonDetails, getMpaaRating, getMediaCreditsAndDetails, getCachedImageUrl } from '../services/tmdbApi';
-import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap, Info, FileVideo, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bookmark, BookmarkCheck, X, Star, Database, Download, Sparkles, Search, Check, RefreshCw, Cloud, CheckCircle, Eye, EyeOff, Calendar, Video, PlayCircle, Zap, Info, FileVideo, ChevronDown, ChevronUp, Play } from 'lucide-react';
 
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, updateDoc, setDoc, serverTimestamp, onSnapshot } from '../lib/localDb';
 import { db } from '../lib/localDb';
@@ -156,6 +156,7 @@ export default function MediaModal({
     });
   }, [streams]);
   const [loading, setLoading] = useState(false);
+  const [selectedStreamId, setSelectedStreamId] = useState<string | null>(null);
   const { user } = useAuth();
   const { systemSettings, userSettings } = useSettings();
   const [isFavorite, setIsFavorite] = useState(false);
@@ -771,11 +772,22 @@ export default function MediaModal({
     });
     return () => unsubscribe();
   }, [user, movie, selectedSeason, selectedEpisode, isSeries, isHidden, resolvedTmdbId]);
-  
+
+  useEffect(() => {
+    if (streams.length > 0) {
+      const exists = streams.some((s, idx) => (s.id || String(idx)) === selectedStreamId);
+      if (!exists) {
+        setSelectedStreamId(streams[0].id || '0');
+      }
+    } else {
+      setSelectedStreamId(null);
+    }
+  }, [streams]);
   const [prevMovieId, setPrevMovieId] = useState(movie?.id);
   if (movie?.id !== prevMovieId) {
     setPrevMovieId(movie?.id);
     setStreams([]);
+    setSelectedStreamId(null);
     setSelectedSeason(null);
     setSelectedEpisode(null);
     setSeasons([]);
@@ -1775,28 +1787,23 @@ export default function MediaModal({
 
   if (!movie) return null;
 
-  const renderStream = (stream: any) => {
-    if (!stream) return null;
+  const handleStreamClick = async (stream: any) => {
+    if (!stream) return;
+    if (stream.isAdding) return;
+    if (stream.downloadProgress !== undefined && stream.downloadProgress < 100) return;
 
-    const handleStreamClick = async () => {
-      if (stream.isAdding) return;
-      if (stream.downloadProgress !== undefined && stream.downloadProgress < 100) return;
+    const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
+    const targetUrl = stream.url || stream.magnet || '';
+    const isMagnet = targetUrl.startsWith('magnet:');
 
-      const pmKey = systemSettings.premiumizeApiKey || localStorage.getItem('premiumizeApiKey');
+    if (!isMagnet && (stream.type === 'local' || stream.type === 'iptv' || stream.type === 'premiumize_cloud' || stream.inPersonalCloud)) {
+      triggerPlay(stream.url, stream);
+      return;
+    }
 
-      if (stream.type === 'local' || stream.type === 'iptv') {
-        triggerPlay(stream.url, stream);
-        return;
-      }
-      if (stream.type === 'premiumize_cloud') {
-        if (stream.url) {
-          triggerPlay(stream.url, stream);
-        }
-        return;
-      }
-
+    if (isMagnet || stream.type === 'torrent') {
       if (!pmKey) {
-        alert("Please configure your Premiumize API Key in Settings to stream torrents.");
+        alert("Please configure your Premiumize API Key in Settings to stream torrent magnet links.");
         return;
       }
 
@@ -1811,7 +1818,7 @@ export default function MediaModal({
       // Handle Premiumize resolution & instant playback for all torrents
       setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: true } : s));
       try {
-        const magnetLink = stream.url || (stream.hash ? `magnet:?xt=urn:btih:${stream.hash}` : '');
+        const magnetLink = targetUrl || (stream.hash ? `magnet:?xt=urn:btih:${stream.hash}` : '');
         const pmRes = await fetch('/api/premiumize/transfer/directdl', {
           method: 'POST',
           headers: {
@@ -1836,77 +1843,21 @@ export default function MediaModal({
           triggerPlay(pmData.streamUrl, { ...stream, isPremiumize: true, inPersonalCloud: true });
           if (!isFavorite) { toggleFavorite(); }
           return;
-        } else if (pmData.error) {
-          alert("Premiumize Error: " + (pmData.message || pmData.error));
+        } else {
+          alert("Premiumize Error: " + (pmData.message || pmData.error || "Could not resolve stream URL from magnet link. Ensure item is cached in Premiumize."));
         }
       } catch (err: any) {
         console.error("Failed to resolve stream on Premiumize:", err);
         alert("Failed to resolve stream on Premiumize: " + (err.message || err));
+      } finally {
+        setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: false } : s));
       }
-      setStreams(prev => prev.map(s => isSameStream(s, stream) ? { ...s, isAdding: false } : s));
       return;
-    };
+    }
 
-    return (
-      <div 
-        key={stream.id} 
-        tabIndex={0}
-        className="focusable flex flex-col p-3.5 bg-white/5 border border-white/10 rounded-xl hover:bg-red-950/10 hover:border-red-500/20 transition-all cursor-pointer group focus:bg-red-950/20 focus:border-red-500/50 focus:outline-none focus:scale-[1.02]" 
-        onClick={handleStreamClick}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-2">
-              {(stream.type === 'premiumize_cloud' || stream.inPersonalCloud) && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-bold shrink-0 shadow-sm" title="Located in Premiumize Cloud">
-                  <Cloud className="w-3 h-3 text-cyan-300 fill-cyan-400/20" /> Cloud
-                </span>
-              )}
-              <span className="text-xs font-medium text-white group-hover:text-white truncate">{stream.name}</span>
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] text-white/60 font-mono">Size: {stream.size || stream.sizeStr || 'Unknown'}</span>
-              {stream.source && (
-                <span className="text-[10px] text-white/60 font-mono flex items-center gap-1">
-                  <Database className="w-3 h-3" /> Source: {stream.source}
-                </span>
-              )}
-              {stream.downloadProgress !== undefined && stream.downloadProgress < 100 && stream.downloadSpeed !== undefined && (
-                <span className="text-[10px] text-indigo-400 font-mono font-semibold flex items-center gap-1">
-                  <Download className="w-3 h-3" /> {(stream.downloadSpeed / (1024 * 1024)).toFixed(1)} MB/s
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <div className={`px-2 py-0.5 text-[10px] font-bold rounded border whitespace-nowrap uppercase flex items-center gap-1 ${(stream.type === 'premiumize_cloud' || stream.inPersonalCloud) ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm' : (stream.isPremiumize ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : (stream.isCached ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : (stream.isAdding || stream.downloadProgress !== undefined ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'))))}`}>
-              {(stream.type === 'premiumize_cloud' || stream.inPersonalCloud) && <Cloud className="w-3 h-3 text-cyan-300" />}
-              {(stream.type === 'premiumize_cloud' || stream.inPersonalCloud)
-                ? 'Premiumize Cloud ⚡'
-                : (stream.isPremiumize
-                  ? 'Premiumize ⚡'
-                  : (stream.isCached 
-                    ? 'Instant Stream' 
-                    : (stream.downloadState && stream.downloadState !== 'completed' && stream.downloadState !== 'cached' && stream.downloadState !== 'downloaded' && stream.downloadProgress >= 100 
-                      ? 'Processing...' 
-                      : (stream.isAdding 
-                        ? 'Adding...' 
-                        : (stream.downloadProgress !== undefined 
-                          ? `${stream.downloadProgress}%` 
-                          : 'Torrent')))))}
-            </div>
-            {stream.type !== 'torrent' && (
-              <div className="px-2 py-0.5 bg-indigo-600/10 text-indigo-400 text-[10px] font-bold rounded border border-indigo-500/20 whitespace-nowrap uppercase">
-                {stream.type}
-              </div>
-            )}
-            <div className="px-2 py-0.5 bg-red-600/10 text-red-400 text-[10px] font-bold rounded border border-red-500/20 whitespace-nowrap uppercase">
-              {stream.quality}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    if (stream.url && !isMagnet) {
+      triggerPlay(stream.url, stream);
+    }
   };
 
   const getSkipBadgeText = () => {
@@ -2330,399 +2281,347 @@ export default function MediaModal({
                 )}
 
 
-{(() => {
-                  const isReadyOrActive = (s: any) => {
-                    if (s.type === 'local' || s.type === 'iptv' || s.type === 'premiumize_cloud' || s.inPersonalCloud) return true;
-                    if (s.downloadState || s.downloadProgress !== undefined || s.isAdding) return true;
-                    return false;
-                  };
+                <div className="flex flex-col gap-3 bg-white/[0.02] border border-white/5 p-4 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-white/60 uppercase tracking-wider flex items-center gap-2">
+                      Stream Results
+                      {loading && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                      )}
+                    </label>
+                    {streams.length > 0 && (
+                      <span className="text-[10px] text-white/50 font-mono">
+                        {streams.length} {streams.length === 1 ? 'stream' : 'streams'} available
+                      </span>
+                    )}
+                  </div>
 
-                  const activeStreams = streams.filter(isReadyOrActive);
-                  // Filter out un-cached plain torrents so only streams that qualify for the Premiumize cached badge (or local/iptv/cloud streams) are displayed
-                  const displayAvailableStreams = streams.filter(s => {
-                    if (isReadyOrActive(s)) return false;
-                    if (s.type === 'local' || s.type === 'iptv' || s.type === 'premiumize_cloud' || s.inPersonalCloud) return true;
-                    return Boolean(s.isPremiumize || s.isCached);
-                  });
+                  <div className="relative">
+                    <select
+                      value={selectedStreamId ?? ''}
+                      disabled={loading || streams.length === 0}
+                      onChange={(e) => {
+                        const chosenId = e.target.value;
+                        setSelectedStreamId(chosenId);
+                        const chosenStream = streams.find((s, idx) => (s.id || String(idx)) === chosenId);
+                        if (chosenStream) {
+                          handleStreamClick(chosenStream);
+                        }
+                      }}
+                      className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-3 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading && streams.length === 0 ? (
+                        <option value="" disabled className="bg-[#12121a] text-white/60">
+                          Searching Stream Sources...
+                        </option>
+                      ) : streams.length === 0 ? (
+                        <option value="" disabled className="bg-[#12121a] text-white/60">
+                          No stream sources found
+                        </option>
+                      ) : (
+                        streams.map((stream, idx) => {
+                          const streamId = stream.id || String(idx);
+                          const qualityTag = stream.quality ? `[${stream.quality}] ` : '';
+                          const nameTag = stream.name || stream.title || 'Unknown Stream';
+                          const sizeTag = stream.sizeStr || stream.size ? ` (${stream.sizeStr || stream.size})` : '';
+                          const sourceTag = stream.source ? ` • ${stream.source}` : '';
+                          const statusTag = (stream.type === 'premiumize_cloud' || stream.inPersonalCloud)
+                            ? ' ⚡ Cloud'
+                            : stream.type === 'local'
+                            ? ' ⚡ Local'
+                            : stream.isPremiumize || stream.isCached
+                            ? ' ⚡ Instant'
+                            : stream.seeds
+                            ? ` • ${stream.seeds} seeds`
+                            : '';
+                          
+                          return (
+                            <option key={streamId} value={streamId} className="bg-[#12121a] text-white py-1">
+                              {`${qualityTag}${nameTag}${sizeTag}${sourceTag}${statusTag}`}
+                            </option>
+                          );
+                        })
+                      )}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+                      ▼
+                    </div>
+                  </div>
 
-                  return (
-                    <div className="flex flex-col flex-1 min-h-0 gap-6">
-                        {isSeries && isFutureAirDate(episodes.find(e => e.episode_number === selectedEpisode)?.air_date) && (
-                          <div className="flex items-center gap-3 p-4 rounded-xl bg-purple-950/40 border border-purple-500/30 text-purple-200 text-xs mb-2">
-                            <Calendar className="w-5 h-5 text-purple-400 shrink-0" />
-                            <div>
-                              <p className="font-bold text-white">Upcoming Episode — Not Aired Yet</p>
-                              <p className="text-purple-300/80 mt-0.5">
-                                Episode {selectedEpisode} is scheduled to air on <span className="font-mono font-bold text-purple-200">{episodes.find(e => e.episode_number === selectedEpisode)?.air_date}</span>. External stream searches are skipped.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Active Streams Dropdown Selector List */}
-                        {activeStreams.length > 0 && (
-                          <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center justify-between">
-                              <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider flex items-center gap-1.5">
-                                <Download className="w-3.5 h-3.5 text-emerald-400" />
-                                <span>Active Downloads & Played Streams</span>
-                              </label>
-                              <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
-                                {activeStreams.length} Active
-                              </span>
-                            </div>
-                            <div className="relative">
-                              <select
-                                value=""
-                                onChange={(e) => {
-                                  const targetUrl = e.target.value;
-                                  if (targetUrl) {
-                                    const matchStream = activeStreams.find(s => (s.url || s.filePath) === targetUrl);
-                                    triggerPlay(targetUrl, matchStream);
-                                  }
-                                }}
-                                className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
-                              >
-                                <option value="" disabled className="bg-[#12121a] text-white/50">
-                                  -- Select Active Stream to Play ({activeStreams.length} Available) --
-                                </option>
-                                {activeStreams.map((s, idx) => (
-                                  <option key={s.id || idx} value={s.url || s.filePath} className="bg-[#12121a] text-white">
-                                    ⚡ {s.name || s.title || `Active Stream #${idx + 1}`} ({s.quality || 'Auto'})
-                                  </option>
-                                ))}
-                              </select>
-                              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
-                                ▼
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-2 mt-1">
-                              {activeStreams.map(stream => renderStream(stream))}
-                            </div>
-                          </div>
-                        )}
+                  {streams.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const chosenStream = streams.find((s, idx) => (s.id || String(idx)) === selectedStreamId) || streams[0];
+                        if (chosenStream) {
+                          handleStreamClick(chosenStream);
+                        }
+                      }}
+                      className="focusable flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs tracking-wider uppercase transition-colors shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-400 mt-1"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                      Play Selected Stream
+                    </button>
+                  )}
+                </div>
 
-                        {/* Available High Quality Streams Dropdown Selector List */}
-                        <div className="flex flex-col gap-1.5 flex-1 min-h-0">
-                          <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                              <span>Available High Quality Streams</span>
-                            </label>
-                            <div className="flex items-center gap-2">
-                              {loading && (
-                                <div className="flex items-center gap-1.5 text-xs text-red-400 animate-pulse font-normal lowercase">
-                                  <RefreshCw className="w-3 h-3 animate-spin" />
-                                  <span>Searching...</span>
-                                </div>
-                              )}
-                              <span className="text-[10px] text-sky-300 font-mono bg-sky-950/60 border border-sky-500/30 px-2 py-0.5 rounded-full font-bold">
-                                {displayAvailableStreams.length} Indexed
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="relative">
-                            <select
-                              value=""
-                              onChange={(e) => {
-                                const targetUrl = e.target.value;
-                                if (targetUrl) {
-                                  const matchStream = displayAvailableStreams.find(s => (s.url || s.filePath) === targetUrl);
-                                  triggerPlay(targetUrl, matchStream);
-                                }
-                              }}
-                              className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
-                            >
-                              <option value="" disabled className="bg-[#12121a] text-white/50">
-                                {loading ? '-- Searching Stream Indexers... --' : displayAvailableStreams.length === 0 ? '-- No Indexed Streams Found --' : `-- Select High Quality Stream to Play (${displayAvailableStreams.length} Available) --`}
-                              </option>
-                              {displayAvailableStreams.map((s, idx) => (
-                                <option key={s.id || idx} value={s.url || s.filePath} className="bg-[#12121a] text-white">
-                                  {s.type === 'local' ? '📁' : s.isCached ? '⚡' : '🌐'} {s.name || s.title || `Stream #${idx + 1}`} ({s.quality || 'Auto'}) {s.sizeStr ? `[${s.sizeStr}]` : ''} {s.source ? `- ${s.source}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
-                              ▼
-                            </div>
-                          </div>
-
-                          {loading && displayAvailableStreams.length === 0 ? (
-                            <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5 flex items-center gap-2 mt-1">
-                              <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                              </span>
-                              <span>Searching Stream Indexers...</span>
-                            </div>
-                          ) : displayAvailableStreams.length === 0 ? (
-                            <div className="text-white/60 text-xs italic py-4 bg-white/[0.01] p-4 rounded-xl border border-white/5 mt-1">No indexed streams found.</div>
-                          ) : (
-                            <div className="flex flex-col gap-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-4 mt-1">
-                              {displayAvailableStreams.map(stream => renderStream(stream))}
-                            </div>
-                          )}
+                {/* Developer Admin Tools Panel (Visible strictly when Admin & Developer Admin Mode is ON) */}
+                {user?.role === 'admin' && 
+                 (userSettings?.adminMode === true || systemSettings?.adminMode === true || userSettings?.developerAdminMode === true || systemSettings?.developerAdminMode === true) && (
+                  <div className="mt-8 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-5 shadow-xl space-y-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between pb-3 border-b border-indigo-500/20">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-indigo-600/30 border border-indigo-400/40 text-indigo-300">
+                          <Zap className="w-5 h-5 fill-indigo-400/20" />
                         </div>
+                        <div>
+                          <h3 className="text-base font-bold text-white uppercase tracking-wider font-mono">⚡ Developer Admin Tools</h3>
+                          <p className="text-xs text-indigo-300/70 font-mono">FFmpeg & AI Skip Timestamps, TIDB Submission & Chapter Editor</p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono">
+                        Admin Only
+                      </span>
+                    </div>
 
-                        {/* Developer Admin Tools Panel (Visible strictly when Admin & Developer Admin Mode is ON) */}
-                        {user?.role === 'admin' && 
-                         (userSettings?.adminMode === true || systemSettings?.adminMode === true || userSettings?.developerAdminMode === true || systemSettings?.developerAdminMode === true) && (
-                          <div className="mt-8 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-5 shadow-xl space-y-6">
-                            {/* Header */}
-                            <div className="flex items-center justify-between pb-3 border-b border-indigo-500/20">
-                              <div className="flex items-center gap-2.5">
-                                <div className="p-2 rounded-xl bg-indigo-600/30 border border-indigo-400/40 text-indigo-300">
-                                  <Zap className="w-5 h-5 fill-indigo-400/20" />
-                                </div>
-                                <div>
-                                  <h3 className="text-base font-bold text-white uppercase tracking-wider font-mono">⚡ Developer Admin Tools</h3>
-                                  <p className="text-xs text-indigo-300/70 font-mono">FFmpeg & AI Skip Timestamps, TIDB Submission & Chapter Editor</p>
-                                </div>
-                              </div>
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono">
-                                Admin Only
-                              </span>
-                            </div>
+                    {/* Target Stream / File Selector Dropdown */}
+                    <div className="bg-black/60 border border-indigo-500/30 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
+                          <FileVideo className="w-4 h-4 shrink-0" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-white font-mono uppercase block">Target Processing Source</label>
+                          <p className="text-[10px] text-white/50 font-mono">Select specific file or stream for FFmpeg & AI to process</p>
+                        </div>
+                      </div>
+                      <select
+                        value={devSelectedStreamUrl || (streams[0]?.url || movie?.filePath || '')}
+                        onChange={(e) => setDevSelectedStreamUrl(e.target.value)}
+                        className="bg-slate-900 text-indigo-200 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-indigo-400 max-w-md w-full truncate cursor-pointer"
+                      >
+                        {movie?.filePath && (
+                          <option value={movie.filePath}>📁 Local File: {movie.filePath}</option>
+                        )}
+                        {streams.map((s: any, idx: number) => (
+                          <option key={idx} value={s.url}>
+                            {s.type === 'local' ? '📁' : s.isCached ? '⚡' : '🌐'} {s.name || `Stream #${idx + 1}`} ({s.quality || 'Auto'})
+                          </option>
+                        ))}
+                        {streams.length === 0 && !movie?.filePath && (
+                          <option value="">No streams or local files discovered yet</option>
+                        )}
+                      </select>
+                    </div>
 
-                            {/* Target Stream / File Selector Dropdown */}
-                            <div className="bg-black/60 border border-indigo-500/30 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
-                              <div className="flex items-center gap-2.5">
-                                <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
-                                  <FileVideo className="w-4 h-4 shrink-0" />
-                                </div>
-                                <div>
-                                  <label className="text-xs font-bold text-white font-mono uppercase block">Target Processing Source</label>
-                                  <p className="text-[10px] text-white/50 font-mono">Select specific file or stream for FFmpeg & AI to process</p>
-                                </div>
-                              </div>
+                    {/* Section 1: Skip Segments Editor & TIDB Submission */}
+                    <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-amber-400" /> Intro / Credit Skip Segments
+                          </h4>
+                          <p className="text-[11px] text-white/50 font-mono">FFmpeg visual/silence scan + AI sequence detection</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={devScanningSkip}
+                            onClick={handleDevScanSkipSegments}
+                            className="focusable px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                          >
+                            {devScanningSkip ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                            Scan (FFmpeg + AI)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Skip Segments List / Editor */}
+                      <div className="space-y-2">
+                        {devSkipSegments.length === 0 ? (
+                          <div className="text-xs text-white/40 italic py-3 text-center bg-white/[0.02] rounded-lg border border-white/5 font-mono">
+                            No active skip segments. Click "Scan (FFmpeg + AI)" or add one manually below.
+                          </div>
+                        ) : (
+                          devSkipSegments.map((seg, idx) => (
+                            <div key={idx} className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-white/10 p-2.5 rounded-lg text-xs font-mono">
                               <select
-                                value={devSelectedStreamUrl || (availableStreams[0]?.url || movie?.filePath || '')}
-                                onChange={(e) => setDevSelectedStreamUrl(e.target.value)}
-                                className="bg-slate-900 text-indigo-200 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-indigo-400 max-w-md w-full truncate cursor-pointer"
+                                value={seg.type || 'intro'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const labelMap: Record<string, string> = { intro: 'Skip Intro', recap: 'Skip Recap', credits: 'Skip Credits' };
+                                  updateDevSkipSegment(idx, { type: val, label: labelMap[val] || 'Skip' });
+                                }}
+                                className="bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
                               >
-                                {movie?.filePath && (
-                                  <option value={movie.filePath}>📁 Local File: {movie.filePath}</option>
-                                )}
-                                {availableStreams.map((s: any, idx: number) => (
-                                  <option key={idx} value={s.url}>
-                                    {s.type === 'local' ? '📁' : s.isCached ? '⚡' : '🌐'} {s.name || `Stream #${idx + 1}`} ({s.quality || 'Auto'})
-                                  </option>
-                                ))}
-                                {availableStreams.length === 0 && !movie?.filePath && (
-                                  <option value="">No streams or local files discovered yet</option>
-                                )}
+                                <option value="intro">Intro</option>
+                                <option value="recap">Recap</option>
+                                <option value="credits">Credits</option>
                               </select>
-                            </div>
 
-                            {/* Section 1: Skip Segments Editor & TIDB Submission */}
-                            <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-                                    <Zap className="w-4 h-4 text-amber-400" /> Intro / Credit Skip Segments
-                                  </h4>
-                                  <p className="text-[11px] text-white/50 font-mono">FFmpeg visual/silence scan + AI sequence detection</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    disabled={devScanningSkip}
-                                    onClick={handleDevScanSkipSegments}
-                                    className="focusable px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
-                                  >
-                                    {devScanningSkip ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                                    Scan (FFmpeg + AI)
-                                  </button>
-                                </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-white/40 text-[10px]">Start:</span>
+                                <input
+                                  type="number"
+                                  value={seg.start}
+                                  onChange={(e) => updateDevSkipSegment(idx, { start: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                                  className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
+                                  placeholder="Sec"
+                                />
+                                <span className="text-white/40 text-[10px]">({formatTime(seg.start)})</span>
                               </div>
 
-                              {/* Skip Segments List / Editor */}
-                              <div className="space-y-2">
-                                {devSkipSegments.length === 0 ? (
-                                  <div className="text-xs text-white/40 italic py-3 text-center bg-white/[0.02] rounded-lg border border-white/5 font-mono">
-                                    No active skip segments. Click "Scan (FFmpeg + AI)" or add one manually below.
-                                  </div>
-                                ) : (
-                                  devSkipSegments.map((seg, idx) => (
-                                    <div key={idx} className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-white/10 p-2.5 rounded-lg text-xs font-mono">
-                                      <select
-                                        value={seg.type || 'intro'}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          const labelMap: Record<string, string> = { intro: 'Skip Intro', recap: 'Skip Recap', credits: 'Skip Credits' };
-                                          updateDevSkipSegment(idx, { type: val, label: labelMap[val] || 'Skip' });
-                                        }}
-                                        className="bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
-                                      >
-                                        <option value="intro">Intro</option>
-                                        <option value="recap">Recap</option>
-                                        <option value="credits">Credits</option>
-                                      </select>
-
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-white/40 text-[10px]">Start:</span>
-                                        <input
-                                          type="number"
-                                          value={seg.start}
-                                          onChange={(e) => updateDevSkipSegment(idx, { start: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                                          className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
-                                          placeholder="Sec"
-                                        />
-                                        <span className="text-white/40 text-[10px]">({formatTime(seg.start)})</span>
-                                      </div>
-
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-white/40 text-[10px]">End:</span>
-                                        <input
-                                          type="number"
-                                          value={seg.end}
-                                          onChange={(e) => updateDevSkipSegment(idx, { end: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                                          className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
-                                          placeholder="Sec"
-                                        />
-                                        <span className="text-white/40 text-[10px]">({formatTime(seg.end)})</span>
-                                      </div>
-
-                                      <div className="flex items-center gap-1 ml-auto">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleTestPlayDevTimestamp(seg.start)}
-                                          className="focusable px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                                          title="Test Play in player at segment start"
-                                        >
-                                          <PlayCircle className="w-3.5 h-3.5" /> Test Play
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => removeDevSkipSegment(idx)}
-                                          className="focusable px-2 py-1 bg-red-600/60 hover:bg-red-600 text-white rounded text-[11px] font-bold transition-all cursor-pointer"
-                                          title="Delete Segment"
-                                        >
-                                          <X className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
-
-                                <div className="flex items-center justify-between pt-2 border-t border-white/10">
-                                  <button
-                                    type="button"
-                                    onClick={addDevSkipSegment}
-                                    className="focusable text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1 cursor-pointer"
-                                  >
-                                    + Add Segment
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={devSubmittingTidb || devSkipSegments.length === 0}
-                                    onClick={handleDevSubmitTidb}
-                                    className="focusable px-4 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
-                                  >
-                                    {devSubmittingTidb ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                                    Submit to TheIntroDB (TIDB)
-                                  </button>
-                                </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-white/40 text-[10px]">End:</span>
+                                <input
+                                  type="number"
+                                  value={seg.end}
+                                  onChange={(e) => updateDevSkipSegment(idx, { end: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                                  className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
+                                  placeholder="Sec"
+                                />
+                                <span className="text-white/40 text-[10px]">({formatTime(seg.end)})</span>
                               </div>
-                            </div>
 
-                            {/* Section 2: Movie & Media Chapters Editor */}
-                            <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-                                    <Video className="w-4 h-4 text-cyan-400" /> Movie Chapters (FFmpeg Scene Detect)
-                                  </h4>
-                                  <p className="text-[11px] text-white/50 font-mono">Extract embedded chapters or scan scene changes with FFmpeg</p>
-                                </div>
+                              <div className="flex items-center gap-1 ml-auto">
                                 <button
                                   type="button"
-                                  disabled={devScanningChapters}
-                                  onClick={handleDevScanChapters}
-                                  className="focusable px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                                  onClick={() => handleTestPlayDevTimestamp(seg.start)}
+                                  className="focusable px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                  title="Test Play in player at segment start"
                                 >
-                                  {devScanningChapters ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                                  Scan Chapters
+                                  <PlayCircle className="w-3.5 h-3.5" /> Test Play
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeDevSkipSegment(idx)}
+                                  className="focusable px-2 py-1 bg-red-600/60 hover:bg-red-600 text-white rounded text-[11px] font-bold transition-all cursor-pointer"
+                                  title="Delete Segment"
+                                >
+                                  <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
+                            </div>
+                          ))
+                        )}
 
-                              {/* Chapters Editor */}
-                              <div className="space-y-2">
-                                {devChapters.length === 0 ? (
-                                  <div className="text-xs text-white/40 italic py-3 text-center bg-white/[0.02] rounded-lg border border-white/5 font-mono">
-                                    No active chapters. Click "Scan Chapters" or add custom chapters below.
-                                  </div>
-                                ) : (
-                                  devChapters.map((ch, idx) => (
-                                    <div key={idx} className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-white/10 p-2.5 rounded-lg text-xs font-mono">
-                                      <input
-                                        type="text"
-                                        value={ch.title}
-                                        onChange={(e) => updateDevChapter(idx, { title: e.target.value })}
-                                        className="flex-1 min-w-[140px] bg-slate-800 text-white border border-white/15 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-cyan-400 font-bold"
-                                        placeholder="Chapter Title"
-                                      />
+                        <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                          <button
+                            type="button"
+                            onClick={addDevSkipSegment}
+                            className="focusable text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1 cursor-pointer"
+                          >
+                            + Add Segment
+                          </button>
+                          <button
+                            type="button"
+                            disabled={devSubmittingTidb || devSkipSegments.length === 0}
+                            onClick={handleDevSubmitTidb}
+                            className="focusable px-4 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                          >
+                            {devSubmittingTidb ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                            Submit to TheIntroDB (TIDB)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
 
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-white/40 text-[10px]">Start:</span>
-                                        <input
-                                          type="number"
-                                          value={ch.startTime}
-                                          onChange={(e) => updateDevChapter(idx, { startTime: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                                          className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-cyan-400"
-                                          placeholder="Sec"
-                                        />
-                                        <span className="text-white/40 text-[10px]">({formatTime(ch.startTime)})</span>
-                                      </div>
+                    {/* Section 2: Movie & Media Chapters Editor */}
+                    <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                            <Video className="w-4 h-4 text-cyan-400" /> Movie Chapters (FFmpeg Scene Detect)
+                          </h4>
+                          <p className="text-[11px] text-white/50 font-mono">Extract embedded chapters or scan scene changes with FFmpeg</p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={devScanningChapters}
+                          onClick={handleDevScanChapters}
+                          className="focusable px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                        >
+                          {devScanningChapters ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                          Scan Chapters
+                        </button>
+                      </div>
 
-                                      <div className="flex items-center gap-1 ml-auto">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleTestPlayDevTimestamp(ch.startTime)}
-                                          className="focusable px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                                          title="Test Play in player at chapter start"
-                                        >
-                                          <PlayCircle className="w-3.5 h-3.5" /> Test Play
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => removeDevChapter(idx)}
-                                          className="focusable px-2 py-1 bg-red-600/60 hover:bg-red-600 text-white rounded text-[11px] font-bold transition-all cursor-pointer"
-                                          title="Delete Chapter"
-                                        >
-                                          <X className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
+                      {/* Chapters Editor */}
+                      <div className="space-y-2">
+                        {devChapters.length === 0 ? (
+                          <div className="text-xs text-white/40 italic py-3 text-center bg-white/[0.02] rounded-lg border border-white/5 font-mono">
+                            No active chapters. Click "Scan Chapters" or add custom chapters below.
+                          </div>
+                        ) : (
+                          devChapters.map((ch, idx) => (
+                            <div key={idx} className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-white/10 p-2.5 rounded-lg text-xs font-mono">
+                              <input
+                                type="text"
+                                value={ch.title}
+                                onChange={(e) => updateDevChapter(idx, { title: e.target.value })}
+                                className="flex-1 min-w-[140px] bg-slate-800 text-white border border-white/15 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-cyan-400 font-bold"
+                                placeholder="Chapter Title"
+                              />
 
-                                <div className="flex items-center justify-between pt-2 border-t border-white/10">
-                                  <button
-                                    type="button"
-                                    onClick={addDevChapter}
-                                    className="focusable text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1 cursor-pointer"
-                                  >
-                                    + Add Chapter
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={devSavingChapters || devChapters.length === 0}
-                                    onClick={handleDevSaveChapters}
-                                    className="focusable px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
-                                  >
-                                    {devSavingChapters ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                                    Save & Apply Chapters
-                                  </button>
-                                </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-white/40 text-[10px]">Start:</span>
+                                <input
+                                  type="number"
+                                  value={ch.startTime}
+                                  onChange={(e) => updateDevChapter(idx, { startTime: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                                  className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-cyan-400"
+                                  placeholder="Sec"
+                                />
+                                <span className="text-white/40 text-[10px]">({formatTime(ch.startTime)})</span>
+                              </div>
+
+                              <div className="flex items-center gap-1 ml-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTestPlayDevTimestamp(ch.startTime)}
+                                  className="focusable px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                  title="Test Play in player at chapter start"
+                                >
+                                  <PlayCircle className="w-3.5 h-3.5" /> Test Play
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeDevChapter(idx)}
+                                  className="focusable px-2 py-1 bg-red-600/60 hover:bg-red-600 text-white rounded text-[11px] font-bold transition-all cursor-pointer"
+                                  title="Delete Chapter"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             </div>
-                          </div>
+                          ))
                         )}
+
+                        <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                          <button
+                            type="button"
+                            onClick={addDevChapter}
+                            className="focusable text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1 cursor-pointer"
+                          >
+                            + Add Chapter
+                          </button>
+                          <button
+                            type="button"
+                            disabled={devSavingChapters || devChapters.length === 0}
+                            onClick={handleDevSaveChapters}
+                            className="focusable px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                          >
+                            {devSavingChapters ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                            Save & Apply Chapters
+                          </button>
+                        </div>
                       </div>
-                    );
-                  })()}
+                    </div>
+                  </div>
+                )}
             </div>
         </div>
       </div>
