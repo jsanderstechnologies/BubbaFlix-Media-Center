@@ -1268,7 +1268,6 @@ export default function MediaModal({
 
               const filtered = uniqueStreams.filter(s => {
                   if (s.type === 'local' || s.type === 'iptv' || s.type === 'premiumize_cloud' || s.inPersonalCloud) return true;
-                  if (s.type === 'torrent' && !s.isPremiumize && !s.isCached) return false;
                   const desc = (s.name || '') + ' ' + (s.fullDescription || '');
                   if (desc.includes('4K') || desc.includes('2160p')) return allowedRes.includes('4K');
                   if (desc.includes('1080p')) return allowedRes.includes('1080p');
@@ -1361,15 +1360,17 @@ export default function MediaModal({
                     if (pmRes.ok) {
                       const pmData = await pmRes.json();
                       const responseArr = pmData.response || [];
-                      let hashIdx = 0;
+                      const cachedSet = new Set<string>();
+                      torrentHashes.forEach((h, idx) => {
+                        if (responseArr[idx] === true) {
+                          cachedSet.add(h.toLowerCase());
+                        }
+                      });
                       updatedData.forEach((s: any) => {
-                        if (s.type === 'torrent' && s.hash) {
-                          if (responseArr[hashIdx] === true) {
-                            s.isPremiumize = true;
-                            s.isCached = true;
-                            s.availability = 'Cached (Premiumize ⚡)';
-                          }
-                          hashIdx++;
+                        if (s.type === 'torrent' && s.hash && cachedSet.has(s.hash.toLowerCase())) {
+                          s.isPremiumize = true;
+                          s.isCached = true;
+                          s.availability = 'Cached (Premiumize ⚡)';
                         }
                       });
                     }
@@ -1604,16 +1605,20 @@ export default function MediaModal({
             }).then(r => r.ok ? r.json() : null).then(pmData => {
               if (!isActive || !pmData?.response) return;
               const responseArr = pmData.response || [];
-              let hashIdx = 0;
+              const cachedSet = new Set<string>();
+              torrentHashes.forEach((h, idx) => {
+                if (responseArr[idx] === true) {
+                  cachedSet.add(h.toLowerCase());
+                }
+              });
               filteredData.forEach((s: any) => {
-                if (s.type === 'torrent' && s.hash && !s.isPremiumizeChecked) {
+                if (s.type === 'torrent' && s.hash) {
                   s.isPremiumizeChecked = true;
-                  if (responseArr[hashIdx] === true) {
+                  if (cachedSet.has(s.hash.toLowerCase())) {
                     s.isPremiumize = true;
                     s.isCached = true;
                     s.availability = 'Cached (Premiumize ⚡)';
                   }
-                  hashIdx++;
                 }
               });
               const finalTvCheckStreams = filterAndSortTvStreams([...filteredData]);
