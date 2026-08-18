@@ -92,6 +92,12 @@ Authorization: Bearer <premiumize_api_key>
 | 59 | `GET` | `/api/news/gnews` | Public | `application/json` | Fetch headlines from GNews API |
 | 60 | `GET` | `/api/sports/scores` | Public | `application/json` | Fetch live sports scores & match schedules |
 | 61 | `POST` | `/api/sports/match-channel` | Public | `application/json` | Match sports event to active IPTV stream channel |
+| 62 | `POST` | `/api/media/save-streams` | Public | `application/json` | Persist discovered stream list per movie/episode to cache |
+| 63 | `POST` | `/api/media/cached-streams` | Public | `application/json` | Retrieve saved streams for instant detail screen display |
+| 64 | `GET` | `/api/media/cached-metadata` | Public | `application/json` | Retrieve 0ms instant cached metadata, ratings, logos & skip segments |
+| 65 | `POST` | `/api/media/prefetch-metadata` | Public | `application/json` | Low-priority background prefetching endpoint |
+| 66 | `GET` | `/api/media/chapters` | Public | `application/json` | Extract embedded video chapters via ffprobe / Plex ChapterDB archive |
+| 67 | `POST` | `/api/logs/client` | Public | `application/json` | Client-side React & ErrorBoundary diagnostic log reporter |
 
 ---
 
@@ -498,5 +504,99 @@ Authorization: Bearer <premiumize_api_key>
   {
     "folderPath": "\\\\NAS\\Movies",
     "mediaType": "movie"
+  }
+  ```
+
+#### `POST /api/media/save-streams`
+- **Content-Type:** `application/json`
+- **Description:** Persists discovered stream sources (torrents, local network shares, IPTV streams) per movie or per TV series season/episode to disk cache (`data/media_cache.json`).
+- **Request Body Keys:**
+  ```json
+  {
+    "tmdbId": 157336,
+    "type": "movie",
+    "season": null,
+    "episode": null,
+    "streams": [
+      {
+        "name": "Interstellar 2014 2160p UHD BluRay x265",
+        "url": "magnet:?xt=urn:btih:...",
+        "quality": "4K",
+        "sizeStr": "18.4 GB",
+        "seeds": 142,
+        "isCached": true,
+        "isPremiumize": true
+      }
+    ]
+  }
+  ```
+- **Example Response:**
+  ```json
+  {
+    "success": true,
+    "count": 1
+  }
+  ```
+
+#### `POST /api/media/cached-streams`
+- **Content-Type:** `application/json`
+- **Description:** Instantly retrieves saved streams (<5ms) for display on media detail screens prior to live indexer completion.
+- **Request Body Keys:**
+  ```json
+  {
+    "tmdbId": 157336,
+    "type": "movie",
+    "season": null,
+    "episode": null
+  }
+  ```
+- **Example Response:**
+  ```json
+  {
+    "success": true,
+    "streams": [
+      {
+        "name": "Interstellar 2014 2160p UHD BluRay x265",
+        "url": "magnet:?xt=urn:btih:...",
+        "quality": "4K",
+        "sizeStr": "18.4 GB",
+        "seeds": 142,
+        "isCached": true,
+        "isPremiumize": true
+      }
+    ]
+  }
+  ```
+
+#### `GET /api/media/cached-metadata`
+- **Query Parameters:** `tmdbId` (number/string), `type` (`"movie"` or `"tv"`)
+- **Description:** Retrieves cached metadata, logos, MPAA ratings, cast/crew, and skip segments instantly from disk.
+
+#### `POST /api/media/prefetch-metadata`
+- **Content-Type:** `application/json`
+- **Description:** Executes low-priority background prefetching for media items across grids.
+- **Request Body Keys:**
+  ```json
+  {
+    "tmdbId": 157336,
+    "type": "movie",
+    "title": "Interstellar"
+  }
+  ```
+
+#### `GET /api/media/chapters`
+- **Query Parameters:** `tmdbId` (number/string), `filePath` (string), `title` (string), `year` (string)
+- **Description:** Extracts chapters from embedded video container metadata via `ffprobe`, with fallback to the Plex ChapterDB legacy archive.
+
+#### `POST /api/logs/client`
+- **Content-Type:** `application/json`
+- **Description:** Client-side React diagnostic logger for reporting uncaught exceptions and ErrorBoundary stack traces to server logs (`logs/app.log`).
+- **Request Body Keys:**
+  ```json
+  {
+    "level": "error",
+    "message": "[ErrorBoundary] ReferenceError: ...",
+    "stack": "Error: ...\n  at MediaModal ...",
+    "url": "http://localhost:5150"
   }
   ```

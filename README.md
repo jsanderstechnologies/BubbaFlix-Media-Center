@@ -9,8 +9,11 @@
 ### 🎬 Media Aggregation & Streaming
 - **TMDB Integration**: Browse rich metadata for movies and TV shows, complete with cast, crew, trailers, and recommendations.
 - **Premiumize & Debrid Streaming**: Search for Torrents, Usenet, and Debrid streams directly through Premiumize and stream them instantly without local downloading.
-- **TV Series Episode Dropdown & Air Dates**: Interactive `<select>` episode selector showing episode numbers, episode titles, air dates, and watched checkmarks.
+- **Persistent Stream Caching & Instant Detail Load**: Discovered streams (torrents, network shares, IPTV) are persisted per item to disk cache. Opening any media detail screen loads saved streams **instantly** (<5ms) prior to background indexer completion.
+- **Low-Priority Background Prefetching**: Background metadata prefetching runs via `requestIdleCallback` with `priority: 'low'` headers and automatically pauses whenever a detail screen is active to give 100% network bandwidth to user requests.
+- **Stream Selection Dropdowns & Air Dates**: Styled `<select>` dropdown controls for Active Downloads & Played Streams and Available High Quality Streams matching Seasons & Episodes dropdown styling.
 - **TheIntroDB (TIDB) Intro & Credit Skipping**: Integrated with TheIntroDB (`https://theintrodb.org`) API to retrieve exact timestamp segment data for automatically or manually skipping intros and end credits during playback of movies and TV episodes. Displays active TIDB status badges and branding logos in headers and hero spotlight cards when configured.
+- **Self-Healing ErrorBoundary Diagnostics**: Prevents infinite loading screen loops by capping automatic retries and rendering an interactive diagnostic panel with **Retry Loading** and **Reset Cache & Reload** buttons, while reporting stack traces to `/api/logs/client`.
 - **Auto-Select Next Unwatched Episode**: Automatically queries per-user watch history and opens show detail screens on the first unwatched season and episode.
 - **Per-User Watch History**: Independent per-user watch tracking for movies and TV episodes with manual "Watched / Mark Watched" toggle buttons and automatic 90%+ progress completion marking.
 - **HEVC (H.265) Codec & Stream Filtering**: User-configurable HEVC stream handling with 3 distinct modes: `Prioritize HEVC` (sorts 4K/HEVC streams to top), `Allow All Codecs` (mixes H.264 & HEVC), and `Exclude HEVC` (forces H.264 only for older/legacy hardware).
