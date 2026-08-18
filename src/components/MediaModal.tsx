@@ -775,9 +775,9 @@ export default function MediaModal({
 
   useEffect(() => {
     if (streams.length > 0) {
-      const exists = streams.some((s, idx) => (s.id || String(idx)) === selectedStreamId);
-      if (!exists) {
-        setSelectedStreamId(streams[0].id || '0');
+      const idxNum = Number(selectedStreamId);
+      if (selectedStreamId === null || isNaN(idxNum) || idxNum < 0 || idxNum >= streams.length) {
+        setSelectedStreamId('0');
       }
     } else {
       setSelectedStreamId(null);
@@ -2301,15 +2301,10 @@ export default function MediaModal({
 
                   <div className="relative">
                     <select
-                      value={selectedStreamId ?? ''}
+                      value={selectedStreamId ?? '0'}
                       disabled={loading || streams.length === 0}
                       onChange={(e) => {
-                        const chosenId = e.target.value;
-                        setSelectedStreamId(chosenId);
-                        const chosenStream = streams.find((s, idx) => (s.id || String(idx)) === chosenId);
-                        if (chosenStream) {
-                          handleStreamClick(chosenStream);
-                        }
+                        setSelectedStreamId(e.target.value);
                       }}
                       className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-3 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -2323,7 +2318,6 @@ export default function MediaModal({
                         </option>
                       ) : (
                         streams.map((stream, idx) => {
-                          const streamId = stream.id || String(idx);
                           const qualityTag = stream.quality ? `[${stream.quality}] ` : '';
                           const nameTag = stream.name || stream.title || 'Unknown Stream';
                           const sizeTag = stream.sizeStr || stream.size ? ` (${stream.sizeStr || stream.size})` : '';
@@ -2339,7 +2333,7 @@ export default function MediaModal({
                             : '';
                           
                           return (
-                            <option key={streamId} value={streamId} className="bg-[#12121a] text-white py-1">
+                            <option key={idx} value={String(idx)} className="bg-[#12121a] text-white py-1">
                               {`${qualityTag}${nameTag}${sizeTag}${sourceTag}${statusTag}`}
                             </option>
                           );
@@ -2354,7 +2348,8 @@ export default function MediaModal({
                   {streams.length > 0 && (
                     <button
                       onClick={() => {
-                        const chosenStream = streams.find((s, idx) => (s.id || String(idx)) === selectedStreamId) || streams[0];
+                        const chosenIndex = Number(selectedStreamId ?? 0);
+                        const chosenStream = streams[chosenIndex] || streams[0];
                         if (chosenStream) {
                           handleStreamClick(chosenStream);
                         }
