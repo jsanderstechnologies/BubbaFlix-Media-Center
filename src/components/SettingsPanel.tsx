@@ -703,7 +703,6 @@ export default function SettingsPanel() {
       xtreamUsername: finalXtreamUsername,
       xtreamPassword: finalXtreamPassword,
       iptvProviders: processedProviders,
-      customChannels,
       streamBufferSeconds,
       enableUsenetSearch,
       enableTorrentSearch,

@@ -3117,7 +3117,7 @@ Return ONLY raw JSON:
       console.warn(`[AI System] Gemini API is currently in rate-limit cooldown (${remainingSec}s remaining). Cascading to fallback AI provider...`);
       errors.push('Gemini 429 Rate Limit Cooldown Active');
     } else if (rawGeminiKey) {
-      const models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+      const models = ['gemini-2.5-flash', 'gemini-2.0-flash-001', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest'];
       const apiVersions = ['v1beta', 'v1'];
       let modelSuccess = false;
 
@@ -3159,11 +3159,10 @@ Return ONLY raw JSON:
     // 2. SECONDARY PROVIDER: GROQ API (100% Free High-Speed LPU Tier)
     if (groqKey) {
       const groqModels = [
-        'llama-3.3-70b-specdec',
-        'llama-3.1-70b-versatile',
+        'llama-3.3-70b-versatile',
         'llama-3.1-8b-instant',
-        'mixtral-8x7b-32768',
-        'gemma2-9b-it'
+        'llama3-70b-8192',
+        'llama3-8b-8192'
       ];
       for (const gModel of groqModels) {
         try {
@@ -3197,13 +3196,11 @@ Return ONLY raw JSON:
     // 3. TERTIARY PROVIDER: OPENROUTER FREE API (Only if API Key is configured)
     if (openRouterKey) {
       const openRouterModels = [
-        'google/gemini-2.0-flash-lite-preview-02-05:free',
-        'google/gemini-2.0-flash-exp:free',
         'meta-llama/llama-3.3-70b-instruct',
-        'meta-llama/llama-3.1-8b-instruct:free',
-        'deepseek/deepseek-r1:free',
-        'qwen/qwen-2.5-coder-32b-instruct:free',
-        'mistralai/mistral-7b-instruct:free'
+        'meta-llama/llama-3.1-8b-instruct',
+        'deepseek/deepseek-r1',
+        'google/gemini-2.0-flash-001',
+        'qwen/qwen-2.5-coder-32b-instruct'
       ];
 
       for (const orModel of openRouterModels) {
