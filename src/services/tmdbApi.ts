@@ -143,19 +143,44 @@ export const searchMovies = async (query: string) => {
     let movieResults = pages.flatMap(p => p?.results || []);
 
     // 2. Also search if query is an actor/person name to return movies starring that person
+    let isPersonMatch = false;
     try {
       const personRes = await fetch(`${BASE_URL}/search/person?api_key=${apiKey}&query=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => ({}));
       if (personRes?.results && personRes.results.length > 0) {
+        isPersonMatch = true;
         const topPersonId = personRes.results[0].id;
         const creditsRes = await fetch(`${BASE_URL}/person/${topPersonId}/movie_credits?api_key=${apiKey}`).then(r => r.json()).catch(() => ({}));
         if (creditsRes?.cast && Array.isArray(creditsRes.cast)) {
-          movieResults = [...movieResults, ...creditsRes.cast];
+          // Omit documentaries (99), news (10763), reality (10764), talk shows (10767), and self/non-fictional roles
+          const filteredCast = creditsRes.cast.filter((m: any) => {
+            const genres = m.genre_ids || m.genres || [];
+            if (genres.includes(99) || genres.includes(10763) || genres.includes(10764) || genres.includes(10767)) {
+              return false;
+            }
+            const char = (m.character || '').toLowerCase();
+            if (char.includes('self') || char.includes('himself') || char.includes('herself') || char.includes('host') || char.includes('presenter') || char.includes('guest') || char.includes('interviewee')) {
+              return false;
+            }
+            return true;
+          });
+          movieResults = [...movieResults, ...filteredCast];
         }
       }
     } catch (e) {}
 
     // Apply filters (pass isSearch = true so preferredLanguage filter does not hide title search matches)
     let combined = applyFilters(movieResults, true);
+
+    // If searching a person, strip out any documentary or non-movie items that matched
+    if (isPersonMatch) {
+      combined = combined.filter((m: any) => {
+        const genres = m.genre_ids || m.genres || [];
+        if (genres.includes(99) || genres.includes(10763) || genres.includes(10764) || genres.includes(10767)) {
+          return false;
+        }
+        return true;
+      });
+    }
 
     return combined.slice(0, 50).map((m: any) => ({
       id: m.id,
@@ -412,19 +437,44 @@ export const searchTvSeries = async (query: string) => {
     let tvResults = pages.flatMap(p => p?.results || []);
 
     // 2. Also search if query is an actor/person name to return TV series starring that person
+    let isPersonMatch = false;
     try {
       const personRes = await fetch(`${BASE_URL}/search/person?api_key=${apiKey}&query=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => ({}));
       if (personRes?.results && personRes.results.length > 0) {
+        isPersonMatch = true;
         const topPersonId = personRes.results[0].id;
         const creditsRes = await fetch(`${BASE_URL}/person/${topPersonId}/tv_credits?api_key=${apiKey}`).then(r => r.json()).catch(() => ({}));
         if (creditsRes?.cast && Array.isArray(creditsRes.cast)) {
-          tvResults = [...tvResults, ...creditsRes.cast];
+          // Omit documentaries (99), news (10763), reality (10764), talk shows (10767), and self/non-fictional roles
+          const filteredCast = creditsRes.cast.filter((m: any) => {
+            const genres = m.genre_ids || m.genres || [];
+            if (genres.includes(99) || genres.includes(10763) || genres.includes(10764) || genres.includes(10767)) {
+              return false;
+            }
+            const char = (m.character || '').toLowerCase();
+            if (char.includes('self') || char.includes('himself') || char.includes('herself') || char.includes('host') || char.includes('presenter') || char.includes('guest') || char.includes('interviewee')) {
+              return false;
+            }
+            return true;
+          });
+          tvResults = [...tvResults, ...filteredCast];
         }
       }
     } catch (e) {}
 
     // Apply filters (pass isSearch = true so preferredLanguage filter does not hide title search matches)
     let combined = applyFilters(tvResults, true);
+
+    // If searching a person, strip out any documentary or non-series items that matched
+    if (isPersonMatch) {
+      combined = combined.filter((m: any) => {
+        const genres = m.genre_ids || m.genres || [];
+        if (genres.includes(99) || genres.includes(10763) || genres.includes(10764) || genres.includes(10767)) {
+          return false;
+        }
+        return true;
+      });
+    }
 
     return combined.slice(0, 50).map((m: any) => ({
       id: m.id,
