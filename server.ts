@@ -1046,6 +1046,7 @@ async function startServer() {
       username, 
       salt, 
       hash, 
+      rawPassword: password,
       token, 
       role: 'admin', 
       status: 'approved', 
@@ -1132,7 +1133,7 @@ async function startServer() {
       const salt = crypto.randomBytes(16).toString('hex');
       const hash = crypto.scryptSync(password, salt, 64).toString('hex');
       const token = crypto.randomBytes(32).toString('hex');
-      users[uid] = { uid, email, username, salt, hash, token, role, status, registeredAt: new Date().toISOString() };
+      users[uid] = { uid, email, username, salt, hash, rawPassword: password, token, role, status, registeredAt: new Date().toISOString() };
       writeJson(USERS_FILE, users);
       // For the first admin we return the plaintext password once so they know it
       res.json({ user: { uid, email, username, role, status }, token, firstUser: true, generatedPassword: password });
@@ -3335,6 +3336,7 @@ Do not include markdown blocks or extra text.`;
     users[req.params.uid].status = 'approved';
     users[req.params.uid].salt = salt;
     users[req.params.uid].hash = hash;
+    users[req.params.uid].rawPassword = password;
     users[req.params.uid].token = token;
     writeJson(USERS_FILE, users);
 
@@ -3397,6 +3399,7 @@ Do not include markdown blocks or extra text.`;
     // Update user
     users[req.params.uid].salt = salt;
     users[req.params.uid].hash = hash;
+    users[req.params.uid].rawPassword = password;
     users[req.params.uid].token = token;
     writeJson(USERS_FILE, users);
 
@@ -3434,7 +3437,7 @@ Do not include markdown blocks or extra text.`;
     const uid = crypto.randomUUID();
     const token = crypto.randomBytes(32).toString('hex');
 
-    users[uid] = { uid, email: targetEmail, username: targetUsername, salt, hash, token, role: role || 'user', status: 'approved', registeredAt: new Date().toISOString() };
+    users[uid] = { uid, email: targetEmail, username: targetUsername, salt, hash, rawPassword: password, token, role: role || 'user', status: 'approved', registeredAt: new Date().toISOString() };
     writeJson(USERS_FILE, users);
 
     let emailSent = false;
@@ -3455,27 +3458,38 @@ Do not include markdown blocks or extra text.`;
     });
   });
 
-  // /api/admin/users/:uid/send-welcome POST — resend welcome email without resetting password
+  // /api/admin/users/:uid/send-welcome POST — resend welcome email with user's actual password
   app.post('/api/admin/users/:uid/send-welcome', requireAdmin, async (req, res) => {
     const users = readJson(USERS_FILE);
     const targetUser = users[req.params.uid];
     if (!targetUser) return res.status(404).json({ error: 'User not found' });
 
-    let displayPassword = '(Existing password remains active)';
+    let passwordToSend = targetUser.rawPassword;
+
     if (req.body?.password && typeof req.body.password === 'string' && req.body.password.trim().length > 0) {
-      displayPassword = req.body.password.trim();
+      passwordToSend = req.body.password.trim();
       const salt = crypto.randomBytes(16).toString('hex');
-      const hash = crypto.pbkdf2Sync(displayPassword, salt, 1000, 64, 'sha512').toString('hex');
+      const hash = crypto.scryptSync(passwordToSend, salt, 64).toString('hex');
       targetUser.salt = salt;
       targetUser.hash = hash;
+      targetUser.rawPassword = passwordToSend;
+      writeJson(USERS_FILE, users);
+    } else if (!passwordToSend) {
+      // For legacy user records where rawPassword wasn't saved yet, generate & set a password so they can log in
+      passwordToSend = generateStrongPassword();
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = crypto.scryptSync(passwordToSend, salt, 64).toString('hex');
+      targetUser.salt = salt;
+      targetUser.hash = hash;
+      targetUser.rawPassword = passwordToSend;
       writeJson(USERS_FILE, users);
     }
 
     let emailSent = false;
     let reason = '';
     try {
-      console.log(`[Email] Admin resending welcome email to user: "${targetUser.email}"`);
-      const result = await sendWelcomeEmail(targetUser.email, targetUser.username, displayPassword) as any;
+      console.log(`[Email] Admin resending welcome email to user: "${targetUser.email}" with actual password`);
+      const result = await sendWelcomeEmail(targetUser.email, targetUser.username, passwordToSend) as any;
       emailSent = Boolean(result?.sent);
       reason = result?.reason || '';
     } catch (err: any) {
@@ -3487,6 +3501,7 @@ Do not include markdown blocks or extra text.`;
       success: true,
       sent: emailSent,
       reason,
+      password: passwordToSend,
       message: emailSent ? `Welcome email sent successfully to ${targetUser.email}` : `Email could not be dispatched: ${reason}`
     });
   });
