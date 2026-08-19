@@ -277,7 +277,7 @@ Authorization: Bearer <premiumize_api_key>
 - **Description:** Generates a new random password for user and emails it.
 
 #### `POST /api/admin/users`
-- **Description:** Directly creates a user account.
+- **Description:** Directly creates a user account and automatically sends a welcome notification email with login details to the recipient email address entered.
 - **Auth:** `requireAdmin`
 - **Request Body Keys:**
   ```json
