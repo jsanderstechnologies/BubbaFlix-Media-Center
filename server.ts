@@ -406,11 +406,16 @@ async function startServer() {
 
   // IP Logging Middleware
   app.use((req, res, next) => {
+    // Omit log retrieval requests from polluting log files
+    const url = req.originalUrl || req.url || '';
+    if (url.includes('/api/admin/logs') || url.includes('/api/logs')) {
+      return next();
+    }
     const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() 
       || req.socket.remoteAddress 
       || req.ip 
       || 'unknown';
-    console.log(`[HTTP Request] ${new Date().toISOString()} - IP: ${clientIp} - ${req.method} ${req.originalUrl}`);
+    console.log(`[HTTP Request] ${new Date().toISOString()} - IP: ${clientIp} - ${req.method} ${url}`);
     next();
   });
 
