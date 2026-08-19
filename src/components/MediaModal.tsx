@@ -461,15 +461,15 @@ export default function MediaModal({
     }
   }, [movie, isHidden]);
 
-  // Auto-focus primary controls (Season / Stream Select) when data finishes loading
+  // Auto-focus primary controls only if NO focusable element inside media-modal is currently focused
   useEffect(() => {
     if (!movie || isHidden || loading || seriesDetailsLoading) return;
 
     const timer = setTimeout(() => {
       const activeEl = document.activeElement as HTMLElement;
-      const fixMatchBtn = document.querySelector('#media-modal-header-actions button');
-      // If focus is on body or Fix Match button, move focus to the primary interactive control
-      if (!activeEl || activeEl === document.body || activeEl === fixMatchBtn) {
+      const mediaModalEl = document.querySelector('#media-modal');
+      // Only focus primaryTarget if focus is NOT inside media-modal already!
+      if (!activeEl || activeEl === document.body || !mediaModalEl?.contains(activeEl)) {
         const primaryTarget = (
           document.querySelector('#season-select-dropdown') ||
           document.querySelector('#stream-select-dropdown') ||
@@ -2394,12 +2394,24 @@ export default function MediaModal({
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'ArrowUp') {
-                            const selectEl = e.currentTarget as HTMLSelectElement;
-                            if (!selectEl || selectEl.selectedIndex <= 0) {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              const headerBtn = document.querySelector('#media-modal-header-actions .focusable') as HTMLElement;
-                              if (headerBtn) headerBtn.focus();
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const target = document.querySelector('#media-modal-header-actions .focusable') as HTMLElement;
+                            if (target) {
+                              target.focus();
+                              try { SpatialNavigation.focus(target); } catch (err) {}
+                            }
+                          } else if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const target = (
+                              document.querySelector('#episode-select-dropdown') ||
+                              document.querySelector('#stream-select-dropdown') ||
+                              document.querySelector('#play-selected-stream-btn')
+                            ) as HTMLElement;
+                            if (target) {
+                              target.focus();
+                              try { SpatialNavigation.focus(target); } catch (err) {}
                             }
                           }
                         }}
@@ -2441,15 +2453,26 @@ export default function MediaModal({
                             }}
                             onKeyDown={(e) => {
                               if (e.key === 'ArrowUp') {
-                                const selectEl = e.currentTarget as HTMLSelectElement;
-                                if (!selectEl || selectEl.selectedIndex <= 0) {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  const prevTarget = (
-                                    document.querySelector('#season-select-dropdown') ||
-                                    document.querySelector('#media-modal-header-actions .focusable')
-                                  ) as HTMLElement;
-                                  if (prevTarget) prevTarget.focus();
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const target = (
+                                  document.querySelector('#season-select-dropdown') ||
+                                  document.querySelector('#media-modal-header-actions .focusable')
+                                ) as HTMLElement;
+                                if (target) {
+                                  target.focus();
+                                  try { SpatialNavigation.focus(target); } catch (err) {}
+                                }
+                              } else if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const target = (
+                                  document.querySelector('#stream-select-dropdown') ||
+                                  document.querySelector('#play-selected-stream-btn')
+                                ) as HTMLElement;
+                                if (target) {
+                                  target.focus();
+                                  try { SpatialNavigation.focus(target); } catch (err) {}
                                 }
                               }
                             }}
@@ -2548,24 +2571,28 @@ export default function MediaModal({
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowUp') {
-                    const selectEl = e.currentTarget as HTMLSelectElement;
-                    if (!selectEl || selectEl.selectedIndex <= 0) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const target = (
-                        document.querySelector('#episode-select-dropdown') ||
-                        document.querySelector('#season-select-dropdown') ||
-                        document.querySelector('#media-modal-header-actions .focusable')
-                      ) as HTMLElement;
-                      if (target) target.focus();
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const target = (
+                      document.querySelector('#episode-select-dropdown') ||
+                      document.querySelector('#season-select-dropdown') ||
+                      document.querySelector('#media-modal-header-actions .focusable') ||
+                      document.querySelector('#media-modal-header-actions button')
+                    ) as HTMLElement;
+                    if (target) {
+                      target.focus();
+                      try { SpatialNavigation.focus(target); } catch (err) {}
                     }
                   } else if (e.key === 'ArrowDown') {
-                    const selectEl = e.currentTarget as HTMLSelectElement;
-                    if (!selectEl || selectEl.selectedIndex >= selectEl.options.length - 1) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const playBtn = document.querySelector('#play-selected-stream-btn') as HTMLElement;
-                      if (playBtn) playBtn.focus();
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const playBtn = (
+                      document.querySelector('#play-selected-stream-btn') ||
+                      document.querySelector('#media-modal-body-content .focusable')
+                    ) as HTMLElement;
+                    if (playBtn) {
+                      playBtn.focus();
+                      try { SpatialNavigation.focus(playBtn); } catch (err) {}
                     }
                   }
                 }}
