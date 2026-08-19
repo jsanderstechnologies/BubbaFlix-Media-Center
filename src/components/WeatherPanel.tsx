@@ -388,10 +388,10 @@ export default function WeatherPanel() {
           <img
             src={weatherBg.bgUrl}
             alt="Weather condition background"
-            className="w-full h-full object-cover opacity-60 scale-105 filter blur-[1px] transition-all duration-1000"
+            className="w-full h-full object-cover opacity-75 scale-105 filter blur-[1px] transition-all duration-1000"
           />
           <div className={`absolute inset-0 bg-gradient-to-t ${weatherBg.gradientOverlay} backdrop-blur-[1px]`} />
-          <div className="absolute inset-0 bg-black/40" />
+          <div className="absolute inset-0 bg-black/30" />
         </div>
       )}
 

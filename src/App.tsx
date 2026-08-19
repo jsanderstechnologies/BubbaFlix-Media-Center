@@ -669,7 +669,7 @@ function MainApp() {
     };
   }, [playingUrl, selectedMovie, isKeyboardOpen, activeTab]);
 
-  const activePoster = activeTab === 'music' ? '/music_backdrop.jpg' : (hoveredPoster || (selectedMovie?.poster) || backgroundPoster);
+  const activePoster = activeTab === 'weather' ? null : (activeTab === 'music' ? '/music_backdrop.jpg' : (hoveredPoster || (selectedMovie?.poster) || backgroundPoster));
 
   const selectRandomBackdrop = (itemsList: any[]) => {
     if (itemsList.length > 0) {
