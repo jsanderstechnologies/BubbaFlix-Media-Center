@@ -381,23 +381,23 @@ export default function WeatherPanel() {
   const weatherBg = weather ? getWeatherBackground(weather.current.weatherCode, weather.current.isDay) : null;
 
   return (
-    <div className="relative h-full w-full overflow-y-auto p-4 lg:p-6 space-y-6 text-white pb-24">
+    <div className="relative h-full w-full overflow-y-auto p-4 lg:p-6 text-white pb-24 min-h-screen">
       {/* Dynamic Condition Matching Background Image & Overlay */}
       {weatherBg && (
-        <div className="fixed inset-0 pointer-events-none -z-10 transition-all duration-700 ease-in-out">
+        <div className="fixed inset-0 pointer-events-none z-0 transition-all duration-700 ease-in-out">
           <img
             src={weatherBg.bgUrl}
             alt="Weather condition background"
-            className="w-full h-full object-cover opacity-35 scale-105 filter blur-[2px] transition-all duration-1000"
+            className="w-full h-full object-cover opacity-60 scale-105 filter blur-[1px] transition-all duration-1000"
           />
           <div className={`absolute inset-0 bg-gradient-to-t ${weatherBg.gradientOverlay} backdrop-blur-[1px]`} />
-          <div className="absolute inset-0 bg-[#050507]/40" />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
       )}
 
       {/* Fullscreen Radar Modal */}
       {isFullScreenRadar && weather && (
-        <div className="fixed top-20 left-20 right-0 bottom-0 z-40 bg-black flex flex-col border-t border-l border-white/10 shadow-2xl animate-in fade-in duration-200">
+        <div className="fixed top-20 left-20 right-0 bottom-0 z-50 bg-black flex flex-col border-t border-l border-white/10 shadow-2xl animate-in fade-in duration-200">
           <div className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-white/10 shrink-0">
             <div className="flex items-center gap-3">
               <Radio className="w-5 h-5 text-red-500 animate-pulse" />
@@ -454,6 +454,9 @@ export default function WeatherPanel() {
           </div>
         </div>
       )}
+
+      {/* Main Page Elements */}
+      <div className="relative z-10 space-y-6">
 
       {/* Header & Location Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-5">
@@ -703,6 +706,7 @@ export default function WeatherPanel() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }
