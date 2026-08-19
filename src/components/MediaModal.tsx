@@ -208,6 +208,24 @@ export default function MediaModal({
   const [manualTidbLoading, setManualTidbLoading] = useState(false);
   const currentTvFetchKeyRef = useRef<string>('');
 
+  const [resolvedTmdbId, setResolvedTmdbId] = useState<number | null>(null);
+  const [seasons, setSeasons] = useState<any[]>([]);
+  const [episodes, setEpisodes] = useState<any[]>([]);
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
+  const [watchedDocs, setWatchedDocs] = useState<Record<string, boolean>>({});
+  const [watchedDocsLoaded, setWatchedDocsLoaded] = useState<boolean>(false);
+  const [showTrailerModal, setShowTrailerModal] = useState(false);
+  const [selectedTrailerKey, setSelectedTrailerKey] = useState<string | null>(null);
+  const [seriesDetailsLoading, setSeriesDetailsLoading] = useState(false);
+  const [pollingActive, setPollingActive] = useState(false);
+  const [showFixMatchModal, setShowFixMatchModal] = useState(false);
+  const [fixMatchQuery, setFixMatchQuery] = useState('');
+  const [fixMatchResults, setFixMatchResults] = useState<any[]>([]);
+  const [fixMatchSearching, setFixMatchSearching] = useState(false);
+  const [fixMatchSaving, setFixMatchSaving] = useState<string | null>(null);
+  const [showSkipInfoModal, setShowSkipInfoModal] = useState(false);
+
   const [isActiveStreamsOpen, setIsActiveStreamsOpen] = useState(true);
   const [isAvailableStreamsOpen, setIsAvailableStreamsOpen] = useState(true);
 
@@ -342,7 +360,6 @@ export default function MediaModal({
   };
 
   const isSeries = movie?.type === 'series' || movie?.type === 'tv' || movie?.type === 'show' || movie?.type === 'tvseries' || !!movie?.first_air_date;
-  const [resolvedTmdbId, setResolvedTmdbId] = useState<number | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -554,14 +571,6 @@ export default function MediaModal({
     }
     return () => { isActive = false; };
   }, [movie, isSeries, resolvedTmdbId]);
-  const [seasons, setSeasons] = useState<any[]>([]);
-  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
-  const [episodes, setEpisodes] = useState<any[]>([]);
-  const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
-  const [watchedDocs, setWatchedDocs] = useState<Record<string, boolean>>({});
-  const [watchedDocsLoaded, setWatchedDocsLoaded] = useState<boolean>(false);
-  const [showTrailerModal, setShowTrailerModal] = useState(false);
-  const [selectedTrailerKey, setSelectedTrailerKey] = useState<string | null>(null);
 
   const savePersistedStreams = (finalStreamsList: any[]) => {
     const targetTmdbId = resolvedTmdbId || movie?.realTmdbId || movie?.tmdbId || movie?.id;
@@ -960,16 +969,8 @@ export default function MediaModal({
     setDevSelectedStreamUrl('');
     setLastPlayedStream(null);
   }
-  const [seriesDetailsLoading, setSeriesDetailsLoading] = useState(false);
-  const [pollingActive, setPollingActive] = useState(false);
 
   // Fix Match Modal State
-  const [showFixMatchModal, setShowFixMatchModal] = useState(false);
-  const [fixMatchQuery, setFixMatchQuery] = useState('');
-  const [fixMatchResults, setFixMatchResults] = useState<any[]>([]);
-  const [fixMatchSearching, setFixMatchSearching] = useState(false);
-  const [fixMatchSaving, setFixMatchSaving] = useState<string | null>(null);
-
   useEffect(() => {
     if (!showFixMatchModal) {
       SpatialNavigation.remove('fix-match-modal');
@@ -1007,8 +1008,6 @@ export default function MediaModal({
   }, [showFixMatchModal]);
 
   // Skip Info Modal State
-  const [showSkipInfoModal, setShowSkipInfoModal] = useState(false);
-
   useEffect(() => {
     if (!showSkipInfoModal) {
       SpatialNavigation.remove('skip-info-modal');
