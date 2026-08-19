@@ -319,6 +319,54 @@ export async function parseM3U(source: string) {
 const epgCache = new Map<string, { timestamp: number, data: any }>();
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
+function fallbackParseXmltv(xmlString: string) {
+  const channels: any[] = [];
+  const programs: any[] = [];
+
+  try {
+    // Parse <channel id="...">
+    const channelMatches = xmlString.matchAll(/<channel\s+id="([^"]+)"[^>]*>([\s\S]*?)<\/channel>/gi);
+    for (const m of channelMatches) {
+      const id = m[1];
+      const body = m[2];
+      const nameMatches = body.matchAll(/<display-name[^>]*>([^<]+)<\/display-name>/gi);
+      const displayNames = Array.from(nameMatches).map(n => ({ value: n[1].trim() }));
+      channels.push({ id, displayName: displayNames });
+    }
+
+    // Parse <programme start="..." stop="..." channel="...">
+    const progMatches = xmlString.matchAll(/<programme\s+([^>]+)>([\s\S]*?)<\/programme>/gi);
+    for (const m of progMatches) {
+      const attrStr = m[1];
+      const body = m[2];
+
+      const startMatch = attrStr.match(/start="([^"]+)"/i);
+      const stopMatch = attrStr.match(/stop="([^"]+)"/i);
+      const chanMatch = attrStr.match(/channel="([^"]+)"/i);
+
+      const titleMatches = body.matchAll(/<title[^>]*>([^<]+)<\/title>/gi);
+      const titles = Array.from(titleMatches).map(t => ({ value: t[1].trim() }));
+
+      const descMatches = body.matchAll(/<desc[^>]*>([^<]+)<\/desc>/gi);
+      const descs = Array.from(descMatches).map(d => ({ value: d[1].trim() }));
+
+      if (chanMatch) {
+        programs.push({
+          start: startMatch ? startMatch[1] : '',
+          stop: stopMatch ? stopMatch[1] : '',
+          channel: chanMatch[1],
+          title: titles,
+          desc: descs
+        });
+      }
+    }
+  } catch (e: any) {
+    console.error(`[Fallback XMLTV Parser Error]:`, e.message);
+  }
+
+  return { channels, programs };
+}
+
 /**
  * Fetches and parses an XMLTV EPG file
  * @param {string} source - URL or local path to the XMLTV file
@@ -335,17 +383,30 @@ export async function parseEPG(source: string) {
     let fileContent = "";
     if (source.startsWith('http://') || source.startsWith('https://')) {
       console.log(`[Backend] Fetching remote EPG file at: ${source}`);
-      const response = await axios.get(source, { responseType: 'text', timeout: 15000 });
+      const response = await axios.get(source, { responseType: 'text', timeout: 20000 });
       fileContent = response.data;
     } else {
       console.log(`[Backend] Reading local EPG file at: ${source}`);
       fileContent = fs.readFileSync(source, 'utf-8');
     }
     
-    console.log(`[Backend] Parsing EPG data... This might take a moment for large files.`);
-    const result = epgParser.parse(fileContent);
+    console.log(`[Backend] Parsing EPG data for ${source}...`);
+    // Sanitize unescaped ampersands that aren't valid XML entities
+    const sanitizedXml = fileContent.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+
+    let result = { channels: [], programs: [] };
+    try {
+      result = epgParser.parse(sanitizedXml);
+    } catch (parseErr: any) {
+      console.warn(`[Backend] Standard epgParser failed for "${source}", using fallback XMLTV parser: ${parseErr.message}`);
+      result = fallbackParseXmltv(sanitizedXml);
+    }
+
+    if (!result.channels.length && !result.programs.length) {
+      result = fallbackParseXmltv(sanitizedXml);
+    }
     
-    console.log(`[Backend] Successfully parsed EPG. Found ${result.channels.length} channels and ${result.programs.length} programs.`);
+    console.log(`[Backend] Successfully parsed EPG for ${source}. Found ${result.channels.length} channels and ${result.programs.length} programs.`);
     epgCache.set(source, { timestamp: now, data: result });
     
     return result;
@@ -7143,50 +7204,61 @@ Respond ONLY with valid JSON in this exact structure without markdown or explana
   });
 
 
-  // API Route: Test parsing EPG
+  // API Route: Test parsing & fetching EPG (Multi-source aggregation)
   app.post("/api/epg", async (req, res) => {
     try {
-      const { url } = req.body;
+      const { url } = req.body || {};
       const settings = readJson(SETTINGS_FILE);
 
-      if (url && !settings.iptvProviders?.length) {
-        const parsed = await parseEPG(url);
-        return res.json(parsed);
+      const epgUrlsToFetch = new Set<string>();
+      if (url && typeof url === 'string' && url.trim()) {
+        epgUrlsToFetch.add(url.trim());
+      }
+      if (settings.epgUrl && typeof settings.epgUrl === 'string' && settings.epgUrl.trim()) {
+        epgUrlsToFetch.add(settings.epgUrl.trim());
       }
 
-      let activeEpgUrl = '';
       if (settings.iptvProviders && Array.isArray(settings.iptvProviders)) {
-        const activeProv = settings.iptvProviders.find((p: any) => p.enabled);
-        if (activeProv) {
-          if (activeProv.epgUrl) {
-            activeEpgUrl = activeProv.epgUrl;
+        for (const prov of settings.iptvProviders) {
+          if (!prov.enabled) continue;
+          if (prov.epgUrl && typeof prov.epgUrl === 'string' && prov.epgUrl.trim()) {
+            epgUrlsToFetch.add(prov.epgUrl.trim());
           } else {
-            const sUrl = (activeProv.serverUrl || activeProv.xtreamServer || '').trim().replace(/\/+$/, '');
-            const uName = (activeProv.username || activeProv.xtreamUsername || '').trim();
-            const pPass = (activeProv.password || activeProv.xtreamPassword || '').trim();
+            const sUrl = (prov.serverUrl || prov.xtreamServer || '').trim().replace(/\/+$/, '');
+            const uName = (prov.username || prov.xtreamUsername || '').trim();
+            const pPass = (prov.password || prov.xtreamPassword || '').trim();
             if (sUrl && uName && pPass) {
-              activeEpgUrl = `${sUrl}/xmltv.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}`;
-            } else if (activeProv.url) {
-              const xtreamMatch = activeProv.url.match(/^(https?:\/\/[^\/]+)\/get\.php\?username=([^&]+)&password=([^&]+)/);
+              epgUrlsToFetch.add(`${sUrl}/xmltv.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}`);
+            } else if (prov.url) {
+              const xtreamMatch = prov.url.match(/^(https?:\/\/[^\/]+)\/get\.php\?username=([^&]+)&password=([^&]+)/);
               if (xtreamMatch) {
                 const [_, server, user, pass] = xtreamMatch;
-                activeEpgUrl = `${server}/xmltv.php?username=${user}&password=${pass}`;
+                epgUrlsToFetch.add(`${server}/xmltv.php?username=${user}&password=${pass}`);
               }
             }
           }
         }
       }
 
-      if (!activeEpgUrl) {
-        activeEpgUrl = url || settings.epgUrl;
-      }
-
-      if (!activeEpgUrl) {
+      if (epgUrlsToFetch.size === 0) {
         return res.json({ channels: [], programs: [] });
       }
 
-      const parsed = await parseEPG(activeEpgUrl);
-      return res.json(parsed);
+      const mergedChannels: any[] = [];
+      const mergedPrograms: any[] = [];
+
+      for (const eUrl of Array.from(epgUrlsToFetch)) {
+        try {
+          console.log(`[EPG API] Processing EPG source: "${eUrl}"`);
+          const parsed = await parseEPG(eUrl);
+          if (parsed?.channels?.length) mergedChannels.push(...parsed.channels);
+          if (parsed?.programs?.length) mergedPrograms.push(...parsed.programs);
+        } catch (e: any) {
+          console.warn(`[EPG API] Skipping EPG URL "${eUrl}" due to error: ${e.message}`);
+        }
+      }
+
+      return res.json({ channels: mergedChannels, programs: mergedPrograms });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

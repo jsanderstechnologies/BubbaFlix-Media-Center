@@ -164,6 +164,72 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
     setBaseTime(d);
   };
 
+  const extractString = (val: any): string => {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (Array.isArray(val)) {
+      const first = val[0];
+      if (typeof first === 'string') return first;
+      if (first?.value) return String(first.value);
+      if (first?._text) return String(first._text);
+    }
+    if (val.value) return String(val.value);
+    if (val._text) return String(val._text);
+    return String(val);
+  };
+
+  const sanitizeName = (str: string): string => {
+    if (!str) return '';
+    return str
+      .toLowerCase()
+      .replace(/^(us|uk|ca|de|fr|es|it|au|latin|mx|br|world)\s*[:\|\-]\s*/i, '') // strip country prefix like US| or US:
+      .replace(/\b(1080p|720p|4k|fhd|hd|sd|hevc|h265|raw|vip|us)\b/gi, '')       // strip quality/format tags
+      .replace(/[^a-z0-9]/gi, '');                                             // strip punctuation & spaces
+  };
+
+  const parseDateMs = (d: any): number => {
+    if (!d) return 0;
+    if (typeof d === 'number') return d;
+    if (typeof d === 'string') {
+      const m = d.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\s*([+-]\d{4}))?/);
+      if (m) {
+        const [_, y, month, day, h, min, s, tz] = m;
+        const tzFormatted = tz ? `${tz.slice(0,3)}:${tz.slice(3)}` : 'Z';
+        const isoStr = `${y}-${month}-${day}T${h}:${min}:${s}${tzFormatted}`;
+        const t = new Date(isoStr).getTime();
+        if (!isNaN(t)) return t;
+      }
+      const t = new Date(d).getTime();
+      if (!isNaN(t)) return t;
+    }
+    return 0;
+  };
+
+  const epgChannelMap = useMemo(() => {
+    if (!parsedEpg?.channels || !Array.isArray(parsedEpg.channels)) return new Map<string, string[]>();
+    const map = new Map<string, string[]>();
+
+    parsedEpg.channels.forEach((ch: any) => {
+      const id = (ch.id || '').toString().toLowerCase();
+      if (!id) return;
+      const aliases: string[] = [id, sanitizeName(id)];
+
+      if (Array.isArray(ch.displayName)) {
+        ch.displayName.forEach((dn: any) => {
+          const dStr = extractString(dn).toLowerCase();
+          if (dStr) {
+            aliases.push(dStr);
+            aliases.push(sanitizeName(dStr));
+          }
+        });
+      }
+
+      map.set(id, Array.from(new Set(aliases.filter(Boolean))));
+    });
+
+    return map;
+  }, [parsedEpg]);
+
   const timeBlocks = useMemo(() => {
     const blocks = [];
     const totalMinutes = timelineDurationHours * 60;
@@ -181,11 +247,39 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
     const chName = (channel.name || channel.title || '').toString().toLowerCase();
     const chTvgName = (channel.tvg?.name || '').toString().toLowerCase();
 
+    const normId = sanitizeName(chId);
+    const normName = sanitizeName(chName);
+    const normTvgName = sanitizeName(chTvgName);
+
     const channelPrograms = parsedEpg.programs.filter((p: any) => {
       if (!p.channel) return false;
       const pc = String(p.channel).toLowerCase();
-      return (chId && pc === chId) || (chName && pc === chName) || (chTvgName && pc === chTvgName);
+      const normPc = sanitizeName(pc);
+
+      // 1. Direct match
+      if (chId && pc === chId) return true;
+      if (chName && pc === chName) return true;
+      if (chTvgName && pc === chTvgName) return true;
+
+      // 2. Normalized sanitized match
+      if (normId && normPc === normId) return true;
+      if (normName && normPc === normName) return true;
+      if (normTvgName && normPc === normTvgName) return true;
+
+      // 3. XMLTV Channel display-name lookup
+      const aliases = epgChannelMap.get(pc);
+      if (aliases) {
+        if (chId && aliases.includes(chId)) return true;
+        if (chName && aliases.includes(chName)) return true;
+        if (chTvgName && aliases.includes(chTvgName)) return true;
+        if (normId && aliases.includes(normId)) return true;
+        if (normName && aliases.includes(normName)) return true;
+        if (normTvgName && aliases.includes(normTvgName)) return true;
+      }
+
+      return false;
     });
+
     if (!channelPrograms.length) return [];
 
     const timelineStartTime = baseTime.getTime();
@@ -193,20 +287,26 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
     
     return channelPrograms
       .map((p: any) => {
-        const startMs = new Date(new Date(p.start).getTime() + epgOffsetMs).getTime();
-        const stopMs = new Date(new Date(p.stop).getTime() + epgOffsetMs).getTime();
+        const rawStart = parseDateMs(p.start);
+        const rawStop = parseDateMs(p.stop);
+        const startMs = rawStart ? rawStart + epgOffsetMs : 0;
+        const stopMs = rawStop ? rawStop + epgOffsetMs : 0;
         return { ...p, startMs, stopMs };
       })
-      .filter((p: any) => {
-        return p.startMs < timelineEndTime && p.stopMs > timelineStartTime;
-      })
+      .filter((p: any) => p.startMs > 0 && p.stopMs > p.startMs && p.startMs < timelineEndTime && p.stopMs > timelineStartTime)
       .map((p: any) => {
         const leftMs = Math.max(0, p.startMs - timelineStartTime);
         const rightMs = Math.min(timelineEndTime - timelineStartTime, p.stopMs - timelineStartTime);
         const leftPx = (leftMs / 60000) * pixelsPerMinute;
-        const widthPx = ((rightMs - leftMs) / 60000) * pixelsPerMinute;
+        const widthPx = Math.max(10, ((rightMs - leftMs) / 60000) * pixelsPerMinute);
+        
+        const programTitle = extractString(p.title) || 'Unknown Program';
+        const programDesc = extractString(p.desc) || '';
+
         return {
           ...p,
+          displayTitle: programTitle,
+          displayDesc: programDesc,
           leftPx,
           widthPx,
           isCurrent: currentTime.getTime() >= p.startMs && currentTime.getTime() < p.stopMs
@@ -214,8 +314,9 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
       });
   };
 
-  const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatTimeMs = (ms: number) => {
+    if (!ms) return '';
+    return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -447,10 +548,10 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
                         className={`absolute top-0 bottom-0 border-r border-white/10 p-1 px-2 flex flex-col justify-center overflow-hidden whitespace-nowrap text-ellipsis
                           ${p.isCurrent ? 'border-b-2 border-b-emerald-500 bg-emerald-900/20 text-emerald-100' : 'bg-black/20 text-white hover:bg-white/10'}`}
                         style={{ left: `${p.leftPx}px`, width: `${p.widthPx}px` }}
-                        title={`${p.title?.[0]?.value} (${formatTime(p.start)} - ${formatTime(p.stop)})`}
+                        title={`${p.displayTitle} (${formatTimeMs(p.startMs)} - ${formatTimeMs(p.stopMs)}) ${p.displayDesc}`}
                       >
-                        <span className="text-[11px] font-medium truncate leading-tight">{p.title?.[0]?.value || 'Unknown Program'}</span>
-                        <span className="text-[9px] opacity-60 font-mono truncate hidden sm:block">{formatTime(p.start)} - {formatTime(p.stop)}</span>
+                        <span className="text-[11px] font-medium truncate leading-tight">{p.displayTitle}</span>
+                        <span className="text-[9px] opacity-60 font-mono truncate hidden sm:block">{formatTimeMs(p.startMs)} - {formatTimeMs(p.stopMs)}</span>
                       </div>
                     ))}
                     {programs.length === 0 && (
