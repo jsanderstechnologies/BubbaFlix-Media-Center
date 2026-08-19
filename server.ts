@@ -316,49 +316,74 @@ export async function parseM3U(source: string) {
 }
 
 // Global cache for EPG data to avoid parsing huge files repeatedly
-const epgCache = new Map<string, { timestamp: number, data: any }>();
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const epgCache = new Map<string, { timestamp: number, data: { channels: any[]; programs: any[] } }>();
+const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 function fallbackParseXmltv(xmlString: string) {
   const channels: any[] = [];
   const programs: any[] = [];
 
   try {
-    // Parse <channel id="...">
-    const channelMatches = xmlString.matchAll(/<channel\s+id="([^"]+)"[^>]*>([\s\S]*?)<\/channel>/gi);
-    for (const m of channelMatches) {
-      const id = m[1];
-      const body = m[2];
-      const nameMatches = body.matchAll(/<display-name[^>]*>([^<]+)<\/display-name>/gi);
-      const displayNames = Array.from(nameMatches).map(n => ({ value: n[1].trim() }));
+    // 1. Fast split channel blocks
+    const channelBlocks = xmlString.split(/<channel\s+/i);
+    for (let i = 1; i < channelBlocks.length; i++) {
+      const block = channelBlocks[i];
+      const endIdx = block.indexOf('</channel>');
+      const content = endIdx !== -1 ? block.slice(0, endIdx) : block;
+      
+      const idMatch = content.match(/^id="([^"]+)"/i);
+      if (!idMatch) continue;
+      const id = idMatch[1];
+      
+      const displayNames: any[] = [];
+      const dnRegex = /<display-name[^>]*>([^<]+)<\/display-name>/gi;
+      let dnMatch;
+      while ((dnMatch = dnRegex.exec(content)) !== null) {
+        displayNames.push({ value: dnMatch[1].trim() });
+      }
       channels.push({ id, displayName: displayNames });
     }
 
-    // Parse <programme start="..." stop="..." channel="...">
-    const progMatches = xmlString.matchAll(/<programme\s+([^>]+)>([\s\S]*?)<\/programme>/gi);
-    for (const m of progMatches) {
-      const attrStr = m[1];
-      const body = m[2];
+    // 2. Fast split programme blocks
+    const progBlocks = xmlString.split(/<programme\s+/i);
+    for (let i = 1; i < progBlocks.length; i++) {
+      const block = progBlocks[i];
+      const endIdx = block.indexOf('</programme>');
+      const content = endIdx !== -1 ? block.slice(0, endIdx) : block;
+
+      const headerEnd = content.indexOf('>');
+      if (headerEnd === -1) continue;
+      
+      const attrStr = content.slice(0, headerEnd);
+      const body = content.slice(headerEnd + 1);
+
+      const chanMatch = attrStr.match(/channel="([^"]+)"/i);
+      if (!chanMatch) continue;
 
       const startMatch = attrStr.match(/start="([^"]+)"/i);
       const stopMatch = attrStr.match(/stop="([^"]+)"/i);
-      const chanMatch = attrStr.match(/channel="([^"]+)"/i);
 
-      const titleMatches = body.matchAll(/<title[^>]*>([^<]+)<\/title>/gi);
-      const titles = Array.from(titleMatches).map(t => ({ value: t[1].trim() }));
-
-      const descMatches = body.matchAll(/<desc[^>]*>([^<]+)<\/desc>/gi);
-      const descs = Array.from(descMatches).map(d => ({ value: d[1].trim() }));
-
-      if (chanMatch) {
-        programs.push({
-          start: startMatch ? startMatch[1] : '',
-          stop: stopMatch ? stopMatch[1] : '',
-          channel: chanMatch[1],
-          title: titles,
-          desc: descs
-        });
+      const titles: any[] = [];
+      const titleRegex = /<title[^>]*>([^<]+)<\/title>/gi;
+      let tMatch;
+      while ((tMatch = titleRegex.exec(body)) !== null) {
+        titles.push({ value: tMatch[1].trim() });
       }
+
+      const descs: any[] = [];
+      const descRegex = /<desc[^>]*>([^<]+)<\/desc>/gi;
+      let dMatch;
+      while ((dMatch = descRegex.exec(body)) !== null) {
+        descs.push({ value: dMatch[1].trim() });
+      }
+
+      programs.push({
+        start: startMatch ? startMatch[1] : '',
+        stop: stopMatch ? stopMatch[1] : '',
+        channel: chanMatch[1],
+        title: titles,
+        desc: descs
+      });
     }
   } catch (e: any) {
     console.error(`[Fallback XMLTV Parser Error]:`, e.message);
@@ -383,14 +408,18 @@ export async function parseEPG(source: string) {
     let fileContent = "";
     if (source.startsWith('http://') || source.startsWith('https://')) {
       console.log(`[Backend] Fetching remote EPG file at: ${source}`);
-      const response = await axios.get(source, { responseType: 'text', timeout: 20000 });
+      const response = await axios.get(source, { 
+        responseType: 'text', 
+        timeout: 25000, 
+        maxContentLength: 100 * 1024 * 1024 
+      });
       fileContent = response.data;
     } else {
       console.log(`[Backend] Reading local EPG file at: ${source}`);
       fileContent = fs.readFileSync(source, 'utf-8');
     }
     
-    console.log(`[Backend] Parsing EPG data for ${source}...`);
+    console.log(`[Backend] Parsing EPG data for ${source} (${(fileContent.length / 1024 / 1024).toFixed(1)} MB)...`);
     // Sanitize unescaped ampersands that aren't valid XML entities
     const sanitizedXml = fileContent.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
 
@@ -398,15 +427,21 @@ export async function parseEPG(source: string) {
     try {
       result = epgParser.parse(sanitizedXml);
     } catch (parseErr: any) {
-      console.warn(`[Backend] Standard epgParser failed for "${source}", using fallback XMLTV parser: ${parseErr.message}`);
+      console.warn(`[Backend] Standard epgParser failed for "${source}", using fallback fast XMLTV parser: ${parseErr.message}`);
       result = fallbackParseXmltv(sanitizedXml);
     }
 
-    if (!result.channels.length && !result.programs.length) {
+    if (!result.channels?.length && !result.programs?.length) {
       result = fallbackParseXmltv(sanitizedXml);
     }
+
+    // Memory Guard: Prune cache size if growing too large
+    if (epgCache.size > 5) {
+      const oldestKey = epgCache.keys().next().value;
+      if (oldestKey) epgCache.delete(oldestKey);
+    }
     
-    console.log(`[Backend] Successfully parsed EPG for ${source}. Found ${result.channels.length} channels and ${result.programs.length} programs.`);
+    console.log(`[Backend] Successfully parsed EPG for ${source}. Found ${result.channels?.length || 0} channels and ${result.programs?.length || 0} programs.`);
     epgCache.set(source, { timestamp: now, data: result });
     
     return result;
@@ -4415,6 +4450,9 @@ app.get('/api/youtube/search', async (req, res) => {
     ffmpegProcess.stderr.on('data', (data) => {
       const str = data.toString();
       errorOutput += str;
+      if (errorOutput.length > 50000) {
+        errorOutput = errorOutput.slice(-25000);
+      }
       const isTransientReconnect = str.includes('Will reconnect') || str.includes('Stream ends prematurely') || str.includes('IO error') || str.includes('End of file');
       if (isTransientReconnect) {
         console.log('[FFmpeg Network Reconnect]', str.trim());
