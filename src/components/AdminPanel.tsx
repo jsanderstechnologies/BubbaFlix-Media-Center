@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './Auth';
-import { Trash2, UserCog, ShieldCheck, ShieldAlert, Shield, Plus, X, Check, Clock, Ban, Lock, Unlock, KeyRound, Copy, Tv, Music, CloudSun, Newspaper, Mail } from 'lucide-react';
+import { Trash2, UserCog, ShieldCheck, ShieldAlert, Shield, Plus, X, Check, Clock, Ban, Lock, Unlock, KeyRound, Copy, Tv, Music, CloudSun, Newspaper, Mail, Pencil } from 'lucide-react';
 
 interface UserData {
   uid: string;
@@ -26,6 +26,56 @@ export default function AdminPanel() {
   const [addError, setAddError] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [resetModalData, setResetModalData] = useState<{username: string, password: string} | null>(null);
+
+  // Edit User State
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [editUsername, setEditUsername] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRole, setEditRole] = useState('user');
+  const [editPassword, setEditPassword] = useState('');
+  const [editAllowedSections, setEditAllowedSections] = useState<string[]>(['tv', 'music', 'weather', 'news']);
+  const [editError, setEditError] = useState('');
+
+  const openEditModal = (u: UserData) => {
+    setEditingUser(u);
+    setEditUsername(u.username || '');
+    setEditEmail(u.email || '');
+    setEditRole(u.role || 'user');
+    setEditPassword('');
+    setEditAllowedSections(u.allowedSections || ['tv', 'music', 'weather', 'news']);
+    setEditError('');
+  };
+
+  const handleSaveUserEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setEditError('');
+    try {
+      const token = getAdminToken();
+      const body: any = {
+        username: editUsername.trim(),
+        email: editEmail.trim(),
+        role: editRole,
+        allowedSections: editAllowedSections,
+      };
+      if (editPassword.trim()) {
+        body.password = editPassword.trim();
+      }
+
+      const res = await fetch(`/api/admin/users/${editingUser.uid}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update user');
+
+      setEditingUser(null);
+      fetchUsers();
+    } catch (err: any) {
+      setEditError(err.message);
+    }
+  };
 
   const getAdminToken = () => {
     return localStorage.getItem('authToken') || localStorage.getItem('token') || (user as any)?.token || '';
@@ -473,6 +523,12 @@ export default function AdminPanel() {
                         </button>
                       )}
 
+                      <button onClick={() => openEditModal(u)}
+                        className="focusable px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-semibold rounded transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Edit User Profile & Password">
+                        <Pencil className="w-3.5 h-3.5" /> Edit
+                      </button>
+
                       <button onClick={() => handleResetPassword(u.uid, u.username)}
                         className="focusable px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-semibold rounded transition-colors flex items-center gap-1 cursor-pointer"
                         title="Reset Password">
@@ -510,12 +566,143 @@ export default function AdminPanel() {
                 </tr>
               ))}
               {approvedUsers.length === 0 && (
-                <tr><td colSpan={4} className="p-8 text-center text-white/50">No users found.</td></tr>
+                <tr><td colSpan={5} className="p-8 text-center text-white/50">No users found.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[999]">
+          <div className="bg-[#141417] border border-white/10 rounded-2xl p-6 max-w-lg w-full space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <UserCog className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-lg font-bold text-white">Edit User: {editingUser.username}</h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setEditingUser(null)}
+                className="text-white/50 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editError && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-xs font-medium">
+                {editError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveUserEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-white/60 mb-1">Username</label>
+                <input 
+                  type="text" 
+                  value={editUsername} 
+                  onChange={(e) => setEditUsername(e.target.value)} 
+                  required 
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3.5 py-2 text-white text-sm focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-white/60 mb-1">Email Address</label>
+                <input 
+                  type="email" 
+                  value={editEmail} 
+                  onChange={(e) => setEditEmail(e.target.value)} 
+                  required 
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3.5 py-2 text-white text-sm focus:border-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-white/60 mb-1">Role</label>
+                <select 
+                  value={editRole} 
+                  onChange={(e) => setEditRole(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3.5 py-2 text-white text-sm focus:border-indigo-500 outline-none"
+                >
+                  <option value="user">USER</option>
+                  <option value="admin">ADMIN</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-white/60 mb-1">New Password (leave blank to keep current password)</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter new password to update..." 
+                  value={editPassword} 
+                  onChange={(e) => setEditPassword(e.target.value)} 
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3.5 py-2 text-white text-sm focus:border-indigo-500 outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-white/60 mb-2">Navbar Section Access</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'tv', label: 'Live TV', icon: Tv },
+                    { id: 'music', label: 'Music', icon: Music },
+                    { id: 'weather', label: 'Weather', icon: CloudSun },
+                    { id: 'news', label: 'News', icon: Newspaper },
+                  ].map(sec => {
+                    const Icon = sec.icon;
+                    const isChecked = editAllowedSections.includes(sec.id);
+                    return (
+                      <label 
+                        key={sec.id}
+                        className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors text-xs font-semibold ${
+                          isChecked 
+                            ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-200' 
+                            : 'bg-black/40 border-white/10 text-white/40'
+                        }`}
+                      >
+                        <input 
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditAllowedSections([...editAllowedSections, sec.id]);
+                            } else {
+                              setEditAllowedSections(editAllowedSections.filter(id => id !== sec.id));
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <Icon className="w-4 h-4" />
+                        <span>{sec.label}</span>
+                        {isChecked && <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold tracking-wider transition-colors cursor-pointer"
+                >
+                  SAVE CHANGES
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Password Reset Modal */}
       {resetModalData && (

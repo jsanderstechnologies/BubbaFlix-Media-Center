@@ -3506,6 +3506,59 @@ Do not include markdown blocks or extra text.`;
     });
   });
 
+  // /api/admin/users/:uid PUT — update user profile, role, permissions, and/or password
+  app.put('/api/admin/users/:uid', requireAdmin, async (req, res) => {
+    const { username, email, role, allowedSections, password } = req.body;
+    const users = readJson(USERS_FILE);
+    const targetUser = users[req.params.uid];
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    // Validate email uniqueness if changing email
+    if (email && email.trim().toLowerCase() !== (targetUser.email || '').toLowerCase()) {
+      const emailExists = Object.values(users).some((u: any) => u.uid !== req.params.uid && (u.email || '').toLowerCase() === email.trim().toLowerCase());
+      if (emailExists) return res.status(400).json({ error: 'Email address is already in use by another account' });
+      targetUser.email = email.trim();
+    }
+
+    // Validate username uniqueness if changing username
+    if (username && username.trim().toLowerCase() !== (targetUser.username || '').toLowerCase()) {
+      const usernameExists = Object.values(users).some((u: any) => u.uid !== req.params.uid && (u.username || '').toLowerCase() === username.trim().toLowerCase());
+      if (usernameExists) return res.status(400).json({ error: 'Username is already taken by another account' });
+      targetUser.username = username.trim();
+    }
+
+    if (role && ['user', 'admin'].includes(role)) {
+      targetUser.role = role;
+    }
+
+    if (Array.isArray(allowedSections)) {
+      targetUser.allowedSections = allowedSections;
+    }
+
+    // Update password if provided and non-empty
+    if (password && typeof password === 'string' && password.trim().length > 0) {
+      const pwd = password.trim();
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = crypto.scryptSync(pwd, salt, 64).toString('hex');
+      targetUser.salt = salt;
+      targetUser.hash = hash;
+      targetUser.rawPassword = pwd;
+    }
+
+    writeJson(USERS_FILE, users);
+    res.json({
+      success: true,
+      user: {
+        uid: targetUser.uid,
+        email: targetUser.email,
+        username: targetUser.username,
+        role: targetUser.role,
+        status: targetUser.status,
+        allowedSections: targetUser.allowedSections
+      }
+    });
+  });
+
   // /api/admin/users/:uid/role PUT
   app.put('/api/admin/users/:uid/role', requireAdmin, (req, res) => {
     const { role } = req.body;
