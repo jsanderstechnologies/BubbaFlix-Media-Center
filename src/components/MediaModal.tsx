@@ -2207,24 +2207,11 @@ export default function MediaModal({
                       e.preventDefault();
                       e.stopPropagation();
                       const firstBodyEl = (
-                        document.querySelector('#stream-select-dropdown') ||
                         document.querySelector('#season-select-dropdown') ||
+                        document.querySelector('#stream-select-dropdown') ||
                         document.querySelector('#media-modal-body-content select, #media-modal-body-content button, #media-modal-body-content .focusable')
                       ) as HTMLElement;
                       if (firstBodyEl) firstBodyEl.focus();
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const closeBtn = document.getElementById('media-modal-close-btn');
-                      if (closeBtn) closeBtn.focus();
-                    } else if (e.key === 'ArrowRight') {
-                      const headerBtns = Array.from(e.currentTarget.querySelectorAll('.focusable')) as HTMLElement[];
-                      if (headerBtns.length > 0 && document.activeElement === headerBtns[headerBtns.length - 1]) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const closeBtn = document.getElementById('media-modal-close-btn');
-                        if (closeBtn) closeBtn.focus();
-                      }
                     }
                   }}
                 >
@@ -2308,10 +2295,7 @@ export default function MediaModal({
                 if (activeEl === focusables[0] || activeEl === focusables[1] || activeEl === focusables[2]) {
                   e.preventDefault();
                   e.stopPropagation();
-                  const headerBtn = (
-                    document.querySelector('#media-modal-header-actions .focusable') ||
-                    document.getElementById('media-modal-close-btn')
-                  ) as HTMLElement;
+                  const headerBtn = document.querySelector('#media-modal-header-actions .focusable') as HTMLElement;
                   if (headerBtn) headerBtn.focus();
                 }
               }
@@ -2373,10 +2357,7 @@ export default function MediaModal({
                             if (!selectEl || selectEl.selectedIndex <= 0) {
                               e.preventDefault();
                               e.stopPropagation();
-                              const headerBtn = (
-                                document.querySelector('#media-modal-header-actions .focusable') ||
-                                document.getElementById('media-modal-close-btn')
-                              ) as HTMLElement;
+                              const headerBtn = document.querySelector('#media-modal-header-actions .focusable') as HTMLElement;
                               if (headerBtn) headerBtn.focus();
                             }
                           }
@@ -2425,8 +2406,7 @@ export default function MediaModal({
                                   e.stopPropagation();
                                   const prevTarget = (
                                     document.querySelector('#season-select-dropdown') ||
-                                    document.querySelector('#media-modal-header-actions .focusable') ||
-                                    document.getElementById('media-modal-close-btn')
+                                    document.querySelector('#media-modal-header-actions .focusable')
                                   ) as HTMLElement;
                                   if (prevTarget) prevTarget.focus();
                                 }
@@ -2534,8 +2514,7 @@ export default function MediaModal({
                       const target = (
                         document.querySelector('#episode-select-dropdown') ||
                         document.querySelector('#season-select-dropdown') ||
-                        document.querySelector('#media-modal-header-actions .focusable') ||
-                        document.getElementById('media-modal-close-btn')
+                        document.querySelector('#media-modal-header-actions .focusable')
                       ) as HTMLElement;
                       if (target) target.focus();
                     }
