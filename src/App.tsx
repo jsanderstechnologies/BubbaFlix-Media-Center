@@ -2018,6 +2018,7 @@ function MainApp() {
                       className="px-4 py-1.5 bg-white/5 rounded text-xs font-bold tracking-wider border border-white/10 outline-none appearance-none cursor-pointer hover:bg-white/10"
                     >
                       <option value="default" className="bg-slate-900 text-white">SORT: DEFAULT</option>
+                      <option value="alphabetical" className="bg-slate-900 text-white">SORT: ALPHABETICAL (A-Z)</option>
                       <option value="newest" className="bg-slate-900 text-white">SORT: NEWEST</option>
                       <option value="oldest" className="bg-slate-900 text-white">SORT: OLDEST</option>
                       <option value="rating_high" className="bg-slate-900 text-white">SORT: RATING (HIGH)</option>
@@ -2112,6 +2113,7 @@ function MainApp() {
                       className="px-4 py-1.5 bg-white/5 rounded text-xs font-bold tracking-wider border border-white/10 outline-none appearance-none cursor-pointer hover:bg-white/10"
                     >
                       <option value="default" className="bg-slate-900 text-white">SORT: DEFAULT</option>
+                      <option value="alphabetical" className="bg-slate-900 text-white">SORT: ALPHABETICAL (A-Z)</option>
                       <option value="newest" className="bg-slate-900 text-white">SORT: NEWEST</option>
                       <option value="oldest" className="bg-slate-900 text-white">SORT: OLDEST</option>
                       <option value="rating_high" className="bg-slate-900 text-white">SORT: RATING (HIGH)</option>

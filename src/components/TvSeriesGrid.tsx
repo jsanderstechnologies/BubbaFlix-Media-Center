@@ -104,7 +104,7 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
     processedSeries.sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0));
   } else if (sortOption === 'rating_low') {
     processedSeries.sort((a, b) => parseFloat(a.rating || 0) - parseFloat(b.rating || 0));
-  } else if (sortOption === 'title_asc' || sortOption === 'title' || sortOption === 'name') {
+  } else if (sortOption === 'title_asc' || sortOption === 'title' || sortOption === 'name' || sortOption === 'alphabetical') {
     processedSeries.sort((a: any, b: any) => getSortableTitle(a.title || a.name).localeCompare(getSortableTitle(b.title || b.name), undefined, { sensitivity: 'base', numeric: true }));
   } else if (sortOption === 'title_desc') {
     processedSeries.sort((a: any, b: any) => getSortableTitle(b.title || b.name).localeCompare(getSortableTitle(a.title || a.name), undefined, { sensitivity: 'base', numeric: true }));

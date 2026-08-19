@@ -103,7 +103,7 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
     processedMovies.sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0));
   } else if (sortOption === 'rating_low') {
     processedMovies.sort((a, b) => parseFloat(a.rating || 0) - parseFloat(b.rating || 0));
-  } else if (sortOption === 'title_asc' || sortOption === 'title' || sortOption === 'name') {
+  } else if (sortOption === 'title_asc' || sortOption === 'title' || sortOption === 'name' || sortOption === 'alphabetical') {
     processedMovies.sort((a: any, b: any) => getSortableTitle(a.title || a.name).localeCompare(getSortableTitle(b.title || b.name), undefined, { sensitivity: 'base', numeric: true }));
   } else if (sortOption === 'title_desc') {
     processedMovies.sort((a: any, b: any) => getSortableTitle(b.title || b.name).localeCompare(getSortableTitle(a.title || a.name), undefined, { sensitivity: 'base', numeric: true }));
