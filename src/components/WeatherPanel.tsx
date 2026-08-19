@@ -276,12 +276,6 @@ export default function WeatherPanel() {
     return directions[Math.round(deg / 45) % 8];
   };
 
-  const getNwsRadarUrl = (lat: number, lon: number) => {
-    const settingsObj = { lat, lng: lon, zoom: 8, animating: true };
-    const b64 = btoa(JSON.stringify(settingsObj));
-    return `https://radar.weather.gov/?settings=v1_${b64}#/`;
-  };
-
   const getRadarIframeUrl = () => {
     if (!weather) return 'https://embed.windy.com/';
     if (radarProvider === 'rainviewer') {
@@ -296,8 +290,23 @@ export default function WeatherPanel() {
     return `https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=in&metricTemp=%C2%B0F&radarRange=-1&overlay=radar&product=radar&level=surface&lat=${weather.lat}&lon=${weather.lon}&zoom=8`;
   };
 
+  const weatherBg = weather ? getWeatherBackground(weather.current.weatherCode, weather.current.isDay) : null;
+
   return (
-    <div className="h-full w-full overflow-y-auto p-4 lg:p-6 space-y-6 text-white pb-24">
+    <div className="relative h-full w-full overflow-y-auto p-4 lg:p-6 space-y-6 text-white pb-24">
+      {/* Dynamic Condition Matching Background Image & Overlay */}
+      {weatherBg && (
+        <div className="fixed inset-0 pointer-events-none -z-10 transition-all duration-700 ease-in-out">
+          <img
+            src={weatherBg.bgUrl}
+            alt="Weather condition background"
+            className="w-full h-full object-cover opacity-35 scale-105 filter blur-[2px] transition-all duration-1000"
+          />
+          <div className={`absolute inset-0 bg-gradient-to-t ${weatherBg.gradientOverlay} backdrop-blur-[1px]`} />
+          <div className="absolute inset-0 bg-[#050507]/40" />
+        </div>
+      )}
+
       {/* Fullscreen Radar Modal */}
       {isFullScreenRadar && weather && (
         <div className="fixed top-20 left-20 right-0 bottom-0 z-40 bg-black flex flex-col border-t border-l border-white/10 shadow-2xl animate-in fade-in duration-200">
