@@ -199,20 +199,17 @@ function MainApp() {
     }
   }, [user, activeTab]);
 
-  // When a navbar tab is selected, automatically move focus to the top-left first poster/card on the page
+  // When a navbar tab is selected, automatically set focus to the active navbar tab button
   useEffect(() => {
     const timer = setTimeout(() => {
-      const firstPoster = (
-        document.getElementById('library-first-poster') ||
-        document.getElementById('catalog-first-poster') ||
-        document.getElementById('tv-first-poster') ||
-        document.querySelector('#library-grid-container .focusable, #catalog-grid-container .focusable, #tv-grid-container .focusable, main .focusable, #main-content-view .focusable, main [tabindex="0"]')
-      ) as HTMLElement;
-      if (firstPoster) {
-        firstPoster.focus({ preventScroll: false });
-        firstPoster.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const activeNavBtn = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
+      if (activeNavBtn) {
+        try {
+          activeNavBtn.focus({ preventScroll: false });
+          SpatialNavigation.focus(activeNavBtn);
+        } catch (err) {}
       }
-    }, 150);
+    }, 100);
     return () => clearTimeout(timer);
   }, [activeTab]);
 
@@ -285,22 +282,15 @@ function MainApp() {
             } catch (e) {}
           }
 
-          // 2. Fallback to first focusable item in main content view
-          const firstMainFocusable = document.querySelector('#main-content-view .focusable, main .focusable, main button, main [tabindex="0"]') as HTMLElement;
-          if (firstMainFocusable) {
-            try {
-              firstMainFocusable.focus({ preventScroll: false });
-              SpatialNavigation.focus(firstMainFocusable);
-              return;
-            } catch (e) {}
-          }
-
-          // 3. Fallback to current navbar tab
+          // 2. Fallback to current navbar tab or first content item
           const activeNavEl = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
-          if (activeNavEl) {
+          const firstMainFocusable = document.querySelector('#main-content-view .focusable:not(#auth-user-button), main .focusable:not(#auth-user-button)') as HTMLElement;
+          const targetEl = activeNavEl || firstMainFocusable;
+          if (targetEl) {
             try {
-              activeNavEl.focus({ preventScroll: false });
-              SpatialNavigation.focus(activeNavEl);
+              targetEl.focus({ preventScroll: false });
+              SpatialNavigation.focus(targetEl);
+              return;
             } catch (e) {}
           }
         }, delay);
@@ -470,20 +460,14 @@ function MainApp() {
             SpatialNavigation.focus(lastEl);
           } catch (err) {}
         } else {
-          const firstMain = document.querySelector('#main-content-view .focusable, main .focusable, main button, main [tabindex="0"]') as HTMLElement;
-          if (firstMain) {
+          const activeNavEl = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
+          const firstMain = document.querySelector('#main-content-view .focusable:not(#auth-user-button), main .focusable:not(#auth-user-button)') as HTMLElement;
+          const targetToFocus = activeNavEl || firstMain;
+          if (targetToFocus) {
             try {
-              firstMain.focus({ preventScroll: false });
-              SpatialNavigation.focus(firstMain);
+              targetToFocus.focus({ preventScroll: false });
+              SpatialNavigation.focus(targetToFocus);
             } catch (err) {}
-          } else {
-            const activeNavEl = document.getElementById(`nav-tab-${activeTab}`) || document.getElementById('nav-tab-home');
-            if (activeNavEl) {
-              try {
-                activeNavEl.focus({ preventScroll: false });
-                SpatialNavigation.focus(activeNavEl);
-              } catch (err) {}
-            }
           }
         }
       }
