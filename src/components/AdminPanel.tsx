@@ -228,7 +228,7 @@ export default function AdminPanel() {
   };
 
   const handleResendWelcome = async (uid: string, username: string, email: string) => {
-    if (!confirm(`Resend welcome email to ${username} (${email}) with TV app Downloader code 6119212?`)) return;
+    if (!confirm(`Resend welcome email to ${username} (${email})?`)) return;
     try {
       const token = getAdminToken();
       const res = await fetch(`/api/admin/users/${uid}/send-welcome`, {
@@ -537,7 +537,7 @@ export default function AdminPanel() {
 
                       <button onClick={() => handleResendWelcome(u.uid, u.username, u.email)}
                         className="focusable px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-semibold rounded transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Resend Welcome Email with credentials & TV app Downloader code 6119212">
+                        title="Resend Welcome Email with account credentials">
                         <Mail className="w-3.5 h-3.5" /> Welcome Email
                       </button>
 
