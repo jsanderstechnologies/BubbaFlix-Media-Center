@@ -2229,114 +2229,83 @@ export default function MediaModal({
                       )}
                   </div>
                 </div>
-                <div 
-                  id="media-modal-header-actions" 
-                  className="flex items-center gap-2.5 shrink-0 flex-wrap"
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowDown') {
-                      const firstBodyEl = (
-                        document.querySelector('#season-select-dropdown') ||
-                        document.querySelector('#episode-select-dropdown') ||
-                        document.querySelector('#stream-select-dropdown') ||
-                        document.querySelector('#play-selected-stream-btn') ||
-                        document.querySelector('#media-modal-body-content select, #media-modal-body-content button, #media-modal-body-content input, #media-modal-body-content .focusable')
-                      ) as HTMLElement;
-                      if (firstBodyEl) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        firstBodyEl.focus();
-                        try { SpatialNavigation.focus(firstBodyEl); } catch (err) {}
-                      }
-                    }
-                  }}
-                >
-                  <button 
-                    onClick={handleOpenFixMatch}
-                    className="focusable flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors bg-white/10 text-white hover:bg-white/20 border border-white/15"
-                    title="Correct title, poster and TMDB match"
-                  >
-                    <Sparkles className="w-4.5 h-4.5 text-red-500" />
-                    Fix Match
-                  </button>
-                  {isSeries && (
-                    <button
-                      type="button"
-                      onClick={handleManualTidbSearch}
-                      disabled={manualTidbLoading}
-                      className="focusable flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors shrink-0 bg-indigo-600/30 text-indigo-200 border border-indigo-500/40 hover:bg-indigo-600/40 disabled:opacity-50 cursor-pointer"
-                      title="Manually search TheIntroDB (TIDB) for intro and credit skip timestamps"
-                    >
-                      {manualTidbLoading ? <RefreshCw className="w-4.5 h-4.5 animate-spin text-indigo-400" /> : <Zap className="w-4.5 h-4.5 text-amber-400" />}
-                      <span>{manualTidbLoading ? 'Searching TIDB...' : 'Search TIDB Skips'}</span>
-                    </button>
-                  )}
-                  {user && !isSeries && (
-                    <button 
-                      type="button"
-                      onClick={() => toggleWatched('movie')}
-                      className={`focusable flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors shrink-0 ${
-                        watchedDocs['movie']
-                          ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-600/40'
-                          : 'bg-white/10 text-white border border-white/15 hover:bg-white/20'
-                      }`}
-                      title={watchedDocs['movie'] ? 'Mark Movie Unwatched' : 'Mark Movie Watched'}
-                    >
-                      <CheckCircle className={`w-4.5 h-4.5 ${watchedDocs['movie'] ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/70'}`} />
-                      {watchedDocs['movie'] ? 'Watched' : 'Mark Watched'}
-                    </button>
-                  )}
-                  {user && (
-                    <button 
-                      onClick={toggleFavorite}
-                      disabled={favoriteLoading}
-                      className={`focusable flex items-center gap-2 px-4.5 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors shrink-0
-                        ${isFavorite 
-                          ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/40' 
-                          : 'bg-white/10 text-white border border-white/15 hover:bg-white/20'}`}
-                      title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
-                    >
-                      {isFavorite ? <BookmarkCheck className="w-4.5 h-4.5" /> : <Bookmark className="w-4.5 h-4.5" />}
-                      {isFavorite ? 'Favorited' : 'Add To Favorites'}
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const key = (extraDetails as any)?.trailerKey;
-                      setSelectedTrailerKey(key || 'search');
-                      setShowTrailerModal(true);
-                    }}
-                    className="focusable flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold tracking-wider uppercase bg-red-600/30 text-red-300 border border-red-500/40 hover:bg-red-600/40 transition-colors shrink-0 cursor-pointer shadow-md"
-                    title="Watch Official YouTube Trailer"
-                  >
-                    <Video className="w-4.5 h-4.5 text-red-400" />
-                    Watch Trailer
-                  </button>
-                </div>
             </div>
         </div>
 
-
+        {/* Unified Navigational Body Container - All controls in single DOM container for smooth SpatialNavigation */}
         <div 
           id="media-modal-body-content" 
           className="p-6 overflow-y-auto flex-1 space-y-6 custom-scrollbar w-full"
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowUp') {
-              const bodyContent = document.getElementById('media-modal-body-content');
-              if (bodyContent && bodyContent.scrollTop < 25) {
-                const focusables = Array.from(bodyContent.querySelectorAll('.focusable, select, button, input')) as HTMLElement[];
-                const activeEl = document.activeElement as HTMLElement;
-                if (activeEl === focusables[0] || activeEl === focusables[1] || activeEl === focusables[2]) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const headerBtn = document.querySelector('#media-modal-header-actions .focusable') as HTMLElement;
-                  if (headerBtn) headerBtn.focus();
-                }
-              }
-            }
-          }}
         >
+          {/* Action Toolbar Controls */}
+          <div 
+            id="media-modal-header-actions" 
+            className="flex items-center gap-2.5 flex-wrap pb-4 border-b border-white/10"
+          >
+            <button 
+              onClick={handleOpenFixMatch}
+              className="focusable flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors bg-white/10 text-white hover:bg-white/20 border border-white/15 focus:outline-none focus:ring-2 focus:ring-red-500"
+              title="Correct title, poster and TMDB match"
+            >
+              <Sparkles className="w-4.5 h-4.5 text-red-500" />
+              Fix Match
+            </button>
+            {isSeries && (
+              <button
+                type="button"
+                onClick={handleManualTidbSearch}
+                disabled={manualTidbLoading}
+                className="focusable flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors shrink-0 bg-indigo-600/30 text-indigo-200 border border-indigo-500/40 hover:bg-indigo-600/40 disabled:opacity-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                title="Manually search TheIntroDB (TIDB) for intro and credit skip timestamps"
+              >
+                {manualTidbLoading ? <RefreshCw className="w-4.5 h-4.5 animate-spin text-indigo-400" /> : <Zap className="w-4.5 h-4.5 text-amber-400" />}
+                <span>{manualTidbLoading ? 'Searching TIDB...' : 'Search TIDB Skips'}</span>
+              </button>
+            )}
+            {user && !isSeries && (
+              <button 
+                type="button"
+                onClick={() => toggleWatched('movie')}
+                className={`focusable flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                  watchedDocs['movie']
+                    ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-600/40'
+                    : 'bg-white/10 text-white border border-white/15 hover:bg-white/20'
+                }`}
+                title={watchedDocs['movie'] ? 'Mark Movie Unwatched' : 'Mark Movie Watched'}
+              >
+                <CheckCircle className={`w-4.5 h-4.5 ${watchedDocs['movie'] ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/70'}`} />
+                {watchedDocs['movie'] ? 'Watched' : 'Mark Watched'}
+              </button>
+            )}
+            {user && (
+              <button 
+                onClick={toggleFavorite}
+                disabled={favoriteLoading}
+                className={`focusable flex items-center gap-2 px-4.5 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-emerald-400
+                  ${isFavorite 
+                    ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/40' 
+                    : 'bg-white/10 text-white border border-white/15 hover:bg-white/20'}`}
+                title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+              >
+                {isFavorite ? <BookmarkCheck className="w-4.5 h-4.5" /> : <Bookmark className="w-4.5 h-4.5" />}
+                {isFavorite ? 'Favorited' : 'Add To Favorites'}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                const key = (extraDetails as any)?.trailerKey;
+                setSelectedTrailerKey(key || 'search');
+                setShowTrailerModal(true);
+              }}
+              className="focusable flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold tracking-wider uppercase bg-red-600/30 text-red-300 border border-red-500/40 hover:bg-red-600/40 transition-colors shrink-0 cursor-pointer shadow-md focus:outline-none focus:ring-2 focus:ring-red-400"
+              title="Watch Official YouTube Trailer"
+            >
+              <Video className="w-4.5 h-4.5 text-red-400" />
+              Watch Trailer
+            </button>
+          </div>
           {/* 1. Overview & Synopsis */}
           {(dynamicOverview || movie.overview) && (
             <div className="bg-white/[0.03] border border-white/10 p-5 rounded-2xl shadow-sm">
