@@ -31,6 +31,7 @@ import { fetchActiveWeatherAlerts, WeatherAlert } from './lib/weatherAlerts';
 import SpatialNavigation from 'spatial-navigation-js';
 import { detectDeviceCapabilities } from './lib/deviceDetection';
 import UpcomingCalendar from './components/UpcomingCalendar';
+import TVUpdateModal, { ApkInfo } from './components/TVUpdateModal';
 
 
 const queryClient = new QueryClient();
@@ -182,6 +183,25 @@ function MainApp() {
 
   const [activeWeatherAlert, setActiveWeatherAlert] = useState<WeatherAlert | null>(null);
   const [hasModalOpen, setHasModalOpen] = useState(false);
+
+  const [tvApkInfo, setTvApkInfo] = useState<ApkInfo | null>(null);
+  const [showTvUpdateModal, setShowTvUpdateModal] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/system/apk/info')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.available && data?.apk) {
+          const ua = navigator.userAgent || '';
+          const isTV = data.isTV || /Android TV|SmartTV|Android.*TV|BRAVIA|MiTV|MiBOX|Shield|Chromecast|Nexus Player|TencentTV|AFTT|AFTM|AFTS|AFTB|POV_TV|ExoPlayer|BubbaFlixTV|FireTV/i.test(ua) || window.location.search.includes('tv=true');
+          if (isTV) {
+            setTvApkInfo(data.apk);
+            setShowTvUpdateModal(true);
+          }
+        }
+      })
+      .catch(err => console.error('[APK Check Error]:', err));
+  }, []);
 
   const isSectionAllowed = (sectionId: string): boolean => {
     if (!user) return true;
@@ -384,13 +404,14 @@ function MainApp() {
       
       // Top-level focus guard: Ensure focus stays strictly inside the top-most active modal / overlay / player
       const playerEl = document.getElementById('player-container');
+      const tvUpdateModalEl = document.getElementById('tv-update-modal');
       const userSettingsEl = document.getElementById('user-settings-modal');
       const authModalEl = document.getElementById('auth-modal');
       const resumeModalEl = document.getElementById('resume-modal');
       const fixMatchModalEl = document.getElementById('fix-match-modal');
       const mediaModalEl = document.getElementById('media-modal');
 
-      const topOverlay = playerEl || userSettingsEl || authModalEl || resumeModalEl || fixMatchModalEl || (selectedMovie && mediaModalEl && !mediaModalEl.classList.contains('hidden') ? mediaModalEl : null);
+      const topOverlay = playerEl || tvUpdateModalEl || userSettingsEl || authModalEl || resumeModalEl || fixMatchModalEl || (selectedMovie && mediaModalEl && !mediaModalEl.classList.contains('hidden') ? mediaModalEl : null);
 
       if (topOverlay) {
         const isBackKey = 
@@ -2197,6 +2218,15 @@ function MainApp() {
             setIsPlaying(false);
             setActiveTab('weather');
           }}
+        />
+      )}
+
+      {/* AndroidTV / GoogleTV / Firestick APK Upgrade Modal */}
+      {showTvUpdateModal && tvApkInfo && (
+        <TVUpdateModal
+          apk={tvApkInfo}
+          currentVersion="1.0.0"
+          onClose={() => setShowTvUpdateModal(false)}
         />
       )}
     </div>

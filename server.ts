@@ -1298,15 +1298,104 @@ async function startServer() {
     });
   });
 
+  // AndroidTV APK Upgrade System — Directory Scanner & Version Parsing
+  const ANDROID_TV_DIR = path.join(__dirname, 'AndroidTV');
+  if (!fs.existsSync(ANDROID_TV_DIR)) {
+    try { fs.mkdirSync(ANDROID_TV_DIR, { recursive: true }); } catch (e) {}
+  }
+
+  function parseSemver(filename: string): string | null {
+    const match = filename.match(/v?(\d+\.\d+\.\d+)/i) || filename.match(/v?(\d+\.\d+)/i);
+    return match ? match[1] : null;
+  }
+
+  function compareSemver(v1: string, v2: string): number {
+    const p1 = v1.split('.').map(Number);
+    const p2 = v2.split('.').map(Number);
+    const maxLen = Math.max(p1.length, p2.length);
+    for (let i = 0; i < maxLen; i++) {
+      const n1 = p1[i] || 0;
+      const n2 = p2[i] || 0;
+      if (n1 > n2) return 1;
+      if (n1 < n2) return -1;
+    }
+    return 0;
+  }
+
+  function getLatestApkInfo() {
+    if (!fs.existsSync(ANDROID_TV_DIR)) return null;
+    let files: string[] = [];
+    try {
+      files = fs.readdirSync(ANDROID_TV_DIR).filter(f => f.toLowerCase().endsWith('.apk'));
+    } catch (e) {
+      return null;
+    }
+    if (files.length === 0) return null;
+
+    let latestFile: string | null = null;
+    let latestVersion: string | null = null;
+
+    for (const file of files) {
+      const ver = parseSemver(file) || '0.0.0';
+      if (!latestVersion || compareSemver(ver, latestVersion) > 0) {
+        latestVersion = ver;
+        latestFile = file;
+      }
+    }
+
+    if (!latestFile || !latestVersion) return null;
+
+    try {
+      const fullPath = path.join(ANDROID_TV_DIR, latestFile);
+      const stats = fs.statSync(fullPath);
+      return {
+        filename: latestFile,
+        version: latestVersion,
+        sizeBytes: stats.size,
+        mtime: stats.mtime.toISOString(),
+        downloadUrl: `/api/system/apk/download/${encodeURIComponent(latestFile)}`
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
   // API Route: Client device detection endpoint (Android TV / TV client detection)
   app.get('/api/client/device-info', (req, res) => {
     const ua = req.headers['user-agent'] || '';
-    const isAndroidTV = /Android TV|SmartTV|Android.*TV|BRAVIA|MiTV|MiBOX|Shield|Chromecast|Nexus Player|TencentTV|AFTT|AFTM|AFTS|AFTB|POV_TV/i.test(ua);
+    const isAndroidTV = /Android TV|SmartTV|Android.*TV|BRAVIA|MiTV|MiBOX|Shield|Chromecast|Nexus Player|TencentTV|AFTT|AFTM|AFTS|AFTB|POV_TV|ExoPlayer|BubbaFlixTV/i.test(ua);
     res.json({
       userAgent: ua,
       isAndroidTV,
       isTV: isAndroidTV || /TV/i.test(ua)
     });
+  });
+
+  // API Route: AndroidTV / Firestick APK Version Check Endpoint
+  app.get('/api/system/apk/info', (req, res) => {
+    const ua = req.headers['user-agent'] || '';
+    const isTV = /Android TV|SmartTV|Android.*TV|BRAVIA|MiTV|MiBOX|Shield|Chromecast|Nexus Player|TencentTV|AFTT|AFTM|AFTS|AFTB|POV_TV|ExoPlayer|BubbaFlixTV|FireTV/i.test(ua) || /TV/i.test(ua);
+    
+    const apk = getLatestApkInfo();
+    res.json({
+      available: Boolean(apk),
+      isTV,
+      apk: apk || null
+    });
+  });
+
+  // API Route: Stream AndroidTV / Firestick APK Download
+  app.get('/api/system/apk/download/:filename', (req, res) => {
+    const filename = path.basename(req.params.filename);
+    const targetPath = path.join(ANDROID_TV_DIR, filename);
+
+    if (!fs.existsSync(targetPath)) {
+      return res.status(404).json({ error: 'APK file not found on server' });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.sendFile(targetPath);
   });
 
   // /api/admin/logs GET
