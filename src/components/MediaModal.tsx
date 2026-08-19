@@ -2107,7 +2107,7 @@ export default function MediaModal({
       )}
 
       <div inert={resumePromptStream ? true : undefined} className="relative z-10 bg-[#0c0c12]/45 backdrop-blur-md border-0 rounded-none w-full h-full overflow-hidden flex flex-col">
-        <div className="relative h-36 sm:h-48 md:h-56 shrink-0">
+        <div className="relative h-44 sm:h-56 md:h-64 shrink-0">
             {(dynamicBackdropUrl || extraDetails?.backdrop || dynamicPosterUrl || extraDetails?.poster || movie.backdrop || movie.poster) && (
               <img src={dynamicBackdropUrl || extraDetails?.backdrop || dynamicPosterUrl || extraDetails?.poster || movie.backdrop || movie.poster} className="w-full h-full object-cover opacity-60" referrerPolicy="no-referrer" />
             )}
@@ -2124,10 +2124,10 @@ export default function MediaModal({
                   if (headerBtn) headerBtn.focus();
                 }
               }}
-              className="focusable absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500" 
+              className="focusable absolute top-4 right-4 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 shadow-lg" 
               title="Close"
             >
-                <X className="w-5 h-5" />
+                <X className="w-6 h-6" />
             </button>
             <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
                 <div className="min-w-0 flex-1">
@@ -2135,49 +2135,49 @@ export default function MediaModal({
                     <img 
                       src={dynamicLogoUrl} 
                       alt={movie.title || movie.name} 
-                      className="h-12 sm:h-16 md:h-20 w-auto object-contain max-w-[80%] mb-2 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]" 
+                      className="h-14 sm:h-20 md:h-24 w-auto object-contain max-w-[85%] mb-2 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]" 
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <h2 className="text-3xl sm:text-4xl font-light tracking-tight text-white mb-2 truncate">{movie.title}</h2>
+                    <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-2 truncate drop-shadow-md">{movie.title}</h2>
                   )}
-                  <div className="flex flex-wrap items-center gap-3 text-sm">
-                      <span className="font-mono text-white font-medium">{movie.year}</span>
+                  <div className="flex flex-wrap items-center gap-3 text-base">
+                      <span className="font-mono text-white font-bold text-base sm:text-lg">{movie.year}</span>
                       {mpaaRating && (
-                        <span className="px-1.5 py-0.5 border border-white/20 rounded text-[11px] font-bold text-white font-mono leading-none tracking-wide uppercase bg-white/5">
+                        <span className="px-2 py-0.5 border border-white/25 rounded text-xs sm:text-sm font-extrabold text-white font-mono leading-none tracking-wide uppercase bg-white/10">
                           {mpaaRating}
                         </span>
                       )}
-                      <span className="flex items-center gap-1 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white font-mono bg-white/5">
-                          <Star className="w-3 h-3 text-yellow-500 fill-current" /> <span className="font-mono">{movie.rating}</span>
+                      <span className="flex items-center gap-1 border border-white/25 rounded px-2 py-0.5 text-sm sm:text-base text-white font-mono bg-white/10 font-bold">
+                          <Star className="w-4 h-4 text-yellow-400 fill-current" /> <span className="font-mono">{movie.rating}</span>
                       </span>
                       {getSkipBadgeText() && (
                         <button 
                           type="button"
                           onClick={() => setShowSkipInfoModal(true)}
-                          className="focusable flex items-center gap-1.5 px-2.5 py-1 border border-indigo-500/50 rounded-lg text-[11px] font-bold text-indigo-300 font-mono leading-none tracking-wide uppercase bg-indigo-950/60 hover:bg-indigo-900/80 hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all cursor-pointer shadow-md shadow-indigo-950/40 group/badge"
+                          className="focusable flex items-center gap-1.5 px-3 py-1 border border-indigo-500/60 rounded-lg text-xs sm:text-sm font-bold text-indigo-300 font-mono leading-none tracking-wide uppercase bg-indigo-950/70 hover:bg-indigo-900/90 hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all cursor-pointer shadow-md shadow-indigo-950/40 group/badge"
                           title="Click to view exact skip timestamps"
                         >
-                          <Zap className="w-3.5 h-3.5 text-indigo-400 fill-indigo-400/20 animate-pulse group-hover/badge:scale-110" />
+                          <Zap className="w-4 h-4 text-indigo-400 fill-indigo-400/20 animate-pulse group-hover/badge:scale-110" />
                           <span>TheIntroDB ({getSkipBadgeText()})</span>
-                          <Info className="w-3 h-3 text-indigo-300/70 ml-0.5" />
+                          <Info className="w-3.5 h-3.5 text-indigo-300/70 ml-0.5" />
                         </button>
                       )}
                       {(isFavorite || movie.isNetworkShare || movie.filePath) && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 border border-emerald-500/40 rounded text-[11px] font-bold text-emerald-400 font-mono leading-none tracking-wide uppercase bg-emerald-950/40">
-                          <BookmarkCheck className="w-3 h-3 text-emerald-400" /> In Library
+                        <span className="flex items-center gap-1.5 px-2.5 py-1 border border-emerald-500/50 rounded text-xs sm:text-sm font-bold text-emerald-300 font-mono leading-none tracking-wide uppercase bg-emerald-950/60">
+                          <BookmarkCheck className="w-4 h-4 text-emerald-400" /> In Library
                         </span>
                       )}
                       {!isSeries && watchedDocs['movie'] && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 border border-emerald-500/40 rounded text-[11px] font-bold text-emerald-400 font-mono leading-none tracking-wide uppercase bg-emerald-950/40">
-                          <CheckCircle className="w-3 h-3 text-emerald-400 fill-emerald-400/20" /> Watched
+                        <span className="flex items-center gap-1.5 px-2.5 py-1 border border-emerald-500/50 rounded text-xs sm:text-sm font-bold text-emerald-300 font-mono leading-none tracking-wide uppercase bg-emerald-950/60">
+                          <CheckCircle className="w-4 h-4 text-emerald-400 fill-emerald-400/20" /> Watched
                         </span>
                       )}
                   </div>
                 </div>
                 <div 
                   id="media-modal-header-actions" 
-                  className="flex items-center gap-2 shrink-0 flex-wrap"
+                  className="flex items-center gap-2.5 shrink-0 flex-wrap"
                   onKeyDown={(e) => {
                     if (e.key === 'ArrowDown') {
                       e.preventDefault();
@@ -2206,10 +2206,10 @@ export default function MediaModal({
                 >
                   <button 
                     onClick={handleOpenFixMatch}
-                    className="focusable flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors bg-white/5 text-white/90 border border-white/10 hover:bg-white/10 hover:text-white"
+                    className="focusable flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors bg-white/10 text-white hover:bg-white/20 border border-white/15"
                     title="Correct title, poster and TMDB match"
                   >
-                    <Sparkles className="w-4 h-4 text-red-500" />
+                    <Sparkles className="w-4.5 h-4.5 text-red-500" />
                     Fix Match
                   </button>
                   {isSeries && (
@@ -2217,10 +2217,10 @@ export default function MediaModal({
                       type="button"
                       onClick={handleManualTidbSearch}
                       disabled={manualTidbLoading}
-                      className="focusable flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0 bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 disabled:opacity-50 cursor-pointer"
+                      className="focusable flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors shrink-0 bg-indigo-600/30 text-indigo-200 border border-indigo-500/40 hover:bg-indigo-600/40 disabled:opacity-50 cursor-pointer"
                       title="Manually search TheIntroDB (TIDB) for intro and credit skip timestamps"
                     >
-                      {manualTidbLoading ? <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" /> : <Zap className="w-4 h-4 text-amber-400" />}
+                      {manualTidbLoading ? <RefreshCw className="w-4.5 h-4.5 animate-spin text-indigo-400" /> : <Zap className="w-4.5 h-4.5 text-amber-400" />}
                       <span>{manualTidbLoading ? 'Searching TIDB...' : 'Search TIDB Skips'}</span>
                     </button>
                   )}
@@ -2228,14 +2228,14 @@ export default function MediaModal({
                     <button 
                       type="button"
                       onClick={() => toggleWatched('movie')}
-                      className={`focusable flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0 ${
+                      className={`focusable flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors shrink-0 ${
                         watchedDocs['movie']
-                          ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-600/30'
-                          : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'
+                          ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-600/40'
+                          : 'bg-white/10 text-white border border-white/15 hover:bg-white/20'
                       }`}
                       title={watchedDocs['movie'] ? 'Mark Movie Unwatched' : 'Mark Movie Watched'}
                     >
-                      <CheckCircle className={`w-4 h-4 ${watchedDocs['movie'] ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/60'}`} />
+                      <CheckCircle className={`w-4.5 h-4.5 ${watchedDocs['movie'] ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/70'}`} />
                       {watchedDocs['movie'] ? 'Watched' : 'Mark Watched'}
                     </button>
                   )}
@@ -2243,12 +2243,12 @@ export default function MediaModal({
                     <button 
                       onClick={toggleFavorite}
                       disabled={favoriteLoading}
-                      className={`focusable flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors shrink-0
+                      className={`focusable flex items-center gap-2 px-4.5 py-3 rounded-xl text-sm font-bold tracking-wider uppercase transition-colors shrink-0
                         ${isFavorite 
-                          ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30' 
-                          : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'}`}
+                          ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/40' 
+                          : 'bg-white/10 text-white border border-white/15 hover:bg-white/20'}`}
                     >
-                      {isFavorite ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                      {isFavorite ? <BookmarkCheck className="w-4.5 h-4.5" /> : <Bookmark className="w-4.5 h-4.5" />}
                       {isFavorite ? 'In Library' : 'Add To Library'}
                     </button>
                   )}
@@ -2260,10 +2260,10 @@ export default function MediaModal({
                       setSelectedTrailerKey(key || 'search');
                       setShowTrailerModal(true);
                     }}
-                    className="focusable flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 transition-colors shrink-0 cursor-pointer"
+                    className="focusable flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold tracking-wider uppercase bg-red-600/30 text-red-300 border border-red-500/40 hover:bg-red-600/40 transition-colors shrink-0 cursor-pointer shadow-md"
                     title="Watch Official YouTube Trailer"
                   >
-                    <Video className="w-4 h-4 text-red-400" />
+                    <Video className="w-4.5 h-4.5 text-red-400" />
                     Watch Trailer
                   </button>
                 </div>
@@ -2295,8 +2295,8 @@ export default function MediaModal({
         >
           {/* 1. Overview & Synopsis */}
           {(dynamicOverview || movie.overview) && (
-            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xl">
-              <p className="text-sm text-white/90 leading-relaxed">
+            <div className="bg-white/[0.03] border border-white/10 p-5 rounded-2xl shadow-sm">
+              <p className="text-base sm:text-lg text-white/95 leading-relaxed font-normal">
                 {dynamicOverview || movie.overview}
               </p>
             </div>
@@ -2304,27 +2304,27 @@ export default function MediaModal({
 
           {/* 2. TV Series Season & Episode Selectors */}
           {isSeries && (
-            <div className="space-y-4 bg-white/[0.02] border border-white/5 p-4 rounded-xl">
-              <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider">Select Episode</h4>
+            <div className="space-y-4 bg-white/[0.03] border border-white/10 p-5 rounded-2xl shadow-sm">
+              <h4 className="text-sm sm:text-base font-bold text-white/80 uppercase tracking-wider">Select Episode</h4>
               {seriesDetailsLoading ? (
-                <div className="text-white/60 text-xs italic">Loading series details...</div>
+                <div className="text-white/60 text-sm italic">Loading series details...</div>
               ) : (
                 <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Season</label>
+                      <label className="text-xs sm:text-sm font-bold text-white/70 uppercase tracking-wider">Season</label>
                       {user && selectedSeason !== null && (
                         <button
                           type="button"
                           onClick={() => toggleSeasonWatched(selectedSeason)}
-                          className={`focusable text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                          className={`focusable text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
                             isSeasonFullyWatched(selectedSeason)
-                              ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/60'
-                              : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                              ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/50 hover:bg-emerald-900/70'
+                              : 'bg-white/10 text-white/80 border-white/15 hover:bg-white/15 hover:text-white'
                           }`}
                           title={isSeasonFullyWatched(selectedSeason) ? 'Mark Season Unwatched' : 'Mark All Episodes in Season Watched'}
                         >
-                          <CheckCircle className={`w-3.5 h-3.5 ${isSeasonFullyWatched(selectedSeason) ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/40'}`} />
+                          <CheckCircle className={`w-4 h-4 ${isSeasonFullyWatched(selectedSeason) ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/40'}`} />
                           <span>{isSeasonFullyWatched(selectedSeason) ? 'Season Watched' : 'Mark Season Watched'}</span>
                         </button>
                       )}
@@ -2356,31 +2356,31 @@ export default function MediaModal({
                             }
                           }
                         }}
-                        className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
+                        className="focusable w-full bg-[#12121a] text-white border border-white/15 rounded-xl px-4 py-3.5 text-sm sm:text-base font-semibold appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 min-h-[48px]"
                       >
                         {seasons.map(s => (
-                          <option key={s.season_number} value={s.season_number} className="bg-[#12121a] text-white">
+                          <option key={s.season_number} value={s.season_number} className="bg-[#12121a] text-white py-1">
                             Season {s.season_number} ({s.episode_count || s.episodes?.length || 0} Episodes)
                           </option>
                         ))}
                       </select>
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/60 text-sm">
                         ▼
                       </div>
                     </div>
                   </div>
                   {episodes.length > 0 && (
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Episode</label>
+                        <label className="text-xs sm:text-sm font-bold text-white/70 uppercase tracking-wider">Episode</label>
                         {selectedEpisode !== null && (
-                          <span className="text-[10px] font-mono text-white/50 flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-white/40" />
+                          <span className="text-xs font-mono text-white/60 flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-white/40" />
                             {episodes.find(e => e.episode_number === selectedEpisode)?.air_date ? `Aired: ${episodes.find(e => e.episode_number === selectedEpisode)?.air_date}` : 'Air date N/A'}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <div className="relative flex-1">
                           <select
                             id="episode-select-dropdown"
@@ -2407,19 +2407,19 @@ export default function MediaModal({
                                 }
                               }
                             }}
-                            className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
+                            className="focusable w-full bg-[#12121a] text-white border border-white/15 rounded-xl px-4 py-3.5 text-sm sm:text-base font-semibold appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 min-h-[48px]"
                           >
                             {episodes.map(ep => {
                               const isEpWatched = !!watchedDocs[`s${selectedSeason}_e${ep.episode_number}`];
                               const airStr = ep.air_date ? ` (Aired: ${ep.air_date})` : '';
                               return (
-                                <option key={ep.episode_number} value={ep.episode_number} className="bg-[#12121a] text-white">
+                                <option key={ep.episode_number} value={ep.episode_number} className="bg-[#12121a] text-white py-1">
                                   {isEpWatched ? '✓ ' : ''}E{ep.episode_number} - {ep.name || `Episode ${ep.episode_number}`}{airStr}
                                 </option>
                               );
                             })}
                           </select>
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/60 text-sm">
                             ▼
                           </div>
                         </div>
@@ -2427,43 +2427,43 @@ export default function MediaModal({
                           <button
                             type="button"
                             onClick={() => toggleWatched('tv', selectedSeason, selectedEpisode)}
-                            className={`focusable shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                            className={`focusable shrink-0 flex items-center gap-1.5 px-3.5 py-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all border cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
                               watchedDocs[`s${selectedSeason}_e${selectedEpisode}`]
-                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/50 hover:bg-emerald-900/60'
-                                : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                                ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/60 hover:bg-emerald-900/70'
+                                : 'bg-white/10 text-white/80 border-white/15 hover:bg-white/15 hover:text-white'
                             }`}
                             title={watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'Mark Episode Unwatched' : 'Mark Episode Watched'}
                           >
-                            <CheckCircle className={`w-4 h-4 ${watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/40'}`} />
+                            <CheckCircle className={`w-4.5 h-4.5 ${watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/40'}`} />
                             <span>{watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'Watched' : 'Mark Watched'}</span>
                           </button>
                         )}
                       </div>
                     </div>
                   )}
-                  <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-1">
+                  <div className="flex items-center justify-between pt-2 border-t border-white/10 mt-1">
                     <button
                       type="button"
                       onClick={handleManualTidbSearch}
                       disabled={manualTidbLoading}
-                      className="focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-indigo-950/60 text-indigo-300 border-indigo-500/40 hover:bg-indigo-900/60 hover:border-indigo-400 disabled:opacity-50 shadow-sm"
+                      className="focusable flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-indigo-950/70 text-indigo-300 border-indigo-500/50 hover:bg-indigo-900/70 disabled:opacity-50 shadow-sm"
                       title="Manually query TheIntroDB (TIDB) repository for episode intro & credit skip markers"
                     >
-                      {manualTidbLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" /> : <Zap className="w-3.5 h-3.5 text-amber-400" />}
+                      {manualTidbLoading ? <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" /> : <Zap className="w-4 h-4 text-amber-400" />}
                       <span>{manualTidbLoading ? 'Searching TIDB...' : 'Search TIDB Skips'}</span>
                     </button>
                     {getSkipBadgeText() ? (
                       <button
                         type="button"
                         onClick={() => setShowSkipInfoModal(true)}
-                        className="focusable text-[10px] font-mono text-indigo-300/90 bg-indigo-950/40 border border-indigo-500/30 hover:bg-indigo-900/40 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                        className="focusable text-xs font-mono text-indigo-300 bg-indigo-950/60 border border-indigo-500/40 hover:bg-indigo-900/60 px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors"
                         title="View skip timestamp details"
                       >
-                        <Zap className="w-3 h-3 text-indigo-400" />
+                        <Zap className="w-3.5 h-3.5 text-indigo-400" />
                         <span>TIDB: {getSkipBadgeText()}</span>
                       </button>
                     ) : (
-                      <span className="text-[10px] font-mono text-white/40 italic">
+                      <span className="text-xs font-mono text-white/50 italic">
                         No TIDB skips cached
                       </span>
                     )}
@@ -2474,19 +2474,19 @@ export default function MediaModal({
           )}
 
           {/* 3. Stream Selection Results & Play Control */}
-          <div className="flex flex-col gap-3 bg-white/[0.02] border border-white/5 p-4 rounded-xl">
+          <div className="flex flex-col gap-3.5 bg-white/[0.03] border border-white/10 p-5 rounded-2xl shadow-sm">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-white/60 uppercase tracking-wider flex items-center gap-2">
+              <label className="text-sm sm:text-base font-bold text-white/80 uppercase tracking-wider flex items-center gap-2">
                 Stream Results
                 {loading && (
-                  <span className="relative flex h-2 w-2">
+                  <span className="relative flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                   </span>
                 )}
               </label>
               {streams.length > 0 && (
-                <span className="text-[10px] text-white/50 font-mono">
+                <span className="text-xs sm:text-sm text-white/60 font-mono">
                   {streams.length} {streams.length === 1 ? 'stream' : 'streams'} available
                 </span>
               )}
@@ -2524,7 +2524,7 @@ export default function MediaModal({
                     }
                   }
                 }}
-                className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-3 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="focusable w-full bg-[#12121a] text-white border border-white/15 rounded-xl px-4 py-4 text-sm sm:text-base font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 min-h-[52px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading && streams.length === 0 ? (
                   <option value="" disabled className="bg-[#12121a] text-white/60">
@@ -2552,14 +2552,14 @@ export default function MediaModal({
                       : '';
                     
                     return (
-                      <option key={idx} value={String(idx)} className="bg-[#12121a] text-white py-1">
+                      <option key={idx} value={String(idx)} className="bg-[#12121a] text-white py-1.5 text-sm sm:text-base">
                         {`${lastPlayedTag}${qualityTag}${nameTag}${sizeTag}${sourceTag}${statusTag}`}
                       </option>
                     );
                   })
                 )}
               </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/60 text-sm">
                 ▼
               </div>
             </div>
@@ -2582,9 +2582,9 @@ export default function MediaModal({
                     if (streamSelect) streamSelect.focus();
                   }
                 }}
-                className="focusable flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs tracking-wider uppercase transition-colors shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-400 mt-1"
+                className="focusable flex items-center justify-center gap-2.5 w-full py-4 px-6 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-sm sm:text-base tracking-wider uppercase transition-colors shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-400 mt-1"
               >
-                <Play className="w-4 h-4 fill-current" />
+                <Play className="w-5 h-5 fill-current" />
                 Play Selected Stream
               </button>
             )}
@@ -2597,54 +2597,54 @@ export default function MediaModal({
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
               </span>
-              <span className="text-xs font-mono text-white/60 uppercase tracking-widest animate-pulse">Loading Details...</span>
+              <span className="text-xs sm:text-sm font-mono text-white/60 uppercase tracking-widest animate-pulse">Loading Details...</span>
             </div>
           ) : extraDetails ? (
-            <div className="space-y-6 bg-white/[0.02] border border-white/5 p-4 rounded-xl">
+            <div className="space-y-6 bg-white/[0.03] border border-white/10 p-5 rounded-2xl shadow-sm">
               {extraDetails.tagline && (
-                <div className="bg-white/[0.02] border-l-2 border-red-500 p-3 rounded-r-lg italic text-xs text-white/80 leading-relaxed">
+                <div className="bg-white/[0.03] border-l-4 border-red-500 p-3.5 rounded-r-xl italic text-sm sm:text-base text-white/90 leading-relaxed font-serif">
                   "{extraDetails.tagline}"
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-white/10 pb-4 text-sm sm:text-base">
                 <div>
-                  <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Release / Air Date</span>
-                  <span className="text-white font-medium font-mono">{extraDetails.releaseDate}</span>
+                  <span className="text-white/65 uppercase font-bold tracking-wider block mb-1 text-xs sm:text-sm">Release / Air Date</span>
+                  <span className="text-white font-semibold font-mono text-sm sm:text-base">{extraDetails.releaseDate}</span>
                 </div>
                 {extraDetails.genres && extraDetails.genres.length > 0 && (
                   <div>
-                    <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Genres</span>
-                    <span className="text-white/80 font-medium truncate block" title={extraDetails.genres.join(', ')}>
-                      {extraDetails.genres.slice(0, 4).join(', ')}
+                    <span className="text-white/65 uppercase font-bold tracking-wider block mb-1 text-xs sm:text-sm">Genres</span>
+                    <span className="text-white font-semibold break-words block" title={extraDetails.genres.join(', ')}>
+                      {extraDetails.genres.join(', ')}
                     </span>
                   </div>
                 )}
               </div>
 
               {(extraDetails.directors.length > 0 || (extraDetails.writers && extraDetails.writers.length > 0) || extraDetails.producers.length > 0) && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border-b border-white/5 pb-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-white/10 pb-4 text-sm sm:text-base">
                   {extraDetails.directors.length > 0 && (
                     <div>
-                      <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">
+                      <span className="text-white/65 uppercase font-bold tracking-wider block mb-1 text-xs sm:text-sm">
                         {isSeries ? 'Creator / Showrunner' : 'Director'}
                       </span>
-                      <span className="text-white font-semibold">{extraDetails.directors.slice(0, 3).join(', ')}</span>
+                      <span className="text-white font-bold break-words block">{extraDetails.directors.join(', ')}</span>
                     </div>
                   )}
                   {extraDetails.writers && extraDetails.writers.length > 0 && (
                     <div>
-                      <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Written By</span>
-                      <span className="text-white font-medium truncate block" title={extraDetails.writers.join(', ')}>
-                        {extraDetails.writers.slice(0, 3).join(', ')}
+                      <span className="text-white/65 uppercase font-bold tracking-wider block mb-1 text-xs sm:text-sm">Written By</span>
+                      <span className="text-white font-semibold break-words block" title={extraDetails.writers.join(', ')}>
+                        {extraDetails.writers.join(', ')}
                       </span>
                     </div>
                   )}
                   {extraDetails.producers.length > 0 && (
                     <div>
-                      <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Produced By</span>
-                      <span className="text-white font-medium truncate block" title={extraDetails.producers.join(', ')}>
-                        {extraDetails.producers.slice(0, 2).join(', ')}
+                      <span className="text-white/65 uppercase font-bold tracking-wider block mb-1 text-xs sm:text-sm">Produced By</span>
+                      <span className="text-white font-semibold break-words block" title={extraDetails.producers.join(', ')}>
+                        {extraDetails.producers.join(', ')}
                       </span>
                     </div>
                   )}
@@ -2653,16 +2653,16 @@ export default function MediaModal({
 
               {/* 5. Cast & Starring Grid */}
               {extraDetails.cast && extraDetails.cast.length > 0 && (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider">Cast & Starring</h4>
-                    <span className="text-[10px] text-white/50">Click actor to discover</span>
+                    <h4 className="text-sm sm:text-base font-bold text-white/80 uppercase tracking-wider">Cast & Starring</h4>
+                    <span className="text-xs text-white/60">Click actor to discover</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
                     {extraDetails.cast.map(actor => (
                       <div 
                         key={actor.id} 
-                        className="flex items-center justify-between p-2 bg-white/5 border border-white/5 rounded-xl text-left transition-all group hover:bg-red-900/10 hover:border-red-500/20"
+                        className="flex items-center justify-between p-2.5 bg-white/5 border border-white/10 rounded-xl text-left transition-all group hover:bg-red-900/20 hover:border-red-500/30"
                       >
                         <div 
                           onClick={() => onActorSearch && onActorSearch(actor.name)}
@@ -2670,7 +2670,7 @@ export default function MediaModal({
                           className="focusable flex items-center gap-3 min-w-0 flex-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-xl"
                           title={`Find media with ${actor.name} inside the app`}
                         >
-                          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-slate-800 border border-white/10 group-hover:border-red-500/30 transition-colors">
+                          <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-slate-800 border border-white/15 group-hover:border-red-500/40 transition-colors shadow-sm">
                             {actor.profilePath ? (
                               <img 
                                 src={actor.profilePath} 
@@ -2679,14 +2679,14 @@ export default function MediaModal({
                                 referrerPolicy="no-referrer" 
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white/70 bg-slate-900 uppercase">
+                              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white/80 bg-slate-900 uppercase">
                                 {actor.name.substring(0, 2)}
                               </div>
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-white truncate group-hover:text-red-400 transition-colors">{actor.name}</p>
-                            <p className="text-[10px] text-white/60 truncate mt-0.5">{actor.character}</p>
+                            <p className="text-sm sm:text-base font-bold text-white truncate group-hover:text-red-400 transition-colors">{actor.name}</p>
+                            <p className="text-xs text-white/70 truncate mt-0.5">{actor.character}</p>
                           </div>
                         </div>
                         
@@ -2694,7 +2694,7 @@ export default function MediaModal({
                           href={`https://www.imdb.com/find?q=${encodeURIComponent(actor.name)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-2 py-1 rounded bg-[#f5c518] hover:bg-[#e2b512] text-black transition-colors text-[10px] font-black shrink-0 ml-1.5 shadow-sm"
+                          className="px-2.5 py-1.5 rounded-lg bg-[#f5c518] hover:bg-[#e2b512] text-black transition-colors text-xs font-black shrink-0 ml-1.5 shadow-md"
                           title={`Search ${actor.name} on IMDb`}
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -2708,11 +2708,11 @@ export default function MediaModal({
 
               {/* 6. Chapters List */}
               {extraDetails.chapters && extraDetails.chapters.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-white/5">
-                  <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider flex items-center gap-2">
+                <div className="space-y-3 pt-3 border-t border-white/10">
+                  <h4 className="text-sm sm:text-base font-bold text-white/80 uppercase tracking-wider flex items-center gap-2">
                     <span>📑</span> Chapters ({extraDetails.chapters.length})
                   </h4>
-                  <div className="grid grid-cols-1 gap-1">
+                  <div className="grid grid-cols-1 gap-1.5">
                     {extraDetails.chapters.map((ch, idx) => {
                       const h = Math.floor(ch.startTime / 3600);
                       const m = Math.floor((ch.startTime % 3600) / 60);
@@ -2721,9 +2721,9 @@ export default function MediaModal({
                         ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
                         : `${m}:${String(s).padStart(2, '0')}`;
                       return (
-                        <div key={ch.id || idx} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
-                          <span className="text-xs text-white/80 truncate">{ch.title}</span>
-                          <span className="text-[10px] font-mono text-white/40 shrink-0 ml-2">{timeStr}</span>
+                        <div key={ch.id || idx} className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] transition-colors">
+                          <span className="text-sm sm:text-base text-white/95 font-medium truncate">{ch.title}</span>
+                          <span className="text-xs sm:text-sm font-mono text-white/60 shrink-0 ml-3">{timeStr}</span>
                         </div>
                       );
                     })}
