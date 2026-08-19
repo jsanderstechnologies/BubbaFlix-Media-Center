@@ -1351,9 +1351,16 @@ async function startServer() {
   // API Route: AndroidTV / Firestick APK Version Check Endpoint
   app.get('/api/system/apk/info', (req, res) => {
     const ua = req.headers['user-agent'] || '';
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
     const isTV = /Android TV|SmartTV|Android.*TV|BRAVIA|MiTV|MiBOX|Shield|Chromecast|Nexus Player|TencentTV|AFTT|AFTM|AFTS|AFTB|POV_TV|ExoPlayer|BubbaFlixTV|FireTV/i.test(ua) || /TV/i.test(ua);
     
     const apk = getLatestApkInfo();
+    if (apk) {
+      console.log(`[APK Upgrade System] Client IP "${clientIp}" (${isTV ? 'AndroidTV/Firestick' : 'Browser'}) checked APK updates — Latest Server Package: "${apk.filename}" (v${apk.version}, ${(apk.sizeBytes / (1024 * 1024)).toFixed(1)}MB)`);
+    } else {
+      console.log(`[APK Upgrade System] Client IP "${clientIp}" checked APK updates — No .apk files found in "${ANDROID_TV_DIR}"`);
+    }
+
     res.json({
       available: Boolean(apk),
       isTV,
@@ -1365,14 +1372,37 @@ async function startServer() {
   app.get('/api/system/apk/download/:filename', (req, res) => {
     const filename = path.basename(req.params.filename);
     const targetPath = path.join(ANDROID_TV_DIR, filename);
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
     if (!fs.existsSync(targetPath)) {
+      console.warn(`[APK Upgrade System] Client IP "${clientIp}" requested missing APK file: "${filename}"`);
       return res.status(404).json({ error: 'APK file not found on server' });
     }
+
+    const stats = fs.statSync(targetPath);
+    console.log(`[APK Upgrade System] Streaming APK download package "${filename}" (${(stats.size / (1024 * 1024)).toFixed(1)}MB) to client IP: "${clientIp}"`);
 
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.sendFile(targetPath);
+  });
+
+  // API Route: Client Upgrade Log Event Reporting
+  app.post('/api/system/apk/log-event', (req, res) => {
+    const { event, currentVersion, targetVersion, filename, error } = req.body || {};
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+
+    if (event === 'upgrade_started') {
+      console.log(`[APK Upgrade System] 🚀 [UPGRADE STARTED] Client IP "${clientIp}" initiated APK upgrade to v${targetVersion} ("${filename}") [Current: v${currentVersion || '1.0.0'}]`);
+    } else if (event === 'upgrade_completed') {
+      console.log(`[APK Upgrade System] ✅ [UPGRADE DOWNLOAD COMPLETED] Client IP "${clientIp}" finished downloading package "${filename}" (v${targetVersion}). Triggering PackageInstaller.`);
+    } else if (event === 'upgrade_failed') {
+      console.error(`[APK Upgrade System] ❌ [UPGRADE FAILED] Client IP "${clientIp}" failed APK upgrade to v${targetVersion}: ${error || 'Unknown error'}`);
+    } else {
+      console.log(`[APK Upgrade System] [EVENT: ${event || 'info'}] Client IP "${clientIp}" — ${JSON.stringify(req.body)}`);
+    }
+
+    res.json({ success: true });
   });
 
   // /api/admin/logs GET

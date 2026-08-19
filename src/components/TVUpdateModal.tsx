@@ -49,11 +49,26 @@ export default function TVUpdateModal({ apk, currentVersion = '1.0.0', onClose }
     return `${mb.toFixed(1)} MB`;
   };
 
+  const logEvent = (event: string, extra: any = {}) => {
+    fetch('/api/system/apk/log-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event,
+        currentVersion,
+        targetVersion: apk.version,
+        filename: apk.filename,
+        ...extra
+      })
+    }).catch(() => {});
+  };
+
   const handleStartUpgrade = async () => {
     setDownloading(true);
     setProgress(0);
     setError(null);
     setDownloadStatus('Connecting to server...');
+    logEvent('upgrade_started');
 
     try {
       // 1. Check for native Android WebView bridge interface first
@@ -61,6 +76,7 @@ export default function TVUpdateModal({ apk, currentVersion = '1.0.0', onClose }
         const fullUrl = `${window.location.origin}${apk.downloadUrl}`;
         (window as any).Android.installApk(fullUrl);
         setDownloadStatus('Starting native installer...');
+        logEvent('upgrade_completed', { mode: 'native_bridge' });
         setTimeout(() => onClose(), 2000);
         return;
       }
@@ -93,6 +109,7 @@ export default function TVUpdateModal({ apk, currentVersion = '1.0.0', onClose }
       }
 
       setDownloadStatus('Preparing package installer...');
+      logEvent('upgrade_completed', { mode: 'stream_download' });
       const blob = new Blob(chunks, { type: 'application/vnd.android.package-archive' });
       const blobUrl = URL.createObjectURL(blob);
 
@@ -112,6 +129,7 @@ export default function TVUpdateModal({ apk, currentVersion = '1.0.0', onClose }
 
     } catch (err: any) {
       console.error('[APK Upgrade Error]:', err);
+      logEvent('upgrade_failed', { error: err.message });
       // Fallback direct trigger
       window.location.href = apk.downloadUrl;
     }
