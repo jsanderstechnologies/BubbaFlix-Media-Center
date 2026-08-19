@@ -3455,29 +3455,27 @@ Do not include markdown blocks or extra text.`;
     });
   });
 
-  // /api/admin/users/:uid/send-welcome POST
+  // /api/admin/users/:uid/send-welcome POST — resend welcome email without resetting password
   app.post('/api/admin/users/:uid/send-welcome', requireAdmin, async (req, res) => {
     const users = readJson(USERS_FILE);
     const targetUser = users[req.params.uid];
     if (!targetUser) return res.status(404).json({ error: 'User not found' });
 
-    let newPassword = req.body?.password;
-    if (!newPassword || typeof newPassword !== 'string' || newPassword.trim().length === 0) {
-      newPassword = generatePassword();
+    let displayPassword = '(Existing password remains active)';
+    if (req.body?.password && typeof req.body.password === 'string' && req.body.password.trim().length > 0) {
+      displayPassword = req.body.password.trim();
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = crypto.pbkdf2Sync(displayPassword, salt, 1000, 64, 'sha512').toString('hex');
+      targetUser.salt = salt;
+      targetUser.hash = hash;
+      writeJson(USERS_FILE, users);
     }
-
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.pbkdf2Sync(newPassword, salt, 1000, 64, 'sha512').toString('hex');
-    targetUser.salt = salt;
-    targetUser.hash = hash;
-    targetUser.status = 'approved';
-    writeJson(USERS_FILE, users);
 
     let emailSent = false;
     let reason = '';
     try {
       console.log(`[Email] Admin resending welcome email to user: "${targetUser.email}"`);
-      const result = await sendWelcomeEmail(targetUser.email, targetUser.username, newPassword) as any;
+      const result = await sendWelcomeEmail(targetUser.email, targetUser.username, displayPassword) as any;
       emailSent = Boolean(result?.sent);
       reason = result?.reason || '';
     } catch (err: any) {
@@ -3489,8 +3487,7 @@ Do not include markdown blocks or extra text.`;
       success: true,
       sent: emailSent,
       reason,
-      newPassword,
-      message: emailSent ? `Welcome email sent successfully to ${targetUser.email}` : `Password updated to "${newPassword}", but email could not be dispatched: ${reason}`
+      message: emailSent ? `Welcome email sent successfully to ${targetUser.email}` : `Email could not be dispatched: ${reason}`
     });
   });
 

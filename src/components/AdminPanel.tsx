@@ -178,7 +178,7 @@ export default function AdminPanel() {
   };
 
   const handleResendWelcome = async (uid: string, username: string, email: string) => {
-    if (!confirm(`Resend welcome email to ${username} (${email}) with credentials and TV app Downloader code 6119212?`)) return;
+    if (!confirm(`Resend welcome email to ${username} (${email}) with TV app Downloader code 6119212?`)) return;
     try {
       const token = getAdminToken();
       const res = await fetch(`/api/admin/users/${uid}/send-welcome`, {
@@ -192,9 +192,9 @@ export default function AdminPanel() {
       if (!res.ok) throw new Error(data.error || 'Failed to send welcome email');
 
       if (data.sent) {
-        alert(`Welcome email successfully sent to ${username} (${email})!\nPassword updated to: ${data.newPassword}`);
+        alert(`Welcome email successfully sent to ${username} (${email})!`);
       } else {
-        alert(`Password updated to "${data.newPassword}", but email could not be sent: ${data.reason || 'Gmail not configured'}.`);
+        alert(`Welcome email could not be sent: ${data.reason || 'Gmail not configured'}. Check System Logs in Settings.`);
       }
       fetchUsers();
     } catch (err: any) { alert(err.message || 'Failed to send welcome email'); }
