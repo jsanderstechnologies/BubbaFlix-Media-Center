@@ -53,7 +53,7 @@ export default function AdminPanel() {
     setGeneratedPasswordResult(null);
     try {
       const token = getAdminToken();
-      const body: any = { email: newEmail, username: newUsername, role: newRole, emailPassword };
+      const body: any = { email: newEmail.trim(), username: newUsername.trim(), role: newRole, emailPassword };
       if (!emailPassword && newPassword) body.password = newPassword;
       const res = await fetch('/api/admin/users', {
         method: 'POST',

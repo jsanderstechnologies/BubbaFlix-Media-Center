@@ -757,6 +757,12 @@ async function startServer() {
       console.warn('[Email] Gmail not configured — skipping welcome email.');
       return { sent: false, reason: 'Gmail not configured' };
     }
+    const recipient = (toEmail || '').trim();
+    if (!recipient) {
+      console.warn('[Email] Recipient email address is missing or empty — skipping welcome email.');
+      return { sent: false, reason: 'Target email is empty' };
+    }
+    console.log(`[Email] Sending welcome email to target address: "${recipient}"`);
     const appName = emailCfg.appName || 'BubbaFlix';
     const appUrl = emailCfg.appUrl || '';
     const transporter = nodemailer.createTransport({
@@ -846,7 +852,7 @@ async function startServer() {
     `;
     await transporter.sendMail({
       from: `"${appName}" <${emailCfg.gmailUser}>`,
-      to: toEmail,
+      to: recipient,
       subject: `Welcome to ${appName} — Your Account is Ready`,
       html,
     });
@@ -854,11 +860,18 @@ async function startServer() {
   };
 
   const sendPasswordResetEmail = async (toEmail: string, username: string, password: string) => {
+    const settings = readJson(SETTINGS_FILE);
     const emailCfg = settings.email || {};
     if (!emailCfg.gmailUser || !emailCfg.gmailAppPassword) {
       console.warn('[Email] Gmail not configured — skipping password reset email.');
-      return { sent: false };
+      return { sent: false, reason: 'Gmail not configured' };
     }
+    const recipient = (toEmail || '').trim();
+    if (!recipient) {
+      console.warn('[Email] Recipient email address is missing or empty — skipping password reset email.');
+      return { sent: false, reason: 'Target email is empty' };
+    }
+    console.log(`[Email] Sending password reset email to target address: "${recipient}"`);
     const appName = emailCfg.appName || 'BubbaFlix';
     const appUrl = emailCfg.appUrl || '';
     const transporter = nodemailer.createTransport({
@@ -907,7 +920,7 @@ async function startServer() {
     `;
     await transporter.sendMail({
       from: `"${appName}" <${emailCfg.gmailUser}>`,
-      to: toEmail,
+      to: recipient,
       subject: `Password Reset for ${appName}`,
       html,
     });
@@ -3309,42 +3322,43 @@ Do not include markdown blocks or extra text.`;
   // /api/admin/users POST — admin creating a user: supports manual or auto-generated password
   app.post('/api/admin/users', requireAdmin, async (req, res) => {
     const { email, username, password: manualPassword, role, emailPassword } = req.body;
-    if (!email || !username) return res.status(400).json({ error: 'Email and username are required' });
+    const targetEmail = (email || '').trim();
+    const targetUsername = (username || '').trim();
+    if (!targetEmail || !targetUsername) return res.status(400).json({ error: 'Email and username are required' });
     
     const users = readJson(USERS_FILE);
-    if (Object.values(users).some((u: any) => u.email === email)) {
+    if (Object.values(users).some((u: any) => (u.email || '').toLowerCase() === targetEmail.toLowerCase())) {
       return res.status(400).json({ error: 'Email already registered' });
     }
-    if (Object.values(users).some((u: any) => u.username === username)) {
+    if (Object.values(users).some((u: any) => (u.username || '').toLowerCase() === targetUsername.toLowerCase())) {
       return res.status(400).json({ error: 'Username already taken' });
     }
 
-    // emailPassword=true → generate and send; otherwise use the provided manual password
-    const password = emailPassword ? generateStrongPassword() : (manualPassword || generateStrongPassword());
+    // Generate strong password if requested/missing, otherwise use manual password
+    const password = (emailPassword || !manualPassword) ? generateStrongPassword() : manualPassword;
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = crypto.scryptSync(password, salt, 64).toString('hex');
     const uid = crypto.randomUUID();
     const token = crypto.randomBytes(32).toString('hex');
 
-    users[uid] = { uid, email, username, salt, hash, token, role: role || 'user', status: 'approved', registeredAt: new Date().toISOString() };
+    users[uid] = { uid, email: targetEmail, username: targetUsername, salt, hash, token, role: role || 'user', status: 'approved', registeredAt: new Date().toISOString() };
     writeJson(USERS_FILE, users);
 
     let emailSent = false;
-    if (emailPassword) {
-      try {
-        const result = await sendWelcomeEmail(email, username, password) as any;
-        emailSent = result.sent;
-      } catch (err: any) {
-        console.error('[Email] Failed to send welcome email to admin-created user:', err.message);
-      }
+    try {
+      console.log(`[Email] Dispatching account welcome email to recipient: "${targetEmail}"`);
+      const result = await sendWelcomeEmail(targetEmail, targetUsername, password) as any;
+      emailSent = result.sent;
+    } catch (err: any) {
+      console.error('[Email] Failed to send welcome email to admin-created user:', err.message);
     }
 
     res.json({
       success: true,
       emailSent,
-      // Only include plaintext password in response when NOT emailing (admin set it manually)
-      ...((!emailPassword && manualPassword) ? {} : { generatedPassword: emailPassword ? undefined : password }),
-      user: { uid, email, username, role: role || 'user', status: 'approved' }
+      // Include generated password in response if not emailed or if manual password was not supplied
+      ...((manualPassword && !emailPassword) ? {} : { generatedPassword: password }),
+      user: { uid, email: targetEmail, username: targetUsername, role: role || 'user', status: 'approved' }
     });
   });
 
