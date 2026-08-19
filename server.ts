@@ -844,6 +844,29 @@ async function startServer() {
                       </tr>
                     </table>
 
+                    <!-- TV App Installation Info -->
+                    <div style="background:#09090b;border:1px solid #27272a;border-radius:8px;padding:14px 12px;margin:16px 0;text-align:left;">
+                      <div style="font-size:11px;font-weight:700;color:#ffffff;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;text-align:center;">
+                        📺 Install on AndroidTV, GoogleTV & Firestick
+                      </div>
+                      <p style="color:#a1a1aa;font-size:11px;line-height:1.4;margin:0 0 8px;text-align:center;">
+                        Install the <b>BubbaFlix Browser</b> app using <b>The Downloader</b> app by AFTV:
+                      </p>
+                      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#18181b;border:1px dashed #3f3f46;border-radius:6px;margin:8px 0;">
+                        <tr>
+                          <td style="padding:10px;text-align:center;">
+                            <div style="font-size:9px;color:#a1a1aa;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:2px;">Downloader Code</div>
+                            <div style="font-size:20px;font-weight:900;color:#f59e0b;font-family:'Courier New',Courier,monospace;letter-spacing:2px;">6119212</div>
+                          </td>
+                        </tr>
+                      </table>
+                      <ol style="color:#a1a1aa;font-size:11px;line-height:1.5;margin:8px 0 0;padding-left:18px;">
+                        <li style="margin-bottom:3px;">Open <b>The Downloader</b> app on your TV.</li>
+                        <li style="margin-bottom:3px;">Enter code <b style="color:#f59e0b;">6119212</b> and press <b>Go</b>.</li>
+                        <li>Follow the on-screen prompts to install the BubbaFlix app.</li>
+                      </ol>
+                    </div>
+
                     ${appUrl ? `<div style="margin-top:20px;"><a href="${appUrl}" style="background:#dc2626;color:#ffffff;padding:9px 20px;border-radius:6px;text-decoration:none;font-weight:700;display:inline-block;font-size:12px;-webkit-text-size-adjust:100%;">Sign In to ${appName}</a></div>` : ''}
                     <p style="color:#52525b;font-size:9px;margin:20px 0 0;line-height:1.4;-webkit-text-size-adjust:100%;">For security, please change your password after your first login.</p>
                   </td>
