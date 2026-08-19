@@ -388,7 +388,7 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
   const currentTimePx = ((currentTime.getTime() - baseTime.getTime()) / 60000) * pixelsPerMinute;
 
   // Active program displayed in top Dispatcharr inspector
-  const activeInspectorProgram = selectedProgram || useMemo(() => {
+  const defaultInspectorProgram = useMemo(() => {
     if (displayChannels.length > 0) {
       const firstProgs = getProgramsForTimeline(displayChannels[0]);
       const active = firstProgs.find(p => p.isCurrent) || firstProgs[0];
@@ -402,6 +402,8 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
     }
     return null;
   }, [displayChannels, parsedEpg]);
+
+  const activeInspectorProgram = selectedProgram || defaultInspectorProgram;
 
   return (
     <div className="flex flex-col gap-5">
