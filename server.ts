@@ -756,24 +756,37 @@ async function startServer() {
   };
 
   const sendWelcomeEmail = async (toEmail: string, username: string, password: string) => {
+    console.log(`[Email] Initiating welcome email dispatch for user "${username}" <${toEmail}>...`);
     const settings = readJson(SETTINGS_FILE);
     const emailCfg = settings.email || {};
     if (!emailCfg.gmailUser || !emailCfg.gmailAppPassword) {
-      console.warn('[Email] Gmail not configured — skipping welcome email.');
-      return { sent: false, reason: 'Gmail not configured' };
+      console.warn('[Email] Gmail not configured — missing gmailUser or gmailAppPassword in system settings.');
+      return { sent: false, reason: 'Gmail credentials not configured in Settings' };
     }
     const recipient = (toEmail || '').trim();
     if (!recipient) {
-      console.warn('[Email] Recipient email address is missing or empty — skipping welcome email.');
+      console.warn('[Email] Target recipient email address is empty or invalid.');
       return { sent: false, reason: 'Target email is empty' };
     }
-    console.log(`[Email] Sending welcome email to target address: "${recipient}"`);
+
     const appName = emailCfg.appName || 'BubbaFlix';
     const appUrl = emailCfg.appUrl || '';
+    console.log(`[Email] Sender: "${appName}" <${emailCfg.gmailUser}> -> Recipient: "${recipient}"`);
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: { user: emailCfg.gmailUser, pass: emailCfg.gmailAppPassword },
     });
+
+    try {
+      console.log(`[Email] Verifying Gmail SMTP connection...`);
+      await transporter.verify();
+      console.log(`[Email] Gmail SMTP connection verified successfully.`);
+    } catch (verifyErr: any) {
+      const errMsg = `Gmail SMTP Auth Error: ${verifyErr?.message || verifyErr}`;
+      console.error(`[Email] [ERROR] ${errMsg}`, verifyErr?.stack || verifyErr);
+      return { sent: false, reason: errMsg };
+    }
     
     // Precise 3D cinematic red gradient SVG matching App.tsx header
     const logoSvg = `
@@ -803,7 +816,6 @@ async function startServer() {
         </text>
       </svg>
     `;
-
 
     const html = `
       <!DOCTYPE html>
@@ -878,34 +890,57 @@ async function startServer() {
       </body>
       </html>
     `;
-    await transporter.sendMail({
-      from: `"${appName}" <${emailCfg.gmailUser}>`,
-      to: recipient,
-      subject: `Welcome to ${appName} — Your Account is Ready`,
-      html,
-    });
-    return { sent: true };
+
+    try {
+      console.log(`[Email] Dispatching welcome email to "${recipient}"...`);
+      const info = await transporter.sendMail({
+        from: `"${appName}" <${emailCfg.gmailUser}>`,
+        to: recipient,
+        subject: `Welcome to ${appName} — Your Account is Ready`,
+        html,
+      });
+      console.log(`[Email] Welcome email successfully delivered to "${recipient}"! Response ID: ${info?.messageId || info?.response || 'OK'}`);
+      return { sent: true, messageId: info?.messageId };
+    } catch (sendErr: any) {
+      const errMsg = `Nodemailer sendMail error: ${sendErr?.message || sendErr}`;
+      console.error(`[Email] [ERROR] ${errMsg}`, sendErr?.stack || sendErr);
+      return { sent: false, reason: errMsg };
+    }
   };
 
   const sendPasswordResetEmail = async (toEmail: string, username: string, password: string) => {
+    console.log(`[Email] Initiating password reset email dispatch for user "${username}" <${toEmail}>...`);
     const settings = readJson(SETTINGS_FILE);
     const emailCfg = settings.email || {};
     if (!emailCfg.gmailUser || !emailCfg.gmailAppPassword) {
-      console.warn('[Email] Gmail not configured — skipping password reset email.');
-      return { sent: false, reason: 'Gmail not configured' };
+      console.warn('[Email] Gmail not configured — missing gmailUser or gmailAppPassword in system settings.');
+      return { sent: false, reason: 'Gmail credentials not configured in Settings' };
     }
     const recipient = (toEmail || '').trim();
     if (!recipient) {
-      console.warn('[Email] Recipient email address is missing or empty — skipping password reset email.');
+      console.warn('[Email] Target recipient email address is empty or invalid.');
       return { sent: false, reason: 'Target email is empty' };
     }
-    console.log(`[Email] Sending password reset email to target address: "${recipient}"`);
+
     const appName = emailCfg.appName || 'BubbaFlix';
     const appUrl = emailCfg.appUrl || '';
+    console.log(`[Email] Sender: "${appName}" <${emailCfg.gmailUser}> -> Recipient: "${recipient}"`);
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: { user: emailCfg.gmailUser, pass: emailCfg.gmailAppPassword },
     });
+
+    try {
+      console.log(`[Email] Verifying Gmail SMTP connection...`);
+      await transporter.verify();
+      console.log(`[Email] Gmail SMTP connection verified successfully.`);
+    } catch (verifyErr: any) {
+      const errMsg = `Gmail SMTP Auth Error: ${verifyErr?.message || verifyErr}`;
+      console.error(`[Email] [ERROR] ${errMsg}`, verifyErr?.stack || verifyErr);
+      return { sent: false, reason: errMsg };
+    }
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -946,13 +981,22 @@ async function startServer() {
       </body>
       </html>
     `;
-    await transporter.sendMail({
-      from: `"${appName}" <${emailCfg.gmailUser}>`,
-      to: recipient,
-      subject: `Password Reset for ${appName}`,
-      html,
-    });
-    return { sent: true };
+
+    try {
+      console.log(`[Email] Dispatching password reset email to "${recipient}"...`);
+      const info = await transporter.sendMail({
+        from: `"${appName}" <${emailCfg.gmailUser}>`,
+        to: recipient,
+        subject: `Password Reset for ${appName}`,
+        html,
+      });
+      console.log(`[Email] Password reset email successfully delivered to "${recipient}"! Response ID: ${info?.messageId || info?.response || 'OK'}`);
+      return { sent: true, messageId: info?.messageId };
+    } catch (sendErr: any) {
+      const errMsg = `Nodemailer sendMail error: ${sendErr?.message || sendErr}`;
+      console.error(`[Email] [ERROR] ${errMsg}`, sendErr?.stack || sendErr);
+      return { sent: false, reason: errMsg };
+    }
   };
 
   // Check if first-time setup is required (zero users in db)
