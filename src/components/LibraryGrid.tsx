@@ -30,12 +30,14 @@ const movieCollectionCache = new Map<string, any>();
 function LibraryCardItem({
   item,
   itemKey,
+  isFirst,
   onSelectMedia,
   onPlayMedia,
   onHoverMedia
 }: {
   item: any;
   itemKey: string;
+  isFirst?: boolean;
   onSelectMedia: (media: any) => void;
   onPlayMedia?: (url: string, logo?: string, resumeTime?: number, context?: any) => void;
   onHoverMedia?: (posterUrl: string) => void;
@@ -110,6 +112,7 @@ function LibraryCardItem({
   return (
     <div 
       key={itemKey} 
+      id={isFirst ? 'library-first-poster' : undefined}
       className="focusable group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 focus:scale-105 rounded-xl transition-all duration-200" 
       onClick={() => onSelectMedia({ ...item, poster: posterUrl || item.poster })}
       onMouseEnter={() => onHoverMedia?.(posterUrl || item.poster)}
@@ -130,12 +133,12 @@ function LibraryCardItem({
             alt={item.title} 
             loading="lazy"
             decoding="async"
-            className="w-full h-full object-cover" 
+            className="w-full h-full object-cover pointer-events-none select-none" 
             referrerPolicy="no-referrer"
             onError={() => setImgFailed(true)}
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-between p-4 text-center bg-gradient-to-b from-indigo-950 via-slate-900 to-black relative overflow-hidden border border-white/10">
+          <div className="w-full h-full flex flex-col items-center justify-between p-4 text-center bg-gradient-to-b from-indigo-950 via-slate-900 to-black relative overflow-hidden border border-white/10 pointer-events-none select-none">
             <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mt-6 shadow-inner">
               <Disc className="w-6 h-6 text-indigo-400 animate-pulse" />
             </div>
@@ -147,11 +150,12 @@ function LibraryCardItem({
           </div>
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 pointer-events-none"></div>
         
-        {/* Hover Play Button */}
-        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
+        {/* Hover Play Action */}
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          <div
+            tabIndex={-1}
             onClick={(e) => {
               e.stopPropagation();
               if (item.streamUrl && onPlayMedia) {
@@ -160,27 +164,27 @@ function LibraryCardItem({
                 onSelectMedia({ ...item, poster: posterUrl || item.poster });
               }
             }}
-            className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all cursor-pointer"
+            className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all cursor-pointer pointer-events-auto"
             title="Play Shared File"
           >
             <Play className="w-6 h-6 ml-0.5 fill-white" />
-          </button>
+          </div>
         </div>
 
-        <div className="absolute bottom-2.5 left-2.5 right-2.5 flex flex-col pointer-events-none">
+        <div className="absolute bottom-2.5 left-2.5 right-2.5 flex flex-col pointer-events-none select-none">
           <span className="text-xs sm:text-sm font-medium leading-tight text-white drop-shadow truncate">{item.title}</span>
         </div>
 
-        <div className="absolute top-2 left-2 flex gap-1 items-center">
+        <div className="absolute top-2 left-2 flex gap-1 items-center pointer-events-none select-none">
           <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow tracking-wider uppercase border ${item.isNetworkShare ? 'bg-indigo-600/90 text-white border-indigo-400/40' : 'bg-red-600/90 text-white border-red-400/40'}`}>
             {item.isNetworkShare ? 'LOCAL' : (item.type === 'movie' ? 'MOVIE' : 'TV')}
           </span>
         </div>
       </div>
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between px-1 pointer-events-none select-none">
         <span className="text-xs text-white/70 font-mono">{item.year || 'N/A'}</span>
         {Boolean(rating && rating !== 'SHARE' && !isNaN(parseFloat(rating))) && (
-          <span className="text-xs bg-black/40 text-amber-400 font-mono px-1.5 py-0.5 rounded border border-white/10">★ {rating}</span>
+          <span className="text-xs bg-black/40 text-amber-400 font-mono px-1.5 py-0.5 rounded border border-white/10 pointer-events-none select-none">★ {rating}</span>
         )}
       </div>
     </div>
@@ -844,6 +848,21 @@ export function LibraryGrid({
     setDisplayCount(120);
   }, [activeTab, selectedLetter]);
 
+  // Auto-focus top-left first poster item when library page/tab or letter changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const firstPoster = (
+        document.getElementById('library-first-poster') ||
+        document.querySelector('#library-grid-container .focusable')
+      ) as HTMLElement;
+      if (firstPoster) {
+        firstPoster.focus({ preventScroll: false });
+        firstPoster.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [activeTab, selectedLetter, selectedCollection]);
+
   const displayMedia = selectedLetter && selectedLetter !== 'ALL'
     ? filteredMedia.filter(item => getItemFirstChar(item) === selectedLetter)
     : filteredMedia;
@@ -899,12 +918,13 @@ export function LibraryGrid({
                 </button>
                 <h3 className="text-lg font-bold text-white tracking-wide">{selectedCollection.name} ({fullCollectionMovies.length} Movies)</h3>
               </div>
-              <section className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
+              <section id="library-grid-container" className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
                 {fullCollectionMovies.map((item: any, idx: number) => (
                   <LibraryCardItem
                     key={getItemKey(item, idx)}
                     item={item}
                     itemKey={getItemKey(item, idx)}
+                    isFirst={idx === 0}
                     onSelectMedia={onSelectMedia}
                     onPlayMedia={onPlayMedia}
                     onHoverMedia={onHoverMedia}
@@ -918,13 +938,14 @@ export function LibraryGrid({
             </div>
           ) : (
             <section className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
-              {collections.map((col: any) => (
+              {collections.map((col: any, idx: number) => (
                 <div
                   key={col.id}
+                  id={idx === 0 ? 'library-first-poster' : undefined}
                   onClick={() => handleSelectCollection(col)}
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSelectCollection(col); }}
-                  className="group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl"
+                  className="focusable group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 rounded-xl"
                 >
                   <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
                     <img 
@@ -932,26 +953,26 @@ export function LibraryGrid({
                       alt={col.name}
                       loading="lazy"
                       decoding="async"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover pointer-events-none select-none"
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute top-2 left-2 flex gap-1 items-center">
+                    <div className="absolute top-2 left-2 flex gap-1 items-center pointer-events-none select-none">
                       <span className="text-[9px] font-black px-1.5 py-0.5 rounded shadow tracking-wider uppercase border bg-red-600/90 text-white border-red-400/40">
                         COLLECTION
                       </span>
                     </div>
-                    <div className="absolute top-2 right-2 flex gap-1 items-center">
+                    <div className="absolute top-2 right-2 flex gap-1 items-center pointer-events-none select-none">
                       <span className="text-[9px] font-black px-1.5 py-0.5 rounded shadow tracking-wider uppercase border bg-black/80 text-white border-white/20 font-mono">
                         {col.movies.length} {col.movies.length === 1 ? 'MOVIE' : 'MOVIES'}
                       </span>
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 pointer-events-none select-none">
                       <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Franchise</span>
                       <span className="text-xs font-bold text-white leading-tight">{col.name}</span>
                       <span className="text-[10px] text-white/70 font-mono mt-1">{col.movies.length} {col.movies.length === 1 ? 'Movie' : 'Movies'} in Library</span>
                     </div>
                   </div>
-                  <h3 className="text-xs font-medium text-white/90 truncate group-hover:text-red-400 transition-colors">
+                  <h3 className="text-xs font-medium text-white/90 truncate group-hover:text-red-400 transition-colors pointer-events-none select-none">
                     {col.name}
                   </h3>
                 </div>
@@ -997,12 +1018,13 @@ export function LibraryGrid({
             </div>
           ) : (
             <>
-              <section key={activeTab} className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
+              <section id="library-grid-container" key={activeTab} className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6">
                 {visibleMedia.map((item: any, idx: number) => (
                   <LibraryCardItem
                     key={getItemKey(item, idx)}
                     item={item}
                     itemKey={getItemKey(item, idx)}
+                    isFirst={idx === 0}
                     onSelectMedia={onSelectMedia}
                     onPlayMedia={onPlayMedia}
                     onHoverMedia={onHoverMedia}

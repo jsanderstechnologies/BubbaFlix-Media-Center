@@ -91,10 +91,11 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
   }
 
   return (
-    <section className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6 py-2 px-1">
-      {processedSeries?.map((item: any) => (
+    <section id="tv-grid-container" className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-4 sm:gap-6 py-2 px-1">
+      {processedSeries?.map((item: any, idx: number) => (
         <div 
           key={item.id} 
+          id={idx === 0 ? 'tv-first-poster' : undefined}
           className="focusable group cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-600 focus:scale-105 rounded-xl transition-all duration-200" 
           onClick={() => handleSelectSeries(item)}
           onMouseEnter={() => onHoverMedia?.(item.poster)}
@@ -110,24 +111,24 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
         >
           <div className="aspect-[2/3] bg-slate-800 rounded-xl overflow-hidden mb-2 relative border border-white/5 shadow-lg group-hover:scale-105 group-hover:border-red-600 group-hover:ring-2 group-hover:ring-red-600/50 transition-all duration-500">
             {item.poster ? (
-              <img src={item.poster} alt={item.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              <img src={item.poster} alt={item.title} className="w-full h-full object-cover pointer-events-none select-none" referrerPolicy="no-referrer" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-white text-xs text-center p-4">
+              <div className="w-full h-full flex items-center justify-center text-white text-xs text-center p-4 pointer-events-none select-none">
                 No Poster
               </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60"></div>
-            <div className="absolute bottom-2.5 left-2.5 right-2.5 flex flex-col">
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 pointer-events-none"></div>
+            <div className="absolute bottom-2.5 left-2.5 right-2.5 flex flex-col pointer-events-none select-none">
               <span className="text-xs sm:text-sm font-medium leading-tight text-white truncate">{item.title}</span>
             </div>
             {item.rating && (
-              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-[10px] font-mono text-amber-400 font-semibold px-1.5 py-0.5 rounded border border-white/10">
+              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-[10px] font-mono text-amber-400 font-semibold px-1.5 py-0.5 rounded border border-white/10 pointer-events-none select-none">
                 ★ {item.rating}
               </div>
             )}
           </div>
           {item.year && (
-            <div className="px-1">
+            <div className="px-1 pointer-events-none select-none">
               <span className="text-xs text-white/70 font-mono">{item.year}</span>
             </div>
           )}

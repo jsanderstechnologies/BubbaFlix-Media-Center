@@ -179,10 +179,15 @@ function MainApp() {
     }
   }, [user, activeTab]);
 
-  // When a navbar tab is selected, automatically move focus to the first poster/card on the page
+  // When a navbar tab is selected, automatically move focus to the top-left first poster/card on the page
   useEffect(() => {
     const timer = setTimeout(() => {
-      const firstPoster = document.querySelector('main .focusable, #main-content-view .focusable, main button, main [tabindex="0"]') as HTMLElement;
+      const firstPoster = (
+        document.getElementById('library-first-poster') ||
+        document.getElementById('catalog-first-poster') ||
+        document.getElementById('tv-first-poster') ||
+        document.querySelector('#library-grid-container .focusable, #catalog-grid-container .focusable, #tv-grid-container .focusable, main .focusable, #main-content-view .focusable, main [tabindex="0"]')
+      ) as HTMLElement;
       if (firstPoster) {
         firstPoster.focus({ preventScroll: false });
         firstPoster.scrollIntoView({ behavior: 'smooth', block: 'center' });
