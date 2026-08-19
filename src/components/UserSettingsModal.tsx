@@ -134,48 +134,51 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
           {/* Zoom Setting */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">Display Options</h3>
-            <div className="space-y-2">
-              <label className="text-xs text-white/50 block">Screen Zoom Level ({localZoom}x)</label>
-              <input 
-                type="range" 
-                min="0.5" 
-                max="2.0" 
-                step="0.1" 
-                value={localZoom}
-                onChange={e => setLocalZoom(parseFloat(e.target.value))}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowLeft') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setLocalZoom(z => Math.max(0.5, Number((z - 0.1).toFixed(1))));
-                  } else if (e.key === 'ArrowRight') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setLocalZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))));
-                  } else if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const focusables = Array.from(modalRef.current?.querySelectorAll('.focusable, button, input, select') || []);
-                    const idx = focusables.indexOf(e.currentTarget);
-                    if (idx >= 0 && idx < focusables.length - 1) {
-                      (focusables[idx + 1] as HTMLElement).focus();
+            <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs sm:text-sm font-semibold text-white/90">Screen Zoom Level</span>
+                <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-2.5 py-1 rounded-lg">
+                  {Math.round(localZoom * 100)}% ({localZoom.toFixed(1)}x)
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setLocalZoom(z => Math.max(0.5, Number((z - 0.1).toFixed(1))))}
+                  className="focusable shrink-0 px-3.5 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 border border-white/15 focus:outline-none focus:ring-2 focus:ring-emerald-400 font-bold text-base cursor-pointer"
+                  title="Zoom Out (-10%)"
+                >
+                  -
+                </button>
+                <input 
+                  type="range" 
+                  min="0.5" 
+                  max="2.0" 
+                  step="0.1" 
+                  value={localZoom}
+                  onChange={e => setLocalZoom(parseFloat(e.target.value))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowLeft') {
+                      setLocalZoom(z => Math.max(0.5, Number((z - 0.1).toFixed(1))));
+                    } else if (e.key === 'ArrowRight') {
+                      setLocalZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))));
                     }
-                  } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const focusables = Array.from(modalRef.current?.querySelectorAll('.focusable, button, input, select') || []);
-                    const idx = focusables.indexOf(e.currentTarget);
-                    if (idx > 0) {
-                      (focusables[idx - 1] as HTMLElement).focus();
-                    }
-                  }
-                }}
-                className="focusable w-full accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-900 rounded-lg cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] text-white/40">
-                <span>Smaller</span>
-                <span>Default</span>
-                <span>Larger</span>
+                  }}
+                  className="focusable flex-1 accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-900 rounded-lg cursor-pointer h-2 bg-white/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setLocalZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))))}
+                  className="focusable shrink-0 px-3.5 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 border border-white/15 focus:outline-none focus:ring-2 focus:ring-emerald-400 font-bold text-base cursor-pointer"
+                  title="Zoom In (+10%)"
+                >
+                  +
+                </button>
+              </div>
+              <div className="flex justify-between text-[10px] text-white/40 font-mono">
+                <span>50% (Compact)</span>
+                <span>100% (Default)</span>
+                <span>200% (Large)</span>
               </div>
             </div>
           </div>

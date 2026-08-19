@@ -812,20 +812,47 @@ export default function SettingsPanel() {
               <div className="space-y-3">
                 <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider">UI Zoom & Display Scale</h3>
                 <p className="text-xs text-white/40 leading-relaxed">Adjust the overall interface scaling for optimal viewing on TV screens or desktop monitors.</p>
-                <div className="space-y-2 max-w-xl">
+                <div className="space-y-3 max-w-xl bg-black/40 border border-white/10 rounded-xl p-4">
                   <div className="flex justify-between items-center text-xs font-mono">
                     <span className="text-white/60">Interface Scale:</span>
-                    <span className="text-emerald-400 font-bold">{Math.round(localZoom * 100)}%</span>
+                    <span className="text-emerald-400 font-bold font-mono bg-emerald-950/60 border border-emerald-500/40 px-2.5 py-1 rounded-lg">
+                      {Math.round(localZoom * 100)}% ({localZoom.toFixed(1)}x)
+                    </span>
                   </div>
-                  <input 
-                    type="range" 
-                    min="0.5" 
-                    max="2.0" 
-                    step="0.1" 
-                    value={localZoom}
-                    onChange={e => setLocalZoom(parseFloat(e.target.value))}
-                    className="w-full accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded-lg cursor-pointer"
-                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setLocalZoom(z => Math.max(0.5, Number((z - 0.1).toFixed(1))))}
+                      className="focusable shrink-0 px-3.5 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 border border-white/15 focus:outline-none focus:ring-2 focus:ring-emerald-400 font-bold text-base cursor-pointer"
+                      title="Zoom Out (-10%)"
+                    >
+                      -
+                    </button>
+                    <input 
+                      type="range" 
+                      min="0.5" 
+                      max="2.0" 
+                      step="0.1" 
+                      value={localZoom}
+                      onChange={e => setLocalZoom(parseFloat(e.target.value))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowLeft') {
+                          setLocalZoom(z => Math.max(0.5, Number((z - 0.1).toFixed(1))));
+                        } else if (e.key === 'ArrowRight') {
+                          setLocalZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))));
+                        }
+                      }}
+                      className="focusable flex-1 accent-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded-lg cursor-pointer h-2 bg-white/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLocalZoom(z => Math.min(2.0, Number((z + 0.1).toFixed(1))))}
+                      className="focusable shrink-0 px-3.5 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 border border-white/15 focus:outline-none focus:ring-2 focus:ring-emerald-400 font-bold text-base cursor-pointer"
+                      title="Zoom In (+10%)"
+                    >
+                      +
+                    </button>
+                  </div>
                   <div className="flex justify-between text-[10px] text-white/40 font-mono">
                     <span>50%</span>
                     <span>100% (Default)</span>
