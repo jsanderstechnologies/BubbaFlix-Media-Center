@@ -28,7 +28,7 @@ export default function AdminPanel() {
   const [resetModalData, setResetModalData] = useState<{username: string, password: string} | null>(null);
 
   const getAdminToken = () => {
-    return localStorage.getItem('token') || localStorage.getItem('authToken') || (user as any)?.token || '';
+    return localStorage.getItem('authToken') || localStorage.getItem('token') || (user as any)?.token || '';
   };
 
   const fetchUsers = async () => {
@@ -213,8 +213,7 @@ export default function AdminPanel() {
     } catch (err: any) { alert(err.message); }
   };
 
-  if (loading) return <div className="text-white">Loading Admin Panel...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
+  if (loading) return <div className="p-6 text-white/70 animate-pulse">Loading Admin Users...</div>;
 
   const pendingUsers = users.filter(u => u.status === 'pending');
   const approvedUsers = users.filter(u => u.status !== 'pending' && u.status !== 'denied');
@@ -242,13 +241,25 @@ export default function AdminPanel() {
     );
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
-        <Ban className="w-3 h-3" /> Denied
+        <Ban className="w-3 h-3" /> {status}
       </span>
     );
   };
 
   return (
     <div className="text-white max-w-7xl mx-auto w-full space-y-8">
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center justify-between text-red-400 text-sm">
+          <span>{error}</span>
+          <button 
+            type="button"
+            onClick={() => { setError(null); setLoading(true); fetchUsers(); }}
+            className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3 pb-4 border-b border-white/10">
