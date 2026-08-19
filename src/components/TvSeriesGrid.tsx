@@ -72,8 +72,6 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
     );
   }
 
-  if (!isCustom && (!series || series.length === 0)) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;
-
   let processedSeries = [...sourceSeries];
 
   if (debouncedSearchQuery) {
@@ -111,7 +109,17 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
   }
 
   if (processedSeries.length === 0) {
-     return <div className="text-white text-sm">No results match your filters.</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center text-white/70 min-h-[30vh]">
+        <p className="text-base font-medium">
+          {debouncedSearchQuery 
+            ? `No results found for "${debouncedSearchQuery}".`
+            : filterGenre > 0 
+              ? 'No TV series match your selected genre filter.'
+              : 'No TV series found.'}
+        </p>
+      </div>
+    );
   }
 
   return (

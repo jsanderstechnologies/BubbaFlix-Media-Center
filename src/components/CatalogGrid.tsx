@@ -71,8 +71,6 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
     );
   }
 
-  if (!isCustom && (!movies || movies.length === 0)) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;
-
   let processedMovies = [...sourceMovies];
 
   if (debouncedSearchQuery) {
@@ -110,7 +108,17 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
   }
 
   if (processedMovies.length === 0) {
-     return <div className="text-white text-sm">No results match your filters.</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center text-white/70 min-h-[30vh]">
+        <p className="text-base font-medium">
+          {debouncedSearchQuery 
+            ? `No results found for "${debouncedSearchQuery}".`
+            : filterGenre > 0 
+              ? 'No movies match your selected genre filter.'
+              : 'No movies found.'}
+        </p>
+      </div>
+    );
   }
 
   return (
