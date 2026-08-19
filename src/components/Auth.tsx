@@ -101,7 +101,6 @@ export function AuthModal() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [activeEditingInput, setActiveEditingInput] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('rememberMe');
@@ -494,24 +493,9 @@ export function AuthModal() {
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
               <input 
                 type={isLogin ? "text" : "email"} 
-                placeholder={isLogin ? "Email or Username (Click to type)" : "Email Address (Click to type)"} 
+                placeholder={isLogin ? "Email or Username" : "Email Address"} 
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                readOnly={activeEditingInput !== 'email'}
-                onClick={() => setActiveEditingInput('email')}
-                onBlur={() => setActiveEditingInput(null)}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setActiveEditingInput(null);
-                    const nextEl = document.querySelector('#auth-modal-password-input, #auth-modal-username-input, #auth-modal-submit-btn') as HTMLElement;
-                    if (nextEl) nextEl.focus();
-                  } else if ((e.key === 'Enter' || e.key === ' ') && activeEditingInput !== 'email') {
-                    e.preventDefault();
-                    setActiveEditingInput('email');
-                  }
-                }}
                 id="auth-modal-email-input"
                 className="focusable w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400 transition-all cursor-pointer"
                 required
@@ -523,30 +507,9 @@ export function AuthModal() {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
                 <input 
                   type="text" 
-                  placeholder="Username (Click to type)" 
+                  placeholder="Username" 
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  readOnly={activeEditingInput !== 'username'}
-                  onClick={() => setActiveEditingInput('username')}
-                  onBlur={() => setActiveEditingInput(null)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setActiveEditingInput(null);
-                      const nextEl = document.querySelector('#auth-modal-submit-btn') as HTMLElement;
-                      if (nextEl) nextEl.focus();
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setActiveEditingInput(null);
-                      const prevEl = document.querySelector('#auth-modal-email-input') as HTMLElement;
-                      if (prevEl) prevEl.focus();
-                    } else if ((e.key === 'Enter' || e.key === ' ') && activeEditingInput !== 'username') {
-                      e.preventDefault();
-                      setActiveEditingInput('username');
-                    }
-                  }}
                   id="auth-modal-username-input"
                   className="focusable w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400 transition-all cursor-pointer"
                   required
@@ -559,30 +522,9 @@ export function AuthModal() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
                 <input 
                   type={showPassword ? "text" : "password"} 
-                  placeholder="Password (Click to type)" 
+                  placeholder="Password" 
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  readOnly={activeEditingInput !== 'password'}
-                  onClick={() => setActiveEditingInput('password')}
-                  onBlur={() => setActiveEditingInput(null)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setActiveEditingInput(null);
-                      const nextEl = document.querySelector('#auth-modal-remember-me, #auth-modal-submit-btn') as HTMLElement;
-                      if (nextEl) nextEl.focus();
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setActiveEditingInput(null);
-                      const prevEl = document.querySelector('#auth-modal-email-input') as HTMLElement;
-                      if (prevEl) prevEl.focus();
-                    } else if ((e.key === 'Enter' || e.key === ' ') && activeEditingInput !== 'password') {
-                      e.preventDefault();
-                      setActiveEditingInput('password');
-                    }
-                  }}
                   id="auth-modal-password-input"
                   className="focusable w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 pr-12 text-white placeholder:text-white/30 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400 transition-all cursor-pointer"
                   required
@@ -610,17 +552,7 @@ export function AuthModal() {
                     aria-checked={rememberMe}
                     onClick={() => setRememberMe(!rememberMe)}
                     onKeyDown={(e) => {
-                      if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const submitBtn = document.querySelector('#auth-modal-submit-btn') as HTMLElement;
-                        if (submitBtn) submitBtn.focus();
-                      } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const prevEl = document.querySelector('#auth-modal-password-input, #auth-modal-email-input') as HTMLElement;
-                        if (prevEl) prevEl.focus();
-                      } else if (e.key === 'Enter' || e.key === ' ') {
+                      if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         setRememberMe(!rememberMe);
                       }
@@ -655,19 +587,6 @@ export function AuthModal() {
               type="submit" 
               id="auth-modal-submit-btn"
               disabled={submitting}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const prevEl = document.querySelector('#auth-modal-remember-me, #auth-modal-password-input, #auth-modal-username-input, #auth-modal-email-input') as HTMLElement;
-                  if (prevEl) prevEl.focus();
-                } else if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const toggleBtn = document.querySelector('#auth-modal-toggle-btn') as HTMLElement;
-                  if (toggleBtn) toggleBtn.focus();
-                }
-              }}
               className="focusable mt-4 w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-[1.02] cursor-pointer shadow-lg shadow-emerald-950/40"
             >
               {submitting ? 'Please wait...' : isLogin ? <><LogIn className="w-5 h-5"/> Sign In</> : <><UserPlus className="w-5 h-5"/> Register</>}
@@ -680,14 +599,6 @@ export function AuthModal() {
             <button 
               id="auth-modal-toggle-btn"
               onClick={() => { setIsLogin(!isLogin); setError(''); }}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const submitBtn = document.querySelector('#auth-modal-submit-btn') as HTMLElement;
-                  if (submitBtn) submitBtn.focus();
-                }
-              }}
               className="focusable text-white/50 hover:text-white transition-colors text-sm focus:outline-none focus:text-white focus:ring-2 focus:ring-emerald-400 rounded px-2 py-1 cursor-pointer"
             >
               {isLogin ? "Don't have an account? Register" : "Already have an account? Sign in"}
