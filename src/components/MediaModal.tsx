@@ -420,7 +420,8 @@ export default function MediaModal({
       SpatialNavigation.add('media-modal', {
         selector: '#media-modal .focusable:not(#media-modal-close-btn), #media-modal select, #media-modal input, #media-modal [tabindex="0"]:not(#media-modal-close-btn)',
         restrict: 'self-only',
-        enterTo: 'last-focused'
+        enterTo: 'last-focused',
+        straightOnly: false
       });
       SpatialNavigation.makeFocusable('media-modal');
       try { SpatialNavigation.focus('media-modal'); } catch (e) {}
@@ -2240,6 +2241,43 @@ export default function MediaModal({
           <div 
             id="media-modal-header-actions" 
             className="flex items-center gap-2.5 flex-wrap pb-4 border-b border-white/10"
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                e.stopPropagation();
+                const target = (
+                  document.querySelector('#season-select-dropdown') ||
+                  document.querySelector('#episode-select-dropdown') ||
+                  document.querySelector('#stream-select-dropdown') ||
+                  document.querySelector('#play-selected-stream-btn') ||
+                  document.querySelector('#media-modal-body-content select, #media-modal-body-content button, #media-modal-body-content input, #media-modal-body-content .focusable')
+                ) as HTMLElement;
+                if (target) {
+                  target.focus();
+                  try { SpatialNavigation.focus(target); } catch (err) {}
+                }
+              } else if (e.key === 'ArrowRight') {
+                const headerButtons = Array.from(e.currentTarget.querySelectorAll('.focusable')) as HTMLElement[];
+                const curIdx = headerButtons.indexOf(e.target as HTMLElement);
+                if (curIdx >= 0 && curIdx < headerButtons.length - 1) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const nextBtn = headerButtons[curIdx + 1];
+                  nextBtn.focus();
+                  try { SpatialNavigation.focus(nextBtn); } catch (err) {}
+                }
+              } else if (e.key === 'ArrowLeft') {
+                const headerButtons = Array.from(e.currentTarget.querySelectorAll('.focusable')) as HTMLElement[];
+                const curIdx = headerButtons.indexOf(e.target as HTMLElement);
+                if (curIdx > 0) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const prevBtn = headerButtons[curIdx - 1];
+                  prevBtn.focus();
+                  try { SpatialNavigation.focus(prevBtn); } catch (err) {}
+                }
+              }
+            }}
           >
             <button 
               onClick={handleOpenFixMatch}
