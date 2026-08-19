@@ -2114,7 +2114,16 @@ export default function MediaModal({
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/40 to-transparent"></div>
             <button 
               type="button" 
+              id="media-modal-close-btn"
               onClick={onClose} 
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const headerBtn = document.querySelector('#media-modal-header-actions .focusable') as HTMLElement;
+                  if (headerBtn) headerBtn.focus();
+                }
+              }}
               className="focusable absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500" 
               title="Close"
             >
@@ -2168,13 +2177,30 @@ export default function MediaModal({
                 </div>
                 <div 
                   id="media-modal-header-actions" 
-                  className="flex items-center gap-2 shrink-0"
+                  className="flex items-center gap-2 shrink-0 flex-wrap"
                   onKeyDown={(e) => {
                     if (e.key === 'ArrowDown') {
                       e.preventDefault();
                       e.stopPropagation();
-                      const firstBodyEl = document.querySelector('#media-modal-body-content .focusable, #media-modal-body-content select, #media-modal-body-content button') as HTMLElement;
+                      const firstBodyEl = (
+                        document.querySelector('#stream-select-dropdown') ||
+                        document.querySelector('#season-select-dropdown') ||
+                        document.querySelector('#media-modal-body-content select, #media-modal-body-content button, #media-modal-body-content .focusable')
+                      ) as HTMLElement;
                       if (firstBodyEl) firstBodyEl.focus();
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const closeBtn = document.getElementById('media-modal-close-btn');
+                      if (closeBtn) closeBtn.focus();
+                    } else if (e.key === 'ArrowRight') {
+                      const headerBtns = Array.from(e.currentTarget.querySelectorAll('.focusable')) as HTMLElement[];
+                      if (headerBtns.length > 0 && document.activeElement === headerBtns[headerBtns.length - 1]) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const closeBtn = document.getElementById('media-modal-close-btn');
+                        if (closeBtn) closeBtn.focus();
+                      }
                     }
                   }}
                 >
@@ -2248,6 +2274,24 @@ export default function MediaModal({
         <div 
           id="media-modal-body-content" 
           className="p-6 overflow-y-auto flex-1 space-y-6 custom-scrollbar w-full"
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp') {
+              const bodyContent = document.getElementById('media-modal-body-content');
+              if (bodyContent && bodyContent.scrollTop < 25) {
+                const focusables = Array.from(bodyContent.querySelectorAll('.focusable, select, button, input')) as HTMLElement[];
+                const activeEl = document.activeElement as HTMLElement;
+                if (activeEl === focusables[0] || activeEl === focusables[1] || activeEl === focusables[2]) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const headerBtn = (
+                    document.querySelector('#media-modal-header-actions .focusable') ||
+                    document.getElementById('media-modal-close-btn')
+                  ) as HTMLElement;
+                  if (headerBtn) headerBtn.focus();
+                }
+              }
+            }
+          }}
         >
           {/* 1. Overview & Synopsis */}
           {(dynamicOverview || movie.overview) && (
@@ -2287,6 +2331,7 @@ export default function MediaModal({
                     </div>
                     <div className="relative">
                       <select
+                        id="season-select-dropdown"
                         value={selectedSeason ?? ''}
                         onChange={(e) => {
                           const sNum = parseInt(e.target.value, 10);
@@ -2295,6 +2340,20 @@ export default function MediaModal({
                             setSelectedSeason(sNum);
                             setSelectedEpisode(null);
                             setEpisodes([]);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'ArrowUp') {
+                            const selectEl = e.currentTarget as HTMLSelectElement;
+                            if (!selectEl || selectEl.selectedIndex <= 0) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const headerBtn = (
+                                document.querySelector('#media-modal-header-actions .focusable') ||
+                                document.getElementById('media-modal-close-btn')
+                              ) as HTMLElement;
+                              if (headerBtn) headerBtn.focus();
+                            }
                           }
                         }}
                         className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
@@ -2324,12 +2383,28 @@ export default function MediaModal({
                       <div className="flex items-center gap-2">
                         <div className="relative flex-1">
                           <select
+                            id="episode-select-dropdown"
                             value={selectedEpisode ?? ''}
                             onChange={(e) => {
                               const eNum = parseInt(e.target.value, 10);
                               if (!isNaN(eNum)) {
                                 setStreams([]);
                                 setSelectedEpisode(eNum);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'ArrowUp') {
+                                const selectEl = e.currentTarget as HTMLSelectElement;
+                                if (!selectEl || selectEl.selectedIndex <= 0) {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  const prevTarget = (
+                                    document.querySelector('#season-select-dropdown') ||
+                                    document.querySelector('#media-modal-header-actions .focusable') ||
+                                    document.getElementById('media-modal-close-btn')
+                                  ) as HTMLElement;
+                                  if (prevTarget) prevTarget.focus();
+                                }
                               }
                             }}
                             className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
@@ -2419,10 +2494,35 @@ export default function MediaModal({
 
             <div className="relative">
               <select
+                id="stream-select-dropdown"
                 value={selectedStreamId ?? '0'}
                 disabled={streams.length === 0}
                 onChange={(e) => {
                   setSelectedStreamId(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowUp') {
+                    const selectEl = e.currentTarget as HTMLSelectElement;
+                    if (!selectEl || selectEl.selectedIndex <= 0) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const target = (
+                        document.querySelector('#episode-select-dropdown') ||
+                        document.querySelector('#season-select-dropdown') ||
+                        document.querySelector('#media-modal-header-actions .focusable') ||
+                        document.getElementById('media-modal-close-btn')
+                      ) as HTMLElement;
+                      if (target) target.focus();
+                    }
+                  } else if (e.key === 'ArrowDown') {
+                    const selectEl = e.currentTarget as HTMLSelectElement;
+                    if (!selectEl || selectEl.selectedIndex >= selectEl.options.length - 1) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const playBtn = document.querySelector('#play-selected-stream-btn') as HTMLElement;
+                      if (playBtn) playBtn.focus();
+                    }
+                  }
                 }}
                 className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-3 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -2466,11 +2566,20 @@ export default function MediaModal({
 
             {streams.length > 0 && (
               <button
+                id="play-selected-stream-btn"
                 onClick={() => {
                   const chosenIndex = Number(selectedStreamId ?? 0);
                   const chosenStream = streams[chosenIndex] || streams[0];
                   if (chosenStream) {
                     handleStreamClick(chosenStream);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const streamSelect = document.querySelector('#stream-select-dropdown') as HTMLElement;
+                    if (streamSelect) streamSelect.focus();
                   }
                 }}
                 className="focusable flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs tracking-wider uppercase transition-colors shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-400 mt-1"
