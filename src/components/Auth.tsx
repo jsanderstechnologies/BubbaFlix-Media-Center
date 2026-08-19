@@ -616,6 +616,18 @@ export function AuthButton() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
   const avatarRef = useRef<HTMLDivElement>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const checkModal = () => {
+      const modal = document.querySelector('#media-modal:not(.hidden), #user-settings-modal, #auth-modal:not(.hidden)');
+      setIsModalOpen(Boolean(modal));
+    };
+    checkModal();
+    const observer = new MutationObserver(checkModal);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+    return () => observer.disconnect();
+  }, []);
 
   const openDropdown = () => {
     if (avatarRef.current) {
@@ -663,11 +675,15 @@ export function AuthButton() {
         <div
           id="auth-user-button"
           ref={avatarRef}
-          tabIndex={0}
-          className="focusable w-10 h-10 rounded-full border border-emerald-500/30 bg-emerald-900/20 flex items-center justify-center text-emerald-300 font-bold shrink-0 cursor-pointer hover:bg-emerald-800/30 transition-colors select-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-emerald-500/30 focus:scale-110"
+          tabIndex={isModalOpen ? -1 : 0}
+          className={`${isModalOpen ? '' : 'focusable'} w-10 h-10 rounded-full border border-emerald-500/30 bg-emerald-900/20 flex items-center justify-center text-emerald-300 font-bold shrink-0 cursor-pointer hover:bg-emerald-800/30 transition-colors select-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-emerald-500/30 focus:scale-110`}
           title={user.username || user.email || 'User Profile & Settings'}
-          onClick={openDropdown}
+          onClick={(e) => {
+            if (isModalOpen) return;
+            openDropdown();
+          }}
           onKeyDown={(e) => {
+            if (isModalOpen) return;
             if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) {
               e.preventDefault();
               openDropdown();

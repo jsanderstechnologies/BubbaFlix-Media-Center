@@ -417,8 +417,9 @@ export default function MediaModal({
 
   useEffect(() => {
     if (movie && !isHidden) {
+      try { SpatialNavigation.disable(''); } catch (e) {}
       SpatialNavigation.add('media-modal', {
-        selector: '#media-modal .focusable:not(#media-modal-close-btn), #media-modal select, #media-modal input, #media-modal [tabindex="0"]:not(#media-modal-close-btn)',
+        selector: '#media-modal .focusable, #media-modal select, #media-modal input, #media-modal button, #media-modal [tabindex="0"]',
         restrict: 'self-only',
         enterTo: 'last-focused',
         straightOnly: false
@@ -434,7 +435,7 @@ export default function MediaModal({
             document.querySelector('#stream-select-dropdown') ||
             document.querySelector('#media-modal-header-actions .focusable') ||
             document.querySelector('#media-modal-body-content .focusable') ||
-            document.querySelector('#media-modal .focusable:not(#media-modal-close-btn)')
+            document.querySelector('#media-modal .focusable')
           ) as HTMLElement;
 
           if (targetEl) {
@@ -444,7 +445,7 @@ export default function MediaModal({
             SpatialNavigation.focus('media-modal');
           }
         } catch (e) {
-          const firstFocusable = document.querySelector('#media-modal .focusable:not(#media-modal-close-btn), #media-modal select') as HTMLElement;
+          const firstFocusable = document.querySelector('#media-modal .focusable, #media-modal select') as HTMLElement;
           if (firstFocusable) {
             firstFocusable.focus();
             try { SpatialNavigation.focus(firstFocusable); } catch (err) {}
@@ -456,6 +457,8 @@ export default function MediaModal({
         clearTimeout(timer);
         try {
           SpatialNavigation.remove('media-modal');
+          SpatialNavigation.enable('');
+          SpatialNavigation.makeFocusable('');
         } catch (e) {}
       };
     }
