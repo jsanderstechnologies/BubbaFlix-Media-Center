@@ -443,6 +443,30 @@ export default function MediaModal({
     }
   }, [movie, isHidden]);
 
+  // Auto-focus primary controls (Season / Stream Select) when data finishes loading
+  useEffect(() => {
+    if (!movie || isHidden || loading || seriesDetailsLoading) return;
+
+    const timer = setTimeout(() => {
+      const activeEl = document.activeElement as HTMLElement;
+      const fixMatchBtn = document.querySelector('#media-modal-header-actions button');
+      // If focus is on body or Fix Match button, move focus to the primary interactive control
+      if (!activeEl || activeEl === document.body || activeEl === fixMatchBtn) {
+        const primaryTarget = (
+          document.querySelector('#season-select-dropdown') ||
+          document.querySelector('#stream-select-dropdown') ||
+          document.querySelector('#play-selected-stream-btn')
+        ) as HTMLElement;
+        if (primaryTarget) {
+          primaryTarget.focus();
+          try { SpatialNavigation.focus(primaryTarget); } catch (err) {}
+        }
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [movie, isHidden, loading, seriesDetailsLoading, streams.length, seasons.length]);
+
   useEffect(() => {
     if (resumePromptStream) {
       SpatialNavigation.add('resume-modal', {
@@ -2210,14 +2234,19 @@ export default function MediaModal({
                   className="flex items-center gap-2.5 shrink-0 flex-wrap"
                   onKeyDown={(e) => {
                     if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      e.stopPropagation();
                       const firstBodyEl = (
                         document.querySelector('#season-select-dropdown') ||
+                        document.querySelector('#episode-select-dropdown') ||
                         document.querySelector('#stream-select-dropdown') ||
-                        document.querySelector('#media-modal-body-content select, #media-modal-body-content button, #media-modal-body-content .focusable')
+                        document.querySelector('#play-selected-stream-btn') ||
+                        document.querySelector('#media-modal-body-content select, #media-modal-body-content button, #media-modal-body-content input, #media-modal-body-content .focusable')
                       ) as HTMLElement;
-                      if (firstBodyEl) firstBodyEl.focus();
+                      if (firstBodyEl) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        firstBodyEl.focus();
+                        try { SpatialNavigation.focus(firstBodyEl); } catch (err) {}
+                      }
                     }
                   }}
                 >
