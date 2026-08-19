@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import SpatialNavigation from 'spatial-navigation-js';
 import { createPortal } from 'react-dom';
 import { User, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Check } from 'lucide-react';
+import { UserSettingsModal } from './UserSettingsModal';
 
 export interface AuthUser {
   uid: string;
@@ -609,9 +610,6 @@ export function AuthModal() {
     </div>
   );
 }
-
-
-import { UserSettingsModal } from './UserSettingsModal';
 
 export function AuthButton() {
   const { user, loading, logout } = useAuth();
