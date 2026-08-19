@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './Auth';
-import { Trash2, UserCog, ShieldCheck, ShieldAlert, Shield, Plus, X, Check, Clock, Ban, Lock, Unlock, KeyRound, Copy, Tv, Music, CloudSun, Newspaper } from 'lucide-react';
+import { Trash2, UserCog, ShieldCheck, ShieldAlert, Shield, Plus, X, Check, Clock, Ban, Lock, Unlock, KeyRound, Copy, Tv, Music, CloudSun, Newspaper, Mail } from 'lucide-react';
 
 interface UserData {
   uid: string;
@@ -175,6 +175,29 @@ export default function AdminPanel() {
       setResetModalData({ username, password: data.generatedPassword });
       fetchUsers();
     } catch (err: any) { alert(err.message); }
+  };
+
+  const handleResendWelcome = async (uid: string, username: string, email: string) => {
+    if (!confirm(`Resend welcome email to ${username} (${email}) with credentials and TV app Downloader code 6119212?`)) return;
+    try {
+      const token = getAdminToken();
+      const res = await fetch(`/api/admin/users/${uid}/send-welcome`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send welcome email');
+
+      if (data.sent) {
+        alert(`Welcome email successfully sent to ${username} (${email})!\nPassword updated to: ${data.newPassword}`);
+      } else {
+        alert(`Password updated to "${data.newPassword}", but email could not be sent: ${data.reason || 'Gmail not configured'}.`);
+      }
+      fetchUsers();
+    } catch (err: any) { alert(err.message || 'Failed to send welcome email'); }
   };
 
   const handleDeleteUser = async (uid: string) => {
@@ -440,9 +463,15 @@ export default function AdminPanel() {
                       )}
 
                       <button onClick={() => handleResetPassword(u.uid, u.username)}
-                        className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-semibold rounded transition-colors flex items-center gap-1"
+                        className="focusable px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-semibold rounded transition-colors flex items-center gap-1 cursor-pointer"
                         title="Reset Password">
-                        <KeyRound className="w-3.5 h-3.5" />
+                        <KeyRound className="w-3.5 h-3.5" /> Reset
+                      </button>
+
+                      <button onClick={() => handleResendWelcome(u.uid, u.username, u.email)}
+                        className="focusable px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-semibold rounded transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Resend Welcome Email with credentials & TV app Downloader code 6119212">
+                        <Mail className="w-3.5 h-3.5" /> Welcome Email
                       </button>
 
                       {u.status === 'locked' ? (
