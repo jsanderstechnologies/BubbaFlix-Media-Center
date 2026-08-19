@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import SpatialNavigation from 'spatial-navigation-js';
 import { createPortal } from 'react-dom';
-import { User, Mail, Lock, UserPlus, LogIn, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Lock, UserPlus, LogIn, Eye, EyeOff, Check } from 'lucide-react';
 
 export interface AuthUser {
   uid: string;
@@ -101,6 +101,24 @@ export function AuthModal() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('rememberMe');
+      return saved !== null ? saved === 'true' : true;
+    } catch (e) {
+      return true;
+    }
+  });
+
+  // Prefill saved credentials if Remember Me was previously enabled
+  useEffect(() => {
+    try {
+      const savedIdentifier = localStorage.getItem('savedLoginIdentifier');
+      const savedPassword = localStorage.getItem('savedLoginPassword');
+      if (savedIdentifier && !email) setEmail(savedIdentifier);
+      if (savedPassword && !password) setPassword(savedPassword);
+    } catch (e) {}
+  }, []);
   
   // Setup Wizard States
   const [setupRequired, setSetupRequired] = useState(false);
@@ -227,6 +245,17 @@ export function AuthModal() {
         sessionStorage.setItem('firstAdminPassword', data.generatedPassword);
         login(data.user, data.token);
         return;
+      }
+
+      // Save or clear client-side login credentials based on Remember Me setting
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+        if (email) localStorage.setItem('savedLoginIdentifier', email);
+        if (password) localStorage.setItem('savedLoginPassword', password);
+      } else {
+        localStorage.setItem('rememberMe', 'false');
+        localStorage.removeItem('savedLoginIdentifier');
+        localStorage.removeItem('savedLoginPassword');
       }
 
       login(data.user || data, data.token);
@@ -521,7 +550,7 @@ export function AuthModal() {
                     if (e.key === 'ArrowDown') {
                       e.preventDefault();
                       e.stopPropagation();
-                      const nextEl = document.querySelector('#auth-modal-submit-btn') as HTMLElement;
+                      const nextEl = document.querySelector('#auth-modal-remember-me, #auth-modal-submit-btn') as HTMLElement;
                       if (nextEl) nextEl.focus();
                     } else if (e.key === 'ArrowUp') {
                       e.preventDefault();
@@ -544,6 +573,49 @@ export function AuthModal() {
               </div>
             )}
 
+            {isLogin && (
+              <div className="flex items-center justify-between px-1 py-1">
+                <label 
+                  htmlFor="auth-modal-remember-me"
+                  className="flex items-center gap-3 cursor-pointer group select-none"
+                >
+                  <button
+                    type="button"
+                    id="auth-modal-remember-me"
+                    role="checkbox"
+                    aria-checked={rememberMe}
+                    onClick={() => setRememberMe(!rememberMe)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const submitBtn = document.querySelector('#auth-modal-submit-btn') as HTMLElement;
+                        if (submitBtn) submitBtn.focus();
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const prevEl = document.querySelector('#auth-modal-password-input, #auth-modal-email-input') as HTMLElement;
+                        if (prevEl) prevEl.focus();
+                      } else if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setRememberMe(!rememberMe);
+                      }
+                    }}
+                    className={`focusable w-5 h-5 rounded-md border transition-all flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                      rememberMe 
+                        ? 'bg-emerald-500 border-emerald-400 text-black shadow-md' 
+                        : 'bg-black/40 border-white/20 hover:border-white/40'
+                    }`}
+                  >
+                    {rememberMe && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  </button>
+                  <span className="text-xs sm:text-sm font-semibold text-white/80 group-hover:text-white transition-colors">
+                    Remember Me &amp; Save Login
+                  </span>
+                </label>
+              </div>
+            )}
+
             {!isLogin && (
               <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
                 <svg className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -563,7 +635,7 @@ export function AuthModal() {
                 if (e.key === 'ArrowUp') {
                   e.preventDefault();
                   e.stopPropagation();
-                  const prevEl = document.querySelector('#auth-modal-password-input, #auth-modal-username-input, #auth-modal-email-input') as HTMLElement;
+                  const prevEl = document.querySelector('#auth-modal-remember-me, #auth-modal-password-input, #auth-modal-username-input, #auth-modal-email-input') as HTMLElement;
                   if (prevEl) prevEl.focus();
                 } else if (e.key === 'ArrowDown') {
                   e.preventDefault();
