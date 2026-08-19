@@ -266,6 +266,25 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
                 </button>
               </div>
             </div>
+
+            <div className="space-y-2 pt-2">
+              <label className="text-xs text-white/50 block">Media Playback Weather Alert Interruption Level</label>
+              <select
+                tabIndex={0}
+                value={settings.weatherAlertInterruptLevel || 'Severe'}
+                onChange={e => setSettings({...settings, weatherAlertInterruptLevel: e.target.value as any})}
+                className="focusable w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400 focus:bg-black/80 outline-none transition-all cursor-pointer"
+              >
+                <option value="Extreme" className="bg-slate-900 text-white">🚨 Extreme Only (Life-threatening emergencies, Tornado Warnings)</option>
+                <option value="Severe" className="bg-slate-900 text-white">⚠️ Severe &amp; Extreme (Severe Thunderstorm, Blizzard, Tornado Warnings)</option>
+                <option value="Moderate" className="bg-slate-900 text-white">📢 Moderate &amp; Above (Includes Storm Watches &amp; Advisories)</option>
+                <option value="Minor" className="bg-slate-900 text-white">ℹ️ All Active Alerts (Includes Minor Advisories &amp; Statements)</option>
+                <option value="None" className="bg-slate-900 text-white">🚫 Disable Media Interruptions (Do not interrupt streaming)</option>
+              </select>
+              <p className="text-[11px] text-white/40 leading-normal">
+                Select the minimum alert severity required to pause or interrupt streaming media when weather alerts occur.
+              </p>
+            </div>
           </div>
 
           {/* Playback Options */}

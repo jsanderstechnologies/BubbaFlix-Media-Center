@@ -85,6 +85,7 @@ export interface UserSettings {
   enabledGroups?: string[];
   weatherLocation?: string;
   temperatureUnit?: 'F' | 'C';
+  weatherAlertInterruptLevel?: 'Extreme' | 'Severe' | 'Moderate' | 'Minor' | 'None';
   adminMode?: boolean;
   developerAdminMode?: boolean;
 }
@@ -102,7 +103,8 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   playerPath: 'mpv',
   enabledGroups: [],
   weatherLocation: '',
-  temperatureUnit: 'F'
+  temperatureUnit: 'F',
+  weatherAlertInterruptLevel: 'Severe'
 };
 
 // Global state to avoid prop drilling and multiple fetches
@@ -139,6 +141,7 @@ function syncUserSettingsToLocalStorage(data: UserSettings) {
   if (data.filterAnime !== undefined) localStorage.setItem('filterAnime', data.filterAnime ? 'true' : 'false');
   if (data.weatherLocation) localStorage.setItem('weatherLocation', data.weatherLocation);
   if (data.temperatureUnit) localStorage.setItem('temperatureUnit', data.temperatureUnit);
+  if (data.weatherAlertInterruptLevel) localStorage.setItem('weatherAlertInterruptLevel', data.weatherAlertInterruptLevel);
 }
 
 type SystemSettingsListener = (settings: SystemSettings) => void;

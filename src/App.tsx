@@ -335,7 +335,8 @@ function MainApp() {
           }
         }
         if (lat !== null && lon !== null && isMounted) {
-          const alerts = await fetchActiveWeatherAlerts(lat, lon);
+          const minLevel = userSettings.weatherAlertInterruptLevel || 'Severe';
+          const alerts = await fetchActiveWeatherAlerts(lat, lon, minLevel);
           if (alerts.length > 0 && isMounted) {
             setActiveWeatherAlert(alerts[0]);
           }
@@ -351,7 +352,7 @@ function MainApp() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [userSettings.weatherLocation]);
+  }, [userSettings.weatherLocation, userSettings.weatherAlertInterruptLevel]);
 
   useEffect(() => {
     let lastActiveState = false;

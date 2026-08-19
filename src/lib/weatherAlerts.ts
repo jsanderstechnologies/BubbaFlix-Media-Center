@@ -1,5 +1,7 @@
 import { logger } from './logger';
 
+export type WeatherAlertInterruptLevel = 'Extreme' | 'Severe' | 'Moderate' | 'Minor' | 'None';
+
 export interface WeatherAlert {
   id: string;
   event: string; // e.g. "Tornado Warning", "Flash Flood Watch"
@@ -11,6 +13,32 @@ export interface WeatherAlert {
   instruction?: string;
   effective?: string;
   expires?: string;
+}
+
+const SEVERITY_RANKS: Record<string, number> = {
+  'Extreme': 4,
+  'Severe': 3,
+  'Moderate': 2,
+  'Minor': 1,
+  'Unknown': 1
+};
+
+const MIN_LEVEL_RANKS: Record<string, number> = {
+  'Extreme': 4,
+  'Severe': 3,
+  'Moderate': 2,
+  'Minor': 1,
+  'None': 999
+};
+
+export function shouldAlertInterruptMedia(
+  alertSeverity: string = 'Moderate', 
+  minLevel: WeatherAlertInterruptLevel = 'Severe'
+): boolean {
+  const minRank = MIN_LEVEL_RANKS[minLevel] ?? 3;
+  if (minRank === 999) return false;
+  const alertRank = SEVERITY_RANKS[alertSeverity] ?? 1;
+  return alertRank >= minRank;
 }
 
 // Memory / LocalStorage set for dismissed alert IDs
@@ -75,7 +103,11 @@ export function pushAlertToAndroidTV(alert: WeatherAlert) {
   }
 }
 
-export async function fetchActiveWeatherAlerts(lat: number, lon: number): Promise<WeatherAlert[]> {
+export async function fetchActiveWeatherAlerts(
+  lat: number, 
+  lon: number,
+  minLevel: WeatherAlertInterruptLevel = 'Severe'
+): Promise<WeatherAlert[]> {
   try {
     const nwsUrl = `https://api.weather.gov/alerts/active?point=${lat.toFixed(4)},${lon.toFixed(4)}`;
     const res = await fetch(nwsUrl, {
@@ -99,10 +131,12 @@ export async function fetchActiveWeatherAlerts(lat: number, lon: number): Promis
       }));
 
       const dismissed = getDismissedAlertIds();
-      const newAlerts = activeAlerts.filter(a => !dismissed.includes(a.id));
+      const newAlerts = activeAlerts.filter(a => 
+        !dismissed.includes(a.id) && shouldAlertInterruptMedia(a.severity, minLevel)
+      );
 
       if (newAlerts.length > 0) {
-        logger.info(`WeatherAlerts: Detected ${newAlerts.length} active severe weather alerts`, {
+        logger.info(`WeatherAlerts: Detected ${newAlerts.length} active severe weather alerts matching minimum interrupt level "${minLevel}"`, {
           events: newAlerts.map(a => a.event)
         });
         // Push top alert to Android TV native bridge & system notification
