@@ -406,9 +406,11 @@ export default function MediaModal({
         enterTo: 'last-focused'
       });
       SpatialNavigation.makeFocusable('media-modal');
+      try { SpatialNavigation.focus('media-modal'); } catch (e) {}
       
       const timer = setTimeout(() => {
         try {
+          SpatialNavigation.focus('media-modal');
           const targetEl = (
             document.querySelector('#season-select-dropdown') ||
             document.querySelector('#stream-select-dropdown') ||
@@ -419,12 +421,16 @@ export default function MediaModal({
 
           if (targetEl) {
             targetEl.focus();
+            try { SpatialNavigation.focus(targetEl); } catch (err) {}
           } else {
             SpatialNavigation.focus('media-modal');
           }
         } catch (e) {
           const firstFocusable = document.querySelector('#media-modal .focusable:not(#media-modal-close-btn), #media-modal select') as HTMLElement;
-          if (firstFocusable) firstFocusable.focus();
+          if (firstFocusable) {
+            firstFocusable.focus();
+            try { SpatialNavigation.focus(firstFocusable); } catch (err) {}
+          }
         }
       }, 80);
 

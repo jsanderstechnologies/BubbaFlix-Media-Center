@@ -439,13 +439,13 @@ function MainApp() {
             e.preventDefault();
             const moved = SpatialNavigation.move(dir);
             
-            // Automatic Focus Recovery within Top Overlay ONLY
+            // Automatic Focus Recovery within Top Overlay ONLY if focus was lost outside topOverlay
             const curActive = document.activeElement as HTMLElement;
-            if (!moved || !curActive || curActive === document.body || !topOverlay.contains(curActive)) {
+            if (!curActive || curActive === document.body || !topOverlay.contains(curActive)) {
               const focusableInOverlay = topOverlay.querySelector('.focusable, button, select, input, [tabindex="0"]') as HTMLElement;
               if (focusableInOverlay) {
                 try { focusableInOverlay.focus({ preventScroll: false }); } catch (err) {}
-                try { SpatialNavigation.focus(); } catch (err) {}
+                try { SpatialNavigation.focus(focusableInOverlay); } catch (err) {}
               }
             }
           }
