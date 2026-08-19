@@ -69,6 +69,94 @@ const WMO_CODE_MAP: Record<number, { label: string; icon: string }> = {
   99: { label: 'Thunderstorm w/ Heavy Hail', icon: '⛈️' }
 };
 
+function getWeatherBackground(code: number, isDay: number = 1): {
+  bgUrl: string;
+  gradientOverlay: string;
+  themeColor: string;
+} {
+  // Thunderstorm / Hail (95, 96, 99, 82)
+  if ([95, 96, 99, 82].includes(code)) {
+    return {
+      bgUrl: 'https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?auto=format&fit=crop&q=80&w=1920',
+      gradientOverlay: 'from-[#050507] via-[#080512]/85 to-purple-950/40',
+      themeColor: 'purple'
+    };
+  }
+
+  // Heavy Rain / Showers / Freezing Rain (63, 65, 66, 67, 81)
+  if ([63, 65, 66, 67, 81].includes(code)) {
+    return {
+      bgUrl: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&q=80&w=1920',
+      gradientOverlay: 'from-[#050507] via-[#040d1a]/85 to-blue-950/40',
+      themeColor: 'blue'
+    };
+  }
+
+  // Light Rain / Drizzle (51, 53, 55, 56, 57, 61, 80)
+  if ([51, 53, 55, 56, 57, 61, 80].includes(code)) {
+    return {
+      bgUrl: 'https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&q=80&w=1920',
+      gradientOverlay: 'from-[#050507] via-[#06101c]/85 to-cyan-950/40',
+      themeColor: 'cyan'
+    };
+  }
+
+  // Snow / Blizzard (71, 73, 75, 77, 85, 86)
+  if ([71, 73, 75, 77, 85, 86].includes(code)) {
+    return {
+      bgUrl: 'https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?auto=format&fit=crop&q=80&w=1920',
+      gradientOverlay: 'from-[#050507] via-[#08121e]/85 to-slate-900/50',
+      themeColor: 'sky'
+    };
+  }
+
+  // Fog / Rime Fog (45, 48)
+  if ([45, 48].includes(code)) {
+    return {
+      bgUrl: 'https://images.unsplash.com/photo-1487621167305-5d248087c724?auto=format&fit=crop&q=80&w=1920',
+      gradientOverlay: 'from-[#050507] via-[#0c1017]/85 to-zinc-900/40',
+      themeColor: 'zinc'
+    };
+  }
+
+  // Overcast / Mostly Cloudy (3)
+  if (code === 3) {
+    return isDay ? {
+      bgUrl: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&q=80&w=1920',
+      gradientOverlay: 'from-[#050507] via-[#0a0f18]/85 to-slate-900/40',
+      themeColor: 'indigo'
+    } : {
+      bgUrl: 'https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?auto=format&fit=crop&q=80&w=1920',
+      gradientOverlay: 'from-[#050507] via-[#06070c]/90 to-indigo-950/50',
+      themeColor: 'indigo'
+    };
+  }
+
+  // Partly Cloudy / Mainly Clear (1, 2)
+  if ([1, 2].includes(code)) {
+    return isDay ? {
+      bgUrl: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&q=80&w=1920',
+      gradientOverlay: 'from-[#050507] via-[#061224]/80 to-amber-950/25',
+      themeColor: 'amber'
+    } : {
+      bgUrl: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&q=80&w=1920',
+      gradientOverlay: 'from-[#050507] via-[#050914]/85 to-indigo-950/40',
+      themeColor: 'indigo'
+    };
+  }
+
+  // Clear Sky (0) — Default
+  return isDay ? {
+    bgUrl: 'https://images.unsplash.com/photo-1601297183305-6df142704ea2?auto=format&fit=crop&q=80&w=1920',
+    gradientOverlay: 'from-[#050507] via-[#051126]/75 to-amber-900/30',
+    themeColor: 'amber'
+  } : {
+    bgUrl: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&q=80&w=1920',
+    gradientOverlay: 'from-[#050507] via-[#040814]/85 to-indigo-950/40',
+    themeColor: 'indigo'
+  };
+}
+
 export default function WeatherPanel() {
   const { userSettings, updateUserSettings } = useSettings();
   
