@@ -1230,6 +1230,17 @@ async function startServer() {
     });
   });
 
+  // API Route: Client device detection endpoint (Android TV / TV client detection)
+  app.get('/api/client/device-info', (req, res) => {
+    const ua = req.headers['user-agent'] || '';
+    const isAndroidTV = /Android TV|SmartTV|Android.*TV|BRAVIA|MiTV|MiBOX|Shield|Chromecast|Nexus Player|TencentTV|AFTT|AFTM|AFTS|AFTB|POV_TV/i.test(ua);
+    res.json({
+      userAgent: ua,
+      isAndroidTV,
+      isTV: isAndroidTV || /TV/i.test(ua)
+    });
+  });
+
   // /api/admin/logs GET
   app.get('/api/admin/logs', requireAdmin, (req, res) => {
     res.json(backendLogs);

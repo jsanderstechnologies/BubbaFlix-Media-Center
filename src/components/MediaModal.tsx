@@ -159,6 +159,24 @@ export default function MediaModal({
   const [selectedStreamId, setSelectedStreamId] = useState<string | null>(null);
   const { user } = useAuth();
   const { systemSettings, userSettings } = useSettings();
+  
+  const [isAndroidTV, setIsAndroidTV] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    return /Android TV|SmartTV|Android.*TV|BRAVIA|MiTV|MiBOX|Shield|Chromecast|Nexus Player|TencentTV|AFTT|AFTM|AFTS|AFTB|POV_TV/i.test(ua) ||
+      Boolean((window as any).android || (window as any).Android || (window as any).androidTV || (window as any).isAndroidTV);
+  });
+
+  useEffect(() => {
+    fetch('/api/client/device-info')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && typeof data.isAndroidTV === 'boolean') {
+          setIsAndroidTV(data.isAndroidTV);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteId, setFavoriteId] = useState<string | null>(null);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
@@ -383,7 +401,7 @@ export default function MediaModal({
   useEffect(() => {
     if (movie && !isHidden) {
       SpatialNavigation.add('media-modal', {
-        selector: '#media-modal .focusable, #media-modal button, #media-modal select, #media-modal input, #media-modal [tabindex="0"]',
+        selector: '#media-modal .focusable:not(#media-modal-close-btn), #media-modal select, #media-modal input, #media-modal [tabindex="0"]:not(#media-modal-close-btn)',
         restrict: 'self-only',
         enterTo: 'last-focused'
       });
@@ -391,12 +409,24 @@ export default function MediaModal({
       
       const timer = setTimeout(() => {
         try {
-          SpatialNavigation.focus('media-modal');
+          const targetEl = (
+            document.querySelector('#season-select-dropdown') ||
+            document.querySelector('#stream-select-dropdown') ||
+            document.querySelector('#media-modal-header-actions .focusable') ||
+            document.querySelector('#media-modal-body-content .focusable') ||
+            document.querySelector('#media-modal .focusable:not(#media-modal-close-btn)')
+          ) as HTMLElement;
+
+          if (targetEl) {
+            targetEl.focus();
+          } else {
+            SpatialNavigation.focus('media-modal');
+          }
         } catch (e) {
-          const firstFocusable = document.querySelector('#media-modal .focusable, #media-modal button, #media-modal select') as HTMLElement;
+          const firstFocusable = document.querySelector('#media-modal .focusable:not(#media-modal-close-btn), #media-modal select') as HTMLElement;
           if (firstFocusable) firstFocusable.focus();
         }
-      }, 50);
+      }, 80);
 
       return () => {
         clearTimeout(timer);
@@ -2112,23 +2142,17 @@ export default function MediaModal({
               <img src={dynamicBackdropUrl || extraDetails?.backdrop || dynamicPosterUrl || extraDetails?.poster || movie.backdrop || movie.poster} className="w-full h-full object-cover opacity-60" referrerPolicy="no-referrer" />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-[#0c0c12]/40 to-transparent"></div>
-            <button 
-              type="button" 
-              id="media-modal-close-btn"
-              onClick={onClose} 
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const headerBtn = document.querySelector('#media-modal-header-actions .focusable') as HTMLElement;
-                  if (headerBtn) headerBtn.focus();
-                }
-              }}
-              className="focusable absolute top-4 right-4 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 shadow-lg" 
-              title="Close"
-            >
-                <X className="w-6 h-6" />
-            </button>
+            {!isAndroidTV && (
+              <button 
+                type="button" 
+                id="media-modal-close-btn"
+                onClick={onClose} 
+                className="absolute top-4 right-4 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 shadow-lg" 
+                title="Close (Esc)"
+              >
+                  <X className="w-6 h-6" />
+              </button>
+            )}
             <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   {dynamicLogoUrl ? (
