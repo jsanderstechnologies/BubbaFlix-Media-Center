@@ -4640,48 +4640,87 @@ app.get('/api/youtube/search', async (req, res) => {
         });
       }
 
-      // Parse requested Season & Episode and Show Title from search query `q` or `req.query.title`
+      // Parse requested Season & Episode, Release Year, and Show/Movie Title from search query `q` or `req.query`
       const qStr = String(q || '');
       const reqTitleParam = req.query.title ? String(req.query.title) : null;
-      const reqTitle = (reqTitleParam || qStr.replace(/\bs\d{1,2}(e\d{1,3})?\b.*$/i, '').replace(/\b\d{1,2}x\d{1,2}\b.*$/i, '')).trim();
+      const rawTitle = (reqTitleParam || qStr.replace(/\bs\d{1,2}(e\d{1,3})?\b.*$/i, '').replace(/\b\d{1,2}x\d{1,2}\b.*$/i, '').replace(/\b(19|20)\d{2}\b.*$/i, '')).trim();
+
+      const targetYearParam = req.query.year ? parseInt(String(req.query.year), 10) : null;
+      const qYearMatch = qStr.match(/\b(19|20)\d{2}\b/);
+      const targetYear = targetYearParam || (qYearMatch ? parseInt(qYearMatch[0], 10) : null);
 
       const sMatch = qStr.match(/\bs(\d{1,2})e(\d{1,2})\b/i) || qStr.match(/\b(\d{1,2})x(\d{1,2})\b/i);
       const reqSeason = sMatch ? parseInt(sMatch[1], 10) : null;
       const reqEpisode = sMatch ? parseInt(sMatch[2], 10) : null;
 
       const cleanTitleForComparison = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      const cleanWords = (str: string) => 
+        str.toLowerCase()
+          .replace(/[^a-z0-9\s]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length > 0 && !['the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'to', 'for'].includes(w));
+
       const extractShowTitleFromTorrentName = (torrentName: string) => {
         const normalized = torrentName.replace(/[\._\-]+/g, ' ').trim();
         const match = normalized.match(/^(.*?)(?:\b(s|season\s*)\d{1,2}(e\d{1,3})?\b|\b\d{1,2}x\d{1,2}\b|\b(19|20)\d{2}\b|\b(2160p|1080p|720p|480p|web-dl|bluray|hdtv)\b)/i);
         return (match && match[1] && match[1].trim().length > 0) ? match[1].trim() : normalized;
       };
 
-      // Filter to enforce magnet links only, strict show title match, and requested season & episode if specified
+      // Filter to enforce magnet links only, strict title matching, year disambiguation, and requested season & episode
       const magnetOnlyTorrents = mappedTorrents.filter(t => {
         if (!t.magnet || !t.magnet.startsWith('magnet:?xt=urn:btih:') || !t.hash) return false;
         if (!t.name) return true;
 
         const tName = t.name.toLowerCase();
 
-        // Enforce Show Title strictness if target show title is specified
-        if (reqTitle) {
-          const expectedTitleClean = cleanTitleForComparison(reqTitle);
-          if (expectedTitleClean.length > 1) {
-            const torrentShowTitle = extractShowTitleFromTorrentName(t.name);
-            const torrentShowTitleClean = cleanTitleForComparison(torrentShowTitle);
+        // 1. Enforce Release Year Disambiguation (e.g. Mutiny 2026 vs The Caine Mutiny 1954)
+        if (targetYear) {
+          const torrentYears = Array.from(t.name.matchAll(/\b(19\d{2}|20\d{2})\b/g))
+            .map(m => parseInt(m[1], 10));
 
-            const isMatch = torrentShowTitleClean.startsWith(expectedTitleClean) || 
-                            torrentShowTitleClean.includes(expectedTitleClean) || 
-                            expectedTitleClean.includes(torrentShowTitleClean);
-
-            // Reject false matches (e.g. "The Truth About My Murder S01E01 Bones In The Forest" != "Bones")
-            if (!isMatch || (expectedTitleClean.length <= 6 && torrentShowTitleClean.length > expectedTitleClean.length + 8 && !torrentShowTitleClean.startsWith(expectedTitleClean))) {
+          if (torrentYears.length > 0) {
+            // Reject torrents whose year differs from target release year by > 1 year
+            const matchesTargetYear = torrentYears.some(y => Math.abs(y - targetYear) <= 1);
+            if (!matchesTargetYear) {
               return false;
             }
           }
         }
 
-        // Enforce Season strictness
+        // 2. Enforce Strict Show / Movie Title Token Match
+        if (rawTitle) {
+          const torrentShowTitle = extractShowTitleFromTorrentName(t.name);
+          const targetClean = cleanTitleForComparison(rawTitle);
+          const torrentClean = cleanTitleForComparison(torrentShowTitle);
+
+          const targetWords = cleanWords(rawTitle);
+          const torrentWords = cleanWords(torrentShowTitle);
+
+          if (targetWords.length > 0 && torrentWords.length > 0) {
+            // For single-word titles (e.g. "Mutiny", "Bones", "Air", "Drive", "Prey"):
+            if (targetWords.length === 1) {
+              const targetWord = targetWords[0];
+              // Torrent title MUST contain targetWord, AND must NOT have extra unrelated title words (e.g. "The Caine Mutiny", "Mutiny on the Bounty")
+              const hasUnrelatedTitleWords = torrentWords.some(w => w !== targetWord);
+              if (hasUnrelatedTitleWords && torrentClean !== targetClean) {
+                return false;
+              }
+            } else {
+              // For multi-word titles (e.g. "The Caine Mutiny"):
+              const allTargetWordsPresent = targetWords.every(w => torrentWords.includes(w));
+              if (!allTargetWordsPresent) {
+                return false;
+              }
+            }
+          }
+
+          // Secondary boundary check: reject false matches where torrent title is significantly longer and doesn't start with target title
+          if (targetClean.length <= 6 && torrentClean.length > targetClean.length + 8 && !torrentClean.startsWith(targetClean)) {
+            return false;
+          }
+        }
+
+        // 3. Enforce Season strictness
         if (reqSeason !== null) {
           const specSeasons = Array.from(tName.matchAll(/\b(s|season\s*)0*(\d{1,2})\b/gi)).map(m => parseInt(m[2], 10));
           if (specSeasons.length > 0 && !specSeasons.includes(reqSeason)) {
@@ -4689,7 +4728,7 @@ app.get('/api/youtube/search', async (req, res) => {
           }
         }
 
-        // Enforce Episode strictness
+        // 4. Enforce Episode strictness
         if (reqEpisode !== null) {
           const specEps = Array.from(tName.matchAll(/\b(e|ep|episode\s*)0*(\d{1,3})\b/gi)).map(m => parseInt(m[2], 10));
           if (specEps.length > 0 && !specEps.includes(reqEpisode)) {

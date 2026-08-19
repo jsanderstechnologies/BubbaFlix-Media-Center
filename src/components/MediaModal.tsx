@@ -12,7 +12,7 @@ import SpatialNavigation from 'spatial-navigation-js';
 const fetchStreamsForMovie = async (title: string, year?: string, imdbId?: string): Promise<any[]> => {
   try {
     const q = `${title}${year ? ` ${year}` : ''}`;
-    const url = `/api/torrents/search?q=${encodeURIComponent(q)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
+    const url = `/api/torrents/search?q=${encodeURIComponent(q)}${year ? `&year=${encodeURIComponent(year)}` : ''}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
     const res = await fetch(url).then(r => r.json());
     if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
       return res.data.map((t: any, idx: number) => ({
@@ -32,7 +32,7 @@ const fetchStreamsForMovie = async (title: string, year?: string, imdbId?: strin
     }
     // Fallback: search title without year if year query returned empty
     if (year) {
-      const fallbackUrl = `/api/torrents/search?q=${encodeURIComponent(title)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
+      const fallbackUrl = `/api/torrents/search?q=${encodeURIComponent(title)}&year=${encodeURIComponent(year)}${imdbId ? `&imdbId=${encodeURIComponent(imdbId)}` : ''}`;
       const fallbackRes = await fetch(fallbackUrl).then(r => r.json()).catch(() => null);
       if (fallbackRes?.success && Array.isArray(fallbackRes.data)) {
         return fallbackRes.data.map((t: any, idx: number) => ({
