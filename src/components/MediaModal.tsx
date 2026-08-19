@@ -2152,7 +2152,66 @@ export default function MediaModal({
   };
 
   return (
-    <div id="media-modal" className={`fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn ${isHidden ? 'hidden' : ''}`}>
+    <div 
+      id="media-modal" 
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-[#0c0c12] animate-fadeIn ${isHidden ? 'hidden' : ''}`}
+      onFocusCapture={(e) => {
+        const target = e.target as HTMLElement;
+        if (target && typeof target.scrollIntoView === 'function') {
+          try {
+            target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+          } catch (err) {}
+        }
+      }}
+      onKeyDown={(e) => {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+          const dirMap: Record<string, 'up' | 'down' | 'left' | 'right'> = {
+            ArrowUp: 'up',
+            ArrowDown: 'down',
+            ArrowLeft: 'left',
+            ArrowRight: 'right'
+          };
+          const dir = dirMap[e.key];
+          if (dir) {
+            const moved = SpatialNavigation.move(dir);
+            if (!moved) {
+              const modal = document.querySelector('#media-modal');
+              if (modal) {
+                const focusables = Array.from(
+                  modal.querySelectorAll<HTMLElement>(
+                    '.focusable, button, select, input, [tabindex="0"]'
+                  )
+                ).filter(el => {
+                  const style = window.getComputedStyle(el);
+                  return style.display !== 'none' && style.visibility !== 'hidden' && (el as HTMLButtonElement).disabled !== true;
+                });
+
+                const curActive = document.activeElement as HTMLElement;
+                const curIdx = focusables.indexOf(curActive);
+
+                if (dir === 'down' || dir === 'right') {
+                  if (curIdx >= 0 && curIdx < focusables.length - 1) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const next = focusables[curIdx + 1];
+                    next.focus();
+                    try { SpatialNavigation.focus(next); } catch (err) {}
+                  }
+                } else if (dir === 'up' || dir === 'left') {
+                  if (curIdx > 0) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const prev = focusables[curIdx - 1];
+                    prev.focus();
+                    try { SpatialNavigation.focus(prev); } catch (err) {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }}
+    >
       {/* Full-Screen TMDB Backdrop Image overlay with glassmorphic transparency */}
       {(dynamicBackdropUrl || extraDetails?.backdrop || movie.backdrop || movie.poster || movie.backupPoster) && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
