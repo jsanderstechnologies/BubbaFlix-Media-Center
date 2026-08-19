@@ -160,9 +160,7 @@ export default function SettingsPanel() {
       isPrimary: true
     }];
   });
-  const [customChannels, setCustomChannels] = useState<Record<string, any>>(() => systemSettings.customChannels || {});
-  const [isDeduplicating, setIsDeduplicating] = useState(false);
-  const [channelSearch, setChannelSearch] = useState('');
+
 
   const [sportsGroups, setSportsGroups] = useState<string[]>(() => systemSettings.sportsIptvGroups || []);
   const [enableEztv, setEnableEztv] = useState<boolean>(() => systemSettings.enableEztv === true);
@@ -617,23 +615,7 @@ export default function SettingsPanel() {
     }
   };
 
-  const editableChannels = useMemo(() => {
-    if (!parsedM3u?.channels) return [];
-    
-    let filtered = parsedM3u.channels;
-    if (enabledGroups !== null) {
-      filtered = filtered.filter((c: any) => {
-        const groupName = c.group?.title || c.group || '';
-        return enabledGroups.includes(groupName);
-      });
-    }
 
-    if (!channelSearch.trim()) return filtered;
-    const q = channelSearch.toLowerCase();
-    return filtered.filter((c: any) => 
-      (c.title || c.name || '').toLowerCase().includes(q) || (c.group?.title || c.group || '').toLowerCase().includes(q)
-    );
-  }, [parsedM3u, channelSearch, enabledGroups]);
 
   const handleSave = async () => {
     const processedProviders = iptvProviders.map((prov, idx) => {
@@ -2193,136 +2175,7 @@ export default function SettingsPanel() {
               </div>
             </div>
 
-            {/* Channel Customization & Gemini AI Matcher Card */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6">
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-base font-medium text-white flex items-center gap-2">
-                      <span>Channel Editor & AI Deduplicator</span>
-                      <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold uppercase">Gemini AI</span>
-                    </h3>
-                    <p className="text-xs text-white/50">Edit channel names, logos, groups, hide channels, or run AI matching across providers to setup backup streams.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!parsedM3u?.channels || parsedM3u.channels.length === 0) {
-                        alert("No IPTV channels found to deduplicate. Make sure your provider M3U URLs are valid.");
-                        return;
-                      }
-                      setIsDeduplicating(true);
-                      try {
-                        const token = localStorage.getItem('authToken');
-                        const res = await fetch('/api/admin/iptv/ai-dedupe', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                          body: JSON.stringify({ channels: parsedM3u.channels })
-                        });
-                        const data = await res.json();
-                        if (data.success && data.customChannels) {
-                          setCustomChannels({ ...customChannels, ...data.customChannels });
-                          alert(data.message || `Successfully matched and grouped ${data.matchedGroupsCount || 0} identical channels with primary & backup fallback streams!`);
-                        } else {
-                          alert(data.error || "Gemini AI channel deduplication failed.");
-                        }
-                      } catch (e: any) {
-                        alert(e.message || "Failed to run Gemini channel matcher.");
-                      } finally {
-                        setIsDeduplicating(false);
-                      }
-                    }}
-                    disabled={isDeduplicating}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow shrink-0"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isDeduplicating ? 'animate-spin' : ''}`} />
-                    {isDeduplicating ? 'Gemini Matching Duplicates...' : '⚡ Run Gemini AI Deduplication'}
-                  </button>
-                </div>
 
-                {/* Search & Channel Table */}
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    value={channelSearch}
-                    onChange={(e) => setChannelSearch(e.target.value)}
-                    placeholder="Search channels to edit..."
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-white text-xs outline-none focus:border-indigo-500"
-                  />
-
-                  <div className="flex items-center justify-between text-xs text-white/60 px-1">
-                    <span>Showing {editableChannels.length} channel{editableChannels.length === 1 ? '' : 's'}</span>
-                    {editableChannels.length > 100 && (
-                      <span className="text-[11px] text-amber-400/80 font-mono">Use search above to narrow down specific channels</span>
-                    )}
-                  </div>
-
-                  <div className="bg-black/40 border border-white/10 rounded-xl overflow-hidden max-h-[500px] overflow-y-auto custom-scrollbar">
-                    {editableChannels.length === 0 ? (
-                      <div className="p-6 text-center text-xs text-white/40">No channels found matching search.</div>
-                    ) : (
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-white/5 text-white/60 font-mono uppercase text-[10px] sticky top-0 backdrop-blur-md z-10">
-                          <tr>
-                            <th className="p-3">Visibility</th>
-                            <th className="p-3">Channel Name</th>
-                            <th className="p-3">Group / Category</th>
-                            <th className="p-3">Backups</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {editableChannels.slice(0, 500).map((ch) => {
-                            const cfg = customChannels[ch.id] || { id: ch.id, name: ch.title || ch.name, group: ch.group?.title || ch.group || '', hidden: false, primaryStreamUrl: ch.rawUrl || ch.url, backupStreamUrls: [] };
-                            return (
-                              <tr key={ch.id} className="hover:bg-white/[0.02]">
-                                <td className="p-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = { ...customChannels, [ch.id]: { ...cfg, hidden: !cfg.hidden } };
-                                      setCustomChannels(updated);
-                                    }}
-                                    className={`p-1.5 rounded-lg transition-colors ${cfg.hidden ? 'text-red-400 bg-red-950/30' : 'text-emerald-400 bg-emerald-950/30'}`}
-                                  >
-                                    {cfg.hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                  </button>
-                                </td>
-                                <td className="p-3">
-                                  <input
-                                    type="text"
-                                    value={cfg.name}
-                                    onChange={(e) => {
-                                      const updated = { ...customChannels, [ch.id]: { ...cfg, name: e.target.value } };
-                                      setCustomChannels(updated);
-                                    }}
-                                    className="bg-black/40 border border-white/10 rounded px-2 py-1 text-white text-xs w-full"
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <input
-                                    type="text"
-                                    value={cfg.group}
-                                    onChange={(e) => {
-                                      const updated = { ...customChannels, [ch.id]: { ...cfg, group: e.target.value } };
-                                      setCustomChannels(updated);
-                                    }}
-                                    className="bg-black/40 border border-white/10 rounded px-2 py-1 text-white/80 text-xs w-full"
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <span className="font-mono text-[10px] text-amber-400 font-bold">
-                                    {cfg.backupStreamUrls?.length || 0} Fallbacks
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
-              </div>
 
               {/* Group Selection */}
               <div className="mt-6 border-t border-white/10 pt-6">
@@ -2413,8 +2266,7 @@ export default function SettingsPanel() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {activeTab === 'playback' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
