@@ -19,7 +19,7 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery, sortOption = 'default', filterGenre = 0 }: { onSelectSeries: (series: any) => void, onHoverMedia?: (posterUrl: string) => void, searchQuery: string, sortOption?: string, filterGenre?: number }) {
+export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery, sortOption = 'default', filterGenre = 0, customItems }: { onSelectSeries: (series: any) => void, onHoverMedia?: (posterUrl: string) => void, searchQuery: string, sortOption?: string, filterGenre?: number, customItems?: any[] }) {
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const { systemSettings } = useSettings();
 
@@ -33,22 +33,25 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
   const { data: series, isLoading: queryLoading } = useQuery({
     queryKey: ['tvseries', debouncedSearchQuery, filterGenre, systemSettings.tmdbKey],
     queryFn: () => debouncedSearchQuery ? searchTvSeries(debouncedSearchQuery) : getTrendingTvSeries(filterGenre),
+    enabled: !customItems,
     staleTime: 1000 * 60 * 5,
     retry: 1,
   });
 
   useEffect(() => {
-    if (!debouncedSearchQuery && series && series.length > 0) {
+    if (!customItems && !debouncedSearchQuery && series && series.length > 0) {
       prefetchMediaItems(series);
     }
-  }, [series, debouncedSearchQuery]);
+  }, [series, debouncedSearchQuery, customItems]);
 
   const handleSelectSeries = (item: any) => {
     if (item) prefetchMediaItems([item]);
     onSelectSeries(item);
   };
 
-  const isLoading = !forceReady && !series && queryLoading;
+  const isCustom = Array.isArray(customItems);
+  const sourceSeries = isCustom ? customItems : (series || []);
+  const isLoading = !isCustom && !forceReady && !series && queryLoading;
 
   if (isLoading) {
     return (
@@ -59,12 +62,33 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
       </div>
     );
   }
-  if (!series || series.length === 0) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;
 
-  let processedSeries = [...series];
+  if (isCustom && sourceSeries.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3 text-center text-white/70 min-h-[40vh]">
+        <p className="text-base sm:text-lg font-medium">No favorite TV series saved yet.</p>
+        <p className="text-xs text-white/50">Click "Add To Favorites" on any series detail screen to save it here!</p>
+      </div>
+    );
+  }
+
+  if (!isCustom && (!series || series.length === 0)) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;
+
+  let processedSeries = [...sourceSeries];
+
+  if (debouncedSearchQuery) {
+    const q = debouncedSearchQuery.toLowerCase();
+    processedSeries = processedSeries.filter((s: any) => 
+      (s.title && s.title.toLowerCase().includes(q)) || 
+      (s.name && s.name.toLowerCase().includes(q))
+    );
+  }
   
   if (filterGenre > 0) {
-    processedSeries = processedSeries.filter((s: any) => s.genres && s.genres.includes(filterGenre));
+    processedSeries = processedSeries.filter((s: any) => 
+      (s.genre_ids && s.genre_ids.includes(filterGenre)) ||
+      (s.genres && s.genres.some((g: any) => (typeof g === 'number' ? g : g.id) === filterGenre))
+    );
   }
 
   const getSortableTitle = (title?: string) => {
@@ -72,14 +96,14 @@ export default function TvSeriesGrid({ onSelectSeries, onHoverMedia, searchQuery
     return title.trim().replace(/^(the|a|an)\s+/i, '').trim();
   };
 
-  if (sortOption === 'newest') {
-    processedSeries.sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
-  } else if (sortOption === 'oldest') {
-    processedSeries.sort((a, b) => (parseInt(a.year) || 0) - (parseInt(b.year) || 0));
-  } else if (sortOption === 'rating_high') {
-    processedSeries.sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+  if (sortOption === 'year_desc' || sortOption === 'newest') {
+    processedSeries.sort((a, b) => (parseInt(b.year || '0', 10) || 0) - (parseInt(a.year || '0', 10) || 0));
+  } else if (sortOption === 'year_asc' || sortOption === 'oldest') {
+    processedSeries.sort((a, b) => (parseInt(a.year || '0', 10) || 0) - (parseInt(b.year || '0', 10) || 0));
+  } else if (sortOption === 'rating_desc' || sortOption === 'rating' || sortOption === 'rating_high') {
+    processedSeries.sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0));
   } else if (sortOption === 'rating_low') {
-    processedSeries.sort((a, b) => parseFloat(a.rating) - parseFloat(b.rating));
+    processedSeries.sort((a, b) => parseFloat(a.rating || 0) - parseFloat(b.rating || 0));
   } else if (sortOption === 'title_asc' || sortOption === 'title' || sortOption === 'name') {
     processedSeries.sort((a: any, b: any) => getSortableTitle(a.title || a.name).localeCompare(getSortableTitle(b.title || b.name), undefined, { sensitivity: 'base', numeric: true }));
   } else if (sortOption === 'title_desc') {

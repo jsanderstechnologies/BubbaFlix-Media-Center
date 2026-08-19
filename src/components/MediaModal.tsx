@@ -1942,7 +1942,7 @@ export default function MediaModal({
 
   const toggleFavorite = async () => {
     if (!user) {
-      alert("Please login to save to library");
+      alert("Please login to save to favorites");
       return;
     }
     if (!movie) return;
@@ -2163,9 +2163,9 @@ export default function MediaModal({
                           <Info className="w-3.5 h-3.5 text-indigo-300/70 ml-0.5" />
                         </button>
                       )}
-                      {(isFavorite || movie.isNetworkShare || movie.filePath) && (
+                      {isFavorite && (
                         <span className="flex items-center gap-1.5 px-2.5 py-1 border border-emerald-500/50 rounded text-xs sm:text-sm font-bold text-emerald-300 font-mono leading-none tracking-wide uppercase bg-emerald-950/60">
-                          <BookmarkCheck className="w-4 h-4 text-emerald-400" /> In Library
+                          <BookmarkCheck className="w-4 h-4 text-emerald-400" /> Favorited
                         </span>
                       )}
                       {!isSeries && watchedDocs['movie'] && (
@@ -2247,9 +2247,10 @@ export default function MediaModal({
                         ${isFavorite 
                           ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/40' 
                           : 'bg-white/10 text-white border border-white/15 hover:bg-white/20'}`}
+                      title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
                     >
                       {isFavorite ? <BookmarkCheck className="w-4.5 h-4.5" /> : <Bookmark className="w-4.5 h-4.5" />}
-                      {isFavorite ? 'In Library' : 'Add To Library'}
+                      {isFavorite ? 'Favorited' : 'Add To Favorites'}
                     </button>
                   )}
 

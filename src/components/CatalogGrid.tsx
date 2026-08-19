@@ -19,7 +19,7 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, sortOption = 'default', filterGenre = 0 }: { onSelectMovie: (movie: any) => void, onHoverMedia?: (posterUrl: string) => void, searchQuery: string, sortOption?: string, filterGenre?: number }) {
+export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, sortOption = 'default', filterGenre = 0, customItems }: { onSelectMovie: (movie: any) => void, onHoverMedia?: (posterUrl: string) => void, searchQuery: string, sortOption?: string, filterGenre?: number, customItems?: any[] }) {
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const { systemSettings } = useSettings();
 
@@ -33,22 +33,25 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
   const { data: movies, isLoading: queryLoading } = useQuery({
     queryKey: ['movies', debouncedSearchQuery, filterGenre, systemSettings.tmdbKey],
     queryFn: () => debouncedSearchQuery ? searchMovies(debouncedSearchQuery) : getTrendingMovies(filterGenre),
+    enabled: !customItems,
     staleTime: 1000 * 60 * 5,
     retry: 1,
   });
 
   useEffect(() => {
-    if (!debouncedSearchQuery && movies && movies.length > 0) {
+    if (!customItems && !debouncedSearchQuery && movies && movies.length > 0) {
       prefetchMediaItems(movies);
     }
-  }, [movies, debouncedSearchQuery]);
+  }, [movies, debouncedSearchQuery, customItems]);
 
   const handleSelectMovie = (movie: any) => {
     if (movie) prefetchMediaItems([movie]);
     onSelectMovie(movie);
   };
 
-  const isLoading = !forceReady && !movies && queryLoading;
+  const isCustom = Array.isArray(customItems);
+  const sourceMovies = isCustom ? customItems : (movies || []);
+  const isLoading = !isCustom && !forceReady && !movies && queryLoading;
 
   if (isLoading) {
     return (
@@ -58,12 +61,33 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
       </div>
     );
   }
-  if (!movies || movies.length === 0) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;
 
-  let processedMovies = [...(movies || [])];
+  if (isCustom && sourceMovies.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3 text-center text-white/70 min-h-[40vh]">
+        <p className="text-base sm:text-lg font-medium">No favorite movies saved yet.</p>
+        <p className="text-xs text-white/50">Click "Add To Favorites" on any movie detail screen to save it here!</p>
+      </div>
+    );
+  }
+
+  if (!isCustom && (!movies || movies.length === 0)) return <div className="text-white text-sm">No results found for "{searchQuery}".</div>;
+
+  let processedMovies = [...sourceMovies];
+
+  if (debouncedSearchQuery) {
+    const q = debouncedSearchQuery.toLowerCase();
+    processedMovies = processedMovies.filter((m: any) => 
+      (m.title && m.title.toLowerCase().includes(q)) || 
+      (m.name && m.name.toLowerCase().includes(q))
+    );
+  }
   
   if (filterGenre > 0) {
-    processedMovies = processedMovies.filter((m: any) => m.genre_ids?.includes(filterGenre));
+    processedMovies = processedMovies.filter((m: any) => 
+      (m.genre_ids && m.genre_ids.includes(filterGenre)) ||
+      (m.genres && m.genres.some((g: any) => (typeof g === 'number' ? g : g.id) === filterGenre))
+    );
   }
 
   const getSortableTitle = (title?: string) => {
@@ -75,10 +99,10 @@ export default function CatalogGrid({ onSelectMovie, onHoverMedia, searchQuery, 
     processedMovies.sort((a, b) => parseInt(b.year || '0', 10) - parseInt(a.year || '0', 10));
   } else if (sortOption === 'year_asc' || sortOption === 'oldest') {
     processedMovies.sort((a, b) => parseInt(a.year || '0', 10) - parseInt(b.year || '0', 10));
-  } else if (sortOption === 'rating_desc' || sortOption === 'rating') {
-    processedMovies.sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+  } else if (sortOption === 'rating_desc' || sortOption === 'rating' || sortOption === 'rating_high') {
+    processedMovies.sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0));
   } else if (sortOption === 'rating_low') {
-    processedMovies.sort((a, b) => parseFloat(a.rating) - parseFloat(b.rating));
+    processedMovies.sort((a, b) => parseFloat(a.rating || 0) - parseFloat(b.rating || 0));
   } else if (sortOption === 'title_asc' || sortOption === 'title' || sortOption === 'name') {
     processedMovies.sort((a: any, b: any) => getSortableTitle(a.title || a.name).localeCompare(getSortableTitle(b.title || b.name), undefined, { sensitivity: 'base', numeric: true }));
   } else if (sortOption === 'title_desc') {

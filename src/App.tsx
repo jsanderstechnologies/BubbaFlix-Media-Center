@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { QueryClient, QueryClientProvider, useIsFetching } from '@tanstack/react-query';
 import ReactPlayer from 'react-player';
-import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot, Calendar as CalendarIcon, Film, SkipForward, RotateCcw, RotateCw, BookMarked, Sparkles } from 'lucide-react';
+import { Play, Search, Tv, Clapperboard, MonitorPlay, Settings, History, Check, Bookmark, BookmarkCheck, Home, X, Music , ArrowLeft, Subtitles, AudioLines, Info, FastForward, Rewind, Database, Loader2, CloudSun, Newspaper, Download, HardDrive, Zap, Bot, Calendar as CalendarIcon, Film, SkipForward, RotateCcw, RotateCw, BookMarked, Sparkles } from 'lucide-react';
 import { searchMovies, searchTvSeries, getTrendingMovies, getTrendingTvSeries, getTvSeasonDetails, getCachedImageUrl } from './services/tmdbApi';
 import { collection, query, where, onSnapshot, setDoc, deleteDoc, serverTimestamp } from './lib/localDb';
 import { db } from './lib/localDb';
@@ -150,10 +150,30 @@ function MainApp() {
   const [sortOption, setSortOption] = useState<string>('newest');
   const [filterGenre, setFilterGenre] = useState<number>(0);
   const [showFilters, setShowFilters] = useState(false);
-  const [movieViewMode, setMovieViewMode] = useState<'grid' | 'calendar'>('grid');
-  const [seriesViewMode, setSeriesViewMode] = useState<'grid' | 'calendar'>('grid');
+  const [movieViewMode, setMovieViewMode] = useState<'grid' | 'favorites' | 'calendar'>('grid');
+  const [seriesViewMode, setSeriesViewMode] = useState<'grid' | 'favorites' | 'calendar'>('grid');
 
   const [favorites, setFavorites] = useState<any[]>([]);
+
+  const favoriteMovies = useMemo(() => {
+    return (favorites || []).filter((f: any) => {
+      const isSeries = f.type === 'series' || f.type === 'tv' || !!f.first_air_date;
+      return !isSeries;
+    }).map((f: any) => ({
+      ...f,
+      id: f.tmdbId || f.id
+    }));
+  }, [favorites]);
+
+  const favoriteSeries = useMemo(() => {
+    return (favorites || []).filter((f: any) => {
+      const isSeries = f.type === 'series' || f.type === 'tv' || !!f.first_air_date;
+      return isSeries;
+    }).map((f: any) => ({
+      ...f,
+      id: f.tmdbId || f.id
+    }));
+  }, [favorites]);
   const [backgroundPoster, setBackgroundPoster] = useState<string>('');
   const [hoveredPoster, setHoveredPoster] = useState<string>('');
   const [firstAdminPassword, setFirstAdminPassword] = useState<string | null>(
@@ -1753,17 +1773,6 @@ function MainApp() {
                 <span className="text-[9px] uppercase tracking-wider font-medium">Music</span>
               </div>
             )}
-            <div 
-              id="nav-tab-library"
-              tabIndex={0}
-              onClick={() => { setActiveTab('library'); setSearchQuery(''); }}
-              onKeyDown={(e) => { if (['Enter', ' ', 'Select', 'Accept'].includes(e.key) || e.keyCode === 13 || e.keyCode === 32 || e.keyCode === 29443) { e.preventDefault(); setActiveTab('library'); setSearchQuery(''); } }}
-              className={`focusable hover:text-white transition-colors cursor-pointer flex flex-col items-center gap-1 focus:scale-110 focus:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-lg p-1.5 ${activeTab === 'library' ? 'text-red-500' : ''}`}
-              title="Library / Favorites"
-            >
-              <Bookmark className="w-5 h-5" />
-              <span className="text-[9px] uppercase tracking-wider font-medium">Library</span>
-            </div>
             {isSectionAllowed('weather') && (
               <div 
                 id="nav-tab-weather"
@@ -1863,7 +1872,6 @@ function MainApp() {
                 {activeTab === 'catalog' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Movie <span className="text-red-500 font-medium italic">Catalog</span></h1>}
                 {activeTab === 'series' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">TV <span className="text-red-500 font-medium italic">Series</span></h1>}
                 {activeTab === 'music' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Music <span className="text-red-500 font-medium italic">Search</span></h1>}
-                {activeTab === 'library' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">My <span className="text-red-500 font-medium italic">Library</span></h1>}
                 {activeTab === 'tv' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white">Live <span className="text-emerald-400 font-medium italic">TV Guide</span></h1>}
                 {activeTab === 'settings' && <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white"><span className="text-red-500 font-medium italic">Settings</span></h1>}
               </div>
@@ -1963,6 +1971,16 @@ function MainApp() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => setMovieViewMode('favorites')}
+                        className={`focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                          movieViewMode === 'favorites' ? 'bg-red-600 text-white shadow' : 'text-white/70 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <BookmarkCheck className="w-3.5 h-3.5" />
+                        Favorites ({favoriteMovies.length})
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setMovieViewMode('calendar')}
                         className={`focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
                           movieViewMode === 'calendar' ? 'bg-red-600 text-white shadow' : 'text-white/70 hover:text-white hover:bg-white/5'
@@ -2009,6 +2027,8 @@ function MainApp() {
 
                 {movieViewMode === 'grid' ? (
                   <CatalogGrid onSelectMovie={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={movieSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
+                ) : movieViewMode === 'favorites' ? (
+                  <CatalogGrid onSelectMovie={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={movieSearchQuery} sortOption={sortOption} filterGenre={filterGenre} customItems={favoriteMovies} />
                 ) : (
                   <UpcomingCalendar defaultType="movie" hideModeSelector={true} onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
                 )}
@@ -2042,6 +2062,16 @@ function MainApp() {
                         }`}
                       >
                         TV Series
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSeriesViewMode('favorites')}
+                        className={`focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                          seriesViewMode === 'favorites' ? 'bg-red-600 text-white shadow' : 'text-white/70 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <BookmarkCheck className="w-3.5 h-3.5" />
+                        Favorites ({favoriteSeries.length})
                       </button>
                       <button
                         type="button"
@@ -2091,6 +2121,8 @@ function MainApp() {
 
                 {seriesViewMode === 'grid' ? (
                   <TvSeriesGrid onSelectSeries={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={seriesSearchQuery} sortOption={sortOption} filterGenre={filterGenre} />
+                ) : seriesViewMode === 'favorites' ? (
+                  <TvSeriesGrid onSelectSeries={setSelectedMovie} onHoverMedia={setHoveredPoster} searchQuery={seriesSearchQuery} sortOption={sortOption} filterGenre={filterGenre} customItems={favoriteSeries} />
                 ) : (
                   <UpcomingCalendar defaultType="tv" hideModeSelector={true} onSelectMedia={setSelectedMovie} onHoverMedia={setHoveredPoster} filterGenre={filterGenre} />
                 )}
@@ -2113,10 +2145,6 @@ function MainApp() {
                   setActiveTab('home');
                 }}
               />
-            ) : activeTab === 'library' ? (
-              <>
-                <LibraryGrid onSelectMedia={setSelectedMovie} onPlayMedia={handlePlayStream} onHoverMedia={setHoveredPoster} />
-              </>
             ) : activeTab === 'music' ? (
               <MusicPanel initialQuery={musicSearchQuery} onSelectMedia={setSelectedMovie} />
             ) : activeTab === 'weather' ? (
