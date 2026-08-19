@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Save, Server, Shield, Link as LinkIcon, Database, Tv, CheckSquare, Square, Filter, Mail, Eye, EyeOff, SendHorizonal, Terminal, ChevronDown, ChevronUp, Users, User, Sliders, PlayCircle, Search, Key, Folder, Plus, Trash2, Film, RefreshCw, CheckCircle2, AlertCircle, Globe, Lock, ExternalLink, Copy, Check } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -439,6 +439,14 @@ export default function SettingsPanel() {
 
     return combined;
   }, [frontendLogs, backendLogs, logSourceFilter, logLevelFilter, logProcessCategory, logSearchQuery]);
+
+  const logsContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (logsContainerRef.current) {
+      logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+    }
+  }, [debugLogs]);
 
   useEffect(() => {
     if (enableDebugLog) {
@@ -2646,7 +2654,9 @@ export default function SettingsPanel() {
                   </div>
                 </div>
 
-                <div className={`bg-black/80 border border-white/10 rounded-lg p-4 overflow-y-auto font-mono text-xs flex flex-col gap-1.5 custom-scrollbar transition-all duration-200 ${
+                <div 
+                  ref={logsContainerRef}
+                  className={`bg-black/80 border border-white/10 rounded-lg p-4 overflow-y-auto font-mono text-xs flex flex-col gap-1.5 custom-scrollbar transition-all duration-200 ${
                   logHeightMode === 'full' 
                     ? 'h-[75vh] min-h-[500px]' 
                     : logHeightMode === 'expanded' 
