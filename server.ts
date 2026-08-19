@@ -5608,48 +5608,68 @@ app.get('/api/youtube/search', async (req, res) => {
         return res.json(parsed);
       }
 
-      // Single active provider selection: pick the single enabled provider
-      let activeProvider: any = null;
-      if (settings.iptvProviders && Array.isArray(settings.iptvProviders)) {
-        activeProvider = settings.iptvProviders.find((p: any) => p.enabled);
+      let enabledProviders = (settings.iptvProviders || []).filter((p: any) => p.enabled !== false);
+      if (req.body?.providerId) {
+        enabledProviders = enabledProviders.filter((p: any) => p.id === req.body.providerId);
       }
 
-      if (!activeProvider) {
-        const fallbackUrl = settings.iptvUrl || 'http://cord-cutter.net:8080/get.php?username=foyers1@rogers.com&password=9jguFdUq3Y&type=m3u_plus';
-        activeProvider = { id: 'default', name: 'Primary IPTV Provider', url: fallbackUrl };
+      if (enabledProviders.length === 0) {
+        const fallbackUrl = settings.iptvUrl || '';
+        if (fallbackUrl || settings.xtreamServer) {
+          enabledProviders = [{
+            id: 'default',
+            name: 'Primary IPTV Provider',
+            url: fallbackUrl,
+            serverUrl: settings.xtreamServer,
+            username: settings.xtreamUsername,
+            password: settings.xtreamPassword
+          }];
+        }
       }
 
-      let providerM3uUrl = activeProvider.url || '';
-      if (!providerM3uUrl && (activeProvider.serverUrl || activeProvider.xtreamServer) && (activeProvider.username || activeProvider.xtreamUsername) && (activeProvider.password || activeProvider.xtreamPassword)) {
-        const sUrl = (activeProvider.serverUrl || activeProvider.xtreamServer || '').trim().replace(/\/+$/, '');
-        const uName = (activeProvider.username || activeProvider.xtreamUsername || '').trim();
-        const pPass = (activeProvider.password || activeProvider.xtreamPassword || '').trim();
-        providerM3uUrl = `${sUrl}/get.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}&type=m3u_plus`;
-      }
-
-      if (!providerM3uUrl) {
+      if (enabledProviders.length === 0) {
         return res.json({ header: { attrs: {} }, items: [], channels: [] });
       }
 
-      const parsed = await parseM3U(providerM3uUrl);
-      let items = parsed.items || [];
+      let allChannels: any[] = [];
 
-      // Filter by provider enabledGroups if configured
-      if (activeProvider.enabledGroups && Array.isArray(activeProvider.enabledGroups) && activeProvider.enabledGroups.length > 0) {
-        const groupSet = new Set(activeProvider.enabledGroups);
-        items = items.filter((item: any) => {
-          const gTitle = item.group?.title || (typeof item.group === 'string' ? item.group : '');
-          return groupSet.has(gTitle);
-        });
+      for (const activeProvider of enabledProviders) {
+        let providerM3uUrl = (activeProvider.url || '').trim();
+        if (!providerM3uUrl && (activeProvider.serverUrl || activeProvider.xtreamServer) && (activeProvider.username || activeProvider.xtreamUsername) && (activeProvider.password || activeProvider.xtreamPassword)) {
+          const sUrl = (activeProvider.serverUrl || activeProvider.xtreamServer || '').trim().replace(/\/+$/, '');
+          const uName = (activeProvider.username || activeProvider.xtreamUsername || '').trim();
+          const pPass = (activeProvider.password || activeProvider.xtreamPassword || '').trim();
+          providerM3uUrl = `${sUrl}/get.php?username=${encodeURIComponent(uName)}&password=${encodeURIComponent(pPass)}&type=m3u_plus`;
+        }
+
+        if (!providerM3uUrl) continue;
+
+        try {
+          const parsed = await parseM3U(providerM3uUrl);
+          let items = parsed.items || [];
+
+          // Filter by THIS provider's enabledGroups if configured
+          if (activeProvider.enabledGroups && Array.isArray(activeProvider.enabledGroups) && activeProvider.enabledGroups.length > 0) {
+            const groupSet = new Set(activeProvider.enabledGroups);
+            items = items.filter((item: any) => {
+              const gTitle = item.group?.title || (typeof item.group === 'string' ? item.group : '');
+              return groupSet.has(gTitle);
+            });
+          }
+
+          const providerChannels = items.map((item: any, idx: number) => ({
+            ...item,
+            id: item.tvg?.id || `${activeProvider.id || 'prov'}-ch-${idx}`,
+            providerId: activeProvider.id || 'prov',
+            providerName: activeProvider.name || 'IPTV Provider',
+            rawUrl: item.url
+          }));
+
+          allChannels.push(...providerChannels);
+        } catch (e: any) {
+          console.error(`[API /api/m3u Error for provider ${activeProvider.name}]:`, e?.message || e);
+        }
       }
-
-      const allChannels = items.map((item: any, idx: number) => ({
-        ...item,
-        id: item.tvg?.id || `${activeProvider.id || 'prov'}-ch-${idx}`,
-        providerId: activeProvider.id || 'prov',
-        providerName: activeProvider.name || 'IPTV Provider',
-        rawUrl: item.url
-      }));
 
       // Apply custom channel overrides
       const customChannels: Record<string, any> = settings.customChannels || {};

@@ -69,11 +69,14 @@ export default function IptvGuide({ onPlayStream }: IptvGuideProps) {
   }, [parsedM3u]);
   
   const enabledGroups = useMemo(() => {
-    return userSettings?.enabledGroups || null;
+    return userSettings?.enabledGroups && userSettings.enabledGroups.length > 0 ? userSettings.enabledGroups : null;
   }, [userSettings]);
 
   const channels = useMemo(() => {
     if (!enabledGroups || enabledGroups.length === 0) return rawChannels;
+    // Guard: Only filter if enabledGroups actually matches any raw channels (prevents cross-provider group leakage)
+    const hasMatchingGroup = rawChannels.some((c: any) => enabledGroups.includes(getGroupTitle(c)));
+    if (!hasMatchingGroup) return rawChannels;
     return rawChannels.filter((c: any) => {
       const g = getGroupTitle(c);
       return !g || enabledGroups.includes(g);
