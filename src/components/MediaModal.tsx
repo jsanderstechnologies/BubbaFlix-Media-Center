@@ -420,7 +420,6 @@ export default function MediaModal({
       try { SpatialNavigation.disable(''); } catch (e) {}
       SpatialNavigation.add('media-modal', {
         selector: '#media-modal .focusable, #media-modal select, #media-modal input, #media-modal button, #media-modal [tabindex="0"]',
-        restrict: 'self-only',
         enterTo: 'last-focused',
         straightOnly: false
       });
@@ -2303,43 +2302,6 @@ export default function MediaModal({
           <div 
             id="media-modal-header-actions" 
             className="flex items-center gap-2.5 flex-wrap pb-4 border-b border-white/10"
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                e.stopPropagation();
-                const target = (
-                  document.querySelector('#season-select-dropdown') ||
-                  document.querySelector('#episode-select-dropdown') ||
-                  document.querySelector('#stream-select-dropdown') ||
-                  document.querySelector('#play-selected-stream-btn') ||
-                  document.querySelector('#media-modal-body-content select, #media-modal-body-content button, #media-modal-body-content input, #media-modal-body-content .focusable')
-                ) as HTMLElement;
-                if (target) {
-                  target.focus();
-                  try { SpatialNavigation.focus(target); } catch (err) {}
-                }
-              } else if (e.key === 'ArrowRight') {
-                const headerButtons = Array.from(e.currentTarget.querySelectorAll('.focusable')) as HTMLElement[];
-                const curIdx = headerButtons.indexOf(e.target as HTMLElement);
-                if (curIdx >= 0 && curIdx < headerButtons.length - 1) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const nextBtn = headerButtons[curIdx + 1];
-                  nextBtn.focus();
-                  try { SpatialNavigation.focus(nextBtn); } catch (err) {}
-                }
-              } else if (e.key === 'ArrowLeft') {
-                const headerButtons = Array.from(e.currentTarget.querySelectorAll('.focusable')) as HTMLElement[];
-                const curIdx = headerButtons.indexOf(e.target as HTMLElement);
-                if (curIdx > 0) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const prevBtn = headerButtons[curIdx - 1];
-                  prevBtn.focus();
-                  try { SpatialNavigation.focus(prevBtn); } catch (err) {}
-                }
-              }
-            }}
           >
             <button 
               onClick={handleOpenFixMatch}
@@ -2454,29 +2416,6 @@ export default function MediaModal({
                             setEpisodes([]);
                           }
                         }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const target = document.querySelector('#media-modal-header-actions .focusable') as HTMLElement;
-                            if (target) {
-                              target.focus();
-                              try { SpatialNavigation.focus(target); } catch (err) {}
-                            }
-                          } else if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const target = (
-                              document.querySelector('#episode-select-dropdown') ||
-                              document.querySelector('#stream-select-dropdown') ||
-                              document.querySelector('#play-selected-stream-btn')
-                            ) as HTMLElement;
-                            if (target) {
-                              target.focus();
-                              try { SpatialNavigation.focus(target); } catch (err) {}
-                            }
-                          }
-                        }}
                         className="focusable w-full bg-[#12121a] text-white border border-white/15 rounded-xl px-4 py-3.5 text-sm sm:text-base font-semibold appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 min-h-[48px]"
                       >
                         {seasons.map(s => (
@@ -2511,31 +2450,6 @@ export default function MediaModal({
                               if (!isNaN(eNum)) {
                                 setStreams([]);
                                 setSelectedEpisode(eNum);
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'ArrowUp') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const target = (
-                                  document.querySelector('#season-select-dropdown') ||
-                                  document.querySelector('#media-modal-header-actions .focusable')
-                                ) as HTMLElement;
-                                if (target) {
-                                  target.focus();
-                                  try { SpatialNavigation.focus(target); } catch (err) {}
-                                }
-                              } else if (e.key === 'ArrowDown') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const target = (
-                                  document.querySelector('#stream-select-dropdown') ||
-                                  document.querySelector('#play-selected-stream-btn')
-                                ) as HTMLElement;
-                                if (target) {
-                                  target.focus();
-                                  try { SpatialNavigation.focus(target); } catch (err) {}
-                                }
                               }
                             }}
                             className="focusable w-full bg-[#12121a] text-white border border-white/15 rounded-xl px-4 py-3.5 text-sm sm:text-base font-semibold appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 min-h-[48px]"
@@ -2630,33 +2544,6 @@ export default function MediaModal({
                 disabled={streams.length === 0}
                 onChange={(e) => {
                   setSelectedStreamId(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const target = (
-                      document.querySelector('#episode-select-dropdown') ||
-                      document.querySelector('#season-select-dropdown') ||
-                      document.querySelector('#media-modal-header-actions .focusable') ||
-                      document.querySelector('#media-modal-header-actions button')
-                    ) as HTMLElement;
-                    if (target) {
-                      target.focus();
-                      try { SpatialNavigation.focus(target); } catch (err) {}
-                    }
-                  } else if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const playBtn = (
-                      document.querySelector('#play-selected-stream-btn') ||
-                      document.querySelector('#media-modal-body-content .focusable')
-                    ) as HTMLElement;
-                    if (playBtn) {
-                      playBtn.focus();
-                      try { SpatialNavigation.focus(playBtn); } catch (err) {}
-                    }
-                  }
                 }}
                 className="focusable w-full bg-[#12121a] text-white border border-white/15 rounded-xl px-4 py-4 text-sm sm:text-base font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 min-h-[52px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
