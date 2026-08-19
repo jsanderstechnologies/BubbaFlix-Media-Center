@@ -2247,638 +2247,638 @@ export default function MediaModal({
 
         <div 
           id="media-modal-body-content" 
-          className="p-6 overflow-y-auto md:overflow-hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-8"
+          className="p-6 overflow-y-auto flex-1 space-y-6 custom-scrollbar w-full"
         >
-            <div className="space-y-6 h-full md:overflow-y-auto custom-scrollbar md:pr-4 pb-4">
-                {(dynamicOverview || movie.overview) && (
-                    <p className="text-sm text-white/90 leading-relaxed">
-                        {dynamicOverview || movie.overview}
-                    </p>
-                )}
-                
-                {extraLoading ? (
-                  <div className="flex flex-col items-center justify-center py-10 space-y-3 bg-white/[0.01] border border-white/5 rounded-xl">
-                    <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                    </span>
-                    <span className="text-xs font-mono text-white/60 uppercase tracking-widest animate-pulse">Loading Credits...</span>
-                  </div>
-                ) : extraDetails ? (
-                  <div className="space-y-6">
-                    {extraDetails.tagline && (
-                      <div className="bg-white/[0.02] border-l-2 border-red-500 p-3 rounded-r-lg italic text-xs text-white/80 leading-relaxed">
-                        "{extraDetails.tagline}"
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4 text-xs">
-                      <div>
-                        <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Release / Air Date</span>
-                        <span className="text-white font-medium font-mono">{extraDetails.releaseDate}</span>
-                      </div>
-                      {extraDetails.genres && extraDetails.genres.length > 0 && (
-                        <div>
-                          <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Genres</span>
-                          <span className="text-white/80 font-medium truncate block" title={extraDetails.genres.join(', ')}>
-                            {extraDetails.genres.slice(0, 3).join(', ')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {(extraDetails.directors.length > 0 || (extraDetails.writers && extraDetails.writers.length > 0) || extraDetails.producers.length > 0) && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border-b border-white/5 pb-4 text-xs">
-                        {extraDetails.directors.length > 0 && (
-                          <div>
-                            <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">
-                              {isSeries ? 'Creator / Showrunner' : 'Director'}
-                            </span>
-                            <span className="text-white font-semibold">{extraDetails.directors.slice(0, 3).join(', ')}</span>
-                          </div>
-                        )}
-                        {extraDetails.writers && extraDetails.writers.length > 0 && (
-                          <div>
-                            <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Written By</span>
-                            <span className="text-white font-medium truncate block" title={extraDetails.writers.join(', ')}>
-                              {extraDetails.writers.slice(0, 3).join(', ')}
-                            </span>
-                          </div>
-                        )}
-                        {extraDetails.producers.length > 0 && (
-                          <div>
-                            <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Produced By</span>
-                            <span className="text-white font-medium truncate block" title={extraDetails.producers.join(', ')}>
-                              {extraDetails.producers.slice(0, 2).join(', ')}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {extraDetails.cast && extraDetails.cast.length > 0 && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider">Cast & Starring</h4>
-                          <span className="text-[10px] text-white/50">Click actor to discover</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          {extraDetails.cast.map(actor => (
-                            <div 
-                              key={actor.id} 
-                              className="flex items-center justify-between p-2 bg-white/5 border border-white/5 rounded-xl text-left transition-all group hover:bg-red-900/10 hover:border-red-500/20"
-                            >
-                              <div 
-                                onClick={() => onActorSearch && onActorSearch(actor.name)}
-                                tabIndex={0}
-                                className="focusable flex items-center gap-3 min-w-0 flex-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-xl"
-                                title={`Find media with ${actor.name} inside the app`}
-                              >
-                                <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-slate-800 border border-white/10 group-hover:border-red-500/30 transition-colors">
-                                  {actor.profilePath ? (
-                                    <img 
-                                      src={actor.profilePath} 
-                                      alt={actor.name} 
-                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" 
-                                      referrerPolicy="no-referrer" 
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white/70 bg-slate-900 uppercase">
-                                      {actor.name.substring(0, 2)}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-semibold text-white truncate group-hover:text-red-400 transition-colors">{actor.name}</p>
-                                  <p className="text-[10px] text-white/60 truncate mt-0.5">{actor.character}</p>
-                                </div>
-                              </div>
-                              
-                              <a 
-                                href={`https://www.imdb.com/find?q=${encodeURIComponent(actor.name)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2 py-1 rounded bg-[#f5c518] hover:bg-[#e2b512] text-black transition-colors text-[10px] font-black shrink-0 ml-1.5 shadow-sm"
-                                title={`Search ${actor.name} on IMDb`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                IMDb
-                              </a>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Chapters List */}
-                    {extraDetails.chapters && extraDetails.chapters.length > 0 && (
-                      <div className="space-y-2 pt-2 border-t border-white/5">
-                        <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider flex items-center gap-2">
-                          <span>📑</span> Chapters ({extraDetails.chapters.length})
-                        </h4>
-                        <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto pr-1">
-                          {extraDetails.chapters.map((ch, idx) => {
-                            const h = Math.floor(ch.startTime / 3600);
-                            const m = Math.floor((ch.startTime % 3600) / 60);
-                            const s = Math.floor(ch.startTime % 60);
-                            const timeStr = h > 0
-                              ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-                              : `${m}:${String(s).padStart(2, '0')}`;
-                            return (
-                              <div key={ch.id || idx} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
-                                <span className="text-xs text-white/80 truncate">{ch.title}</span>
-                                <span className="text-[10px] font-mono text-white/40 shrink-0 ml-2">{timeStr}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-white/50 text-xs italic py-4">No metadata details available.</div>
-                )}
+          {/* 1. Overview & Synopsis */}
+          {(dynamicOverview || movie.overview) && (
+            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xl">
+              <p className="text-sm text-white/90 leading-relaxed">
+                {dynamicOverview || movie.overview}
+              </p>
             </div>
+          )}
 
-            <div className="flex flex-col gap-6 h-full min-h-0 pb-4">
-                {isSeries && (
-                  <div className="space-y-4 bg-white/[0.02] border border-white/5 p-4 rounded-xl flex-shrink-0">
-                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider">Select Episode</h4>
-                    {seriesDetailsLoading ? (
-                        <div className="text-white/60 text-xs italic">Loading series details...</div>
-                    ) : (
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center justify-between">
-                                  <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Season</label>
-                                  {user && selectedSeason !== null && (
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleSeasonWatched(selectedSeason)}
-                                      className={`focusable text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
-                                        isSeasonFullyWatched(selectedSeason)
-                                          ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/60'
-                                          : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
-                                      }`}
-                                      title={isSeasonFullyWatched(selectedSeason) ? 'Mark Season Unwatched' : 'Mark All Episodes in Season Watched'}
-                                    >
-                                      <CheckCircle className={`w-3.5 h-3.5 ${isSeasonFullyWatched(selectedSeason) ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/40'}`} />
-                                      <span>{isSeasonFullyWatched(selectedSeason) ? 'Season Watched' : 'Mark Season Watched'}</span>
-                                    </button>
-                                  )}
-                                </div>
-                                <div className="relative">
-                                    <select
-                                        value={selectedSeason ?? ''}
-                                        onChange={(e) => {
-                                            const sNum = parseInt(e.target.value, 10);
-                                            if (!isNaN(sNum)) {
-                                                setStreams([]);
-                                                setSelectedSeason(sNum);
-                                                setSelectedEpisode(null);
-                                                setEpisodes([]);
-                                            }
-                                        }}
-                                        className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
-                                    >
-                                        {seasons.map(s => (
-                                            <option key={s.season_number} value={s.season_number} className="bg-[#12121a] text-white">
-                                                Season {s.season_number} ({s.episode_count || s.episodes?.length || 0} Episodes)
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
-                                        ▼
-                                    </div>
-                                </div>
-                            </div>
-                            {episodes.length > 0 && (
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center justify-between">
-                                      <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Episode</label>
-                                      {selectedEpisode !== null && (
-                                        <span className="text-[10px] font-mono text-white/50 flex items-center gap-1">
-                                          <Calendar className="w-3 h-3 text-white/40" />
-                                          {episodes.find(e => e.episode_number === selectedEpisode)?.air_date ? `Aired: ${episodes.find(e => e.episode_number === selectedEpisode)?.air_date}` : 'Air date N/A'}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="relative flex-1">
-                                          <select
-                                              value={selectedEpisode ?? ''}
-                                              onChange={(e) => {
-                                                  const eNum = parseInt(e.target.value, 10);
-                                                  if (!isNaN(eNum)) {
-                                                      setStreams([]);
-                                                      setSelectedEpisode(eNum);
-                                                  }
-                                              }}
-                                              className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
-                                          >
-                                              {episodes.map(ep => {
-                                                  const isEpWatched = !!watchedDocs[`s${selectedSeason}_e${ep.episode_number}`];
-                                                  const airStr = ep.air_date ? ` (Aired: ${ep.air_date})` : '';
-                                                  return (
-                                                      <option key={ep.episode_number} value={ep.episode_number} className="bg-[#12121a] text-white">
-                                                          {isEpWatched ? '✓ ' : ''}E{ep.episode_number} - {ep.name || `Episode ${ep.episode_number}`}{airStr}
-                                                      </option>
-                                                  );
-                                              })}
-                                          </select>
-                                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
-                                              ▼
-                                          </div>
-                                      </div>
-                                      {user && selectedSeason !== null && selectedEpisode !== null && (
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleWatched('tv', selectedSeason, selectedEpisode)}
-                                          className={`focusable shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
-                                            watchedDocs[`s${selectedSeason}_e${selectedEpisode}`]
-                                              ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/50 hover:bg-emerald-900/60'
-                                              : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
-                                          }`}
-                                          title={watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'Mark Episode Unwatched' : 'Mark Episode Watched'}
-                                        >
-                                          <CheckCircle className={`w-4 h-4 ${watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/40'}`} />
-                                          <span>{watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'Watched' : 'Mark Watched'}</span>
-                                        </button>
-                                      )}
-                                    </div>
-                                </div>
-                            )}
-                            <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-1">
-                              <button
-                                type="button"
-                                onClick={handleManualTidbSearch}
-                                disabled={manualTidbLoading}
-                                className="focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-indigo-950/60 text-indigo-300 border-indigo-500/40 hover:bg-indigo-900/60 hover:border-indigo-400 disabled:opacity-50 shadow-sm"
-                                title="Manually query TheIntroDB (TIDB) repository for episode intro & credit skip markers"
-                              >
-                                {manualTidbLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" /> : <Zap className="w-3.5 h-3.5 text-amber-400" />}
-                                <span>{manualTidbLoading ? 'Searching TIDB...' : 'Search TIDB Skips'}</span>
-                              </button>
-                              {getSkipBadgeText() ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setShowSkipInfoModal(true)}
-                                  className="focusable text-[10px] font-mono text-indigo-300/90 bg-indigo-950/40 border border-indigo-500/30 hover:bg-indigo-900/40 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
-                                  title="View skip timestamp details"
-                                >
-                                  <Zap className="w-3 h-3 text-indigo-400" />
-                                  <span>TIDB: {getSkipBadgeText()}</span>
-                                </button>
-                              ) : (
-                                <span className="text-[10px] font-mono text-white/40 italic">
-                                  No TIDB skips cached
-                                </span>
-                              )}
-                            </div>
-                        </div>
-                    )}
-                  </div>
-                )}
-
-
-                <div className="flex flex-col gap-3 bg-white/[0.02] border border-white/5 p-4 rounded-xl">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-white/60 uppercase tracking-wider flex items-center gap-2">
-                      Stream Results
-                      {loading && (
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                        </span>
-                      )}
-                    </label>
-                    {streams.length > 0 && (
-                      <span className="text-[10px] text-white/50 font-mono">
-                        {streams.length} {streams.length === 1 ? 'stream' : 'streams'} available
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="relative">
-                    <select
-                      value={selectedStreamId ?? '0'}
-                      disabled={streams.length === 0}
-                      onChange={(e) => {
-                        setSelectedStreamId(e.target.value);
-                      }}
-                      className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-3 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading && streams.length === 0 ? (
-                        <option value="" disabled className="bg-[#12121a] text-white/60">
-                          Searching Stream Sources...
-                        </option>
-                      ) : streams.length === 0 ? (
-                        <option value="" disabled className="bg-[#12121a] text-white/60">
-                          No stream sources found
-                        </option>
-                      ) : (
-                        streams.map((stream, idx) => {
-                          const lastPlayedTag = stream.isLastPlayed ? '▶ [LAST PLAYED] ' : '';
-                          const qualityTag = stream.quality ? `[${stream.quality}] ` : '';
-                          const nameTag = stream.name || stream.title || 'Unknown Stream';
-                          const sizeTag = stream.sizeStr || stream.size ? ` (${stream.sizeStr || stream.size})` : '';
-                          const sourceTag = stream.source ? ` • ${stream.source}` : '';
-                          const statusTag = (stream.type === 'premiumize_cloud' || stream.inPersonalCloud)
-                            ? ' ⚡ Cloud'
-                            : stream.type === 'local'
-                            ? ' ⚡ Local'
-                            : stream.isPremiumize || stream.isCached
-                            ? ' ⚡ Instant'
-                            : stream.seeds
-                            ? ` • ${stream.seeds} seeds`
-                            : '';
-                          
-                          return (
-                            <option key={idx} value={String(idx)} className="bg-[#12121a] text-white py-1">
-                              {`${lastPlayedTag}${qualityTag}${nameTag}${sizeTag}${sourceTag}${statusTag}`}
-                            </option>
-                          );
-                        })
-                      )}
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
-                      ▼
-                    </div>
-                  </div>
-
-                  {streams.length > 0 && (
-                    <button
-                      onClick={() => {
-                        const chosenIndex = Number(selectedStreamId ?? 0);
-                        const chosenStream = streams[chosenIndex] || streams[0];
-                        if (chosenStream) {
-                          handleStreamClick(chosenStream);
-                        }
-                      }}
-                      className="focusable flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs tracking-wider uppercase transition-colors shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-400 mt-1"
-                    >
-                      <Play className="w-4 h-4 fill-current" />
-                      Play Selected Stream
-                    </button>
-                  )}
-                </div>
-
-                {/* Developer Admin Tools Panel (Visible strictly when Admin & Developer Admin Mode is ON) */}
-                {user?.role === 'admin' && 
-                 (userSettings?.adminMode === true || systemSettings?.adminMode === true || userSettings?.developerAdminMode === true || systemSettings?.developerAdminMode === true) && (
-                  <div className="mt-8 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-5 shadow-xl space-y-6">
-                    {/* Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-indigo-500/20">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-2 rounded-xl bg-indigo-600/30 border border-indigo-400/40 text-indigo-300">
-                          <Zap className="w-5 h-5 fill-indigo-400/20" />
-                        </div>
-                        <div>
-                          <h3 className="text-base font-bold text-white uppercase tracking-wider font-mono">⚡ Developer Admin Tools</h3>
-                          <p className="text-xs text-indigo-300/70 font-mono">FFmpeg & AI Skip Timestamps, TIDB Submission & Chapter Editor</p>
-                        </div>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono">
-                        Admin Only
-                      </span>
-                    </div>
-
-                    {/* Target Stream / File Selector Dropdown */}
-                    <div className="bg-black/60 border border-indigo-500/30 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
-                          <FileVideo className="w-4 h-4 shrink-0" />
-                        </div>
-                        <div>
-                          <label className="text-xs font-bold text-white font-mono uppercase block">Target Processing Source</label>
-                          <p className="text-[10px] text-white/50 font-mono">Select specific file or stream for FFmpeg & AI to process</p>
-                        </div>
-                      </div>
-                      <select
-                        value={devSelectedStreamUrl || (streams[0]?.url || movie?.filePath || '')}
-                        onChange={(e) => setDevSelectedStreamUrl(e.target.value)}
-                        className="bg-slate-900 text-indigo-200 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-indigo-400 max-w-md w-full truncate cursor-pointer"
-                      >
-                        {movie?.filePath && (
-                          <option value={movie.filePath}>📁 Local File: {movie.filePath}</option>
-                        )}
-                        {streams.map((s: any, idx: number) => (
-                          <option key={idx} value={s.url}>
-                            {s.type === 'local' ? '📁' : s.isCached ? '⚡' : '🌐'} {s.name || `Stream #${idx + 1}`} ({s.quality || 'Auto'})
-                          </option>
-                        ))}
-                        {streams.length === 0 && !movie?.filePath && (
-                          <option value="">No streams or local files discovered yet</option>
-                        )}
-                      </select>
-                    </div>
-
-                    {/* Section 1: Skip Segments Editor & TIDB Submission */}
-                    <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-                            <Zap className="w-4 h-4 text-amber-400" /> Intro / Credit Skip Segments
-                          </h4>
-                          <p className="text-[11px] text-white/50 font-mono">FFmpeg visual/silence scan + AI sequence detection</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={devScanningSkip}
-                            onClick={handleDevScanSkipSegments}
-                            className="focusable px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
-                          >
-                            {devScanningSkip ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                            Scan (FFmpeg + AI)
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Skip Segments List / Editor */}
-                      <div className="space-y-2">
-                        {devSkipSegments.length === 0 ? (
-                          <div className="text-xs text-white/40 italic py-3 text-center bg-white/[0.02] rounded-lg border border-white/5 font-mono">
-                            No active skip segments. Click "Scan (FFmpeg + AI)" or add one manually below.
-                          </div>
-                        ) : (
-                          devSkipSegments.map((seg, idx) => (
-                            <div key={idx} className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-white/10 p-2.5 rounded-lg text-xs font-mono">
-                              <select
-                                value={seg.type || 'intro'}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const labelMap: Record<string, string> = { intro: 'Skip Intro', recap: 'Skip Recap', credits: 'Skip Credits' };
-                                  updateDevSkipSegment(idx, { type: val, label: labelMap[val] || 'Skip' });
-                                }}
-                                className="bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
-                              >
-                                <option value="intro">Intro</option>
-                                <option value="recap">Recap</option>
-                                <option value="credits">Credits</option>
-                              </select>
-
-                              <div className="flex items-center gap-1">
-                                <span className="text-white/40 text-[10px]">Start:</span>
-                                <input
-                                  type="number"
-                                  value={seg.start}
-                                  onChange={(e) => updateDevSkipSegment(idx, { start: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                                  className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
-                                  placeholder="Sec"
-                                />
-                                <span className="text-white/40 text-[10px]">({formatTime(seg.start)})</span>
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                <span className="text-white/40 text-[10px]">End:</span>
-                                <input
-                                  type="number"
-                                  value={seg.end}
-                                  onChange={(e) => updateDevSkipSegment(idx, { end: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                                  className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
-                                  placeholder="Sec"
-                                />
-                                <span className="text-white/40 text-[10px]">({formatTime(seg.end)})</span>
-                              </div>
-
-                              <div className="flex items-center gap-1 ml-auto">
-                                <button
-                                  type="button"
-                                  onClick={() => handleTestPlayDevTimestamp(seg.start)}
-                                  className="focusable px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                                  title="Test Play in player at segment start"
-                                >
-                                  <PlayCircle className="w-3.5 h-3.5" /> Test Play
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeDevSkipSegment(idx)}
-                                  className="focusable px-2 py-1 bg-red-600/60 hover:bg-red-600 text-white rounded text-[11px] font-bold transition-all cursor-pointer"
-                                  title="Delete Segment"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          ))
-                        )}
-
-                        <div className="flex items-center justify-between pt-2 border-t border-white/10">
-                          <button
-                            type="button"
-                            onClick={addDevSkipSegment}
-                            className="focusable text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1 cursor-pointer"
-                          >
-                            + Add Segment
-                          </button>
-                          <button
-                            type="button"
-                            disabled={devSubmittingTidb || devSkipSegments.length === 0}
-                            onClick={handleDevSubmitTidb}
-                            className="focusable px-4 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
-                          >
-                            {devSubmittingTidb ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                            Submit to TheIntroDB (TIDB)
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Section 2: Movie & Media Chapters Editor */}
-                    <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-                            <Video className="w-4 h-4 text-cyan-400" /> Movie Chapters (FFmpeg Scene Detect)
-                          </h4>
-                          <p className="text-[11px] text-white/50 font-mono">Extract embedded chapters or scan scene changes with FFmpeg</p>
-                        </div>
+          {/* 2. TV Series Season & Episode Selectors */}
+          {isSeries && (
+            <div className="space-y-4 bg-white/[0.02] border border-white/5 p-4 rounded-xl">
+              <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider">Select Episode</h4>
+              {seriesDetailsLoading ? (
+                <div className="text-white/60 text-xs italic">Loading series details...</div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Season</label>
+                      {user && selectedSeason !== null && (
                         <button
                           type="button"
-                          disabled={devScanningChapters}
-                          onClick={handleDevScanChapters}
-                          className="focusable px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                          onClick={() => toggleSeasonWatched(selectedSeason)}
+                          className={`focusable text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                            isSeasonFullyWatched(selectedSeason)
+                              ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/60'
+                              : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                          }`}
+                          title={isSeasonFullyWatched(selectedSeason) ? 'Mark Season Unwatched' : 'Mark All Episodes in Season Watched'}
                         >
-                          {devScanningChapters ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                          Scan Chapters
+                          <CheckCircle className={`w-3.5 h-3.5 ${isSeasonFullyWatched(selectedSeason) ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/40'}`} />
+                          <span>{isSeasonFullyWatched(selectedSeason) ? 'Season Watched' : 'Mark Season Watched'}</span>
                         </button>
-                      </div>
-
-                      {/* Chapters Editor */}
-                      <div className="space-y-2">
-                        {devChapters.length === 0 ? (
-                          <div className="text-xs text-white/40 italic py-3 text-center bg-white/[0.02] rounded-lg border border-white/5 font-mono">
-                            No active chapters. Click "Scan Chapters" or add custom chapters below.
-                          </div>
-                        ) : (
-                          devChapters.map((ch, idx) => (
-                            <div key={idx} className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-white/10 p-2.5 rounded-lg text-xs font-mono">
-                              <input
-                                type="text"
-                                value={ch.title}
-                                onChange={(e) => updateDevChapter(idx, { title: e.target.value })}
-                                className="flex-1 min-w-[140px] bg-slate-800 text-white border border-white/15 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-cyan-400 font-bold"
-                                placeholder="Chapter Title"
-                              />
-
-                              <div className="flex items-center gap-1">
-                                <span className="text-white/40 text-[10px]">Start:</span>
-                                <input
-                                  type="number"
-                                  value={ch.startTime}
-                                  onChange={(e) => updateDevChapter(idx, { startTime: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                                  className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-cyan-400"
-                                  placeholder="Sec"
-                                />
-                                <span className="text-white/40 text-[10px]">({formatTime(ch.startTime)})</span>
-                              </div>
-
-                              <div className="flex items-center gap-1 ml-auto">
-                                <button
-                                  type="button"
-                                  onClick={() => handleTestPlayDevTimestamp(ch.startTime)}
-                                  className="focusable px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
-                                  title="Test Play in player at chapter start"
-                                >
-                                  <PlayCircle className="w-3.5 h-3.5" /> Test Play
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeDevChapter(idx)}
-                                  className="focusable px-2 py-1 bg-red-600/60 hover:bg-red-600 text-white rounded text-[11px] font-bold transition-all cursor-pointer"
-                                  title="Delete Chapter"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          ))
-                        )}
-
-                        <div className="flex items-center justify-between pt-2 border-t border-white/10">
-                          <button
-                            type="button"
-                            onClick={addDevChapter}
-                            className="focusable text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1 cursor-pointer"
-                          >
-                            + Add Chapter
-                          </button>
-                          <button
-                            type="button"
-                            disabled={devSavingChapters || devChapters.length === 0}
-                            onClick={handleDevSaveChapters}
-                            className="focusable px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
-                          >
-                            {devSavingChapters ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                            Save & Apply Chapters
-                          </button>
-                        </div>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <select
+                        value={selectedSeason ?? ''}
+                        onChange={(e) => {
+                          const sNum = parseInt(e.target.value, 10);
+                          if (!isNaN(sNum)) {
+                            setStreams([]);
+                            setSelectedSeason(sNum);
+                            setSelectedEpisode(null);
+                            setEpisodes([]);
+                          }
+                        }}
+                        className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
+                      >
+                        {seasons.map(s => (
+                          <option key={s.season_number} value={s.season_number} className="bg-[#12121a] text-white">
+                            Season {s.season_number} ({s.episode_count || s.episodes?.length || 0} Episodes)
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+                        ▼
                       </div>
                     </div>
                   </div>
-                )}
+                  {episodes.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Episode</label>
+                        {selectedEpisode !== null && (
+                          <span className="text-[10px] font-mono text-white/50 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-white/40" />
+                            {episodes.find(e => e.episode_number === selectedEpisode)?.air_date ? `Aired: ${episodes.find(e => e.episode_number === selectedEpisode)?.air_date}` : 'Air date N/A'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <select
+                            value={selectedEpisode ?? ''}
+                            onChange={(e) => {
+                              const eNum = parseInt(e.target.value, 10);
+                              if (!isNaN(eNum)) {
+                                setStreams([]);
+                                setSelectedEpisode(eNum);
+                              }
+                            }}
+                            className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10"
+                          >
+                            {episodes.map(ep => {
+                              const isEpWatched = !!watchedDocs[`s${selectedSeason}_e${ep.episode_number}`];
+                              const airStr = ep.air_date ? ` (Aired: ${ep.air_date})` : '';
+                              return (
+                                <option key={ep.episode_number} value={ep.episode_number} className="bg-[#12121a] text-white">
+                                  {isEpWatched ? '✓ ' : ''}E{ep.episode_number} - {ep.name || `Episode ${ep.episode_number}`}{airStr}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+                            ▼
+                          </div>
+                        </div>
+                        {user && selectedSeason !== null && selectedEpisode !== null && (
+                          <button
+                            type="button"
+                            onClick={() => toggleWatched('tv', selectedSeason, selectedEpisode)}
+                            className={`focusable shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                              watchedDocs[`s${selectedSeason}_e${selectedEpisode}`]
+                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/50 hover:bg-emerald-900/60'
+                                : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                            }`}
+                            title={watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'Mark Episode Unwatched' : 'Mark Episode Watched'}
+                          >
+                            <CheckCircle className={`w-4 h-4 ${watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'text-emerald-400 fill-emerald-400/20' : 'text-white/40'}`} />
+                            <span>{watchedDocs[`s${selectedSeason}_e${selectedEpisode}`] ? 'Watched' : 'Mark Watched'}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-1">
+                    <button
+                      type="button"
+                      onClick={handleManualTidbSearch}
+                      disabled={manualTidbLoading}
+                      className="focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-indigo-950/60 text-indigo-300 border-indigo-500/40 hover:bg-indigo-900/60 hover:border-indigo-400 disabled:opacity-50 shadow-sm"
+                      title="Manually query TheIntroDB (TIDB) repository for episode intro & credit skip markers"
+                    >
+                      {manualTidbLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" /> : <Zap className="w-3.5 h-3.5 text-amber-400" />}
+                      <span>{manualTidbLoading ? 'Searching TIDB...' : 'Search TIDB Skips'}</span>
+                    </button>
+                    {getSkipBadgeText() ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowSkipInfoModal(true)}
+                        className="focusable text-[10px] font-mono text-indigo-300/90 bg-indigo-950/40 border border-indigo-500/30 hover:bg-indigo-900/40 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                        title="View skip timestamp details"
+                      >
+                        <Zap className="w-3 h-3 text-indigo-400" />
+                        <span>TIDB: {getSkipBadgeText()}</span>
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-mono text-white/40 italic">
+                        No TIDB skips cached
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+          )}
+
+          {/* 3. Stream Selection Results & Play Control */}
+          <div className="flex flex-col gap-3 bg-white/[0.02] border border-white/5 p-4 rounded-xl">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-white/60 uppercase tracking-wider flex items-center gap-2">
+                Stream Results
+                {loading && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
+                )}
+              </label>
+              {streams.length > 0 && (
+                <span className="text-[10px] text-white/50 font-mono">
+                  {streams.length} {streams.length === 1 ? 'stream' : 'streams'} available
+                </span>
+              )}
+            </div>
+
+            <div className="relative">
+              <select
+                value={selectedStreamId ?? '0'}
+                disabled={streams.length === 0}
+                onChange={(e) => {
+                  setSelectedStreamId(e.target.value);
+                }}
+                className="focusable w-full bg-[#12121a] text-white border border-white/10 rounded-xl px-4 py-3 text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all pr-10 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading && streams.length === 0 ? (
+                  <option value="" disabled className="bg-[#12121a] text-white/60">
+                    Searching Stream Sources...
+                  </option>
+                ) : streams.length === 0 ? (
+                  <option value="" disabled className="bg-[#12121a] text-white/60">
+                    No stream sources found
+                  </option>
+                ) : (
+                  streams.map((stream, idx) => {
+                    const lastPlayedTag = stream.isLastPlayed ? '▶ [LAST PLAYED] ' : '';
+                    const qualityTag = stream.quality ? `[${stream.quality}] ` : '';
+                    const nameTag = stream.name || stream.title || 'Unknown Stream';
+                    const sizeTag = stream.sizeStr || stream.size ? ` (${stream.sizeStr || stream.size})` : '';
+                    const sourceTag = stream.source ? ` • ${stream.source}` : '';
+                    const statusTag = (stream.type === 'premiumize_cloud' || stream.inPersonalCloud)
+                      ? ' ⚡ Cloud'
+                      : stream.type === 'local'
+                      ? ' ⚡ Local'
+                      : stream.isPremiumize || stream.isCached
+                      ? ' ⚡ Instant'
+                      : stream.seeds
+                      ? ` • ${stream.seeds} seeds`
+                      : '';
+                    
+                    return (
+                      <option key={idx} value={String(idx)} className="bg-[#12121a] text-white py-1">
+                        {`${lastPlayedTag}${qualityTag}${nameTag}${sizeTag}${sourceTag}${statusTag}`}
+                      </option>
+                    );
+                  })
+                )}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/50 text-xs">
+                ▼
+              </div>
+            </div>
+
+            {streams.length > 0 && (
+              <button
+                onClick={() => {
+                  const chosenIndex = Number(selectedStreamId ?? 0);
+                  const chosenStream = streams[chosenIndex] || streams[0];
+                  if (chosenStream) {
+                    handleStreamClick(chosenStream);
+                  }
+                }}
+                className="focusable flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs tracking-wider uppercase transition-colors shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-400 mt-1"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                Play Selected Stream
+              </button>
+            )}
+          </div>
+
+          {/* 4. Metadata Details (Tagline, Release Date, Genres, Creators, Writers, Producers) */}
+          {extraLoading ? (
+            <div className="flex flex-col items-center justify-center py-10 space-y-3 bg-white/[0.01] border border-white/5 rounded-xl">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+              <span className="text-xs font-mono text-white/60 uppercase tracking-widest animate-pulse">Loading Details...</span>
+            </div>
+          ) : extraDetails ? (
+            <div className="space-y-6 bg-white/[0.02] border border-white/5 p-4 rounded-xl">
+              {extraDetails.tagline && (
+                <div className="bg-white/[0.02] border-l-2 border-red-500 p-3 rounded-r-lg italic text-xs text-white/80 leading-relaxed">
+                  "{extraDetails.tagline}"
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4 text-xs">
+                <div>
+                  <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Release / Air Date</span>
+                  <span className="text-white font-medium font-mono">{extraDetails.releaseDate}</span>
+                </div>
+                {extraDetails.genres && extraDetails.genres.length > 0 && (
+                  <div>
+                    <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Genres</span>
+                    <span className="text-white/80 font-medium truncate block" title={extraDetails.genres.join(', ')}>
+                      {extraDetails.genres.slice(0, 4).join(', ')}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {(extraDetails.directors.length > 0 || (extraDetails.writers && extraDetails.writers.length > 0) || extraDetails.producers.length > 0) && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border-b border-white/5 pb-4 text-xs">
+                  {extraDetails.directors.length > 0 && (
+                    <div>
+                      <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">
+                        {isSeries ? 'Creator / Showrunner' : 'Director'}
+                      </span>
+                      <span className="text-white font-semibold">{extraDetails.directors.slice(0, 3).join(', ')}</span>
+                    </div>
+                  )}
+                  {extraDetails.writers && extraDetails.writers.length > 0 && (
+                    <div>
+                      <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Written By</span>
+                      <span className="text-white font-medium truncate block" title={extraDetails.writers.join(', ')}>
+                        {extraDetails.writers.slice(0, 3).join(', ')}
+                      </span>
+                    </div>
+                  )}
+                  {extraDetails.producers.length > 0 && (
+                    <div>
+                      <span className="text-white/60 uppercase font-bold tracking-wider block mb-1 text-[10px]">Produced By</span>
+                      <span className="text-white font-medium truncate block" title={extraDetails.producers.join(', ')}>
+                        {extraDetails.producers.slice(0, 2).join(', ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 5. Cast & Starring Grid */}
+              {extraDetails.cast && extraDetails.cast.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider">Cast & Starring</h4>
+                    <span className="text-[10px] text-white/50">Click actor to discover</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {extraDetails.cast.map(actor => (
+                      <div 
+                        key={actor.id} 
+                        className="flex items-center justify-between p-2 bg-white/5 border border-white/5 rounded-xl text-left transition-all group hover:bg-red-900/10 hover:border-red-500/20"
+                      >
+                        <div 
+                          onClick={() => onActorSearch && onActorSearch(actor.name)}
+                          tabIndex={0}
+                          className="focusable flex items-center gap-3 min-w-0 flex-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50 rounded-xl"
+                          title={`Find media with ${actor.name} inside the app`}
+                        >
+                          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-slate-800 border border-white/10 group-hover:border-red-500/30 transition-colors">
+                            {actor.profilePath ? (
+                              <img 
+                                src={actor.profilePath} 
+                                alt={actor.name} 
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" 
+                                referrerPolicy="no-referrer" 
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white/70 bg-slate-900 uppercase">
+                                {actor.name.substring(0, 2)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-white truncate group-hover:text-red-400 transition-colors">{actor.name}</p>
+                            <p className="text-[10px] text-white/60 truncate mt-0.5">{actor.character}</p>
+                          </div>
+                        </div>
+                        
+                        <a 
+                          href={`https://www.imdb.com/find?q=${encodeURIComponent(actor.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 rounded bg-[#f5c518] hover:bg-[#e2b512] text-black transition-colors text-[10px] font-black shrink-0 ml-1.5 shadow-sm"
+                          title={`Search ${actor.name} on IMDb`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          IMDb
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 6. Chapters List */}
+              {extraDetails.chapters && extraDetails.chapters.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-white/5">
+                  <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider flex items-center gap-2">
+                    <span>📑</span> Chapters ({extraDetails.chapters.length})
+                  </h4>
+                  <div className="grid grid-cols-1 gap-1">
+                    {extraDetails.chapters.map((ch, idx) => {
+                      const h = Math.floor(ch.startTime / 3600);
+                      const m = Math.floor((ch.startTime % 3600) / 60);
+                      const s = Math.floor(ch.startTime % 60);
+                      const timeStr = h > 0
+                        ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+                        : `${m}:${String(s).padStart(2, '0')}`;
+                      return (
+                        <div key={ch.id || idx} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
+                          <span className="text-xs text-white/80 truncate">{ch.title}</span>
+                          <span className="text-[10px] font-mono text-white/40 shrink-0 ml-2">{timeStr}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {/* 7. Developer Admin Tools Panel */}
+          {user?.role === 'admin' && 
+           (userSettings?.adminMode === true || systemSettings?.adminMode === true || userSettings?.developerAdminMode === true || systemSettings?.developerAdminMode === true) && (
+            <div className="mt-8 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-5 shadow-xl space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-indigo-500/20">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-indigo-600/30 border border-indigo-400/40 text-indigo-300">
+                    <Zap className="w-5 h-5 fill-indigo-400/20" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white uppercase tracking-wider font-mono">⚡ Developer Admin Tools</h3>
+                    <p className="text-xs text-indigo-300/70 font-mono">FFmpeg & AI Skip Timestamps, TIDB Submission & Chapter Editor</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono">
+                  Admin Only
+                </span>
+              </div>
+
+              {/* Target Stream / File Selector Dropdown */}
+              <div className="bg-black/60 border border-indigo-500/30 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
+                    <FileVideo className="w-4 h-4 shrink-0" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-white font-mono uppercase block">Target Processing Source</label>
+                    <p className="text-[10px] text-white/50 font-mono">Select specific file or stream for FFmpeg & AI to process</p>
+                  </div>
+                </div>
+                <select
+                  value={devSelectedStreamUrl || (streams[0]?.url || movie?.filePath || '')}
+                  onChange={(e) => setDevSelectedStreamUrl(e.target.value)}
+                  className="bg-slate-900 text-indigo-200 border border-indigo-500/40 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-indigo-400 max-w-md w-full truncate cursor-pointer"
+                >
+                  {movie?.filePath && (
+                    <option value={movie.filePath}>📁 Local File: {movie.filePath}</option>
+                  )}
+                  {streams.map((s: any, idx: number) => (
+                    <option key={idx} value={s.url}>
+                      {s.type === 'local' ? '📁' : s.isCached ? '⚡' : '🌐'} {s.name || `Stream #${idx + 1}`} ({s.quality || 'Auto'})
+                    </option>
+                  ))}
+                  {streams.length === 0 && !movie?.filePath && (
+                    <option value="">No streams or local files discovered yet</option>
+                  )}
+                </select>
+              </div>
+
+              {/* Section 1: Skip Segments Editor & TIDB Submission */}
+              <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-400" /> Intro / Credit Skip Segments
+                    </h4>
+                    <p className="text-[11px] text-white/50 font-mono">FFmpeg visual/silence scan + AI sequence detection</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={devScanningSkip}
+                      onClick={handleDevScanSkipSegments}
+                      className="focusable px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      {devScanningSkip ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      Scan (FFmpeg + AI)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Skip Segments List / Editor */}
+                <div className="space-y-2">
+                  {devSkipSegments.length === 0 ? (
+                    <div className="text-xs text-white/40 italic py-3 text-center bg-white/[0.02] rounded-lg border border-white/5 font-mono">
+                      No active skip segments. Click "Scan (FFmpeg + AI)" or add one manually below.
+                    </div>
+                  ) : (
+                    devSkipSegments.map((seg, idx) => (
+                      <div key={idx} className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-white/10 p-2.5 rounded-lg text-xs font-mono">
+                        <select
+                          value={seg.type || 'intro'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const labelMap: Record<string, string> = { intro: 'Skip Intro', recap: 'Skip Recap', credits: 'Skip Credits' };
+                            updateDevSkipSegment(idx, { type: val, label: labelMap[val] || 'Skip' });
+                          }}
+                          className="bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
+                        >
+                          <option value="intro">Intro</option>
+                          <option value="recap">Recap</option>
+                          <option value="credits">Credits</option>
+                        </select>
+
+                        <div className="flex items-center gap-1">
+                          <span className="text-white/40 text-[10px]">Start:</span>
+                          <input
+                            type="number"
+                            value={seg.start}
+                            onChange={(e) => updateDevSkipSegment(idx, { start: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                            className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
+                            placeholder="Sec"
+                          />
+                          <span className="text-white/40 text-[10px]">({formatTime(seg.start)})</span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <span className="text-white/40 text-[10px]">End:</span>
+                          <input
+                            type="number"
+                            value={seg.end}
+                            onChange={(e) => updateDevSkipSegment(idx, { end: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                            className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400"
+                            placeholder="Sec"
+                          />
+                          <span className="text-white/40 text-[10px]">({formatTime(seg.end)})</span>
+                        </div>
+
+                        <div className="flex items-center gap-1 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleTestPlayDevTimestamp(seg.start)}
+                            className="focusable px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                            title="Test Play in player at segment start"
+                          >
+                            <PlayCircle className="w-3.5 h-3.5" /> Test Play
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeDevSkipSegment(idx)}
+                            className="focusable px-2 py-1 bg-red-600/60 hover:bg-red-600 text-white rounded text-[11px] font-bold transition-all cursor-pointer"
+                            title="Delete Segment"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={addDevSkipSegment}
+                      className="focusable text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1 cursor-pointer"
+                    >
+                      + Add Segment
+                    </button>
+                    <button
+                      type="button"
+                      disabled={devSubmittingTidb || devSkipSegments.length === 0}
+                      onClick={handleDevSubmitTidb}
+                      className="focusable px-4 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      {devSubmittingTidb ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                      Submit to TheIntroDB (TIDB)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Movie & Media Chapters Editor */}
+              <div className="bg-black/40 border border-white/10 rounded-xl p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                      <Video className="w-4 h-4 text-cyan-400" /> Movie Chapters (FFmpeg Scene Detect)
+                    </h4>
+                    <p className="text-[11px] text-white/50 font-mono">Extract embedded chapters or scan scene changes with FFmpeg</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={devScanningChapters}
+                    onClick={handleDevScanChapters}
+                    className="focusable px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                  >
+                    {devScanningChapters ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    Scan Chapters
+                  </button>
+                </div>
+
+                {/* Chapters Editor */}
+                <div className="space-y-2">
+                  {devChapters.length === 0 ? (
+                    <div className="text-xs text-white/40 italic py-3 text-center bg-white/[0.02] rounded-lg border border-white/5 font-mono">
+                      No active chapters. Click "Scan Chapters" or add custom chapters below.
+                    </div>
+                  ) : (
+                    devChapters.map((ch, idx) => (
+                      <div key={idx} className="flex flex-wrap items-center gap-2 bg-slate-900/90 border border-white/10 p-2.5 rounded-lg text-xs font-mono">
+                        <input
+                          type="text"
+                          value={ch.title}
+                          onChange={(e) => updateDevChapter(idx, { title: e.target.value })}
+                          className="flex-1 min-w-[140px] bg-slate-800 text-white border border-white/15 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-cyan-400 font-bold"
+                          placeholder="Chapter Title"
+                        />
+
+                        <div className="flex items-center gap-1">
+                          <span className="text-white/40 text-[10px]">Start:</span>
+                          <input
+                            type="number"
+                            value={ch.startTime}
+                            onChange={(e) => updateDevChapter(idx, { startTime: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                            className="w-16 bg-slate-800 text-white border border-white/15 rounded px-2 py-1 text-xs focus:outline-none focus:border-cyan-400"
+                            placeholder="Sec"
+                          />
+                          <span className="text-white/40 text-[10px]">({formatTime(ch.startTime)})</span>
+                        </div>
+
+                        <div className="flex items-center gap-1 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleTestPlayDevTimestamp(ch.startTime)}
+                            className="focusable px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                            title="Test Play in player at chapter start"
+                          >
+                            <PlayCircle className="w-3.5 h-3.5" /> Test Play
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeDevChapter(idx)}
+                            className="focusable px-2 py-1 bg-red-600/60 hover:bg-red-600 text-white rounded text-[11px] font-bold transition-all cursor-pointer"
+                            title="Delete Chapter"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={addDevChapter}
+                      className="focusable text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium flex items-center gap-1 cursor-pointer"
+                    >
+                      + Add Chapter
+                    </button>
+                    <button
+                      type="button"
+                      disabled={devSavingChapters || devChapters.length === 0}
+                      onClick={handleDevSaveChapters}
+                      className="focusable px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      {devSavingChapters ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      Save & Apply Chapters
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       {resumePromptStream && (
