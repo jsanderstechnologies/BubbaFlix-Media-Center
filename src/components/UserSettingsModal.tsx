@@ -71,11 +71,16 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
     };
   }, []);
 
-  const handleSave = () => {
-    updateUserSettings(settings);
-    updateZoom(localZoom);
-    window.dispatchEvent(new Event('userSettingsChanged'));
-    onClose();
+  const handleSave = async () => {
+    try {
+      await updateUserSettings(settings);
+      updateZoom(localZoom);
+      window.dispatchEvent(new Event('userSettingsChanged'));
+    } catch (err) {
+      console.warn('Error saving user settings:', err);
+    } finally {
+      onClose();
+    }
   };
 
   const toggleResolution = (res: string) => {
@@ -359,9 +364,17 @@ export function UserSettingsModal({ onClose, userId }: UserSettingsModalProps & 
         <div className="p-6 border-t border-white/10 shrink-0">
           <button 
             type="button"
+            id="user-settings-save-btn"
             tabIndex={0}
             onClick={handleSave}
-            className="focusable w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-3 px-4 rounded-xl hover:bg-white/90 transition-colors focus:outline-none focus:ring-4 focus:ring-emerald-500/50"
+            onKeyDown={(e) => {
+              if (['Enter', ' ', 'Select'].includes(e.key) || [13, 23, 32, 66, 10009].includes(e.keyCode)) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSave();
+              }
+            }}
+            className="focusable w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 px-4 rounded-xl transition-all focus:outline-none focus:ring-4 focus:ring-emerald-400 focus:scale-[1.02] cursor-pointer shadow-lg shadow-emerald-950/40"
           >
             <Save className="w-5 h-5" />
             Save Preferences
