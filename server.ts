@@ -2846,8 +2846,8 @@ Return ONLY raw JSON:
       console.warn(`[AI System] Gemini API is currently in rate-limit cooldown (${remainingSec}s remaining). Cascading to fallback AI provider...`);
       errors.push('Gemini 429 Rate Limit Cooldown Active');
     } else if (rawGeminiKey) {
-      const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
-      const apiVersions = ['v1beta'];
+      const models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+      const apiVersions = ['v1beta', 'v1'];
       let modelSuccess = false;
 
       for (const model of models) {
@@ -2879,8 +2879,7 @@ Return ONLY raw JSON:
               modelSuccess = false;
               break;
             }
-            errors.push(`Gemini (${model}/${ver}): ${err.message}`);
-            break;
+            errors.push(`Gemini (${model}/${ver}): ${err.response?.data?.error?.message || err.message}`);
           }
         }
       }
@@ -2888,7 +2887,13 @@ Return ONLY raw JSON:
 
     // 2. SECONDARY PROVIDER: GROQ API (100% Free High-Speed LPU Tier)
     if (groqKey) {
-      const groqModels = ['llama-3.3-70b-versatile', 'llama3-70b-8192'];
+      const groqModels = [
+        'llama-3.3-70b-specdec',
+        'llama-3.1-70b-versatile',
+        'llama-3.1-8b-instant',
+        'mixtral-8x7b-32768',
+        'gemma2-9b-it'
+      ];
       for (const gModel of groqModels) {
         try {
           const res = await axios.post(
@@ -2921,8 +2926,13 @@ Return ONLY raw JSON:
     // 3. TERTIARY PROVIDER: OPENROUTER FREE API (Only if API Key is configured)
     if (openRouterKey) {
       const openRouterModels = [
-        'meta-llama/llama-3.3-70b-instruct:free',
-        'google/gemma-2-9b-it:free'
+        'google/gemini-2.0-flash-lite-preview-02-05:free',
+        'google/gemini-2.0-flash-exp:free',
+        'meta-llama/llama-3.3-70b-instruct',
+        'meta-llama/llama-3.1-8b-instruct:free',
+        'deepseek/deepseek-r1:free',
+        'qwen/qwen-2.5-coder-32b-instruct:free',
+        'mistralai/mistral-7b-instruct:free'
       ];
 
       for (const orModel of openRouterModels) {
