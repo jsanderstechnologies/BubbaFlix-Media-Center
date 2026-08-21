@@ -4595,7 +4595,23 @@ app.get('/api/youtube/search', async (req, res) => {
     return matchesCount >= Math.ceil(qTokens.length * 0.5);
   }
 
-  async function filterWithGemini(query: string, items: any[], settings: any, isMusic: boolean = false): Promise<any[]> {
+function isNativeTvClient(req?: any): boolean {
+  if (!req) return false;
+  const ua = (req.headers?.['user-agent'] || '').toLowerCase();
+  const platform = (req.headers?.['x-client-platform'] || req.headers?.['x-device-type'] || req.headers?.['x-app-client'] || '').toLowerCase();
+  const queryClient = (req.query?.client || req.query?.device || '').toString().toLowerCase();
+
+  if (platform.includes('android') || platform.includes('tv') || platform.includes('fire') || platform.includes('exoplayer')) {
+    return true;
+  }
+  if (queryClient.includes('android') || queryClient.includes('tv') || queryClient.includes('fire') || queryClient.includes('exoplayer')) {
+    return true;
+  }
+
+  return /(androidtv|googletv|firetv|firestick|aftb|aftm|aftt|exoplayer|mpv|vlc|tivimate|kodi|bravia|shield|mibox|smarttv|tv\b)/i.test(ua);
+}
+
+  async function filterWithGemini(query: string, items: any[], settings: any, isMusic: boolean = false, req?: any): Promise<any[]> {
     if (items.length === 0) return items;
 
     // For music searches, Pirate Bay cat=100 already returns pure music releases. Bypass AI filter to preserve all 100+ audio releases!
@@ -4605,8 +4621,19 @@ app.get('/api/youtube/search', async (req, res) => {
       return items;
     }
     
-    // 1. HEVC STREAM FILTERING MODE ('prefer', 'allow', 'exclude')
-    const hevcMode = settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer');
+    // 1. HEVC & CODEC STREAM FILTERING MODE ('prefer', 'allow', 'exclude')
+    let hevcMode = settings.hevcMode || (settings.preferHEVC === false ? 'exclude' : 'prefer');
+
+    // NATIVE TV CLIENT AUTO-DETECTION:
+    // Android TV, Google TV, Firestick, and TV players (ExoPlayer, MPV, VLC) decode HEVC/H.265, AV1, 10-bit, DTS, TrueHD & Dolby Vision natively.
+    // Bypass HEVC exclusion when requests originate from native TV hardware!
+    if (isNativeTvClient(req)) {
+      console.log(`[Native TV Client Detected] Device ("${req?.headers?.['user-agent'] || 'AndroidTV'}") supports native hardware decoding. Bypassing codec exclusion to preserve HEVC, AV1, 10-bit, DTS & Dolby Vision streams.`);
+      if (hevcMode === 'exclude') {
+        hevcMode = 'prefer';
+      }
+    }
+
     const hevcRegex = /(^|[^a-z0-9])(hevc|x265|h\.?265|265|10-?bit|10b|hdr|hdr10|hdr10\+|dv|dolby\s*vision|main10)([^a-z0-9]|$)/i;
 
     // 0. FILTER OUT LOW-QUALITY RELEASES (TELESYNC, CAM, TELECINE, SCREENER, ETC.)
@@ -4991,7 +5018,7 @@ app.get('/api/youtube/search', async (req, res) => {
       magnetOnlyTorrents.sort((a, b) => (b.seeds || 0) - (a.seeds || 0));
 
       const isMusic = req.query.category === 'music';
-      const filteredTorrents = await filterWithGemini(q as string, magnetOnlyTorrents, settings, isMusic);
+      const filteredTorrents = await filterWithGemini(q as string, magnetOnlyTorrents, settings, isMusic, req);
 
       res.json({ success: true, data: filteredTorrents });
     } catch (err: any) {
@@ -5885,7 +5912,7 @@ app.get('/api/youtube/search', async (req, res) => {
         ? `${title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
         : (title as string);
 
-      const filteredResults = await filterWithGemini(queryTitle, results, settings, false);
+      const filteredResults = await filterWithGemini(queryTitle, results, settings, false, req);
       console.log(`[IPTV VOD Search] Filtered with Gemini from ${results.length} to ${filteredResults.length} streams for "${queryTitle}"`);
       res.json({ success: true, data: filteredResults });
     } catch (err: any) {
@@ -6411,7 +6438,7 @@ app.get('/api/youtube/search', async (req, res) => {
       : (title as string);
 
     try {
-      const filteredResults = await filterWithGemini(queryTitle, results, settings, false);
+      const filteredResults = await filterWithGemini(queryTitle, results, settings, false, req);
       console.log(`[Local Media Search] Filtered with Gemini from ${results.length} to ${filteredResults.length} files for "${queryTitle}"`);
       res.json({ success: true, data: filteredResults });
     } catch (e: any) {
